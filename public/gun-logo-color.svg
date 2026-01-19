@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Warstwa_1" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 160 160">
+  <defs>
+    <style>
+      .st0 {
+        fill: none;
+      }
+
+      .st1 {
+        clip-path: url(#clippath-1);
+      }
+
+      .st2 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <clipPath id="clippath">
+      <rect class="st0" x="32.5" y="25.1" width="95.1" height="109.9"/>
+    </clipPath>
+    <clipPath id="clippath-1">
+      <rect class="st0" x="27.5" y="20.1" width="105.1" height="119.9"/>
+    </clipPath>
+  </defs>
+  <g class="st2">
+    <g class="st1">
+      <image width="220" height="251" transform="translate(27.4 19.8) scale(.5)" xlink:href="gun-logo-color-inner.png"/>
+    </g>
+  </g>
+  <g>
+    <path d="M80,0C35.8,0,0,35.8,0,80s35.8,80,80,80,80-35.8,80-80S124.2,0,80,0ZM127.6,129.1c0,3.2-2.6,5.8-5.8,5.8h-11l-2.4-2.4h-16.3l-2.4,2.4h-24.8l-32.4-32.4V25.1h83.7v30l11.4,11.4v62.5h0Z"/>
+    <polygon points="37.8 100.2 55.7 118.1 110.8 118.1 110.8 94.4 95.3 78.9 110.8 78.9 110.8 73.6 89.9 52.7 64.7 52.7 64.7 57.9 80.4 73.6 64.7 73.6 64.7 78.8 87.2 101.3 69.3 101.3 59.3 91.3 59.3 47.3 110.8 47.3 110.8 30.5 37.8 30.5 37.8 100.2"/>
+  </g>
+</svg>
