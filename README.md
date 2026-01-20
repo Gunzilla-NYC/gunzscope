@@ -1,8 +1,8 @@
-# ZillaScope 🔍
+# GUNZscope 🔍
 
-**Live at: [ZillaScope.xyz](https://zillascope.xyz)**
+**Live at: [GUNZscope.xyz](https://GUNZscope.xyz)**
 
-ZillaScope is a comprehensive portfolio tracker for the GUNZILLA ecosystem, enabling users to monitor their GUN tokens and NFTs across multiple blockchains in real-time.
+GUNZscope is a comprehensive portfolio tracker for the GUNZILLA ecosystem, enabling users to monitor their GUN tokens and NFTs across multiple blockchains in real-time.
 
 ## Features
 
@@ -66,12 +66,23 @@ ZillaScope is a comprehensive portfolio tracker for the GUNZILLA ecosystem, enab
 
 ## Documentation
 
-- **[Dynamic Wallet Setup Guide](./DYNAMIC_SETUP.md)** - Setting up Dynamic wallet connections
-- **[Wallet Integration Guide](./WALLET_INTEGRATION.md)** - Legacy MetaMask & Phantom documentation
+All detailed documentation is located in the [docs/](docs/) folder:
+
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment instructions
+- **[Dynamic Wallet Setup](docs/DYNAMIC_SETUP.md)** - Setting up Dynamic wallet connections
+- **[Migration Summary](docs/MIGRATION_SUMMARY.md)** - Migration notes and history
+- **[Network Detection](docs/NETWORK_DETECTION.md)** - Network detection implementation
+- **[Next Steps](docs/NEXT_STEPS.md)** - Roadmap and planned features
+- **[NFT Feature](docs/NFT_FEATURE.md)** - NFT functionality documentation
+- **[NFT Grouping](docs/NFT_GROUPING.md)** - NFT grouping and deduplication
+- **[Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md)** - Performance tuning guide
+- **[Setup Guide](docs/SETUP_GUIDE.md)** - Initial setup instructions
+- **[UI Updates](docs/UI_UPDATES.md)** - UI changes and improvements
+- **[Wallet Integration](docs/WALLET_INTEGRATION.md)** - Legacy MetaMask & Phantom documentation
 
 ## Wallet Infrastructure
 
-ZillaScope uses [Dynamic](https://www.dynamic.xyz/) for wallet connections:
+GUNZscope uses [Dynamic](https://www.dynamic.xyz/) for wallet connections:
 - **300+ Wallets**: Support for MetaMask, Phantom, Coinbase Wallet, WalletConnect, and more
 - **Multi-Chain**: Seamless support for both EVM (GunzChain) and Solana wallets
 - **Secure**: Industry-standard security practices
@@ -79,4 +90,4 @@ ZillaScope uses [Dynamic](https://www.dynamic.xyz/) for wallet connections:
 
 ---
 
-**ZillaScope.xyz** - Real-time blockchain portfolio tracking for the GUNZILLA ecosystem 🚀
+**GUNZscope.xyz** - Real-time blockchain portfolio tracking for the GUNZILLA ecosystem 🚀

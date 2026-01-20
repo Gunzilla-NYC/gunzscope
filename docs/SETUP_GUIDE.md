@@ -295,7 +295,7 @@ gun-token-tracker/
 
 ## Need Help?
 
-1. Check the [README.md](./README.md) for general documentation
+1. Check the [README.md](../README.md) for general documentation
 2. Review the [DEPLOYMENT.md](./DEPLOYMENT.md) for deployment guide
 3. Look at code comments in source files
 4. Check browser console (F12) for error messages
