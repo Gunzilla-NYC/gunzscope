@@ -85,3 +85,39 @@ export interface NFTPaginationInfo {
   hasMore: boolean;            // True if more NFTs available
   isLoadingMore: boolean;      // True if currently loading more
 }
+
+// =============================================================================
+// Wallet Classification Types
+// =============================================================================
+
+/**
+ * Wallet type classification for marketplace listing detection
+ * - INGAME: Custodial/game-managed wallet (lists on in-game marketplace)
+ * - EXTERNAL: User-controlled EOA (lists on OpenSea)
+ * - UNKNOWN: Cannot determine (check both marketplaces)
+ */
+export type WalletType = 'INGAME' | 'EXTERNAL' | 'UNKNOWN';
+
+/**
+ * Evidence used to determine wallet type
+ */
+export interface WalletEvidence {
+  /** Signals that contributed to the classification */
+  signals: string[];
+  /** Raw data from classification sources (for debugging) */
+  raw?: Record<string, unknown>;
+}
+
+/**
+ * Complete wallet classification result
+ */
+export interface WalletClassification {
+  walletType: WalletType;
+  walletEvidence: WalletEvidence;
+  /** Address that was classified (normalized to lowercase) */
+  address: string;
+  /** ISO timestamp of classification */
+  classifiedAt: string;
+  /** Whether this result came from cache */
+  fromCache: boolean;
+}

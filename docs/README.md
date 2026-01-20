@@ -12,4 +12,5 @@ This folder contains detailed documentation for the GUNZscope project.
 - [Performance Optimization](./PERFORMANCE_OPTIMIZATION.md) - Performance tuning guide
 - [Setup Guide](./SETUP_GUIDE.md) - Initial setup instructions
 - [UI Updates](./UI_UPDATES.md) - UI changes and improvements
+- [Wallet Classification](./WALLET_CLASSIFICATION.md) - In-game vs external wallet detection
 - [Wallet Integration](./WALLET_INTEGRATION.md) - Legacy MetaMask & Phantom documentation

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ZillaScope - GUN Token & NFT Portfolio Tracker",
+  title: "GUNZScope - GUN Token & NFT Portfolio Tracker",
   description: "Track your GUN tokens and NFTs across GunzChain and Solana. Real-time blockchain portfolio tracking for the GUNZILLA community.",
   icons: {
     icon: [

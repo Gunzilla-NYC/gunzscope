@@ -600,7 +600,6 @@ export default function Home() {
               paginationInfo={nftPagination}
               onLoadMore={handleLoadMoreNFTs}
             />
-            <NFTGallery nfts={walletData.solana.nfts} chain="solana" walletAddress={walletData.address} />
           </div>
         )}
 

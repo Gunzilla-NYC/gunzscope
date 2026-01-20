@@ -78,6 +78,7 @@ All detailed documentation is located in the [docs/](docs/) folder:
 - **[Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md)** - Performance tuning guide
 - **[Setup Guide](docs/SETUP_GUIDE.md)** - Initial setup instructions
 - **[UI Updates](docs/UI_UPDATES.md)** - UI changes and improvements
+- **[Wallet Classification](docs/WALLET_CLASSIFICATION.md)** - In-game vs external wallet detection
 - **[Wallet Integration](docs/WALLET_INTEGRATION.md)** - Legacy MetaMask & Phantom documentation
 
 ## Wallet Infrastructure
