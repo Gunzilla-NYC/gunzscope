@@ -44,7 +44,7 @@ Enter any Avalanche or Solana wallet address to see:
 
 ## 📚 Documentation
 
-- **[README.md](./README.md)** - Full project documentation
+- **[README.md](../README.md)** - Full project documentation
 - **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Detailed setup instructions
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - How to deploy to Vercel
 
