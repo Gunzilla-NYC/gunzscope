@@ -6,11 +6,13 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 interface WalletButtonProps {
   onWalletConnect?: (address: string) => void;
   onWalletDisconnect?: () => void;
+  onAccountClick?: () => void;
 }
 
 export default function WalletButton({
   onWalletConnect,
   onWalletDisconnect,
+  onAccountClick,
 }: WalletButtonProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -146,6 +148,20 @@ export default function WalletButton({
 
         {/* Menu Items */}
         <div className="py-2">
+          {/* Account / Saved Items */}
+          <button
+            onClick={() => {
+              setIsDropdownOpen(false);
+              onAccountClick?.();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            <span>Saved Items</span>
+          </button>
+
           <a
             href={`https://gunzscan.io/address/${walletAddress}`}
             target="_blank"

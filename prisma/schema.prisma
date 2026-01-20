@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// =============================================================================
+// User Profile - Core identity linked to Dynamic auth
+// =============================================================================
+model UserProfile {
+  id            String   @id @default(cuid())
+  dynamicUserId String   @unique // Dynamic's user identifier
+  email         String?  // Optional email (no verification in phase 1)
+  displayName   String?  // Optional display name
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  wallets          Wallet[]
+  trackedAddresses TrackedAddress[]
+  favorites        FavoriteItem[]
+  settings         UserSettings?
+
+  @@map("user_profiles")
+}
+
+// =============================================================================
+// Wallet - Connected wallets owned by user
+// =============================================================================
+model Wallet {
+  id            String      @id @default(cuid())
+  userProfileId String
+  address       String      // Wallet address (normalized to lowercase)
+  chain         String      // "avalanche", "solana", "ethereum", etc.
+  isPrimary     Boolean     @default(false) // Primary wallet for this user
+  createdAt     DateTime    @default(now())
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userProfileId, address, chain]) // One entry per address+chain per user
+  @@index([address])
+  @@map("wallets")
+}
+
+// =============================================================================
+// Tracked Address - Addresses user wants to monitor (not their own wallets)
+// =============================================================================
+model TrackedAddress {
+  id            String      @id @default(cuid())
+  userProfileId String
+  address       String      // Address to track (normalized to lowercase)
+  chain         String?     // Optional chain filter, null = all chains
+  label         String?     // User-provided label
+  createdAt     DateTime    @default(now())
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userProfileId, address]) // One tracked entry per address per user
+  @@map("tracked_addresses")
+}
+
+// =============================================================================
+// Favorite Item - Bookmarked weapons, NFTs, skins, etc.
+// =============================================================================
+model FavoriteItem {
+  id            String      @id @default(cuid())
+  userProfileId String
+  type          String      // "weapon" | "nft" | "attachment" | "skin" | "collection"
+  refId         String      // Reference ID (contract:tokenId, weapon name, etc.)
+  metadata      String?     // JSON blob for extra data (name, image URL, etc.)
+  createdAt     DateTime    @default(now())
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userProfileId, type, refId]) // Can't favorite same item twice
+  @@index([type])
+  @@map("favorite_items")
+}
+
+// =============================================================================
+// User Settings - Preferences and UI settings
+// =============================================================================
+model UserSettings {
+  id            String      @id @default(cuid())
+  userProfileId String      @unique
+  settings      String      @default("{}") // JSON blob for settings
+  updatedAt     DateTime    @updatedAt
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}

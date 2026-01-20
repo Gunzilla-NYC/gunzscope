@@ -10,6 +10,7 @@ This folder contains detailed documentation for the GUNZscope project.
 - [NFT Feature](./NFT_FEATURE.md) - NFT functionality documentation
 - [NFT Grouping](./NFT_GROUPING.md) - NFT grouping and deduplication
 - [Performance Optimization](./PERFORMANCE_OPTIMIZATION.md) - Performance tuning guide
+- [Progressive Accounts](./PROGRESSIVE_ACCOUNTS.md) - Zero-signup account system
 - [Setup Guide](./SETUP_GUIDE.md) - Initial setup instructions
 - [UI Updates](./UI_UPDATES.md) - UI changes and improvements
 - [Wallet Classification](./WALLET_CLASSIFICATION.md) - In-game vs external wallet detection

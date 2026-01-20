@@ -15,6 +15,7 @@ import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata } from '@/lib/utils/nftGrouping';
 import { getCachedNFT, setCachedNFT } from '@/lib/utils/nftCache';
 import Navbar from '@/components/Navbar';
+import AccountPanel from '@/components/AccountPanel';
 
 // Batch size for parallel NFT enrichment
 const ENRICHMENT_BATCH_SIZE = 5;
@@ -29,6 +30,7 @@ export default function Home() {
   const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
   const [searchAddress, setSearchAddress] = useState('');
   const [enrichingNFTs, setEnrichingNFTs] = useState(false);
+  const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
 
   // NFT Pagination state
   const [nftPagination, setNftPagination] = useState<NFTPaginationInfo>({
@@ -453,11 +455,25 @@ export default function Home() {
     });
   };
 
+  // Handle selecting a tracked address from account panel
+  const handleTrackedAddressSelect = useCallback((address: string) => {
+    setSearchAddress(address);
+    handleWalletSubmit(address, 'avalanche');
+  }, []);
+
   return (
     <div className="min-h-screen bg-black">
       <Navbar
         onWalletConnect={handleWalletConnect}
         onWalletDisconnect={handleWalletDisconnect}
+        onAccountClick={() => setIsAccountPanelOpen(true)}
+      />
+
+      {/* Account Panel */}
+      <AccountPanel
+        isOpen={isAccountPanelOpen}
+        onClose={() => setIsAccountPanelOpen(false)}
+        onAddressSelect={handleTrackedAddressSelect}
       />
       <div className="max-w-7xl mx-auto py-8 px-4">
         <header className="text-center mb-8">

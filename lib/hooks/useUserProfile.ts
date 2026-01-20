@@ -1,0 +1,406 @@
+/**
+ * User Profile Hook
+ *
+ * Client-side hook for managing user profile state and API interactions.
+ * Works with Dynamic auth to persist user data across sessions.
+ */
+
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useDynamicContext, getAuthToken } from '@dynamic-labs/sdk-react-core';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+export interface Wallet {
+  id: string;
+  address: string;
+  chain: string;
+  isPrimary: boolean;
+  createdAt: string;
+}
+
+export interface TrackedAddress {
+  id: string;
+  address: string;
+  chain: string | null;
+  label: string | null;
+  createdAt: string;
+}
+
+export interface FavoriteItem {
+  id: string;
+  type: 'weapon' | 'nft' | 'attachment' | 'skin' | 'collection';
+  refId: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface UserSettings {
+  defaultAddress?: string;
+  defaultChain?: string;
+  theme?: 'dark' | 'light' | 'system';
+  compactView?: boolean;
+  [key: string]: unknown;
+}
+
+export interface UserProfile {
+  id: string;
+  dynamicUserId: string;
+  email: string | null;
+  displayName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  wallets: Wallet[];
+  trackedAddresses: TrackedAddress[];
+  favorites: FavoriteItem[];
+  settings: UserSettings | null;
+}
+
+interface UseUserProfileReturn {
+  // State
+  profile: UserProfile | null;
+  isLoading: boolean;
+  isConnected: boolean;
+  error: string | null;
+
+  // Actions
+  refreshProfile: () => Promise<void>;
+  updateEmail: (email: string | null) => Promise<boolean>;
+
+  // Tracked addresses
+  addTrackedAddress: (address: string, label?: string, chain?: string) => Promise<TrackedAddress | null>;
+  removeTrackedAddress: (id: string) => Promise<boolean>;
+
+  // Favorites
+  addFavorite: (
+    type: FavoriteItem['type'],
+    refId: string,
+    metadata?: Record<string, unknown>
+  ) => Promise<FavoriteItem | null>;
+  removeFavorite: (id: string) => Promise<boolean>;
+  isFavorited: (type: FavoriteItem['type'], refId: string) => boolean;
+
+  // Settings
+  updateSettings: (updates: Partial<UserSettings>) => Promise<UserSettings | null>;
+
+  // Auth helpers
+  getAuthHeaders: () => Promise<HeadersInit | null>;
+}
+
+// =============================================================================
+// API Helpers
+// =============================================================================
+
+async function fetchWithAuth<T>(
+  url: string,
+  options: RequestInit = {},
+  authToken: string
+): Promise<{ success: boolean; data?: T; error?: string }> {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+        ...options.headers,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Request failed' };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('API request failed:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+// =============================================================================
+// Hook Implementation
+// =============================================================================
+
+export function useUserProfile(): UseUserProfileReturn {
+  const { primaryWallet, user } = useDynamicContext();
+  const isAuthenticated = !!user;
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Track if we've fetched for the current session
+  const fetchedRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
+
+  // Get auth headers for API calls
+  const getAuthHeaders = useCallback(async (): Promise<HeadersInit | null> => {
+    const token = getAuthToken();
+    if (!token) return null;
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+  }, []);
+
+  // Fetch user profile from API
+  const refreshProfile = useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setProfile(null);
+      setError(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await fetchWithAuth<{ profile: UserProfile }>(
+        '/api/me',
+        { method: 'GET' },
+        token
+      );
+
+      if (result.success && result.data) {
+        setProfile(result.data.profile);
+      } else {
+        setError(result.error || 'Failed to load profile');
+        setProfile(null);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Auto-fetch profile when wallet connects
+  useEffect(() => {
+    const token = getAuthToken();
+    const currentUserId = primaryWallet?.address || null;
+
+    // Skip if not authenticated
+    if (!isAuthenticated || !token) {
+      setProfile(null);
+      fetchedRef.current = false;
+      lastUserIdRef.current = null;
+      return;
+    }
+
+    // Skip if already fetched for this user
+    if (fetchedRef.current && lastUserIdRef.current === currentUserId) {
+      return;
+    }
+
+    // Fetch profile
+    fetchedRef.current = true;
+    lastUserIdRef.current = currentUserId;
+    refreshProfile();
+  }, [isAuthenticated, primaryWallet?.address, refreshProfile]);
+
+  // Update email
+  const updateEmail = useCallback(async (email: string | null): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth(
+      '/api/me/email',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      },
+      token
+    );
+
+    if (result.success) {
+      setProfile((prev) => (prev ? { ...prev, email } : null));
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Add tracked address
+  const addTrackedAddress = useCallback(
+    async (
+      address: string,
+      label?: string,
+      chain?: string
+    ): Promise<TrackedAddress | null> => {
+      const token = getAuthToken();
+      if (!token) return null;
+
+      const result = await fetchWithAuth<{ trackedAddress: TrackedAddress }>(
+        '/api/tracked-addresses',
+        {
+          method: 'POST',
+          body: JSON.stringify({ address, label, chain }),
+        },
+        token
+      );
+
+      if (result.success && result.data) {
+        const tracked = result.data.trackedAddress;
+        setProfile((prev) => {
+          if (!prev) return null;
+          // Remove if already exists (upsert behavior)
+          const filtered = prev.trackedAddresses.filter(
+            (t) => t.address.toLowerCase() !== address.toLowerCase()
+          );
+          return {
+            ...prev,
+            trackedAddresses: [tracked, ...filtered],
+          };
+        });
+        return tracked;
+      }
+      return null;
+    },
+    []
+  );
+
+  // Remove tracked address
+  const removeTrackedAddress = useCallback(async (id: string): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth(
+      `/api/tracked-addresses/${id}`,
+      { method: 'DELETE' },
+      token
+    );
+
+    if (result.success) {
+      setProfile((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          trackedAddresses: prev.trackedAddresses.filter((t) => t.id !== id),
+        };
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Add favorite
+  const addFavorite = useCallback(
+    async (
+      type: FavoriteItem['type'],
+      refId: string,
+      metadata?: Record<string, unknown>
+    ): Promise<FavoriteItem | null> => {
+      const token = getAuthToken();
+      if (!token) return null;
+
+      const result = await fetchWithAuth<{ favorite: FavoriteItem }>(
+        '/api/favorites',
+        {
+          method: 'POST',
+          body: JSON.stringify({ type, refId, metadata }),
+        },
+        token
+      );
+
+      if (result.success && result.data) {
+        const favorite = result.data.favorite;
+        setProfile((prev) => {
+          if (!prev) return null;
+          // Remove if already exists (upsert behavior)
+          const filtered = prev.favorites.filter(
+            (f) => !(f.type === type && f.refId === refId)
+          );
+          return {
+            ...prev,
+            favorites: [favorite, ...filtered],
+          };
+        });
+        return favorite;
+      }
+      return null;
+    },
+    []
+  );
+
+  // Remove favorite
+  const removeFavorite = useCallback(async (id: string): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth(
+      `/api/favorites/${id}`,
+      { method: 'DELETE' },
+      token
+    );
+
+    if (result.success) {
+      setProfile((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          favorites: prev.favorites.filter((f) => f.id !== id),
+        };
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Check if item is favorited
+  const isFavorited = useCallback(
+    (type: FavoriteItem['type'], refId: string): boolean => {
+      if (!profile) return false;
+      return profile.favorites.some((f) => f.type === type && f.refId === refId);
+    },
+    [profile]
+  );
+
+  // Update settings
+  const updateSettings = useCallback(
+    async (updates: Partial<UserSettings>): Promise<UserSettings | null> => {
+      const token = getAuthToken();
+      if (!token) return null;
+
+      const result = await fetchWithAuth<{ settings: UserSettings }>(
+        '/api/settings',
+        {
+          method: 'PATCH',
+          body: JSON.stringify(updates),
+        },
+        token
+      );
+
+      if (result.success && result.data) {
+        const newSettings = result.data.settings;
+        setProfile((prev) => {
+          if (!prev) return null;
+          return { ...prev, settings: newSettings };
+        });
+        return newSettings;
+      }
+      return null;
+    },
+    []
+  );
+
+  return {
+    profile,
+    isLoading,
+    isConnected: isAuthenticated && !!primaryWallet,
+    error,
+    refreshProfile,
+    updateEmail,
+    addTrackedAddress,
+    removeTrackedAddress,
+    addFavorite,
+    removeFavorite,
+    isFavorited,
+    updateSettings,
+    getAuthHeaders,
+  };
+}
+
+export default useUserProfile;
