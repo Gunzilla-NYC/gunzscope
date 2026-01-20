@@ -34,9 +34,10 @@ const navItems: NavItem[] = [
 interface NavbarProps {
   onWalletConnect?: (address: string) => void;
   onWalletDisconnect?: () => void;
+  onAccountClick?: () => void;
 }
 
-export default function Navbar({ onWalletConnect, onWalletDisconnect }: NavbarProps) {
+export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountClick }: NavbarProps) {
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const [previousDropdown, setPreviousDropdown] = useState<number | null>(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
@@ -251,6 +252,7 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect }: NavbarPr
               <WalletButton
                 onWalletConnect={onWalletConnect}
                 onWalletDisconnect={onWalletDisconnect}
+                onAccountClick={onAccountClick}
               />
             </div>
 
@@ -259,6 +261,7 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect }: NavbarPr
               <WalletButton
                 onWalletConnect={onWalletConnect}
                 onWalletDisconnect={onWalletDisconnect}
+                onAccountClick={onAccountClick}
               />
               {/* Mobile menu button */}
               <button
