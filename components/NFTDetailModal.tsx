@@ -1287,7 +1287,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: 
         }`}
       >
         <div
-          className={`relative w-full min-w-[360px] max-w-[440px] max-h-[calc(100vh-48px)] bg-[#0d0d0d] rounded-2xl overflow-hidden pointer-events-auto flex flex-col transform transition-all duration-300 ${
+          className={`relative w-full min-w-[360px] max-w-[440px] max-h-[85vh] bg-[#0d0d0d] rounded-2xl overflow-hidden pointer-events-auto flex flex-col transform transition-all duration-300 ${
             isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           style={{
@@ -1309,12 +1309,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: 
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="flex-1 min-h-0 relative">
-            <div
-              className="h-full overflow-y-auto scrollbar-premium overscroll-contain"
-              tabIndex={0}
-            >
-              <div className="p-4 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-premium overscroll-contain [-webkit-overflow-scrolling:touch]" tabIndex={0}>
+            <div className="p-4 space-y-4">
 
               {/* ===== 2) IdentitySection ===== */}
               <div className="space-y-3">
@@ -2078,10 +2074,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: 
                   )}
                 </div>
               )}
-              </div>
             </div>
-            {/* Scroll fade indicator */}
-            <div className="scroll-fade-bottom" />
           </div>
 
           {/* ===== 6) ModalFooter ===== */}
