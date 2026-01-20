@@ -209,6 +209,137 @@ const getDefaultRarityColors = () => ({
   border: 'rgba(176, 91, 255, 0.65)',
 });
 
+// =============================================================================
+// Related Items Utility
+// =============================================================================
+
+/**
+ * Extract the base weapon name from an NFT.
+ * For weapons: returns the weapon name (e.g., "Kestrel Legacy" -> "Kestrel")
+ * For skins/attachments: extracts the weapon name from "X for the Y" pattern
+ */
+function extractWeaponName(nft: NFT): string | null {
+  const name = nft.name;
+  const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
+
+  // If this is a weapon, extract the base weapon name
+  if (itemClass === 'Weapon') {
+    // Remove common suffixes like "Legacy", "MK2", etc. to get base name
+    // But keep it as-is for matching purposes
+    return name;
+  }
+
+  // For skins/attachments, look for "for the X" or "for X" pattern
+  const forTheMatch = name.match(/\bfor\s+the\s+([A-Za-z0-9\s-]+?)(?:\s*$|\s*[-–])/i);
+  if (forTheMatch) {
+    return forTheMatch[1].trim();
+  }
+
+  const forMatch = name.match(/\bfor\s+([A-Za-z0-9]+)/i);
+  if (forMatch) {
+    return forMatch[1].trim();
+  }
+
+  return null;
+}
+
+/**
+ * Check if an NFT is a weapon (base item that can have related skins/attachments)
+ */
+function isWeapon(nft: NFT): boolean {
+  const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
+  // Check for exact "Weapon" match or weapon subtypes
+  return itemClass === 'Weapon' ||
+         itemClass === 'Primary Weapon' ||
+         itemClass === 'Secondary Weapon' ||
+         itemClass === 'Melee Weapon';
+}
+
+/**
+ * Find all related items (skins, attachments) for a weapon NFT
+ * Returns NFTs that mention this weapon in their name
+ */
+function findRelatedItems(weaponNft: NFT, allNfts: NFT[]): NFT[] {
+  if (!isWeapon(weaponNft)) return [];
+
+  const weaponName = weaponNft.name;
+
+  // Extract the core weapon name (without suffixes like Legacy, MK2, etc.)
+  // e.g., "Kestrel Legacy" -> "Kestrel", "Thunder MK2" -> "Thunder"
+  const coreWeaponName = weaponName
+    .replace(/\s+(Legacy|MK\d+|Pro|Elite|Prime|Standard)\s*$/i, '')
+    .trim();
+
+  // Also extract just the first word for shorter weapon names
+  // e.g., "Kestrel Legacy" -> "Kestrel"
+  const firstWord = coreWeaponName.split(/\s+/)[0];
+
+  const related: NFT[] = [];
+
+  for (const nft of allNfts) {
+    // Skip the weapon itself
+    if (nft.tokenId === weaponNft.tokenId) continue;
+
+    const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
+
+    // Only include skins and attachments (also check for variations)
+    const isSkin = itemClass === 'Weapon Skin' || itemClass.toLowerCase().includes('skin');
+    const isAccessory = itemClass === 'Accessory' || itemClass.toLowerCase().includes('attachment') || itemClass.toLowerCase().includes('accessory');
+
+    if (!isSkin && !isAccessory) continue;
+
+    // Check if the item name mentions this weapon
+    const nftName = nft.name.toLowerCase();
+    const lowerWeaponName = coreWeaponName.toLowerCase();
+    const lowerFullName = weaponName.toLowerCase();
+    const lowerFirstWord = firstWord.toLowerCase();
+
+    // Check for various patterns that indicate this item is for this weapon
+    if (
+      nftName.includes(`for the ${lowerWeaponName}`) ||
+      nftName.includes(`for the ${lowerFullName}`) ||
+      nftName.includes(`for the ${lowerFirstWord}`) ||
+      nftName.includes(`for ${lowerWeaponName}`) ||
+      nftName.includes(`for ${lowerFirstWord}`) ||
+      // Also check if it ends with the weapon name (e.g., "Enhanced Compensator Kestrel")
+      nftName.endsWith(lowerWeaponName) ||
+      nftName.endsWith(lowerFullName) ||
+      nftName.endsWith(lowerFirstWord) ||
+      // Check if it contains the weapon name as a word
+      nftName.includes(` ${lowerFirstWord} `) ||
+      nftName.includes(` ${lowerFirstWord}`)
+    ) {
+      related.push(nft);
+    }
+  }
+
+  // Sort by class (skins first, then attachments), then by rarity, then by name
+  return related.sort((a, b) => {
+    const classA = a.traits?.['CLASS'] || '';
+    const classB = b.traits?.['CLASS'] || '';
+
+    // Skins before Accessories
+    if (classA === 'Weapon Skin' && classB !== 'Weapon Skin') return -1;
+    if (classB === 'Weapon Skin' && classA !== 'Weapon Skin') return 1;
+
+    // Then by rarity
+    const rarityA = RARITY_ORDER[a.traits?.['RARITY'] || a.traits?.['Rarity'] || ''] || 99;
+    const rarityB = RARITY_ORDER[b.traits?.['RARITY'] || b.traits?.['Rarity'] || ''] || 99;
+    if (rarityA !== rarityB) return rarityA - rarityB;
+
+    // Then by name
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/**
+ * Get rarity color for an NFT
+ */
+function getRarityColorForNft(nft: NFT): { primary: string; border: string } {
+  const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '';
+  return RARITY_COLORS[rarity] || getDefaultRarityColors();
+}
+
 interface ItemData {
   tokenId: string;
   mintNumber: string;
@@ -225,6 +356,8 @@ interface NFTDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   walletAddress?: string;
+  /** All NFTs in the wallet - used for finding related items (skins/attachments) */
+  allNfts?: NFT[];
 }
 
 // Acquisition source tracking
@@ -258,7 +391,7 @@ interface AcquisitionData {
   isFreeTransfer?: boolean;    // True if TRANSFER with no marketplace price match
 }
 
-export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: NFTDetailModalProps) {
+export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, allNfts = [] }: NFTDetailModalProps) {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [itemPurchaseData, setItemPurchaseData] = useState<Record<string, AcquisitionData>>({});
@@ -269,6 +402,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: 
   } | null>(null);
   const [currentGunPrice, setCurrentGunPrice] = useState<number | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [relatedItemsExpanded, setRelatedItemsExpanded] = useState(false);
 
   // Debug mode: enabled via ?debugNft=1 URL parameter
   // No-cache mode: enabled via ?noCache=1 - bypasses all cache reads for fresh data
@@ -1206,6 +1340,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: 
     );
   }, [nft?.traits]);
 
+  // Find related items (skins/attachments) for weapons
+  const relatedItems = useMemo(() => {
+    if (!nft || allNfts.length === 0) return [];
+    return findRelatedItems(nft, allNfts);
+  }, [nft, allNfts]);
+
+  // Check if this NFT is a weapon with related items
+  const hasRelatedItems = nft && isWeapon(nft) && relatedItems.length > 0;
+
   // Early return after all hooks
   if (!nft) return null;
 
@@ -1280,20 +1423,22 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: 
         onClick={onClose}
       />
 
-      {/* Modal */}
+      {/* Modal Container - flex row to allow related items panel */}
       <div
         className={`fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none ${
           isOpen ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <div
-          className={`relative w-full min-w-[360px] max-w-[440px] max-h-[85vh] bg-[#0d0d0d] rounded-2xl overflow-hidden pointer-events-auto flex flex-col transform transition-all duration-300 ${
-            isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
-          }`}
-          style={{
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
-          }}
-        >
+        <div className="flex items-stretch gap-0 pointer-events-auto">
+          {/* Main Modal */}
+          <div
+            className={`relative w-full min-w-[360px] max-w-[440px] max-h-[85vh] bg-[#0d0d0d] rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 ${
+              isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
+            } ${hasRelatedItems && relatedItemsExpanded ? 'rounded-r-none' : ''}`}
+            style={{
+              boxShadow: hasRelatedItems && relatedItemsExpanded ? 'none' : '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
+            }}
+          >
           {/* ===== 1) ModalHeader ===== */}
           <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.12]">
             <h2 className="text-base font-semibold text-white">NFT Details</h2>
@@ -2087,6 +2232,168 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress }: 
               Close
             </button>
           </div>
+
+        </div>
+
+          {/* Enter Armory Button - positioned outside modal overflow */}
+          {hasRelatedItems && (
+            <button
+              onClick={() => setRelatedItemsExpanded(!relatedItemsExpanded)}
+              className={`relative self-start mt-[140px] w-10 h-32 bg-gradient-to-r from-[#1a1a1a] to-[#252525] border border-l-0 border-white/20 rounded-r-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-[#64ffff] hover:border-[#64ffff]/50 transition-all duration-300 z-10 group ${
+                relatedItemsExpanded ? 'opacity-0 pointer-events-none w-0 overflow-hidden' : 'opacity-100 hover:translate-x-1'
+              }`}
+              title={`Armory - ${relatedItems.length} modifications available`}
+            >
+              {/* Vertical "ARMORY" text */}
+              <span
+                className="text-[9px] font-bold tracking-widest uppercase text-gray-500 group-hover:text-[#64ffff] transition-colors whitespace-nowrap"
+                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+              >
+                ARMORY
+              </span>
+              {/* Animated arrow */}
+              <svg
+                className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              {/* Item count badge */}
+              <span className="absolute -top-2 -right-1 w-5 h-5 bg-[#64ffff] text-black text-[10px] font-bold rounded-full flex items-center justify-center">
+                {relatedItems.length}
+              </span>
+            </button>
+          )}
+
+          {/* ===== Weapon Lab Panel ===== */}
+          {hasRelatedItems && (
+            <div
+              className={`relative max-h-[85vh] bg-[#0d0d0d] rounded-r-2xl overflow-hidden flex flex-col transform transition-all duration-300 origin-left ${
+                relatedItemsExpanded
+                  ? 'w-[320px] opacity-100 scale-x-100'
+                  : 'w-0 opacity-0 scale-x-0'
+              }`}
+              style={{
+                boxShadow: relatedItemsExpanded ? '0 25px 50px -12px rgba(0, 0, 0, 0.8)' : 'none',
+              }}
+            >
+              {/* Panel Header */}
+              <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.12]">
+                <h3 className="text-sm font-semibold text-white">
+                  Weapon Lab
+                </h3>
+                <button
+                  onClick={() => setRelatedItemsExpanded(false)}
+                  className="text-gray-400 hover:text-white transition p-1 rounded hover:bg-white/5 flex items-center gap-1 text-xs"
+                  title="Exit Armory"
+                >
+                  <span className="text-[10px] text-gray-500">Exit Armory</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Panel Content */}
+              <div className="flex-1 overflow-y-auto scrollbar-premium">
+                {/* Available Modifications Section */}
+                <div className="p-3">
+                  <h4 className="text-xs font-semibold text-[#64ffff] uppercase tracking-wider mb-2">
+                    Available Modifications
+                  </h4>
+                  <div className="space-y-2">
+                    {relatedItems.map((item) => {
+                      const itemColors = getRarityColorForNft(item);
+                      const itemRarity = item.traits?.['RARITY'] || item.traits?.['Rarity'] || 'Unknown';
+                      const itemClass = item.traits?.['CLASS'] || item.traits?.['Class'] || '';
+                      const quantity = item.quantity || 1;
+
+                      return (
+                        <div
+                          key={item.tokenId}
+                          className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition cursor-pointer"
+                          style={{
+                            borderLeft: `3px solid ${itemColors.primary}`,
+                          }}
+                        >
+                          {/* Thumbnail */}
+                          <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-black/50">
+                            {item.image ? (
+                              <Image
+                                src={item.image}
+                                alt={item.name}
+                                width={48}
+                                height={48}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Item Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate" title={item.name}>
+                              {item.name}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span
+                                className="text-[10px] font-semibold uppercase"
+                                style={{ color: itemColors.primary }}
+                              >
+                                {itemRarity}
+                              </span>
+                              <span className="text-[10px] text-gray-500">
+                                {itemClass === 'Weapon Skin' ? 'Skin' : itemClass}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Quantity Badge */}
+                          {quantity > 1 && (
+                            <div className="flex-shrink-0 px-2 py-0.5 bg-[#96aaff]/20 text-[#96aaff] text-xs font-semibold rounded">
+                              ×{quantity}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Weapon Prototypes Section */}
+                <div className="p-3 border-t border-white/[0.08]">
+                  <h4 className="text-xs font-semibold text-[#96aaff] uppercase tracking-wider mb-1">
+                    Weapon Prototypes
+                  </h4>
+                  <p className="text-[10px] text-gray-500 mb-3">
+                    Configure, upgrade, and prototype weapons
+                  </p>
+                  <div className="flex items-center justify-center py-6 text-gray-600 text-xs">
+                    <span className="text-center">Coming soon</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Panel Footer with summary */}
+              <div className="flex-shrink-0 px-4 py-2 border-t border-white/[0.12] text-xs text-gray-500">
+                {(() => {
+                  const skins = relatedItems.filter(i => (i.traits?.['CLASS'] || i.traits?.['Class']) === 'Weapon Skin');
+                  const accessories = relatedItems.filter(i => (i.traits?.['CLASS'] || i.traits?.['Class']) === 'Accessory');
+                  const parts = [];
+                  if (skins.length > 0) parts.push(`${skins.length} skin${skins.length > 1 ? 's' : ''}`);
+                  if (accessories.length > 0) parts.push(`${accessories.length} attachment${accessories.length > 1 ? 's' : ''}`);
+                  return parts.join(', ') || 'No modifications';
+                })()}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

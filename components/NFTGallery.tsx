@@ -6,7 +6,7 @@ import { useState, useMemo } from 'react';
 import NFTDetailModal from './NFTDetailModal';
 import { buildTokenKey } from '@/lib/utils/nftCache';
 
-type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'floor-asc' | 'floor-desc' | 'quantity-desc';
+type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'floor-asc' | 'floor-desc' | 'quantity-desc' | 'rarity-high' | 'rarity-low';
 type ViewMode = 'small' | 'medium' | 'list';
 
 interface NFTGalleryProps {
@@ -37,6 +37,88 @@ function getRarityColor(nft: NFT): string {
   }
 }
 
+// Get rarity rank for sorting (lower = rarer)
+function getRarityRank(nft: NFT): number {
+  const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '';
+  switch (rarity) {
+    case 'Mythic':
+      return 1;
+    case 'Legendary':
+      return 2;
+    case 'Epic':
+      return 3;
+    case 'Rare':
+      return 4;
+    case 'Uncommon':
+      return 5;
+    case 'Common':
+      return 6;
+    default:
+      return 7; // Unknown rarity goes last
+  }
+}
+
+// Get rarity name from NFT
+function getRarityName(nft: NFT): string {
+  return nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || 'Unknown';
+}
+
+// Get item class from NFT (e.g., "Weapon", "Weapon Skin", etc.)
+function getItemClass(nft: NFT): string {
+  // Check CLASS first as that's the actual trait name in the data
+  return nft.traits?.['CLASS'] || nft.traits?.['Class'] || nft.traits?.['ITEM_CLASS'] || nft.traits?.['Item Class'] || 'Unknown';
+}
+
+// Display-friendly labels for item classes (pluralized for dropdown)
+function getItemClassDisplayName(itemClass: string): string {
+  const displayNames: Record<string, string> = {
+    // Exact matches from trait values
+    'Weapon': 'Weapons',
+    'Weapon Skin': 'Weapon Skins',
+    'Character': 'Characters',
+    'Character Skin': 'Character Skins',
+    'Vehicle': 'Vehicles',
+    'Vehicle Skin': 'Vehicle Skins',
+    'Accessory': 'Accessories',
+    'Emote': 'Emotes',
+    'Banner': 'Banners',
+    'Spray': 'Sprays',
+    'Charm': 'Charms',
+    'LMG': 'LMGs',
+    'SMG': 'SMGs',
+    'AR': 'ARs',
+    'Shotgun': 'Shotguns',
+    'Pistol': 'Pistols',
+    'Sniper': 'Snipers',
+  };
+  return displayNames[itemClass] || itemClass;
+}
+
+// Strip leading zeros from mint number string
+function stripLeadingZeros(mint: string): string {
+  // Check if mint is purely numeric (possibly with leading zeros)
+  if (/^\d+$/.test(mint)) {
+    return String(parseInt(mint, 10));
+  }
+  // For alphanumeric mints, return as-is
+  return mint;
+}
+
+// Check if mint number is purely numeric
+function isNumericMint(mint: string | undefined): boolean {
+  if (!mint) return false;
+  return /^\d+$/.test(mint);
+}
+
+// Get numeric value from mint (returns Infinity for non-numeric)
+function getMintNumericValue(mint: string | undefined): number {
+  if (!mint) return Infinity;
+  if (isNumericMint(mint)) {
+    return parseInt(mint, 10);
+  }
+  return Infinity; // Alphanumeric mints sort after all numeric mints
+}
+
 // Format mint numbers for display (up to 3, then "more...")
 function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean } {
   const mintNumbers = nft.mintNumbers || (nft.mintNumber ? [nft.mintNumber] : []);
@@ -44,31 +126,42 @@ function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean } {
     return { display: `#${nft.tokenId.slice(0, 8)}`, hasMore: false };
   }
   if (mintNumbers.length === 1) {
-    return { display: `#${mintNumbers[0]}`, hasMore: false };
+    return { display: `#${stripLeadingZeros(mintNumbers[0])}`, hasMore: false };
   }
-  // Multiple mints - show up to 3
-  const displayed = mintNumbers.slice(0, 3).map(m => `#${m}`).join(', ');
+  // Multiple mints - show up to 3, strip leading zeros from each
+  const displayed = mintNumbers.slice(0, 3).map(m => `#${stripLeadingZeros(m)}`).join(', ');
   const hasMore = mintNumbers.length > 3;
   return { display: displayed, hasMore };
 }
 
-export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo, onLoadMore }: NFTGalleryProps) {
+// Shorten collection names for dropdown display - kept for future use
+// function getCollectionDisplayName(collection: string): string {
+//   if (collection === 'Off The Grid NFT Collection') return 'Off The Grid';
+//   return collection;
+// }
+
+export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore }: NFTGalleryProps) {
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [selectedTokenKeyString, setSelectedTokenKeyString] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name-asc');
-  const [selectedCollection, setSelectedCollection] = useState<string>('all');
+  const [selectedItemClass, setSelectedItemClass] = useState<string>('all');
   // Default view: small grid if >16 NFTs, medium grid if <=16
   const [viewMode, setViewMode] = useState<ViewMode>(() => nfts.length > 16 ? 'small' : 'medium');
 
   // Get the contract address for building token keys
   const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '';
 
-  // Get unique collections for filter dropdown
-  const collections = useMemo(() => {
-    const uniqueCollections = [...new Set(nfts.map(nft => nft.collection))];
-    return uniqueCollections.sort();
+  // Get unique item classes for filter dropdown
+  const itemClasses = useMemo(() => {
+    const uniqueClasses = [...new Set(nfts.map(nft => getItemClass(nft)))];
+    // Sort alphabetically, keeping 'Unknown' at the end if present
+    return uniqueClasses.sort((a, b) => {
+      if (a === 'Unknown') return 1;
+      if (b === 'Unknown') return -1;
+      return a.localeCompare(b);
+    });
   }, [nfts]);
 
   // Calculate total GUN spent on all NFTs
@@ -79,6 +172,7 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
       return total + (price * quantity);
     }, 0);
   }, [nfts]);
+
 
   // Helper function to check if any trait matches the query
   const matchesTraits = (nft: NFT, query: string): boolean => {
@@ -107,18 +201,35 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(nft =>
-        nft.name.toLowerCase().includes(query) ||
-        nft.collection.toLowerCase().includes(query) ||
-        nft.mintNumber?.toLowerCase().includes(query) ||
-        nft.tokenId.toLowerCase().includes(query) ||
-        matchesTraits(nft, query)
-      );
+
+      // Check if query is a mint number search (just digits, or # followed by digits)
+      const mintSearchMatch = query.match(/^#?(\d+)$/);
+
+      if (mintSearchMatch) {
+        // Exact mint number search - match the numeric value exactly
+        const searchedMintNum = parseInt(mintSearchMatch[1], 10);
+        result = result.filter(nft => {
+          // Check all mint numbers for this NFT (could be grouped)
+          const mintNumbers = nft.mintNumbers || (nft.mintNumber ? [nft.mintNumber] : []);
+          return mintNumbers.some(mint => {
+            const mintValue = parseInt(mint, 10);
+            return !isNaN(mintValue) && mintValue === searchedMintNum;
+          });
+        });
+      } else {
+        // Text search - search by name, collection, traits, etc.
+        result = result.filter(nft =>
+          nft.name.toLowerCase().includes(query) ||
+          nft.collection.toLowerCase().includes(query) ||
+          nft.tokenId.toLowerCase().includes(query) ||
+          matchesTraits(nft, query)
+        );
+      }
     }
 
-    // Apply collection filter
-    if (selectedCollection !== 'all') {
-      result = result.filter(nft => nft.collection === selectedCollection);
+    // Item class filter (Collections dropdown)
+    if (selectedItemClass !== 'all') {
+      result = result.filter(nft => getItemClass(nft) === selectedItemClass);
     }
 
     // Apply sorting
@@ -128,27 +239,81 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
           return a.name.localeCompare(b.name);
         case 'name-desc':
           return b.name.localeCompare(a.name);
-        case 'mint-asc':
-          const mintA = parseInt(a.mintNumber || '0') || 0;
-          const mintB = parseInt(b.mintNumber || '0') || 0;
-          return mintA - mintB;
-        case 'mint-desc':
-          const mintA2 = parseInt(a.mintNumber || '0') || 0;
-          const mintB2 = parseInt(b.mintNumber || '0') || 0;
-          return mintB2 - mintA2;
+        case 'mint-asc': {
+          // Numeric mints first (low to high), then alphanumeric mints
+          const mintA = getMintNumericValue(a.mintNumber);
+          const mintB = getMintNumericValue(b.mintNumber);
+          if (mintA !== mintB) return mintA - mintB;
+          // Both are alphanumeric or same numeric, sort by string
+          return (a.mintNumber || '').localeCompare(b.mintNumber || '');
+        }
+        case 'mint-desc': {
+          // Alphanumeric mints first (they're "low"), then numeric mints (high to low)
+          const aIsNumeric = isNumericMint(a.mintNumber);
+          const bIsNumeric = isNumericMint(b.mintNumber);
+          if (aIsNumeric && !bIsNumeric) return -1; // Numeric comes before alphanumeric in desc
+          if (!aIsNumeric && bIsNumeric) return 1;
+          if (!aIsNumeric && !bIsNumeric) {
+            // Both alphanumeric - sort alphabetically
+            return (a.mintNumber || '').localeCompare(b.mintNumber || '');
+          }
+          // Both numeric - high to low
+          const mintA = parseInt(a.mintNumber || '0', 10);
+          const mintB = parseInt(b.mintNumber || '0', 10);
+          return mintB - mintA;
+        }
         case 'floor-asc':
           return (a.floorPrice || 0) - (b.floorPrice || 0);
         case 'floor-desc':
           return (b.floorPrice || 0) - (a.floorPrice || 0);
         case 'quantity-desc':
           return (b.quantity || 1) - (a.quantity || 1);
+        case 'rarity-high': {
+          // Lower rank = rarer, so ascending order gives high-to-low rarity
+          const rarityDiff = getRarityRank(a) - getRarityRank(b);
+          if (rarityDiff !== 0) return rarityDiff;
+          // Secondary sort: mint number low to high
+          const mintA = getMintNumericValue(a.mintNumber);
+          const mintB = getMintNumericValue(b.mintNumber);
+          if (mintA !== mintB) return mintA - mintB;
+          return (a.mintNumber || '').localeCompare(b.mintNumber || '');
+        }
+        case 'rarity-low': {
+          // Higher rank = more common, so descending order gives low-to-high rarity
+          const rarityDiff = getRarityRank(b) - getRarityRank(a);
+          if (rarityDiff !== 0) return rarityDiff;
+          // Secondary sort: mint number low to high
+          const mintA = getMintNumericValue(a.mintNumber);
+          const mintB = getMintNumericValue(b.mintNumber);
+          if (mintA !== mintB) return mintA - mintB;
+          return (a.mintNumber || '').localeCompare(b.mintNumber || '');
+        }
         default:
           return 0;
       }
     });
 
     return result;
-  }, [nfts, searchQuery, selectedCollection, sortBy]);
+  }, [nfts, searchQuery, selectedItemClass, sortBy]);
+
+  // Calculate rarity counts from filtered NFTs
+  const rarityCounts = useMemo(() => {
+    const counts = {
+      Mythic: 0,
+      Legendary: 0,
+      Epic: 0,
+      Rare: 0,
+      Uncommon: 0,
+      Common: 0,
+    };
+    for (const nft of filteredAndSortedNFTs) {
+      const rarity = getRarityName(nft);
+      if (rarity in counts) {
+        counts[rarity as keyof typeof counts] += nft.quantity || 1;
+      }
+    }
+    return counts;
+  }, [filteredAndSortedNFTs]);
 
   const handleNFTClick = (nft: NFT) => {
     // Build unique token key for modal keying
@@ -170,19 +335,19 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
 
   const clearFilters = () => {
     setSearchQuery('');
-    setSelectedCollection('all');
+    setSelectedItemClass('all');
     setSortBy('name-asc');
   };
 
-  const hasActiveFilters = searchQuery || selectedCollection !== 'all' || sortBy !== 'name-asc';
+  const hasActiveFilters = searchQuery || selectedItemClass !== 'all' || sortBy !== 'name-asc';
 
   if (nfts.length === 0) {
     return (
       <div className="bg-[#181818] p-6 rounded-lg border border-[#64ffff]/20">
-        <h3 className="text-lg font-semibold mb-2 capitalize text-white">
-          {chain} NFTs
+        <h3 className="text-lg font-semibold mb-2 text-white">
+          Off The Grid Game Assets
         </h3>
-        <p className="text-gray-400">No NFTs found on {chain}</p>
+        <p className="text-gray-400">No game assets found</p>
       </div>
     );
   }
@@ -193,8 +358,8 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
       <div className="flex flex-col gap-4 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h3 className="text-lg font-semibold capitalize text-white">
-              {chain} NFTs ({filteredAndSortedNFTs.length}{filteredAndSortedNFTs.length !== nfts.length ? ` of ${nfts.length}` : ''})
+            <h3 className="text-lg font-semibold text-white">
+              Off The Grid Game Assets ({filteredAndSortedNFTs.length}{filteredAndSortedNFTs.length !== nfts.length ? ` of ${nfts.length}` : ''})
             </h3>
             {totalGunSpent > 0 && (
               <span className="text-sm text-gray-400">
@@ -238,20 +403,27 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
 
         {/* Filter Controls Row */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Collection Filter */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">Collection:</label>
-            <select
-              value={selectedCollection}
-              onChange={(e) => setSelectedCollection(e.target.value)}
-              className="px-3 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
-            >
-              <option value="all">All</option>
-              {collections.map(collection => (
-                <option key={collection} value={collection}>{collection}</option>
-              ))}
-            </select>
-          </div>
+          {/* Collections Filter (Item Class) */}
+          {itemClasses.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400">Collections:</label>
+              <select
+                value={selectedItemClass}
+                onChange={(e) => setSelectedItemClass(e.target.value)}
+                className="select-dropdown pl-3 pr-8 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
+              >
+                <option value="all">All ({nfts.length})</option>
+                {itemClasses.map(itemClass => {
+                  const count = nfts.filter(nft => getItemClass(nft) === itemClass).length;
+                  return (
+                    <option key={itemClass} value={itemClass}>
+                      {getItemClassDisplayName(itemClass)} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
 
           {/* Sort Dropdown */}
           <div className="flex items-center gap-2">
@@ -259,12 +431,14 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="px-3 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
+              className="select-dropdown pl-3 pr-8 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
             >
               <option value="name-asc">Name (A-Z)</option>
               <option value="name-desc">Name (Z-A)</option>
               <option value="mint-asc">Mint # (Low-High)</option>
               <option value="mint-desc">Mint # (High-Low)</option>
+              <option value="rarity-high">Rarity (High-Low)</option>
+              <option value="rarity-low">Rarity (Low-High)</option>
               <option value="floor-asc">Floor (Low-High)</option>
               <option value="floor-desc">Floor (High-Low)</option>
               <option value="quantity-desc">Quantity</option>
@@ -329,14 +503,55 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
               </button>
             </span>
           )}
-          {selectedCollection !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#beffd2]/20 text-[#beffd2] text-xs rounded-full border border-[#beffd2]/30">
-              {selectedCollection.length > 20 ? selectedCollection.slice(0, 20) + '...' : selectedCollection}
-              <button onClick={() => setSelectedCollection('all')} className="hover:text-white ml-1">
+          {selectedItemClass !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#96aaff]/20 text-[#96aaff] text-xs rounded-full border border-[#96aaff]/30">
+              {getItemClassDisplayName(selectedItemClass)}
+              <button onClick={() => setSelectedItemClass('all')} className="hover:text-white ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+            </span>
+          )}
+        </div>
+
+        {/* Rarity Counters */}
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <span className="text-gray-500">Rarity:</span>
+          {rarityCounts.Mythic > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ff44ff' }}></span>
+              <span style={{ color: '#ff44ff' }}>Mythic: {rarityCounts.Mythic}</span>
+            </span>
+          )}
+          {rarityCounts.Legendary > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ff8800' }}></span>
+              <span style={{ color: '#ff8800' }}>Legendary: {rarityCounts.Legendary}</span>
+            </span>
+          )}
+          {rarityCounts.Epic > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#cc44ff' }}></span>
+              <span style={{ color: '#cc44ff' }}>Epic: {rarityCounts.Epic}</span>
+            </span>
+          )}
+          {rarityCounts.Rare > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#4488ff' }}></span>
+              <span style={{ color: '#4488ff' }}>Rare: {rarityCounts.Rare}</span>
+            </span>
+          )}
+          {rarityCounts.Uncommon > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#44ff44' }}></span>
+              <span style={{ color: '#44ff44' }}>Uncommon: {rarityCounts.Uncommon}</span>
+            </span>
+          )}
+          {rarityCounts.Common > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#888888' }}></span>
+              <span style={{ color: '#888888' }}>Common: {rarityCounts.Common}</span>
             </span>
           )}
         </div>
@@ -586,6 +801,7 @@ export default function NFTGallery({ nfts, chain, walletAddress, paginationInfo,
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         walletAddress={walletAddress}
+        allNfts={nfts}
       />
     </div>
   );
