@@ -5,6 +5,9 @@ export interface TokenBalance {
   usdValue?: number;
 }
 
+// Acquisition venue classification
+export type AcquisitionVenue = 'opensea' | 'otg_marketplace' | 'decoder' | 'transfer' | 'mint' | 'unknown';
+
 export interface NFT {
   tokenId: string; // Primary token ID (first one if grouped)
   tokenIds?: string[]; // All token IDs if this represents multiple copies
@@ -23,6 +26,8 @@ export interface NFT {
   purchaseDate?: Date;
   transferredFrom?: string; // Wallet address if this was a free transfer
   isFreeTransfer?: boolean; // True if NFT was transferred for free (no payment)
+  acquisitionVenue?: AcquisitionVenue; // Where the NFT was acquired
+  acquisitionTxHash?: string; // Transaction hash of acquisition
   currentLowestListing?: number;
   currentHighestListing?: number;
 }

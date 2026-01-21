@@ -1,11 +1,13 @@
 // NFT enrichment data cache using localStorage
 // Supports namespaced keys, schema versioning, and TTL-based expiry
 
+import { AcquisitionVenue } from '../types';
+
 // =============================================================================
 // Schema Versions - Increment when cache structure changes
 // =============================================================================
 const SCHEMA_VERSIONS = {
-  nftDetail: 'v3', // v3: Added acquisitionSource tracking, removed trusting NFT prop data
+  nftDetail: 'v4', // v4: Added acquisitionVenue and acquisitionTxHash
   transfers: 'v2',
   priceGunUsd: 'v1',
 } as const;
@@ -197,6 +199,8 @@ export interface CachedNFTDetailData {
   purchaseDate?: string; // ISO string
   transferredFrom?: string;
   isFreeTransfer?: boolean;
+  acquisitionVenue?: AcquisitionVenue;
+  acquisitionTxHash?: string;
 }
 
 export interface CachedTransferData {
@@ -324,6 +328,8 @@ interface LegacyCachedNFTData {
   purchaseDate?: string;
   transferredFrom?: string;
   isFreeTransfer?: boolean;
+  acquisitionVenue?: AcquisitionVenue;
+  acquisitionTxHash?: string;
   cachedAt: number;
 }
 
@@ -392,6 +398,8 @@ export const setCachedNFT = (
     purchaseDate: data.purchaseDate,
     transferredFrom: data.transferredFrom,
     isFreeTransfer: data.isFreeTransfer,
+    acquisitionVenue: data.acquisitionVenue,
+    acquisitionTxHash: data.acquisitionTxHash,
   });
 };
 

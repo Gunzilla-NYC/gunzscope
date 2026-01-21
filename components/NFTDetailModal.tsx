@@ -421,18 +421,26 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     marketplaceMatches: number;
     gunPriceTimestamp: Date | null;
     acquisitionSource: AcquisitionSource;
-    // Transfer query debug info
+    // Transfer query debug info (legacy - now uses acquisition debug)
     transferQueryInfo?: {
-      fromBlock: number;
-      toBlock: number;
-      chunksQueried: number;
-      totalLogsFound: number;
-      currentOwner: string | null;
+      fromBlock?: number;
+      toBlock?: number;
+      chunksQueried?: number;
+      totalLogsFound?: number;
+      currentOwner?: string | null;
+      // New acquisition debug fields
+      txTo?: string;
+      selector?: string;
+      gunIsNative?: boolean;
+      matchedRule?: string;
     };
     // Transfer-derived debug fields
     derivedFromTransferTxHash?: string;
     derivedAcquiredAt?: string; // ISO string
     derivedAcquisitionType?: AcquisitionType;
+    // Acquisition venue/tx from getNFTHoldingAcquisition
+    acquisitionVenue?: string;
+    acquisitionTxHash?: string;
     // Marketplace matching debug fields - enhanced
     marketplaceConfigured: boolean;
     serverProxyUsed: boolean;
@@ -782,33 +790,49 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         }
 
         // =====================================================================
-        // STEP 1: Load transfer history (blockchain-derived data)
+        // STEP 1: Load acquisition details (blockchain-derived data)
         // =====================================================================
-        const transferHistory = await avalancheService.getNFTTransferHistory(nftContractAddress, tokenId, walletAddress);
+        const acquisition = await avalancheService.getNFTHoldingAcquisition(nftContractAddress, tokenId, walletAddress);
 
         if (debugMode) {
-          console.debug('[NFTDetailModal] Transfer history result:', {
+          console.debug('[NFTDetailModal] Acquisition result:', {
             tokenId,
-            transferHistory,
-            debugInfo: transferHistory?.debugInfo,
+            acquisition,
           });
         }
 
-        // Extract transfer-derived fields (NEVER includes price data)
-        const totalLogsFound = transferHistory?.debugInfo?.totalLogsFound ?? 0;
-        const hasTransferData = transferHistory !== null && totalLogsFound > 0;
-        const acquiredAt = transferHistory?.purchaseDate; // Block timestamp
-        const fromAddress = transferHistory?.transferredFrom;
-        const isFromZeroAddress = fromAddress === '0x0000000000000000000000000000000000000000';
-        const acquisitionType: AcquisitionType = isFromZeroAddress ? 'MINT' : (hasTransferData ? 'TRANSFER' : 'UNKNOWN');
+        // Extract acquisition-derived fields
+        const hasAcquisitionData = acquisition !== null && acquisition.owned;
+        const acquiredAt = acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined;
+        const fromAddress = acquisition?.fromAddress;
+        const acquisitionVenue = acquisition?.venue;
+        const acquisitionTxHash = acquisition?.txHash;
+        const costGunFromChain = acquisition?.costGun ?? 0;
+
+        // Backward compatibility aliases
+        const hasTransferData = hasAcquisitionData;
+        const totalLogsFound = hasAcquisitionData ? 1 : 0;
+        // For currentOwner lookup in marketplace matching (will be determined from acquisition)
+        const currentOwnerFromAcquisition = acquisition?.owned ? walletAddress : null;
+
+        // Map venue to acquisition type for backward compatibility
+        let acquisitionType: AcquisitionType;
+        if (acquisition?.isMint || acquisitionVenue === 'mint') {
+          acquisitionType = 'MINT';
+        } else if (hasAcquisitionData) {
+          acquisitionType = 'TRANSFER';
+        } else {
+          acquisitionType = 'UNKNOWN';
+        }
 
         // Update debug transfer event count and query info
         setDebugData(prev => ({
           ...prev,
-          transferEventCount: transferHistory?.debugInfo?.totalLogsFound ?? 0,
-          transferQueryInfo: transferHistory?.debugInfo,
+          transferEventCount: totalLogsFound,
           derivedAcquiredAt: acquiredAt?.toISOString(),
           derivedAcquisitionType: acquisitionType,
+          acquisitionVenue,
+          acquisitionTxHash: acquisitionTxHash ?? undefined,
         }));
 
         // =====================================================================
@@ -894,7 +918,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
         // Identity setup
         const viewerWalletLower = walletAddress.toLowerCase();
-        const currentOwnerLower = transferHistory?.debugInfo?.currentOwner?.toLowerCase() || '';
+        const currentOwnerLower = currentOwnerFromAcquisition?.toLowerCase() || '';
         const TIME_WINDOW_MS = 10 * 60 * 1000; // 10 minutes (widened from 5)
         const MATCH_WINDOW_MINUTES = 10;
 
@@ -2181,22 +2205,34 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       </div>
                       {debugData.transferQueryInfo && (
                         <div className="mt-1 ml-2 text-[10px] space-y-1">
-                          <div>
-                            <span className="text-amber-400/50">blockRange:</span>{' '}
-                            <span className="text-amber-200/80">
-                              {debugData.transferQueryInfo.fromBlock.toLocaleString()} → {debugData.transferQueryInfo.toBlock.toLocaleString()}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">chunksQueried:</span>{' '}
-                            <span className="text-amber-200/80">{debugData.transferQueryInfo.chunksQueried}</span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">currentOwner:</span>{' '}
-                            <span className="text-amber-200/80 break-all">
-                              {debugData.transferQueryInfo.currentOwner || 'null'}
-                            </span>
-                          </div>
+                          {debugData.transferQueryInfo.fromBlock !== undefined && debugData.transferQueryInfo.toBlock !== undefined && (
+                            <div>
+                              <span className="text-amber-400/50">blockRange:</span>{' '}
+                              <span className="text-amber-200/80">
+                                {debugData.transferQueryInfo.fromBlock.toLocaleString()} → {debugData.transferQueryInfo.toBlock.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {debugData.transferQueryInfo.chunksQueried !== undefined && (
+                            <div>
+                              <span className="text-amber-400/50">chunksQueried:</span>{' '}
+                              <span className="text-amber-200/80">{debugData.transferQueryInfo.chunksQueried}</span>
+                            </div>
+                          )}
+                          {debugData.transferQueryInfo.currentOwner !== undefined && (
+                            <div>
+                              <span className="text-amber-400/50">currentOwner:</span>{' '}
+                              <span className="text-amber-200/80 break-all">
+                                {debugData.transferQueryInfo.currentOwner || 'null'}
+                              </span>
+                            </div>
+                          )}
+                          {debugData.transferQueryInfo.matchedRule && (
+                            <div>
+                              <span className="text-amber-400/50">venueMatchedBy:</span>{' '}
+                              <span className="text-amber-200/80">{debugData.transferQueryInfo.matchedRule}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       <div>

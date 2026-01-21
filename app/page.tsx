@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import PortfolioSummary from '@/components/PortfolioSummary';
+import { PortfolioHeader } from '@/components/header';
 import TokenBalance from '@/components/TokenBalance';
 import NFTGallery from '@/components/NFTGallery';
 import MarketplaceStats from '@/components/MarketplaceStats';
@@ -96,8 +96,8 @@ export default function Home() {
     }
 
     try {
-      // Fetch quantity and transfer history in parallel
-      const [quantity, transferHistory] = await Promise.all([
+      // Fetch quantity and acquisition details in parallel
+      const [quantity, acquisition] = await Promise.all([
         // For non-grouped NFTs, fetch quantity (ERC-1155 check)
         nft.tokenIds && nft.tokenIds.length > 1
           ? Promise.resolve(nft.quantity || nft.tokenIds.length)
@@ -105,19 +105,23 @@ export default function Home() {
               avalancheService.detectNFTQuantity(nftContractAddress, nft.tokenId, walletAddress),
               3000
             ),
-        // Fetch transfer history to get purchase price
+        // Fetch acquisition details (current holding)
         withTimeout(
-          avalancheService.getNFTTransferHistory(nftContractAddress, primaryTokenId, walletAddress),
+          avalancheService.getNFTHoldingAcquisition(nftContractAddress, primaryTokenId, walletAddress),
           5000
         ),
       ]);
 
+      // Map acquisition data to NFT fields
+      const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint;
       const enrichedData = {
         quantity: quantity ?? 1,
-        purchasePriceGun: transferHistory?.purchasePriceGun,
-        purchaseDate: transferHistory?.purchaseDate,
-        transferredFrom: transferHistory?.transferredFrom,
-        isFreeTransfer: transferHistory?.isFreeTransfer,
+        purchasePriceGun: acquisition?.costGun,
+        purchaseDate: acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined,
+        transferredFrom: isFreeTransfer ? acquisition?.fromAddress : undefined,
+        isFreeTransfer,
+        acquisitionVenue: acquisition?.venue,
+        acquisitionTxHash: acquisition?.txHash ?? undefined,
       };
 
       // Save to cache (convert Date to ISO string for storage)
@@ -127,6 +131,8 @@ export default function Home() {
         purchaseDate: enrichedData.purchaseDate?.toISOString(),
         transferredFrom: enrichedData.transferredFrom,
         isFreeTransfer: enrichedData.isFreeTransfer,
+        acquisitionVenue: enrichedData.acquisitionVenue,
+        acquisitionTxHash: enrichedData.acquisitionTxHash,
       });
 
       return {
@@ -586,7 +592,7 @@ export default function Home() {
               )}
             </div>
 
-            <PortfolioSummary
+            <PortfolioHeader
               walletData={walletData}
               gunPrice={gunPrice}
               networkInfo={networkInfo}

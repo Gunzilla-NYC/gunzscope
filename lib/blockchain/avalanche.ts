@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { TokenBalance, NFT, NFTPageResult } from '../types';
+import { TokenBalance, NFT, NFTPageResult, AcquisitionVenue } from '../types';
 
 // =============================================================================
 // Contract Deployment Block Configuration
@@ -20,6 +20,123 @@ const DEPLOYMENT_START_BLOCKS: Record<string, number> = {
 
 // Fallback: look back ~6 months instead of 2 years for unknown contracts
 const DEFAULT_LOOKBACK_BLOCKS = Math.floor((6 * 30 * 24 * 60 * 60) / 2); // ~6 months at 2 sec/block
+
+// Debug logging flag
+const DEBUG_ACQUISITION = process.env.NODE_ENV !== 'production';
+
+// =============================================================================
+// Venue Classification Constants
+// =============================================================================
+
+// Known Seaport fulfill selectors (OpenSea)
+const SEAPORT_SELECTORS = new Set([
+  '0xfb0f3ee1', // fulfillBasicOrder
+  '0x87201b41', // fulfillBasicOrder_efficient_6GL6yc
+  '0xb3a34c4c', // fulfillOrder
+  '0xe7acab24', // fulfillAvailableOrders
+  '0xed98a574', // fulfillAvailableAdvancedOrders
+  '0xf2d12b12', // matchOrders
+  '0x88147732', // matchAdvancedOrders
+]);
+
+// Known OTG Marketplace selector
+const OTG_MARKETPLACE_SELECTOR = '0xdc2e6be8';
+
+// Known Decoder selectors (add more as discovered)
+const DECODER_SELECTORS = new Set([
+  '0x00000000', // placeholder - add actual decoder selectors
+]);
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Normalize an Ethereum address to lowercase with 0x prefix
+ */
+function normalizeAddr(addr: string | null | undefined): string {
+  if (!addr) return '';
+  return addr.toLowerCase().startsWith('0x') ? addr.toLowerCase() : `0x${addr.toLowerCase()}`;
+}
+
+/**
+ * Extract the 4-byte function selector from transaction data
+ */
+function getSelector(data: string | null | undefined): string | null {
+  if (!data || data.length < 10) return null;
+  return data.slice(0, 10).toLowerCase();
+}
+
+/**
+ * Parse a comma-separated list of contract addresses from env var
+ */
+function parseContractList(envVar: string | undefined): Set<string> {
+  if (!envVar) return new Set();
+  return new Set(
+    envVar
+      .split(',')
+      .map((addr) => normalizeAddr(addr.trim()))
+      .filter((addr) => addr.length > 0)
+  );
+}
+
+/**
+ * Compute net GUN outflow from a transaction receipt
+ * Returns the net amount of GUN tokens sent FROM the wallet (outflow - inflow)
+ */
+function computeNetGunOutflowFromReceipt(
+  receipt: ethers.TransactionReceipt,
+  walletAddress: string,
+  gunTokenAddress: string
+): number {
+  const walletLower = normalizeAddr(walletAddress);
+  const gunLower = normalizeAddr(gunTokenAddress);
+  const erc20TransferSig = ethers.id('Transfer(address,address,uint256)');
+
+  let outflow = BigInt(0);
+  let inflow = BigInt(0);
+
+  for (const log of receipt.logs) {
+    // Check if this is a GUN token Transfer event
+    if (normalizeAddr(log.address) !== gunLower) continue;
+    if (log.topics[0] !== erc20TransferSig) continue;
+    if (log.topics.length < 3) continue;
+
+    const from = normalizeAddr('0x' + log.topics[1].slice(26));
+    const to = normalizeAddr('0x' + log.topics[2].slice(26));
+    const value = BigInt(log.data);
+
+    if (from === walletLower) {
+      outflow += value;
+    }
+    if (to === walletLower) {
+      inflow += value;
+    }
+  }
+
+  const netOutflow = outflow > inflow ? outflow - inflow : BigInt(0);
+  return parseFloat(ethers.formatUnits(netOutflow, 18));
+}
+
+// =============================================================================
+// Types
+// =============================================================================
+
+export interface NFTHoldingAcquisition {
+  owned: boolean;
+  acquiredAtIso: string | null;
+  txHash: string | null;
+  venue: AcquisitionVenue;
+  costGun: number;
+  fromAddress?: string;
+  isMint?: boolean;
+  debug?: {
+    txTo?: string;
+    selector?: string;
+    gunIsNative?: boolean;
+    matchedRule?: string;
+  };
+}
 
 /**
  * Get the starting block for transfer event queries.
@@ -362,6 +479,19 @@ export class AvalancheService {
     };
   }
 
+  /**
+   * @deprecated Use getNFTHoldingAcquisition for current holding details.
+   *
+   * This legacy method returns the ORIGINAL/FIRST acquisition (when wallet first received the token).
+   * For current holding acquisition (most recent inbound transfer), use getNFTHoldingAcquisition instead.
+   *
+   * Key difference:
+   * - getNFTTransferHistory: Returns FIRST incoming transfer (original acquisition)
+   * - getNFTHoldingAcquisition: Returns MOST RECENT incoming transfer (current holding)
+   *
+   * If a user sold and re-bought an NFT, this method returns the original purchase,
+   * while getNFTHoldingAcquisition returns the re-purchase.
+   */
   async getNFTTransferHistory(
     contractAddress: string,
     tokenId: string,
@@ -383,8 +513,10 @@ export class AvalancheService {
       // Use new robust getTransferEvents method
       const { events, currentOwner, debugInfo } = await this.getTransferEvents(contractAddress, tokenId);
 
-      console.log(`[getNFTTransferHistory] tokenId=${tokenId}, wallet=${walletAddress}`);
-      console.log(`[getNFTTransferHistory] Found ${events.length} total transfer events, currentOwner=${currentOwner}`);
+      if (DEBUG_ACQUISITION) {
+        console.log(`[getNFTTransferHistory] tokenId=${tokenId}, wallet=${walletAddress}`);
+        console.log(`[getNFTTransferHistory] Found ${events.length} total transfer events, currentOwner=${currentOwner}`);
+      }
 
       if (events.length === 0) {
         return {
@@ -401,7 +533,9 @@ export class AvalancheService {
       const walletLower = walletAddress.toLowerCase();
       const incomingTransfers = events.filter((e) => e.to === walletLower);
 
-      console.log(`[getNFTTransferHistory] Incoming transfers to wallet: ${incomingTransfers.length}`);
+      if (DEBUG_ACQUISITION) {
+        console.log(`[getNFTTransferHistory] Incoming transfers to wallet: ${incomingTransfers.length}`);
+      }
 
       if (incomingTransfers.length === 0) {
         // Wallet doesn't own this token based on transfer history
@@ -424,13 +558,15 @@ export class AvalancheService {
       const txReceipt = await this.provider.getTransactionReceipt(firstIncoming.transactionHash);
       const transaction = await this.provider.getTransaction(firstIncoming.transactionHash);
 
-      console.log('[getNFTTransferHistory] First incoming transfer:', {
-        hash: firstIncoming.transactionHash,
-        from: firstIncoming.from,
-        to: firstIncoming.to,
-        blockNumber: firstIncoming.blockNumber,
-        isFromZeroAddress,
-      });
+      if (DEBUG_ACQUISITION) {
+        console.log('[getNFTTransferHistory] First incoming transfer:', {
+          hash: firstIncoming.transactionHash,
+          from: firstIncoming.from,
+          to: firstIncoming.to,
+          blockNumber: firstIncoming.blockNumber,
+          isFromZeroAddress,
+        });
+      }
 
       // Look for GUN token transfers in the transaction receipt
       let purchasePriceGun: number | undefined;
@@ -452,16 +588,22 @@ export class AvalancheService {
               // Assume 18 decimals for GUN token
               const amount = parseFloat(ethers.formatUnits(value, 18));
 
-              console.log(`[getNFTTransferHistory] Found outgoing ERC-20 transfer: ${amount} tokens from ${log.address}`);
+              if (DEBUG_ACQUISITION) {
+                console.log(`[getNFTTransferHistory] Found outgoing ERC-20 transfer: ${amount} tokens from ${log.address}`);
+              }
 
               // If this is from the GUN token contract, use this as purchase price
               if (gunTokenAddress && log.address.toLowerCase() === gunTokenAddress) {
                 purchasePriceGun = amount;
-                console.log(`[getNFTTransferHistory] GUN token purchase detected: ${purchasePriceGun} GUN`);
+                if (DEBUG_ACQUISITION) {
+                  console.log(`[getNFTTransferHistory] GUN token purchase detected: ${purchasePriceGun} GUN`);
+                }
               } else if (purchasePriceGun === undefined) {
                 // Use first outgoing token transfer as purchase price if we don't have GUN specifically
                 purchasePriceGun = amount;
-                console.log(`[getNFTTransferHistory] Token purchase detected from ${log.address}: ${amount} tokens`);
+                if (DEBUG_ACQUISITION) {
+                  console.log(`[getNFTTransferHistory] Token purchase detected from ${log.address}: ${amount} tokens`);
+                }
               }
             }
           }
@@ -472,7 +614,9 @@ export class AvalancheService {
       // On GunzChain, native token is GUN
       if (purchasePriceGun === undefined && transaction && transaction.value > BigInt(0)) {
         purchasePriceGun = parseFloat(ethers.formatEther(transaction.value));
-        console.log(`[getNFTTransferHistory] Native GUN payment detected: ${purchasePriceGun} GUN`);
+        if (DEBUG_ACQUISITION) {
+          console.log(`[getNFTTransferHistory] Native GUN payment detected: ${purchasePriceGun} GUN`);
+        }
       }
 
       // Determine if this was a free transfer (no payment detected)
@@ -513,6 +657,222 @@ export class AvalancheService {
     } catch (error) {
       console.error('Error detecting NFT quantity:', error);
       return 1;
+    }
+  }
+
+  /**
+   * Check if GUN is native token (no contract code) or ERC-20
+   * Caches result for efficiency
+   */
+  private gunIsNativeCache: boolean | null = null;
+  private async isGunNative(): Promise<boolean> {
+    if (this.gunIsNativeCache !== null) return this.gunIsNativeCache;
+
+    const tokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
+    if (!tokenAddress || tokenAddress.includes('Your')) {
+      // Assume native if not configured
+      this.gunIsNativeCache = true;
+      return true;
+    }
+
+    try {
+      const code = await this.provider.getCode(tokenAddress);
+      this.gunIsNativeCache = code === '0x';
+      return this.gunIsNativeCache;
+    } catch {
+      this.gunIsNativeCache = true;
+      return true;
+    }
+  }
+
+  /**
+   * Classify the acquisition venue based on transaction context
+   */
+  private classifyVenue(
+    txTo: string | null,
+    selector: string | null,
+    fromAddress: string
+  ): { venue: AcquisitionVenue; matchedRule: string } {
+    const txToLower = normalizeAddr(txTo);
+
+    // Check for mint (from zero address)
+    if (fromAddress === '0x0000000000000000000000000000000000000000') {
+      return { venue: 'mint', matchedRule: 'from_zero_address' };
+    }
+
+    // 1. Decoder contract check
+    const decoderContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_DECODER_CONTRACT);
+    if (decoderContract && txToLower === decoderContract) {
+      return { venue: 'decoder', matchedRule: 'decoder_contract_match' };
+    }
+    if (selector && DECODER_SELECTORS.has(selector)) {
+      return { venue: 'decoder', matchedRule: 'decoder_selector_match' };
+    }
+
+    // 2. OTG Marketplace check
+    const marketplaceContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_MARKETPLACE_CONTRACT);
+    if (marketplaceContract && txToLower === marketplaceContract) {
+      return { venue: 'otg_marketplace', matchedRule: 'marketplace_contract_match' };
+    }
+    if (selector === OTG_MARKETPLACE_SELECTOR) {
+      return { venue: 'otg_marketplace', matchedRule: 'marketplace_selector_match' };
+    }
+
+    // 3. OpenSea / Seaport check
+    const openseaContracts = parseContractList(process.env.NEXT_PUBLIC_OPENSEA_CONTRACTS);
+    if (openseaContracts.has(txToLower)) {
+      return { venue: 'opensea', matchedRule: 'opensea_contract_match' };
+    }
+    if (selector && SEAPORT_SELECTORS.has(selector)) {
+      return { venue: 'opensea', matchedRule: 'seaport_selector_match' };
+    }
+
+    // 4. Default to transfer if we have tx.to, otherwise unknown
+    if (txTo) {
+      return { venue: 'transfer', matchedRule: 'default_transfer' };
+    }
+
+    return { venue: 'unknown', matchedRule: 'no_tx_to' };
+  }
+
+  /**
+   * Get acquisition details for a CURRENTLY OWNED NFT
+   * Returns the most recent inbound transfer (current holding acquisition)
+   *
+   * @param contractAddress - NFT contract address
+   * @param tokenId - Token ID
+   * @param walletAddress - Wallet address to check ownership for
+   * @returns Acquisition details or null if not owned
+   */
+  async getNFTHoldingAcquisition(
+    contractAddress: string,
+    tokenId: string,
+    walletAddress: string
+  ): Promise<NFTHoldingAcquisition | null> {
+    try {
+      const walletLower = normalizeAddr(walletAddress);
+
+      // Get all transfer events for this token
+      const { events, currentOwner } = await this.getTransferEvents(contractAddress, tokenId);
+
+      if (DEBUG_ACQUISITION) {
+        console.log(`[getNFTHoldingAcquisition] tokenId=${tokenId}, wallet=${walletLower}`);
+        console.log(`[getNFTHoldingAcquisition] currentOwner=${currentOwner}, events=${events.length}`);
+      }
+
+      // Verify wallet is current owner
+      if (normalizeAddr(currentOwner) !== walletLower) {
+        if (DEBUG_ACQUISITION) {
+          console.log(`[getNFTHoldingAcquisition] Wallet is not current owner`);
+        }
+        return {
+          owned: false,
+          acquiredAtIso: null,
+          txHash: null,
+          venue: 'unknown',
+          costGun: 0,
+        };
+      }
+
+      // Find all inbound transfers to this wallet
+      const incomingTransfers = events.filter((e) => normalizeAddr(e.to) === walletLower);
+
+      if (incomingTransfers.length === 0) {
+        if (DEBUG_ACQUISITION) {
+          console.log(`[getNFTHoldingAcquisition] No incoming transfers found`);
+        }
+        return {
+          owned: true,
+          acquiredAtIso: null,
+          txHash: null,
+          venue: 'unknown',
+          costGun: 0,
+        };
+      }
+
+      // Get the MOST RECENT inbound transfer (current holding acquisition)
+      const acquisitionEvent = incomingTransfers[incomingTransfers.length - 1];
+      const isMint = acquisitionEvent.from === '0x0000000000000000000000000000000000000000';
+
+      if (DEBUG_ACQUISITION) {
+        console.log(`[getNFTHoldingAcquisition] Acquisition event:`, {
+          txHash: acquisitionEvent.transactionHash,
+          from: acquisitionEvent.from,
+          block: acquisitionEvent.blockNumber,
+          isMint,
+        });
+      }
+
+      // Fetch transaction and block details
+      const [tx, receipt, block] = await Promise.all([
+        this.provider.getTransaction(acquisitionEvent.transactionHash),
+        this.provider.getTransactionReceipt(acquisitionEvent.transactionHash),
+        this.provider.getBlock(acquisitionEvent.blockNumber),
+      ]);
+
+      // Get acquisition timestamp
+      const acquiredAtIso = block ? new Date(block.timestamp * 1000).toISOString() : null;
+
+      // Extract tx context
+      const txTo = tx?.to ?? null;
+      const selector = getSelector(tx?.data);
+
+      // Classify venue
+      const { venue, matchedRule } = this.classifyVenue(txTo, selector, acquisitionEvent.from);
+
+      if (DEBUG_ACQUISITION) {
+        console.log(`[getNFTHoldingAcquisition] Venue classification:`, {
+          txTo,
+          selector,
+          venue,
+          matchedRule,
+        });
+      }
+
+      // Compute cost in GUN
+      let costGun = 0;
+      const gunIsNative = await this.isGunNative();
+      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
+
+      if (!gunIsNative && receipt && gunTokenAddress) {
+        // ERC-20 GUN: compute net outflow from receipt logs
+        costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
+
+        if (DEBUG_ACQUISITION) {
+          console.log(`[getNFTHoldingAcquisition] ERC-20 GUN outflow: ${costGun}`);
+        }
+      } else if (gunIsNative && tx) {
+        // Native GUN: use tx.value if tx.from is the wallet
+        const txFrom = normalizeAddr(tx.from);
+        if (txFrom === walletLower && tx.value > BigInt(0)) {
+          costGun = parseFloat(ethers.formatEther(tx.value));
+
+          if (DEBUG_ACQUISITION) {
+            console.log(`[getNFTHoldingAcquisition] Native GUN payment: ${costGun}`);
+          }
+        }
+      }
+
+      return {
+        owned: true,
+        acquiredAtIso,
+        txHash: acquisitionEvent.transactionHash,
+        venue,
+        costGun,
+        fromAddress: isMint ? undefined : acquisitionEvent.from,
+        isMint,
+        debug: DEBUG_ACQUISITION
+          ? {
+              txTo: txTo ?? undefined,
+              selector: selector ?? undefined,
+              gunIsNative,
+              matchedRule,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      console.error('[getNFTHoldingAcquisition] Error:', error);
+      return null;
     }
   }
 
