@@ -1,58 +1,106 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { toOpenSeaChain } from '@/lib/utils/openseaChain';
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
+interface OpenSeaOrdersResponse {
+  ordersCount: number;
+  lowest: number | null;
+  highest: number | null;
+  error?: string;
+  _debug?: {
+    hasApiKey: boolean;
+    upstreamStatus: number;
+    upstreamUrl: string;
+    requestedChain: string;
+    mappedChain: string;
+  };
+}
+
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const requestedChain = searchParams.get('chain') || 'avalanche';
+  const contract = searchParams.get('contract');
+  const tokenId = searchParams.get('tokenId');
+  const debug = searchParams.get('debug') === '1';
+
+  // Map chain to OpenSea slug (e.g., 'avalanche' -> 'gunzilla')
+  const mappedChain = toOpenSeaChain(requestedChain);
+
+  // Param validation
+  if (!contract || !tokenId) {
+    const response: OpenSeaOrdersResponse = {
+      ordersCount: 0,
+      lowest: null,
+      highest: null,
+      error: 'Missing required parameters: contract, tokenId',
+    };
+    return NextResponse.json(response, { status: 400 });
+  }
+
+  const apiKey = process.env.OPENSEA_API_KEY;
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+
+  if (apiKey) {
+    headers['X-API-KEY'] = apiKey;
+  }
+
+  // OpenSea orders endpoint for a specific NFT (using mapped chain slug)
+  const upstreamUrl = `${OPENSEA_API_BASE}/orders/${mappedChain}/seaport/listings?asset_contract_address=${contract}&token_ids=${tokenId}&limit=50`;
+
   try {
-    const { searchParams } = new URL(request.url);
-    const chain = searchParams.get('chain') || 'avalanche';
-    const contract = searchParams.get('contract');
-    const tokenId = searchParams.get('tokenId');
-
-    if (!contract || !tokenId) {
-      return NextResponse.json(
-        { error: 'Missing required parameters: contract, tokenId' },
-        { status: 400 }
-      );
-    }
-
-    const apiKey = process.env.OPENSEA_API_KEY;
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
+    const fetchOptions: RequestInit = {
+      headers,
     };
 
-    if (apiKey) {
-      headers['X-API-KEY'] = apiKey;
+    // Use cache: 'no-store' for debug requests, otherwise revalidate every 5 minutes
+    if (debug) {
+      fetchOptions.cache = 'no-store';
+    } else {
+      (fetchOptions as any).next = { revalidate: 300 };
     }
 
-    // OpenSea orders endpoint for a specific NFT
-    const url = `${OPENSEA_API_BASE}/orders/${chain}/seaport/listings?asset_contract_address=${contract}&token_ids=${tokenId}&limit=50`;
+    const upstreamResponse = await fetch(upstreamUrl, fetchOptions);
+    const upstreamStatus = upstreamResponse.status;
 
-    const response = await fetch(url, {
-      headers,
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    });
+    // Build debug info (only included if debug=1)
+    const debugInfo = debug
+      ? {
+          hasApiKey: !!apiKey,
+          upstreamStatus,
+          upstreamUrl,
+          requestedChain,
+          mappedChain,
+        }
+      : undefined;
 
-    if (!response.ok) {
+    if (!upstreamResponse.ok) {
       // Return empty result on OpenSea errors (rate limit, not found, etc)
-      console.warn(`OpenSea API error: ${response.status} for ${contract}/${tokenId}`);
-      return NextResponse.json({
-        orders: [],
+      console.warn(`OpenSea API error: ${upstreamStatus} for ${contract}/${tokenId}`);
+
+      const response: OpenSeaOrdersResponse = {
+        ordersCount: 0,
         lowest: null,
         highest: null,
-        error: `OpenSea API error: ${response.status}`,
-      });
+        error: `OpenSea API error: ${upstreamStatus}`,
+        _debug: debugInfo,
+      };
+      return NextResponse.json(response);
     }
 
-    const data = await response.json();
+    const data = await upstreamResponse.json();
     const orders = data?.orders || [];
 
     if (orders.length === 0) {
-      return NextResponse.json({
-        orders: [],
+      const response: OpenSeaOrdersResponse = {
+        ordersCount: 0,
         lowest: null,
         highest: null,
-      });
+        _debug: debugInfo,
+      };
+      return NextResponse.json(response);
     }
 
     // Extract prices from orders
@@ -69,18 +117,31 @@ export async function GET(request: NextRequest) {
     const lowest = prices.length > 0 ? Math.min(...prices) : null;
     const highest = prices.length > 0 ? Math.max(...prices) : null;
 
-    return NextResponse.json({
-      orders: orders.length,
+    const response: OpenSeaOrdersResponse = {
+      ordersCount: orders.length,
       lowest,
       highest,
-    });
+      _debug: debugInfo,
+    };
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Error in OpenSea orders API:', error);
-    return NextResponse.json({
-      orders: [],
+
+    const response: OpenSeaOrdersResponse = {
+      ordersCount: 0,
       lowest: null,
       highest: null,
       error: 'Internal server error',
-    });
+      _debug: debug
+        ? {
+            hasApiKey: !!apiKey,
+            upstreamStatus: 0,
+            upstreamUrl,
+            requestedChain,
+            mappedChain,
+          }
+        : undefined,
+    };
+    return NextResponse.json(response);
   }
 }

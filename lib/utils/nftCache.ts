@@ -7,7 +7,7 @@ import { AcquisitionVenue } from '../types';
 // Schema Versions - Increment when cache structure changes
 // =============================================================================
 const SCHEMA_VERSIONS = {
-  nftDetail: 'v4', // v4: Added acquisitionVenue and acquisitionTxHash
+  nftDetail: 'v7', // v7: Robust tokenURI resolver with IPFS gateway fallback and metadataDebug tracking
   transfers: 'v2',
   priceGunUsd: 'v1',
 } as const;
