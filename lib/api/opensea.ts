@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toOpenSeaChain } from '@/lib/utils/openseaChain';
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
@@ -68,10 +69,10 @@ export class OpenSeaService {
         ? { 'X-API-KEY': this.apiKey }
         : {};
 
-      // Note: OpenSea's API structure varies by chain
-      // This is a simplified example - adjust based on actual OpenSea API documentation
+      const mappedChain = toOpenSeaChain(chain);
+
       const response = await axios.get(
-        `${OPENSEA_API_BASE}/chain/${chain}/contract/${contractAddress}`,
+        `${OPENSEA_API_BASE}/chain/${mappedChain}/contract/${contractAddress}`,
         { headers }
       );
 
@@ -92,8 +93,10 @@ export class OpenSeaService {
         ? { 'X-API-KEY': this.apiKey }
         : {};
 
+      const mappedChain = toOpenSeaChain(chain);
+
       const response = await axios.get(
-        `${OPENSEA_API_BASE}/chain/${chain}/account/${walletAddress}/nfts`,
+        `${OPENSEA_API_BASE}/chain/${mappedChain}/account/${walletAddress}/nfts`,
         {
           headers,
           params: { limit },
@@ -161,13 +164,15 @@ export class OpenSeaService {
         return { lowest: data.lowest, highest: data.highest };
       }
 
-      // Server-side: call OpenSea directly
+      // Server-side: call OpenSea directly with mapped chain
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
         : {};
 
+      const mappedChain = toOpenSeaChain(chain);
+
       const response = await axios.get(
-        `${OPENSEA_API_BASE}/orders/${chain}/seaport/listings?asset_contract_address=${contractAddress}&token_ids=${tokenId}&limit=50`,
+        `${OPENSEA_API_BASE}/orders/${mappedChain}/seaport/listings?asset_contract_address=${contractAddress}&token_ids=${tokenId}&limit=50`,
         { headers }
       );
 
@@ -211,8 +216,10 @@ export class OpenSeaService {
         ? { 'X-API-KEY': this.apiKey }
         : {};
 
+      const mappedChain = toOpenSeaChain(chain);
+
       const response = await axios.get(
-        `${OPENSEA_API_BASE}/chain/${chain}/contract/${contractAddress}/nfts/${tokenId}`,
+        `${OPENSEA_API_BASE}/chain/${mappedChain}/contract/${contractAddress}/nfts/${tokenId}`,
         { headers }
       );
 
@@ -238,9 +245,11 @@ export class OpenSeaService {
         ? { 'X-API-KEY': this.apiKey }
         : {};
 
+      const mappedChain = toOpenSeaChain(chain);
+
       // Try to get events for this NFT
       const response = await axios.get(
-        `${OPENSEA_API_BASE}/events/chain/${chain}/contract/${contractAddress}/nfts/${tokenId}`,
+        `${OPENSEA_API_BASE}/events/chain/${mappedChain}/contract/${contractAddress}/nfts/${tokenId}`,
         {
           headers,
           params: {

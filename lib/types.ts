@@ -6,7 +6,27 @@ export interface TokenBalance {
 }
 
 // Acquisition venue classification
-export type AcquisitionVenue = 'opensea' | 'otg_marketplace' | 'decoder' | 'transfer' | 'mint' | 'unknown';
+// - 'decode': In-game hex decode resulting in a mint (from zero address)
+// - 'opensea': Purchased on OpenSea marketplace
+// - 'in_game_marketplace': Purchased in in-game marketplace
+// - 'otg_marketplace': Legacy OTG marketplace
+// - 'decoder': Legacy decoder contract (separate from decode mint)
+// - 'transfer': Free transfer between wallets
+// - 'mint': Generic mint (legacy, prefer 'decode' for hex decodes)
+// - 'unknown': Could not determine venue
+export type AcquisitionVenue = 'decode' | 'opensea' | 'otg_marketplace' | 'in_game_marketplace' | 'decoder' | 'transfer' | 'mint' | 'unknown';
+
+// Metadata source tracking for debugging
+export type MetadataSource = 'tokenURI' | 'gunzscan' | 'none';
+
+// Debug info for NFT metadata resolution
+export interface NFTMetadataDebug {
+  tokenURI?: string;           // Raw tokenURI from contract
+  metadataSource: MetadataSource; // Where description came from
+  hasDescription: boolean;     // Whether description is present
+  descriptionLength: number;   // Length of description (0 if missing)
+  error?: string;              // Error message if resolution failed
+}
 
 export interface NFT {
   tokenId: string; // Primary token ID (first one if grouped)
@@ -14,8 +34,10 @@ export interface NFT {
   mintNumber?: string; // Display mint number (from traits)
   mintNumbers?: string[]; // All mint numbers if grouped
   name: string;
+  description?: string; // NFT description from metadata
   image: string;
   collection: string;
+  contractAddress?: string; // Contract address for the NFT collection
   chain: 'avalanche' | 'solana';
   floorPrice?: number;
   ceilingPrice?: number;
@@ -30,6 +52,7 @@ export interface NFT {
   acquisitionTxHash?: string; // Transaction hash of acquisition
   currentLowestListing?: number;
   currentHighestListing?: number;
+  metadataDebug?: NFTMetadataDebug; // Debug info for metadata resolution
 }
 
 export interface WalletData {

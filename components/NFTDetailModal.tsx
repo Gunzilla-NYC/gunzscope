@@ -1,11 +1,11 @@
 'use client';
 
-import { NFT, MarketplacePurchase } from '@/lib/types';
+import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
 import Image from 'next/image';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AvalancheService } from '@/lib/blockchain/avalanche';
+import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { CoinGeckoService } from '@/lib/api/coingecko';
 import {
@@ -16,6 +16,7 @@ import {
   CacheResult,
   CachedNFTDetailData,
 } from '@/lib/utils/nftCache';
+import { gunzExplorerAddressUrl, gunzExplorerTxUrl } from '@/lib/explorer';
 
 // Safe ISO string converter - handles Date, string, number (ms), { seconds } objects
 // Never throws, returns null for invalid/missing values
@@ -360,35 +361,67 @@ interface NFTDetailModalProps {
   allNfts?: NFT[];
 }
 
-// Acquisition source tracking
-type AcquisitionSource = 'transfers' | 'localStorage' | 'marketplace' | 'none';
+// Price source tracking - how we determined the purchase price
+type PriceSource = 'transfers' | 'localStorage' | 'onchain' | 'none';
 
 // Marketplace matching method
 type MarketplaceMatchMethod = 'txHash' | 'timeWindow' | 'none';
 
 // Acquisition type from transfer analysis
-type AcquisitionType = 'MINT' | 'TRANSFER' | 'UNKNOWN';
+type AcquisitionType = 'MINT' | 'TRANSFER' | 'PURCHASE' | 'UNKNOWN';
 
-// Structured acquisition data - separates transfer-derived vs marketplace-derived fields
+// Get human-readable label for acquisition venue
+// Note: Labels do NOT include "Purchased" prefix - purchase context is implied by the Cost line
+function getVenueDisplayLabel(venue: AcquisitionVenue | undefined, hasDecodeCost?: boolean): string {
+  switch (venue) {
+    case 'decode':
+      // In-game hex decode (mint from zero address)
+      return 'Decoded (in-game)';
+    case 'opensea':
+      return 'OpenSea';
+    case 'otg_marketplace':
+      return 'OTG Marketplace';
+    case 'in_game_marketplace':
+      return 'In-Game Marketplace';
+    case 'decoder':
+      // Legacy decoder contract
+      return 'Decoded (in-game)';
+    case 'mint':
+      // Legacy mint venue - kept for backwards compatibility
+      return hasDecodeCost ? 'Decoded (in-game)' : 'Minted';
+    case 'transfer':
+      return 'Transfer';
+    case 'unknown':
+    default:
+      return 'Unknown';
+  }
+}
+
+// Structured acquisition data - separates transfer-derived vs price-derived fields
 interface AcquisitionData {
   // Source tracking
-  acquisitionSource: AcquisitionSource;
+  priceSource: PriceSource;           // How we determined the price (onchain/transfers/localStorage/none)
+  acquisitionVenue?: AcquisitionVenue; // Where the acquisition happened (opensea/otg_marketplace/decoder/mint/transfer/unknown)
 
   // Transfer-derived fields (from blockchain)
   acquiredAt?: Date;           // Block timestamp of first incoming transfer
   fromAddress?: string;        // Address that sent the NFT
   acquisitionTxHash?: string;  // Transaction hash of acquisition
-  acquisitionType?: AcquisitionType; // MINT (from 0x0) or TRANSFER
+  acquisitionType?: AcquisitionType; // MINT, TRANSFER, PURCHASE, or UNKNOWN
 
-  // Marketplace-derived fields (only set when marketplaceMatches > 0)
-  purchasePriceGun?: number;   // Only from marketplace match
-  purchasePriceUsd?: number;   // Calculated from purchasePriceGun
-  purchaseDate?: Date;         // Same as acquiredAt, but only set with marketplace match
-  marketplaceTxHash?: string;  // TX hash if matched via marketplace
+  // Marketplace purchase price fields (OpenSea, OTG Marketplace, etc.)
+  purchasePriceGun?: number;   // Price paid in GUN for marketplace purchases
+  purchasePriceUsd?: number;   // Calculated from purchasePriceGun at historical rate
+  purchaseDate?: Date;         // Same as acquiredAt when price is known
+  marketplaceTxHash?: string;  // TX hash of the purchase transaction
+
+  // Decode/Mint cost fields (in-game decode costs, NOT marketplace purchases)
+  decodeCostGun?: number;      // Cost paid to decode/mint (in-game currency)
+  decodeCostUsd?: number;      // Calculated from decodeCostGun at historical rate
 
   // Legacy compatibility
   transferredFrom?: string;    // Alias for fromAddress when acquisitionType=TRANSFER
-  isFreeTransfer?: boolean;    // True if TRANSFER with no marketplace price match
+  isFreeTransfer?: boolean;    // True if TRANSFER with no price (not applicable to paid decodes)
 }
 
 export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, allNfts = [] }: NFTDetailModalProps) {
@@ -411,6 +444,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const noCacheMode = searchParams.get('noCache') === '1';
   const [debugExpanded, setDebugExpanded] = useState(false);
 
+  // Raw holding acquisition result from RPC (always fetched fresh for debug)
+  const [holdingAcquisitionRaw, setHoldingAcquisitionRaw] = useState<NFTHoldingAcquisition | null>(null);
+
   // Debug instrumentation state
   const [debugData, setDebugData] = useState<{
     tokenKey: string;
@@ -420,7 +456,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     transferEventCount: number;
     marketplaceMatches: number;
     gunPriceTimestamp: Date | null;
-    acquisitionSource: AcquisitionSource;
+    priceSource: PriceSource;
     // Transfer query debug info (legacy - now uses acquisition debug)
     transferQueryInfo?: {
       fromBlock?: number;
@@ -486,7 +522,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     transferEventCount: 0,
     marketplaceMatches: 0,
     gunPriceTimestamp: null,
-    acquisitionSource: 'none',
+    priceSource: 'none',
     // Enhanced marketplace debug defaults
     marketplaceConfigured: false,
     serverProxyUsed: true,
@@ -515,6 +551,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       setListingsData(null);
       setCurrentGunPrice(null);
       setDetailsExpanded(false);
+      setHoldingAcquisitionRaw(null); // Reset raw acquisition for fresh fetch
       // Note: debugExpanded is NOT reset here - user preference persists during session
       setDebugData({
         tokenKey: '',
@@ -524,7 +561,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         transferEventCount: 0,
         marketplaceMatches: 0,
         gunPriceTimestamp: null,
-        acquisitionSource: 'none',
+        priceSource: 'none',
         // Enhanced marketplace debug defaults
         marketplaceConfigured: false,
         serverProxyUsed: true,
@@ -660,7 +697,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         console.debug('[NFTDetailModal] Component state exists for token (will background refresh):', {
           tokenId,
           tokenKey,
-          acquisitionSource: itemPurchaseData[tokenId].acquisitionSource,
+          priceSource: itemPurchaseData[tokenId].priceSource,
         });
       }
       // Mark that we have cached data rendered
@@ -669,7 +706,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         ...prev,
         cacheHit: true,
         cacheReason: 'component_state',
-        acquisitionSource: itemPurchaseData[tokenId].acquisitionSource,
+        priceSource: itemPurchaseData[tokenId].priceSource,
         cacheRenderedFirst: true,
       }));
       // NOTE: We do NOT return early - we continue to background refresh
@@ -679,7 +716,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       const hasTransferData = cachedValue.purchasePriceGun !== undefined ||
         cachedValue.purchaseDate !== undefined ||
         cachedValue.isFreeTransfer === true;
-      const cachedAcquisitionSource: AcquisitionSource = hasTransferData ? 'localStorage' : 'none';
+      const cachedPriceSource: PriceSource = hasTransferData ? 'localStorage' : 'none';
 
       if (debugMode) {
         console.debug('[NFTDetailModal] localStorage cache HIT (will background refresh):', {
@@ -687,26 +724,27 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           tokenKey,
           cacheKey: cacheResult.cacheKey,
           value: cachedValue,
-          acquisitionSource: cachedAcquisitionSource,
+          priceSource: cachedPriceSource,
         });
       }
 
       // Restore data from cache IMMEDIATELY for fast UI
       const cachedData = cachedValue;
       const restoredAcquisition: AcquisitionData = {
-        acquisitionSource: cachedAcquisitionSource,
+        priceSource: cachedPriceSource,
+        acquisitionVenue: cachedData.acquisitionVenue,
 
         // We don't have transfer-derived fields in cache, they'd need re-fetch
         acquiredAt: undefined,
         fromAddress: undefined,
         acquisitionType: undefined,
-        acquisitionTxHash: undefined,
+        acquisitionTxHash: cachedData.acquisitionTxHash,
 
-        // Marketplace-derived fields from cache
+        // Price fields from cache
         purchasePriceGun: cachedData.purchasePriceGun,
         purchasePriceUsd: cachedData.purchasePriceUsd,
         purchaseDate: cachedData.purchaseDate ? new Date(cachedData.purchaseDate) : undefined,
-        marketplaceTxHash: undefined,
+        marketplaceTxHash: cachedData.acquisitionTxHash,
 
         // Legacy
         transferredFrom: cachedData.transferredFrom,
@@ -723,7 +761,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         ...prev,
         cacheHit: true,
         cacheReason: 'localStorage',
-        acquisitionSource: cachedAcquisitionSource,
+        priceSource: cachedPriceSource,
         cacheRenderedFirst: true,
       }));
       // NOTE: We do NOT return early - we continue to background refresh
@@ -791,8 +829,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
         // =====================================================================
         // STEP 1: Load acquisition details (blockchain-derived data)
+        // Always fetch fresh from RPC - this is critical for debug panel accuracy
         // =====================================================================
         const acquisition = await avalancheService.getNFTHoldingAcquisition(nftContractAddress, tokenId, walletAddress);
+
+        // Store raw acquisition result for debug panel (always fresh)
+        setHoldingAcquisitionRaw(acquisition);
 
         if (debugMode) {
           console.debug('[NFTDetailModal] Acquisition result:', {
@@ -1221,30 +1263,272 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           marketplaceMatchedTimestamp,
         }));
 
-        // Determine acquisition source
-        const hasMarketplaceMatch = purchasePriceGun !== undefined;
-        const derivedAcquisitionSource: AcquisitionSource = hasMarketplaceMatch
-          ? 'marketplace'
-          : (hasTransferData ? 'transfers' : 'none');
+        // =====================================================================
+        // STEP 4: Determine acquisition source and build final data
+        // Explicitly venue-driven mapping from holding acquisition (RPC)
+        // =====================================================================
+
+        // Legacy marketplace service match (for backwards compatibility)
+        const hasMarketplaceServiceMatch = purchasePriceGun !== undefined;
+
+        // Determine price source and acquisition type based on venue
+        let derivedPriceSource: PriceSource;
+        let finalPurchasePriceGun: number | undefined;
+        let finalPurchasePriceUsd: number | undefined;
+        let finalDecodeCostGun: number | undefined;
+        let finalDecodeCostUsd: number | undefined;
+        let finalPurchaseDate: Date | undefined;
+        let finalMarketplaceTxHash: string | undefined;
+        let finalIsFreeTransfer: boolean;
+        let finalAcquisitionType: AcquisitionType;
+
+        // =====================================================================
+        // VENUE-DRIVEN MAPPING
+        // A) mint/decoder -> MINT type, decodeCostGun, no purchasePriceGun
+        // B) opensea -> PURCHASE type, purchasePriceGun, marketplaceTxHash
+        // C) in_game_marketplace -> PURCHASE type, purchasePriceGun, marketplaceTxHash
+        // D) otg_marketplace -> PURCHASE type, purchasePriceGun, marketplaceTxHash
+        // E) transfer -> TRANSFER type, no cost fields
+        // F) unknown/fallback -> use legacy logic or defaults
+        // =====================================================================
+
+        if (acquisitionVenue === 'decode' || acquisitionVenue === 'mint' || acquisitionVenue === 'decoder') {
+          // A) DECODE/MINT: In-game hex decode (mint from zero address) - use decode cost fields, not purchase price
+          // 'decode' = new venue for in-game hex decodes
+          // 'mint' = legacy venue (kept for backwards compatibility)
+          // 'decoder' = legacy decoder contract
+          derivedPriceSource = costGunFromChain > 0 ? 'onchain' : 'transfers';
+          finalAcquisitionType = 'MINT';
+          // Decode cost (NOT purchase price)
+          finalDecodeCostGun = costGunFromChain > 0 ? costGunFromChain : undefined;
+          // Purchase price is explicitly null for decodes - never show purchasePriceGun
+          finalPurchasePriceGun = undefined;
+          finalPurchasePriceUsd = undefined;
+          finalPurchaseDate = acquiredAt;
+          // Decodes have NO marketplace tx hash - only acquisitionTxHash
+          finalMarketplaceTxHash = undefined;
+          // For decodes, isFreeTransfer means no decode cost was paid
+          finalIsFreeTransfer = (finalDecodeCostGun ?? 0) === 0;
+
+          // Calculate USD from historical GUN price for decode cost
+          if (finalDecodeCostGun && finalPurchaseDate) {
+            try {
+              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              if (historicalPrice) {
+                finalDecodeCostUsd = finalDecodeCostGun * historicalPrice;
+              }
+            } catch (priceError) {
+              console.warn('[NFTDetailModal] Failed to get historical GUN price for decode cost:', priceError);
+            }
+          }
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Decode (in-game) acquisition:', {
+              costGunFromChain,
+              venue: acquisitionVenue,
+              txHash: acquisitionTxHash,
+              decodeCostGun: finalDecodeCostGun,
+              decodeCostUsd: finalDecodeCostUsd,
+            });
+          }
+        } else if (acquisitionVenue === 'opensea') {
+          // B) OPENSEA PURCHASE: Marketplace purchase with RPC cost
+          derivedPriceSource = 'onchain';
+          finalAcquisitionType = 'PURCHASE';
+          finalPurchasePriceGun = costGunFromChain > 0 ? costGunFromChain : undefined;
+          finalDecodeCostGun = undefined;
+          finalDecodeCostUsd = undefined;
+          finalPurchaseDate = acquiredAt;
+          // OpenSea purchases have marketplace tx hash
+          finalMarketplaceTxHash = acquisitionTxHash ?? undefined;
+          finalIsFreeTransfer = false;
+
+          // Calculate USD from historical GUN price
+          if (finalPurchasePriceGun && finalPurchaseDate) {
+            try {
+              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              if (historicalPrice) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              }
+            } catch (priceError) {
+              console.warn('[NFTDetailModal] Failed to get historical GUN price for OpenSea purchase:', priceError);
+            }
+          }
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] OpenSea purchase:', {
+              costGunFromChain,
+              venue: acquisitionVenue,
+              txHash: acquisitionTxHash,
+              purchasePriceGun: finalPurchasePriceGun,
+              purchasePriceUsd: finalPurchasePriceUsd,
+            });
+          }
+        } else if (acquisitionVenue === 'in_game_marketplace') {
+          // C) IN-GAME MARKETPLACE PURCHASE: Marketplace purchase with RPC cost
+          derivedPriceSource = 'onchain';
+          finalAcquisitionType = 'PURCHASE';
+          finalPurchasePriceGun = costGunFromChain > 0 ? costGunFromChain : undefined;
+          finalDecodeCostGun = undefined;
+          finalDecodeCostUsd = undefined;
+          finalPurchaseDate = acquiredAt;
+          // In-game marketplace purchases have marketplace tx hash
+          finalMarketplaceTxHash = acquisitionTxHash ?? undefined;
+          finalIsFreeTransfer = false;
+
+          // Calculate USD from historical GUN price
+          if (finalPurchasePriceGun && finalPurchaseDate) {
+            try {
+              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              if (historicalPrice) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              }
+            } catch (priceError) {
+              console.warn('[NFTDetailModal] Failed to get historical GUN price for in-game marketplace purchase:', priceError);
+            }
+          }
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] In-game marketplace purchase:', {
+              costGunFromChain,
+              venue: acquisitionVenue,
+              txHash: acquisitionTxHash,
+              purchasePriceGun: finalPurchasePriceGun,
+              purchasePriceUsd: finalPurchasePriceUsd,
+            });
+          }
+        } else if (acquisitionVenue === 'otg_marketplace') {
+          // D) OTG MARKETPLACE PURCHASE: Legacy marketplace with RPC cost
+          derivedPriceSource = 'onchain';
+          finalAcquisitionType = 'PURCHASE';
+          finalPurchasePriceGun = costGunFromChain > 0 ? costGunFromChain : undefined;
+          finalDecodeCostGun = undefined;
+          finalDecodeCostUsd = undefined;
+          finalPurchaseDate = acquiredAt;
+          // OTG marketplace purchases have marketplace tx hash
+          finalMarketplaceTxHash = acquisitionTxHash ?? undefined;
+          finalIsFreeTransfer = false;
+
+          // Calculate USD from historical GUN price
+          if (finalPurchasePriceGun && finalPurchaseDate) {
+            try {
+              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              if (historicalPrice) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              }
+            } catch (priceError) {
+              console.warn('[NFTDetailModal] Failed to get historical GUN price for OTG marketplace purchase:', priceError);
+            }
+          }
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] OTG Marketplace purchase:', {
+              costGunFromChain,
+              venue: acquisitionVenue,
+              txHash: acquisitionTxHash,
+              purchasePriceGun: finalPurchasePriceGun,
+              purchasePriceUsd: finalPurchasePriceUsd,
+            });
+          }
+        } else if (acquisitionVenue === 'transfer') {
+          // E) TRANSFER: No price data, no marketplace tx
+          derivedPriceSource = 'transfers';
+          finalAcquisitionType = 'TRANSFER';
+          finalPurchasePriceGun = undefined;
+          finalPurchasePriceUsd = undefined;
+          finalDecodeCostGun = undefined;
+          finalDecodeCostUsd = undefined;
+          finalPurchaseDate = acquiredAt;
+          // Transfers have NO marketplace tx hash - only acquisitionTxHash
+          finalMarketplaceTxHash = undefined;
+          finalIsFreeTransfer = true;
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Transfer acquisition:', {
+              venue: acquisitionVenue,
+              txHash: acquisitionTxHash,
+              fromAddress,
+            });
+          }
+        } else if (hasMarketplaceServiceMatch) {
+          // F1) Legacy: Marketplace service match - use marketplace data
+          derivedPriceSource = 'onchain';
+          finalAcquisitionType = acquisitionType;
+          finalPurchasePriceGun = purchasePriceGun;
+          finalPurchasePriceUsd = purchasePriceUsd;
+          finalDecodeCostGun = undefined;
+          finalDecodeCostUsd = undefined;
+          finalPurchaseDate = purchaseDate;
+          finalMarketplaceTxHash = marketplaceTxHash;
+          finalIsFreeTransfer = false;
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Legacy marketplace service match:', {
+              purchasePriceGun,
+              purchasePriceUsd,
+              marketplaceTxHash,
+            });
+          }
+        } else if (hasTransferData) {
+          // F2) Fallback: Has transfer data but unknown venue
+          derivedPriceSource = 'transfers';
+          finalAcquisitionType = acquisitionType;
+          finalPurchasePriceGun = undefined;
+          finalPurchasePriceUsd = undefined;
+          finalDecodeCostGun = undefined;
+          finalDecodeCostUsd = undefined;
+          finalPurchaseDate = acquiredAt;
+          finalMarketplaceTxHash = undefined;
+          finalIsFreeTransfer = acquisitionType === 'TRANSFER';
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Unknown venue with transfer data:', {
+              venue: acquisitionVenue,
+              acquisitionType,
+              fromAddress,
+            });
+          }
+        } else {
+          // F3) No acquisition data
+          derivedPriceSource = 'none';
+          finalAcquisitionType = 'UNKNOWN';
+          finalPurchasePriceGun = undefined;
+          finalPurchasePriceUsd = undefined;
+          finalDecodeCostGun = undefined;
+          finalDecodeCostUsd = undefined;
+          finalPurchaseDate = undefined;
+          finalMarketplaceTxHash = undefined;
+          finalIsFreeTransfer = true;
+
+          if (debugMode) {
+            console.debug('[NFTDetailModal] No acquisition data');
+          }
+        }
 
         // Build fresh acquisition object - no merging with prior state
         const freshAcquisition: AcquisitionData = {
-          acquisitionSource: derivedAcquisitionSource,
+          priceSource: derivedPriceSource,
+          acquisitionVenue: acquisitionVenue,
 
           // Transfer-derived fields
           acquiredAt: hasTransferData ? acquiredAt : undefined,
           fromAddress: hasTransferData ? fromAddress : undefined,
-          acquisitionType: hasTransferData ? acquisitionType : undefined,
+          acquisitionType: hasTransferData ? finalAcquisitionType : undefined,
+          acquisitionTxHash: acquisitionTxHash ?? undefined,
 
-          // Marketplace-derived fields - ONLY set when we have marketplace matches
-          purchasePriceGun: hasMarketplaceMatch ? purchasePriceGun : undefined,
-          purchasePriceUsd: hasMarketplaceMatch ? purchasePriceUsd : undefined,
-          purchaseDate: hasMarketplaceMatch ? purchaseDate : undefined,
-          marketplaceTxHash: hasMarketplaceMatch ? marketplaceTxHash : undefined,
+          // Marketplace purchase price fields (OpenSea, OTG Marketplace, etc.)
+          purchasePriceGun: finalPurchasePriceGun,
+          purchasePriceUsd: finalPurchasePriceUsd,
+          purchaseDate: finalPurchaseDate,
+          marketplaceTxHash: finalMarketplaceTxHash,
+
+          // Decode/Mint cost fields (in-game, NOT marketplace)
+          decodeCostGun: finalDecodeCostGun,
+          decodeCostUsd: finalDecodeCostUsd,
 
           // Legacy compatibility
-          transferredFrom: (hasTransferData && acquisitionType === 'TRANSFER') ? fromAddress : undefined,
-          isFreeTransfer: hasTransferData && acquisitionType === 'TRANSFER' && !hasMarketplaceMatch,
+          transferredFrom: (hasTransferData && finalAcquisitionType === 'TRANSFER') ? fromAddress : undefined,
+          isFreeTransfer: finalIsFreeTransfer,
         };
 
         if (debugMode) {
@@ -1252,7 +1536,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             tokenId,
             tokenKey,
             hasTransferData,
-            hasMarketplaceMatch,
+            acquisitionVenue,
+            finalAcquisitionType,
+            hasMarketplaceServiceMatch,
             marketplaceCandidatesCount,
             marketplaceMatchMethod,
             freshAcquisition,
@@ -1264,7 +1550,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         const existingData = itemPurchaseData[tokenId];
         const shouldUpdate = !isBackgroundRefresh || !existingData ||
           // Update if derived data differs from cached
-          existingData.acquisitionSource !== derivedAcquisitionSource ||
+          existingData.priceSource !== derivedPriceSource ||
           // Update if cached is missing critical fields that we now have
           (hasTransferData && !existingData.acquiredAt) ||
           (hasTransferData && !existingData.acquisitionType) ||
@@ -1274,18 +1560,18 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         if (debugMode && isBackgroundRefresh) {
           console.debug('[NFTDetailModal] Background refresh comparison:', {
             tokenId,
-            existingSource: existingData?.acquisitionSource,
-            derivedSource: derivedAcquisitionSource,
+            existingSource: existingData?.priceSource,
+            derivedSource: derivedPriceSource,
             existingHasAcquiredAt: !!existingData?.acquiredAt,
             derivedHasAcquiredAt: hasTransferData,
             shouldUpdate,
           });
         }
 
-        // Update debug with final acquisition source and marketplace match info
+        // Update debug with final price source and marketplace match info
         setDebugData(prev => ({
           ...prev,
-          acquisitionSource: derivedAcquisitionSource,
+          priceSource: derivedPriceSource,
           marketplaceMatchedTxHash: marketplaceTxHash,
           // Mark if background refresh caused an update
           backgroundRefreshUpdated: isBackgroundRefresh && shouldUpdate,
@@ -1305,6 +1591,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             purchaseDate: freshAcquisition.purchaseDate?.toISOString(),
             transferredFrom: freshAcquisition.transferredFrom,
             isFreeTransfer: freshAcquisition.isFreeTransfer,
+            acquisitionVenue: acquisitionVenue,
+            acquisitionTxHash: acquisitionTxHash ?? undefined,
           });
 
           if (debugMode) {
@@ -1478,7 +1766,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-premium overscroll-contain [-webkit-overflow-scrolling:touch]" tabIndex={0}>
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-premium overscroll-contain [-webkit-overflow-scrolling:touch] select-none">
             <div className="p-4 space-y-4">
 
               {/* ===== 2) IdentitySection ===== */}
@@ -1572,7 +1860,16 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 {/* Metadata below image */}
                 <div className="text-center">
                   <h3 className="text-lg font-semibold text-white">{nft.name}</h3>
-                  <p className="text-sm text-white/75">{nft.collection}</p>
+                  {/* Subtitle: description if available, otherwise collection name */}
+                  {(() => {
+                    const descriptionText = (nft?.description ?? '').trim();
+                    const subtitle = descriptionText.length > 0 ? descriptionText : nft.collection;
+                    return (
+                      <p className="text-sm text-white/60 leading-snug line-clamp-2 mt-0.5">
+                        {subtitle}
+                      </p>
+                    );
+                  })()}
                   <p className="text-[11px] text-white/60 mt-1">
                     Mint #{activeItem?.mintNumber} · Chain: {getChainDisplayName(nft.chain)}
                   </p>
@@ -1836,11 +2133,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       e.stopPropagation();
                       setDetailsExpanded(v => !v);
                     }}
-                    className="w-full flex items-center justify-between py-2 text-sm text-white/75 hover:text-white transition"
+                    className="w-full flex items-center justify-between py-2 text-xs text-white/50 hover:text-white/70 transition"
                   >
                     <span>{detailsExpanded ? 'Hide details' : 'View details'}</span>
                     <svg
-                      className={`w-4 h-4 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
+                      className={`w-3.5 h-3.5 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1850,85 +2147,186 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   </button>
 
                   {detailsExpanded && (
-                    <div className="space-y-4 pt-2 pb-1">
-                      {/* Group A: Acquisition */}
-                      {hasAcquisitionData && (
-                        <div className="space-y-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/65">
-                            Acquisition
-                          </p>
-                          <div className="space-y-1.5 text-sm">
-                            {currentPurchaseData?.purchaseDate && (
-                              <div className="flex justify-between">
-                                <span className="text-white/60">Acquired on:</span>
-                                <span className="text-white">{formatDate(currentPurchaseData.purchaseDate)}</span>
-                              </div>
-                            )}
-                            {currentPurchaseData?.isFreeTransfer ? (
-                              <>
-                                <div className="flex justify-between">
-                                  <span className="text-white/60">Cost:</span>
-                                  <span className="text-white">0.00 GUN (Transfer)</span>
-                                </div>
-                                {currentPurchaseData.transferredFrom && (
-                                  <div className="flex justify-between items-start">
-                                    <span className="text-white/60">From:</span>
-                                    <a
-                                      href={`https://gunzscan.io/address/${currentPurchaseData.transferredFrom}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-[#64ffff] hover:text-[#96aaff] transition truncate max-w-[180px]"
-                                      title={currentPurchaseData.transferredFrom}
-                                    >
-                                      {currentPurchaseData.transferredFrom.slice(0, 6)}...{currentPurchaseData.transferredFrom.slice(-4)}
-                                    </a>
-                                  </div>
-                                )}
-                              </>
-                            ) : currentPurchaseData?.purchasePriceGun !== undefined ? (
-                              <div className="flex justify-between">
-                                <span className="text-white/60">Cost:</span>
-                                <span className="text-white">
-                                  {currentPurchaseData.purchasePriceGun.toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })} GUN
-                                  {currentPurchaseData.purchasePriceUsd !== undefined && (
-                                    <span className="text-white/60 ml-1">
-                                      (${currentPurchaseData.purchasePriceUsd.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })})
-                                    </span>
-                                  )}
-                                </span>
-                              </div>
-                            ) : !debugData.marketplaceConfigured && currentPurchaseData?.acquiredAt ? (
-                              <div className="flex justify-between">
-                                <span className="text-white/60">Cost:</span>
-                                <span className="text-white/40 italic text-xs">Marketplace data unavailable</span>
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      )}
+                    <div className="pt-3 pb-1">
+                      {/* Two-column card layout: Acquisition + Traits */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                        {/* ===== Acquisition Card ===== */}
+                        {hasAcquisitionData && (
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 h-full flex flex-col">
+                            {/* Card title */}
+                            <h4 className="text-sm font-semibold tracking-wide text-white/80 mb-2">
+                              Acquisition
+                            </h4>
+                            <div className="h-px bg-white/10 mb-4" />
 
-                      {/* Group B: Traits */}
-                      {Object.keys(filteredTraits).length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/65">
-                            Traits
-                          </p>
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                            {Object.entries(filteredTraits).map(([key, value]) => (
-                              <div key={key} className="min-w-0">
-                                <p className="text-[10px] uppercase text-white/40 tracking-wider truncate">{key}</p>
-                                <p className="text-sm text-white truncate">{value}</p>
-                              </div>
-                            ))}
+                            {/* Top section: Source, Acquired on, Cost */}
+                            <div className="flex-1 space-y-4">
+                              {/* Source row */}
+                              {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' && (
+                                <div>
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Source</p>
+                                  <p className={`text-base font-medium ${
+                                    currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
+                                    currentPurchaseData.acquisitionVenue === 'otg_marketplace' ? 'text-purple-400' :
+                                    currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-amber-400' :
+                                    currentPurchaseData.acquisitionVenue === 'mint' ? 'text-green-400' :
+                                    'text-white/90'
+                                  }`}>
+                                    {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0)}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Acquired on row */}
+                              {currentPurchaseData?.purchaseDate && (
+                                <div>
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Acquired on</p>
+                                  <p className="text-base font-medium text-white/90 tabular-nums">{formatDate(currentPurchaseData.purchaseDate)}</p>
+                                </div>
+                              )}
+
+                              {/* Cost row - multiple conditions */}
+                              {currentPurchaseData?.decodeCostGun !== undefined && currentPurchaseData.decodeCostGun > 0 ? (
+                                <div>
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Decode Cost</p>
+                                  <p className="text-base font-medium text-amber-300 tabular-nums">
+                                    {currentPurchaseData.decodeCostGun.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })} GUN
+                                    {currentPurchaseData.decodeCostUsd !== undefined && (
+                                      <span className="text-sm text-white/55 tabular-nums">
+                                        <span className="mx-2">·</span>${currentPurchaseData.decodeCostUsd.toLocaleString(undefined, {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              ) : currentPurchaseData?.isFreeTransfer ? (
+                                <>
+                                  <div>
+                                    <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Cost</p>
+                                    <p className="text-base font-medium text-white/90 tabular-nums">
+                                      0.00 GUN
+                                      <span className="text-sm text-white/55">
+                                        <span className="mx-2">·</span>
+                                        {currentPurchaseData.acquisitionVenue === 'mint' ? 'Mint' :
+                                          currentPurchaseData.acquisitionVenue === 'decoder' ? 'Decoded' :
+                                          'Transfer'}
+                                      </span>
+                                    </p>
+                                  </div>
+                                  {currentPurchaseData.transferredFrom && (
+                                    <div>
+                                      <p className="text-xs uppercase tracking-wider text-white/55 mb-1">From</p>
+                                      <a
+                                        href={gunzExplorerAddressUrl(currentPurchaseData.transferredFrom)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-base font-medium text-[#64ffff] hover:text-[#96aaff] hover:underline underline-offset-2 transition tabular-nums"
+                                        title={currentPurchaseData.transferredFrom}
+                                      >
+                                        {currentPurchaseData.transferredFrom.slice(0, 6)}...{currentPurchaseData.transferredFrom.slice(-4)}
+                                      </a>
+                                    </div>
+                                  )}
+                                </>
+                              ) : currentPurchaseData?.purchasePriceGun !== undefined ? (
+                                <div>
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Cost</p>
+                                  <p className="text-base font-medium text-white/90 tabular-nums">
+                                    {currentPurchaseData.purchasePriceGun.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })} GUN
+                                    {currentPurchaseData.purchasePriceUsd !== undefined && (
+                                      <span className="text-sm text-white/55 tabular-nums">
+                                        <span className="mx-2">·</span>${currentPurchaseData.purchasePriceUsd.toLocaleString(undefined, {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              ) : !debugData.marketplaceConfigured && currentPurchaseData?.acquiredAt ? (
+                                <div>
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Cost</p>
+                                  <p className="text-sm text-white/40 italic">Marketplace data unavailable</p>
+                                </div>
+                              ) : null}
+                            </div>
+
+                            {/* Bottom section: Transaction (anchored at bottom) */}
+                            {(() => {
+                              const txHash = currentPurchaseData?.marketplaceTxHash
+                                || currentPurchaseData?.acquisitionTxHash
+                                || holdingAcquisitionRaw?.txHash;
+
+                              if (!txHash) return null;
+
+                              return (
+                                <div className="mt-auto pt-4">
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Transaction</p>
+                                  <a
+                                    href={gunzExplorerTxUrl(txHash)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-base font-medium text-[#64ffff] hover:text-[#96aaff] hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:rounded-sm transition"
+                                    title={txHash}
+                                  >
+                                    View on Gunzscan
+                                    <svg className="w-3.5 h-3.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </a>
+                                </div>
+                              );
+                            })()}
                           </div>
-                        </div>
-                      )}
+                        )}
+
+                        {/* ===== Traits Card ===== */}
+                        {Object.keys(filteredTraits).length > 0 && (
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 h-full flex flex-col">
+                            {/* Card title */}
+                            <h4 className="text-sm font-semibold tracking-wide text-white/80 mb-2">
+                              Traits
+                            </h4>
+                            <div className="h-px bg-white/10 mb-4" />
+
+                            {/* Traits list: Mint Number, Rarity, Class, Platform */}
+                            <div className="space-y-4">
+                              {filteredTraits['Serial Number'] && (
+                                <div className="min-w-0">
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Mint Number</p>
+                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Serial Number']}</p>
+                                </div>
+                              )}
+                              {filteredTraits['Rarity'] && (
+                                <div className="min-w-0">
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Rarity</p>
+                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Rarity']}</p>
+                                </div>
+                              )}
+                              {filteredTraits['Class'] && (
+                                <div className="min-w-0">
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Class</p>
+                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Class']}</p>
+                                </div>
+                              )}
+                              {filteredTraits['Platform'] && (
+                                <div className="min-w-0">
+                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Platform</p>
+                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Platform']}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2004,33 +2402,81 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         </div>
                       </div>
                       <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">acquisitionSource:</span>{' '}
+                        <span className="text-amber-400/70">priceSource:</span>{' '}
                         <span className={`font-semibold ${
-                          debugData.acquisitionSource === 'marketplace' ? 'text-purple-400' :
-                          debugData.acquisitionSource === 'transfers' ? 'text-green-400' :
-                          debugData.acquisitionSource === 'localStorage' ? 'text-blue-400' :
+                          debugData.priceSource === 'onchain' ? 'text-purple-400' :
+                          debugData.priceSource === 'transfers' ? 'text-green-400' :
+                          debugData.priceSource === 'localStorage' ? 'text-blue-400' :
                           'text-rose-400'
                         }`}>
-                          {debugData.acquisitionSource}
+                          {debugData.priceSource}
                         </span>
+                      </div>
+                      {/* Metadata Debug Section */}
+                      <div className="border-t border-amber-500/20 pt-2">
+                        <span className="text-green-400 font-semibold">metadata debug:</span>
+                        <div className="mt-1 ml-2 text-[10px] space-y-1">
+                          <div>
+                            <span className="text-green-400/50">metadataSource:</span>{' '}
+                            <span className={`font-semibold ${
+                              nft?.metadataDebug?.metadataSource === 'tokenURI' ? 'text-green-400' :
+                              nft?.metadataDebug?.metadataSource === 'gunzscan' ? 'text-blue-400' :
+                              'text-rose-400'
+                            }`}>
+                              {nft?.metadataDebug?.metadataSource ?? 'unknown'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-green-400/50">hasDescription:</span>{' '}
+                            <span className={nft?.metadataDebug?.hasDescription ? 'text-green-400' : 'text-rose-400'}>
+                              {nft?.metadataDebug?.hasDescription?.toString() ?? 'false'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-green-400/50">descriptionLength:</span>{' '}
+                            <span className="text-green-200/80">{nft?.metadataDebug?.descriptionLength ?? 0}</span>
+                          </div>
+                          <div>
+                            <span className="text-green-400/50">tokenURI:</span>{' '}
+                            <span className="text-green-200/80 break-all text-[9px]">
+                              {nft?.metadataDebug?.tokenURI
+                                ? (nft.metadataDebug.tokenURI.length > 200
+                                    ? nft.metadataDebug.tokenURI.slice(0, 200) + '...'
+                                    : nft.metadataDebug.tokenURI)
+                                : '(not set)'}
+                            </span>
+                          </div>
+                          {nft?.metadataDebug?.error && (
+                            <div>
+                              <span className="text-rose-400/50">error:</span>{' '}
+                              <span className="text-rose-300">{nft.metadataDebug.error}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="border-t border-amber-500/20 pt-2">
                         <span className="text-amber-400/70">acquisition (full):</span>
                         <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all text-[10px]">
 {JSON.stringify({
-  // Source
-  acquisitionSource: currentPurchaseData?.acquisitionSource ?? 'none',
+  // Source tracking
+  priceSource: currentPurchaseData?.priceSource ?? 'none',
+  acquisitionVenue: currentPurchaseData?.acquisitionVenue ?? null,
 
   // Transfer-derived (blockchain)
   acquiredAt: toIsoStringSafe(currentPurchaseData?.acquiredAt) ?? null,
   fromAddress: currentPurchaseData?.fromAddress ?? null,
   acquisitionType: currentPurchaseData?.acquisitionType ?? null,
+  acquisitionTxHash: currentPurchaseData?.acquisitionTxHash ?? null,
 
-  // Marketplace-derived (price) - MUST be null when no match
+  // Marketplace purchase price (OpenSea, OTG Marketplace, etc.)
   purchasePriceGun: currentPurchaseData?.purchasePriceGun ?? null,
   purchasePriceUsd: currentPurchaseData?.purchasePriceUsd ?? null,
   purchaseDate: toIsoStringSafe(currentPurchaseData?.purchaseDate) ?? null,
   marketplaceTxHash: currentPurchaseData?.marketplaceTxHash ?? null,
+
+  // Decode/Mint cost (in-game, NOT marketplace)
+  decodeCostGun: currentPurchaseData?.decodeCostGun ?? null,
+  decodeCostUsd: currentPurchaseData?.decodeCostUsd ?? null,
 
   // Legacy
   transferredFrom: currentPurchaseData?.transferredFrom ?? null,
@@ -2038,9 +2484,81 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 }, null, 2)}
                         </pre>
                       </div>
-                      {/* Debug: Transfer derivation details */}
+                      {/* Debug: Holding Acquisition from RPC (getNFTHoldingAcquisition) */}
                       <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">transfer derivation:</span>
+                        <span className="text-cyan-400 font-semibold">holding acquisition (RPC):</span>
+                        <pre className="text-cyan-200 mt-1 whitespace-pre-wrap break-all text-[10px] bg-cyan-500/5 p-2 rounded">
+{JSON.stringify(holdingAcquisitionRaw, null, 2)}
+                        </pre>
+                        <div className="mt-2 ml-2 text-[10px] space-y-1">
+                          <div>
+                            <span className="text-cyan-400/50">owned:</span>{' '}
+                            <span className={`font-semibold ${holdingAcquisitionRaw?.owned ? 'text-green-400' : 'text-rose-400'}`}>
+                              {holdingAcquisitionRaw?.owned?.toString() ?? 'null'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-cyan-400/50">acquisitionVenue:</span>{' '}
+                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.venue ?? 'null'}</span>
+                          </div>
+                          <div>
+                            <span className="text-cyan-400/50">acquisitionTxHash:</span>{' '}
+                            <span className="text-cyan-200/80 break-all">{holdingAcquisitionRaw?.txHash ?? 'null'}</span>
+                          </div>
+                          <div>
+                            <span className="text-cyan-400/50">costGun:</span>{' '}
+                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.costGun ?? 'null'}</span>
+                          </div>
+                          <div>
+                            <span className="text-cyan-400/50">fromAddress:</span>{' '}
+                            <span className="text-cyan-200/80 break-all">{holdingAcquisitionRaw?.fromAddress ?? 'null'}</span>
+                          </div>
+                          <div>
+                            <span className="text-cyan-400/50">isMint:</span>{' '}
+                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.isMint?.toString() ?? 'null'}</span>
+                          </div>
+                          <div>
+                            <span className="text-cyan-400/50">acquiredAtIso:</span>{' '}
+                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.acquiredAtIso ?? 'null'}</span>
+                          </div>
+                          {/* Debug sub-fields */}
+                          {holdingAcquisitionRaw?.debug && (
+                            <div className="border-t border-cyan-500/20 pt-1 mt-1">
+                              <span className="text-cyan-400/50">debug.txTo:</span>{' '}
+                              <span className="text-cyan-200/80 break-all">{holdingAcquisitionRaw.debug.txTo ?? 'null'}</span>
+                            </div>
+                          )}
+                          {holdingAcquisitionRaw?.debug && (
+                            <div>
+                              <span className="text-cyan-400/50">debug.selector:</span>{' '}
+                              <span className="text-cyan-200/80">{holdingAcquisitionRaw.debug.selector ?? 'null'}</span>
+                            </div>
+                          )}
+                          {holdingAcquisitionRaw?.debug && (
+                            <div>
+                              <span className="text-cyan-400/50">debug.gunIsNative:</span>{' '}
+                              <span className="text-cyan-200/80">{holdingAcquisitionRaw.debug.gunIsNative?.toString() ?? 'null'}</span>
+                            </div>
+                          )}
+                          {holdingAcquisitionRaw?.debug && (
+                            <div>
+                              <span className="text-cyan-400/50">debug.matchedRule:</span>{' '}
+                              <span className="text-cyan-200/80">{holdingAcquisitionRaw.debug.matchedRule ?? 'null'}</span>
+                            </div>
+                          )}
+                          {holdingAcquisitionRaw?.debug && (
+                            <div>
+                              <span className="text-cyan-400/50">debug.hasOrderFulfilled:</span>{' '}
+                              <span className={`font-semibold ${holdingAcquisitionRaw.debug.hasOrderFulfilled ? 'text-green-400' : 'text-cyan-200/80'}`}>
+                                {holdingAcquisitionRaw.debug.hasOrderFulfilled?.toString() ?? 'null'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Debug: Transfer derivation details (legacy) */}
+                      <div className="border-t border-amber-500/20 pt-2">
+                        <span className="text-amber-400/70">transfer derivation (legacy):</span>
                         <div className="mt-1 ml-2 text-[10px] space-y-1">
                           <div>
                             <span className="text-amber-400/50">derivedAcquiredAt:</span>{' '}

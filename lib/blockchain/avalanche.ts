@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { TokenBalance, NFT, NFTPageResult, AcquisitionVenue } from '../types';
+import { TokenBalance, NFT, NFTPageResult, AcquisitionVenue, MetadataSource, NFTMetadataDebug } from '../types';
 
 // =============================================================================
 // Contract Deployment Block Configuration
@@ -24,6 +24,190 @@ const DEFAULT_LOOKBACK_BLOCKS = Math.floor((6 * 30 * 24 * 60 * 60) / 2); // ~6 m
 // Debug logging flag
 const DEBUG_ACQUISITION = process.env.NODE_ENV !== 'production';
 
+// Gunzscan API base URL (Blockscout API)
+const GUNZSCAN_API_BASE = process.env.NEXT_PUBLIC_GUNZ_EXPLORER_BASE || 'https://gunzscan.io';
+
+/**
+ * Fetch NFT metadata from Gunzscan Blockscout API
+ * Used as fallback when tokenURI metadata lacks description
+ * API: GET /api/v2/tokens/{contract}/instances/{tokenId}
+ */
+async function fetchGunzscanMetadata(
+  contractAddress: string,
+  tokenId: string
+): Promise<{ description?: string; name?: string; image?: string } | null> {
+  try {
+    const url = `${GUNZSCAN_API_BASE}/api/v2/tokens/${contractAddress}/instances/${tokenId}`;
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    // Blockscout API returns metadata nested under "metadata" field
+    const metadata = data?.metadata;
+    if (!metadata) {
+      return null;
+    }
+
+    return {
+      description: metadata.description,
+      name: metadata.name,
+      image: metadata.image,
+    };
+  } catch (error) {
+    console.warn(`[fetchGunzscanMetadata] Failed for token ${tokenId}:`, error);
+    return null;
+  }
+}
+
+// =============================================================================
+// Robust TokenURI Resolver
+// =============================================================================
+
+// IPFS gateways to try in order (with timeout)
+const IPFS_GATEWAYS = [
+  'https://ipfs.io/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+];
+
+// ResolvedMetadata uses MetadataSource from types.ts
+interface ResolvedMetadata {
+  name?: string;
+  description?: string;
+  image?: string;
+  attributes?: Array<{ trait_type: string; value: string }>;
+  source: MetadataSource;
+  tokenURI?: string; // Raw tokenURI for debug
+  error?: string; // Error message if resolution failed
+}
+
+/**
+ * Fetch with timeout
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Try fetching from multiple IPFS gateways with fallback
+ */
+async function fetchFromIPFS(cid: string, timeoutMs: number = 8000): Promise<any | null> {
+  for (const gateway of IPFS_GATEWAYS) {
+    try {
+      const url = `${gateway}${cid}`;
+      const response = await fetchWithTimeout(url, timeoutMs);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      // Try next gateway
+      if (DEBUG_ACQUISITION) {
+        console.warn(`[fetchFromIPFS] Gateway ${gateway} failed for ${cid}`);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve tokenURI to metadata with robust handling for all URI types
+ * Supports: http(s), ipfs://, data:application/json;base64, data:application/json;utf8
+ */
+async function resolveTokenURIMetadata(tokenURI: string): Promise<ResolvedMetadata> {
+  if (!tokenURI) {
+    return { source: 'none', error: 'Empty tokenURI' };
+  }
+
+  try {
+    // HTTP(S) URLs
+    if (tokenURI.startsWith('http://') || tokenURI.startsWith('https://')) {
+      const response = await fetchWithTimeout(tokenURI);
+      if (!response.ok) {
+        return { source: 'none', tokenURI, error: `HTTP ${response.status}` };
+      }
+      const metadata = await response.json();
+      return { ...metadata, source: 'tokenURI', tokenURI };
+    }
+
+    // IPFS URLs - try multiple gateways
+    if (tokenURI.startsWith('ipfs://')) {
+      const cid = tokenURI.slice('ipfs://'.length);
+      const metadata = await fetchFromIPFS(cid);
+      if (metadata) {
+        return { ...metadata, source: 'tokenURI', tokenURI };
+      }
+      return { source: 'none', tokenURI, error: 'All IPFS gateways failed' };
+    }
+
+    // Base64-encoded JSON data URI
+    if (tokenURI.startsWith('data:application/json;base64,')) {
+      const base64Data = tokenURI.slice('data:application/json;base64,'.length);
+      const jsonString = atob(base64Data);
+      const metadata = JSON.parse(jsonString);
+      return { ...metadata, source: 'tokenURI', tokenURI };
+    }
+
+    // UTF-8 encoded JSON data URI (with or without explicit utf8)
+    if (tokenURI.startsWith('data:application/json;utf8,') || tokenURI.startsWith('data:application/json,')) {
+      const prefix = tokenURI.startsWith('data:application/json;utf8,')
+        ? 'data:application/json;utf8,'
+        : 'data:application/json,';
+      const encodedData = tokenURI.slice(prefix.length);
+      const jsonString = decodeURIComponent(encodedData);
+      const metadata = JSON.parse(jsonString);
+      return { ...metadata, source: 'tokenURI', tokenURI };
+    }
+
+    // Unknown URI scheme
+    return { source: 'none', tokenURI, error: `Unknown URI scheme: ${tokenURI.slice(0, 20)}...` };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (DEBUG_ACQUISITION) {
+      console.warn(`[resolveTokenURIMetadata] Failed for ${tokenURI.slice(0, 50)}:`, error);
+    }
+    return { source: 'none', tokenURI, error: errorMessage };
+  }
+}
+
+/**
+ * Merge metadata from multiple sources, preserving non-empty values
+ * Priority: tokenURI > gunzscan > fallback
+ */
+function mergeMetadata(
+  primary: ResolvedMetadata,
+  fallback: { description?: string; name?: string; image?: string } | null
+): ResolvedMetadata {
+  // Helper to check if a string value is non-empty
+  const isNonEmpty = (val: unknown): val is string =>
+    typeof val === 'string' && val.trim().length > 0;
+
+  return {
+    name: isNonEmpty(primary.name) ? primary.name : (isNonEmpty(fallback?.name) ? fallback.name : primary.name),
+    description: isNonEmpty(primary.description) ? primary.description : (isNonEmpty(fallback?.description) ? fallback.description : undefined),
+    image: isNonEmpty(primary.image) ? primary.image : (isNonEmpty(fallback?.image) ? fallback.image : primary.image),
+    attributes: primary.attributes,
+    source: isNonEmpty(primary.description) ? primary.source : (isNonEmpty(fallback?.description) ? 'gunzscan' : primary.source),
+    tokenURI: primary.tokenURI,
+    error: primary.error,
+  };
+}
+
 // =============================================================================
 // Venue Classification Constants
 // =============================================================================
@@ -39,6 +223,13 @@ const SEAPORT_SELECTORS = new Set([
   '0x88147732', // matchAdvancedOrders
 ]);
 
+// Seaport contract address on GunzChain (OpenSea's deployed Seaport 1.6)
+const SEAPORT_GUNZCHAIN_ADDRESS = '0x00000000006687982678b03100b9bdc8be440814';
+
+// Seaport OrderFulfilled event topic0 (keccak256 of event signature)
+// Event: OrderFulfilled(bytes32,address,address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
+const ORDER_FULFILLED_TOPIC0 = '0x9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31';
+
 // Known OTG Marketplace selector
 const OTG_MARKETPLACE_SELECTOR = '0xdc2e6be8';
 
@@ -46,6 +237,11 @@ const OTG_MARKETPLACE_SELECTOR = '0xdc2e6be8';
 const DECODER_SELECTORS = new Set([
   '0x00000000', // placeholder - add actual decoder selectors
 ]);
+
+// In-game marketplace contract and trade event detection
+const IN_GAME_MARKETPLACE_ADDRESS = '0x4c9b291874fb5363e3a46cd3bf4a352ffa26a124';
+// Trade event topic0 from in-game marketplace (contains price in wei)
+const IN_GAME_TRADE_TOPIC0 = '0xdc1da0bf7038060851086ae316261313bb58ae31a3c217e4ba5f5baf0c7756b8';
 
 // =============================================================================
 // Helper Functions
@@ -135,6 +331,9 @@ export interface NFTHoldingAcquisition {
     selector?: string;
     gunIsNative?: boolean;
     matchedRule?: string;
+    hasOrderFulfilled?: boolean;
+    hasInGameTrade?: boolean;
+    inGameTradePriceWei?: string;
   };
 }
 
@@ -273,26 +472,25 @@ export class AvalancheService {
           const tokenId = await contract.tokenOfOwnerByIndex(walletAddress, i);
           const tokenURI = await contract.tokenURI(tokenId);
 
-          // Fetch metadata from tokenURI
-          let metadata: any = {};
-          try {
-            if (tokenURI.startsWith('http')) {
-              const response = await fetch(tokenURI);
-              metadata = await response.json();
-            } else if (tokenURI.startsWith('ipfs://')) {
-              const ipfsUrl = tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
-              const response = await fetch(ipfsUrl);
-              metadata = await response.json();
+          // Use robust tokenURI resolver with IPFS gateway fallback
+          let resolvedMeta = await resolveTokenURIMetadata(tokenURI);
+
+          // Fallback: If description is missing, try Gunzscan Blockscout API
+          if (!resolvedMeta.description && nftContractAddress) {
+            try {
+              const gunzscanMeta = await fetchGunzscanMetadata(nftContractAddress, tokenId.toString());
+              // Merge with priority: keep tokenURI values, fill in missing from gunzscan
+              resolvedMeta = mergeMetadata(resolvedMeta, gunzscanMeta);
+            } catch {
+              // Ignore fallback errors
             }
-          } catch (metadataError) {
-            console.warn(`Failed to fetch metadata for token ${tokenId}:`, metadataError);
           }
 
           // Process traits and extract mint number
-          const traits = metadata.attributes?.reduce((acc: any, attr: any) => {
-            acc[attr.trait_type] = attr.value;
+          const traits = resolvedMeta.attributes?.reduce((acc: Record<string, string>, attr) => {
+            acc[attr.trait_type] = String(attr.value);
             return acc;
-          }, {});
+          }, {} as Record<string, string>);
 
           // Extract mint number from traits (check various possible trait names)
           const mintNumber = traits?.['Mint Number'] ||
@@ -302,14 +500,31 @@ export class AvalancheService {
                             traits?.['Serial Number'] ||
                             traits?.['serialNumber'];
 
+          // Build metadata debug info
+          const metadataDebug: NFTMetadataDebug = {
+            tokenURI: tokenURI,
+            metadataSource: resolvedMeta.source,
+            hasDescription: !!resolvedMeta.description && resolvedMeta.description.trim().length > 0,
+            descriptionLength: resolvedMeta.description?.length ?? 0,
+            error: resolvedMeta.error,
+          };
+
+          // Convert IPFS image URLs to gateway URLs
+          let imageUrl = resolvedMeta.image || '';
+          if (imageUrl.startsWith('ipfs://')) {
+            imageUrl = imageUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+          }
+
           nfts.push({
             tokenId: tokenId.toString(),
             mintNumber: mintNumber?.toString(),
-            name: metadata.name || `NFT #${tokenId}`,
-            image: metadata.image?.replace('ipfs://', 'https://ipfs.io/ipfs/') || '',
+            name: resolvedMeta.name || `NFT #${tokenId}`,
+            description: resolvedMeta.description || undefined,
+            image: imageUrl,
             collection: 'Off The Grid NFT Collection',
             chain: 'avalanche',
             traits,
+            metadataDebug,
           });
         } catch (error) {
           console.error(`Error fetching NFT at index ${i}:`, error);
@@ -686,53 +901,89 @@ export class AvalancheService {
   }
 
   /**
+   * Check if receipt contains a Seaport OrderFulfilled event
+   */
+  private hasOrderFulfilledEvent(receipt: ethers.TransactionReceipt | null): boolean {
+    if (!receipt) return false;
+    return receipt.logs.some(
+      (log) => log.topics?.[0]?.toLowerCase() === ORDER_FULFILLED_TOPIC0.toLowerCase()
+    );
+  }
+
+  /**
+   * Find in-game marketplace trade event in receipt logs
+   * Returns the trade log if found, null otherwise
+   */
+  private findInGameTradeLog(receipt: ethers.TransactionReceipt | null): ethers.Log | null {
+    if (!receipt) return null;
+    return receipt.logs.find(
+      (log) => log.topics?.[0]?.toLowerCase() === IN_GAME_TRADE_TOPIC0.toLowerCase()
+    ) ?? null;
+  }
+
+  /**
    * Classify the acquisition venue based on transaction context
    */
   private classifyVenue(
     txTo: string | null,
     selector: string | null,
-    fromAddress: string
-  ): { venue: AcquisitionVenue; matchedRule: string } {
+    fromAddress: string,
+    receipt: ethers.TransactionReceipt | null
+  ): { venue: AcquisitionVenue; matchedRule: string; hasOrderFulfilled: boolean; hasInGameTrade: boolean; inGameTradeLog: ethers.Log | null } {
     const txToLower = normalizeAddr(txTo);
+    const hasOrderFulfilled = this.hasOrderFulfilledEvent(receipt);
+    const inGameTradeLog = this.findInGameTradeLog(receipt);
+    const hasInGameTrade = !!inGameTradeLog || txToLower === IN_GAME_MARKETPLACE_ADDRESS;
 
-    // Check for mint (from zero address)
+    // Check for decode/mint (from zero address = in-game hex decode)
     if (fromAddress === '0x0000000000000000000000000000000000000000') {
-      return { venue: 'mint', matchedRule: 'from_zero_address' };
+      return { venue: 'decode', matchedRule: 'decode_mint', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
 
-    // 1. Decoder contract check
-    const decoderContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_DECODER_CONTRACT);
-    if (decoderContract && txToLower === decoderContract) {
-      return { venue: 'decoder', matchedRule: 'decoder_contract_match' };
-    }
-    if (selector && DECODER_SELECTORS.has(selector)) {
-      return { venue: 'decoder', matchedRule: 'decoder_selector_match' };
+    // 1. OpenSea / Seaport check - MUST come before decoder check
+    // Check for Seaport GunzChain contract address OR OrderFulfilled event in receipt
+    if (txToLower === SEAPORT_GUNZCHAIN_ADDRESS || hasOrderFulfilled) {
+      return { venue: 'opensea', matchedRule: 'opensea_seaport_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
 
-    // 2. OTG Marketplace check
-    const marketplaceContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_MARKETPLACE_CONTRACT);
-    if (marketplaceContract && txToLower === marketplaceContract) {
-      return { venue: 'otg_marketplace', matchedRule: 'marketplace_contract_match' };
-    }
-    if (selector === OTG_MARKETPLACE_SELECTOR) {
-      return { venue: 'otg_marketplace', matchedRule: 'marketplace_selector_match' };
-    }
-
-    // 3. OpenSea / Seaport check
+    // Also check env-configured OpenSea contracts and Seaport selectors
     const openseaContracts = parseContractList(process.env.NEXT_PUBLIC_OPENSEA_CONTRACTS);
     if (openseaContracts.has(txToLower)) {
-      return { venue: 'opensea', matchedRule: 'opensea_contract_match' };
+      return { venue: 'opensea', matchedRule: 'opensea_contract_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
     if (selector && SEAPORT_SELECTORS.has(selector)) {
-      return { venue: 'opensea', matchedRule: 'seaport_selector_match' };
+      return { venue: 'opensea', matchedRule: 'seaport_selector_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
 
-    // 4. Default to transfer if we have tx.to, otherwise unknown
+    // 2. In-game marketplace check (trade event or contract address match)
+    if (hasInGameTrade) {
+      return { venue: 'in_game_marketplace', matchedRule: 'in_game_marketplace_trade_event', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
+    }
+
+    // 3. Decoder contract check
+    const decoderContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_DECODER_CONTRACT);
+    if (decoderContract && txToLower === decoderContract) {
+      return { venue: 'decoder', matchedRule: 'decoder_contract_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
+    }
+    if (selector && DECODER_SELECTORS.has(selector)) {
+      return { venue: 'decoder', matchedRule: 'decoder_selector_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
+    }
+
+    // 4. OTG Marketplace check (legacy - may be superseded by in_game_marketplace)
+    const marketplaceContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_MARKETPLACE_CONTRACT);
+    if (marketplaceContract && txToLower === marketplaceContract) {
+      return { venue: 'otg_marketplace', matchedRule: 'marketplace_contract_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
+    }
+    if (selector === OTG_MARKETPLACE_SELECTOR) {
+      return { venue: 'otg_marketplace', matchedRule: 'marketplace_selector_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
+    }
+
+    // 5. Default to transfer if we have tx.to, otherwise unknown
     if (txTo) {
-      return { venue: 'transfer', matchedRule: 'default_transfer' };
+      return { venue: 'transfer', matchedRule: 'default_transfer', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
 
-    return { venue: 'unknown', matchedRule: 'no_tx_to' };
+    return { venue: 'unknown', matchedRule: 'no_tx_to', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
   }
 
   /**
@@ -817,8 +1068,8 @@ export class AvalancheService {
       const txTo = tx?.to ?? null;
       const selector = getSelector(tx?.data);
 
-      // Classify venue
-      const { venue, matchedRule } = this.classifyVenue(txTo, selector, acquisitionEvent.from);
+      // Classify venue (pass receipt for OrderFulfilled and in-game trade detection)
+      const { venue, matchedRule, hasOrderFulfilled, hasInGameTrade, inGameTradeLog } = this.classifyVenue(txTo, selector, acquisitionEvent.from, receipt);
 
       if (DEBUG_ACQUISITION) {
         console.log(`[getNFTHoldingAcquisition] Venue classification:`, {
@@ -826,22 +1077,45 @@ export class AvalancheService {
           selector,
           venue,
           matchedRule,
+          hasOrderFulfilled,
+          hasInGameTrade,
         });
       }
 
       // Compute cost in GUN
       let costGun = 0;
+      let inGameTradePriceWei: string | undefined;
       const gunIsNative = await this.isGunNative();
       const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
 
-      if (!gunIsNative && receipt && gunTokenAddress) {
+      // Priority 1: Extract price from in-game marketplace trade event
+      if (hasInGameTrade && inGameTradeLog) {
+        try {
+          // The trade event data contains the price in wei (18 decimals)
+          const priceWei = inGameTradeLog.data && inGameTradeLog.data !== '0x'
+            ? BigInt(inGameTradeLog.data)
+            : BigInt(0);
+          inGameTradePriceWei = priceWei.toString();
+          costGun = parseFloat(ethers.formatUnits(priceWei, 18));
+
+          if (DEBUG_ACQUISITION) {
+            console.log(`[getNFTHoldingAcquisition] In-game marketplace price: ${costGun} GUN (${inGameTradePriceWei} wei)`);
+          }
+        } catch (parseError) {
+          console.warn('[getNFTHoldingAcquisition] Failed to parse in-game trade price:', parseError);
+        }
+      }
+      // Priority 2: ERC-20 GUN token transfers (if not in-game marketplace)
+      else if (!gunIsNative && receipt && gunTokenAddress) {
         // ERC-20 GUN: compute net outflow from receipt logs
         costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
 
         if (DEBUG_ACQUISITION) {
           console.log(`[getNFTHoldingAcquisition] ERC-20 GUN outflow: ${costGun}`);
         }
-      } else if (gunIsNative && tx) {
+      }
+      // Priority 3: Native GUN (tx.value)
+      else if (gunIsNative && tx) {
         // Native GUN: use tx.value if tx.from is the wallet
         const txFrom = normalizeAddr(tx.from);
         if (txFrom === walletLower && tx.value > BigInt(0)) {
@@ -867,6 +1141,9 @@ export class AvalancheService {
               selector: selector ?? undefined,
               gunIsNative,
               matchedRule,
+              hasOrderFulfilled,
+              hasInGameTrade,
+              inGameTradePriceWei,
             }
           : undefined,
       };

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { gunzExplorerAddressUrl } from '@/lib/explorer';
 
 interface WalletButtonProps {
   onWalletConnect?: (address: string) => void;
@@ -163,7 +164,7 @@ export default function WalletButton({
           </button>
 
           <a
-            href={`https://gunzscan.io/address/${walletAddress}`}
+            href={gunzExplorerAddressUrl(walletAddress)}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition"
