@@ -3,7 +3,7 @@
 import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
 import Image from 'next/image';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
 import { OpenSeaService } from '@/lib/api/opensea';
@@ -17,6 +17,31 @@ import {
   CachedNFTDetailData,
 } from '@/lib/utils/nftCache';
 import { gunzExplorerAddressUrl, gunzExplorerTxUrl } from '@/lib/explorer';
+import {
+  computeMarketReference,
+  determineCostBasis,
+  formatRelativeTime,
+  computePositionLabel,
+  type MarketReferenceResult,
+  type PositionLabelResult,
+} from '@/lib/market/marketReference';
+
+// Per-token listing data cache entry
+interface TokenListingData {
+  lowest?: number;
+  highest?: number;
+  average?: number;
+  ordersCount?: number;
+  updatedAtIso?: string;
+  error?: string;
+  /** Upstream HTTP status code from OpenSea proxy (0 if no upstream call) */
+  upstreamStatus?: number;
+  /** True if error is transient (429/5xx) - should NOT be cached */
+  transient?: boolean;
+}
+
+// Soft TTL for listings cache (5 minutes)
+const LISTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 // Safe ISO string converter - handles Date, string, number (ms), { seconds } objects
 // Never throws, returns null for invalid/missing values
@@ -49,122 +74,6 @@ function toIsoStringSafe(value: unknown): string | null {
   } catch {
     return null;
   }
-}
-
-// Market data quality types (spread-based only)
-type DataQualityLevel = 'strong' | 'fair' | 'limited';
-
-// Position label states
-type PositionState = 'UP' | 'DOWN' | 'FLAT' | 'NO_COST_BASIS' | 'NO_MARKET_REF';
-
-interface PositionLabelResult {
-  state: PositionState;
-  pnlPct: number | null;
-  pnlGun: number | null;
-  marketRefGun: number | null;
-  dataQuality: DataQualityLevel | null;
-}
-
-interface GetPositionLabelInput {
-  acquisitionPriceGun: number | null | undefined;
-  priceLow: number | null | undefined;
-  priceHigh: number | null | undefined;
-}
-
-// Pure function to compute position label per spec
-function getPositionLabel(input: GetPositionLabelInput): PositionLabelResult {
-  const { acquisitionPriceGun, priceLow, priceHigh } = input;
-  const epsilon = 1e-9;
-
-  // Validate acquisition price
-  const hasValidAcquisition =
-    acquisitionPriceGun !== null &&
-    acquisitionPriceGun !== undefined &&
-    !isNaN(acquisitionPriceGun) &&
-    acquisitionPriceGun >= 0.000001; // Treat extremely small as missing
-
-  // Compute market reference (midpoint or single bound)
-  let marketRefGun: number | null = null;
-  const hasLow = priceLow !== null && priceLow !== undefined && !isNaN(priceLow) && priceLow >= 0;
-  const hasHigh = priceHigh !== null && priceHigh !== undefined && !isNaN(priceHigh) && priceHigh >= 0;
-
-  if (hasLow && hasHigh) {
-    marketRefGun = (priceLow + priceHigh) / 2;
-  } else if (hasLow) {
-    marketRefGun = priceLow;
-  } else if (hasHigh) {
-    marketRefGun = priceHigh;
-  }
-
-  // Compute data quality (only if both bounds exist)
-  let dataQuality: DataQualityLevel | null = null;
-  if (hasLow && hasHigh) {
-    const spreadRatio = (priceHigh - priceLow) / Math.max(priceLow, epsilon);
-    if (spreadRatio <= 0.25) dataQuality = 'strong';
-    else if (spreadRatio <= 0.60) dataQuality = 'fair';
-    else dataQuality = 'limited';
-  }
-
-  // Determine state based on missing data
-  if (marketRefGun === null) {
-    return {
-      state: 'NO_MARKET_REF',
-      pnlPct: null,
-      pnlGun: null,
-      marketRefGun: null,
-      dataQuality: null,
-    };
-  }
-
-  if (!hasValidAcquisition) {
-    return {
-      state: 'NO_COST_BASIS',
-      pnlPct: null,
-      pnlGun: null,
-      marketRefGun,
-      dataQuality,
-    };
-  }
-
-  // Compute P/L
-  const pnlGun = marketRefGun - acquisitionPriceGun!;
-  const pnlPct = pnlGun / Math.max(acquisitionPriceGun!, epsilon);
-
-  // Determine position state with ±3% deadband
-  let state: PositionState;
-  if (Math.abs(pnlPct) < 0.03) {
-    state = 'FLAT';
-  } else if (pnlPct >= 0.03) {
-    state = 'UP';
-  } else {
-    state = 'DOWN';
-  }
-
-  return {
-    state,
-    pnlPct,
-    pnlGun,
-    marketRefGun,
-    dataQuality,
-  };
-}
-
-// Calculate market data quality based solely on price spread
-// Does NOT use listing count or recency (not available from OpenSeaService)
-function calculateDataQuality(priceLow?: number, priceHigh?: number): DataQualityLevel | null {
-  // If we don't have both prices, return null (no quality to show)
-  if (priceLow === undefined || priceHigh === undefined) {
-    return null;
-  }
-
-  // Calculate spread ratio with epsilon to avoid division by zero
-  const epsilon = 0.0001;
-  const spreadRatio = (priceHigh - priceLow) / Math.max(priceLow, epsilon);
-
-  // Resolution logic per spec
-  if (spreadRatio <= 0.25) return 'strong';
-  if (spreadRatio <= 0.60) return 'fair';
-  return 'limited';
 }
 
 // Rarity order from highest to lowest
@@ -428,14 +337,17 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [itemPurchaseData, setItemPurchaseData] = useState<Record<string, AcquisitionData>>({});
-  const [listingsData, setListingsData] = useState<{
-    lowest?: number;
-    highest?: number;
-    average?: number;
-  } | null>(null);
+  // Per-token listings cache: keyed by tokenId
+  const [listingsByTokenId, setListingsByTokenId] = useState<Record<string, TokenListingData>>({});
   const [currentGunPrice, setCurrentGunPrice] = useState<number | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [relatedItemsExpanded, setRelatedItemsExpanded] = useState(false);
+
+  // Refs for race-safety and avoiding effect loops
+  const listingsAbortRef = useRef<AbortController | null>(null);
+  const listingsCacheRef = useRef<Record<string, TokenListingData>>({});
+  // Track which token is currently being fetched (to avoid duplicate clear/fetch in noCache mode)
+  const currentListingsTokenRef = useRef<string | null>(null);
 
   // Debug mode: enabled via ?debugNft=1 URL parameter
   // No-cache mode: enabled via ?noCache=1 - bypasses all cache reads for fresh data
@@ -507,6 +419,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     marketplaceMatchMethod: MarketplaceMatchMethod;
     // OpenSea error (if any)
     openSeaError?: string;
+    // OpenSea upstream status and transient flag (for debug)
+    openSeaUpstreamStatus?: number;
+    openSeaTransient?: boolean;
     // No-cache mode status
     noCacheEnabled: boolean;
     cacheBypassed: boolean;
@@ -548,7 +463,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     if (isOpen) {
       setActiveItemIndex(0);
       setItemPurchaseData({});
-      setListingsData(null);
+      setListingsByTokenId({}); // Reset per-token listings state
+      // CRITICAL: Also reset listings ref cache to prevent stale data on reopen
+      listingsCacheRef.current = {};
+      // Abort any in-flight listings fetch from previous session
+      listingsAbortRef.current?.abort();
+      listingsAbortRef.current = null;
       setCurrentGunPrice(null);
       setDetailsExpanded(false);
       setHoldingAcquisitionRaw(null); // Reset raw acquisition for fresh fetch
@@ -820,7 +740,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
       try {
         const avalancheService = new AvalancheService();
-        const openSeaService = new OpenSeaService();
         const coinGeckoService = new CoinGeckoService();
 
         if (!nftContractAddress) {
@@ -878,65 +797,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         }));
 
         // =====================================================================
-        // STEP 2: Load marketplace listings (price data source)
-        // =====================================================================
-        let marketplaceMatchCount = 0;
-
-        if (!listingsData) {
-          try {
-            const listings = await openSeaService.getNFTListings(nftContractAddress, tokenId, 'avalanche');
-            const lowest = listings.lowest ?? undefined;
-            const highest = listings.highest ?? undefined;
-            const average = lowest !== undefined && highest !== undefined
-              ? (lowest + highest) / 2
-              : lowest ?? highest;
-
-            marketplaceMatchCount = (lowest !== undefined ? 1 : 0) + (highest !== undefined ? 1 : 0);
-
-            if (debugMode) {
-              console.debug('[NFTDetailModal] Marketplace listings:', {
-                tokenId,
-                lowest,
-                highest,
-                average,
-                matchCount: marketplaceMatchCount,
-                error: listings.error,
-              });
-            }
-
-            // Update debug marketplace matches and any error
-            setDebugData(prev => ({
-              ...prev,
-              marketplaceMatches: marketplaceMatchCount,
-              openSeaError: listings.error,
-            }));
-
-            setListingsData({
-              lowest,
-              highest,
-              average,
-            });
-          } catch (openSeaError) {
-            // OpenSea failure is non-blocking
-            const errorMsg = openSeaError instanceof Error ? openSeaError.message : 'Unknown error';
-            console.warn('[NFTDetailModal] OpenSea fetch failed (non-blocking):', errorMsg);
-
-            setDebugData(prev => ({
-              ...prev,
-              marketplaceMatches: 0,
-              openSeaError: errorMsg,
-            }));
-
-            setListingsData({
-              lowest: undefined,
-              highest: undefined,
-              average: undefined,
-            });
-          }
-        }
-
-        // =====================================================================
-        // STEP 3: Marketplace purchase matching (DUAL RETRIEVAL STRATEGY)
+        // STEP 2: Marketplace purchase matching (DUAL RETRIEVAL STRATEGY)
+        // Note: Listings fetch is handled in a separate effect for race-safety
         // Populate purchasePriceGun/purchaseDate ONLY when a marketplace match exists
         // =====================================================================
 
@@ -1620,7 +1482,213 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
     // Run loadItemDetails - pass whether this is a background refresh
     loadItemDetails(cacheRenderedFirst);
-  }, [isOpen, nft, walletAddress, activeItem, listingsData, debugMode, noCacheMode]);
+  }, [isOpen, nft, walletAddress, activeItem, debugMode, noCacheMode]);
+
+  // =========================================================================
+  // EFFECT: Listings fetch (separate from acquisition to avoid loops)
+  // Uses AbortController for race-safety when switching tokens
+  // =========================================================================
+  useEffect(() => {
+    if (!isOpen || !nft || !activeItem) {
+      return;
+    }
+
+    const tokenId = activeItem.tokenId;
+    const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '';
+
+    // Guard: contract address must be configured
+    if (!nftContractAddress) {
+      const errorData: TokenListingData = {
+        lowest: undefined,
+        highest: undefined,
+        average: undefined,
+        ordersCount: 0,
+        updatedAtIso: new Date().toISOString(),
+        error: 'Missing contract address configuration',
+      };
+      listingsCacheRef.current[tokenId] = errorData;
+      setListingsByTokenId(prev => ({ ...prev, [tokenId]: errorData }));
+      setDebugData(prev => ({ ...prev, openSeaError: 'Missing contract address' }));
+      return;
+    }
+
+    // Check cache using ref (to avoid triggering effect from state changes)
+    // In noCache mode, always fetch fresh data (bypass TTL check)
+    const cachedListing = listingsCacheRef.current[tokenId];
+    const cacheAge = cachedListing?.updatedAtIso
+      ? Date.now() - new Date(cachedListing.updatedAtIso).getTime()
+      : Infinity;
+    const needsFetch = noCacheMode || !cachedListing || cacheAge > LISTINGS_CACHE_TTL_MS;
+
+    if (!needsFetch) {
+      // Cache is fresh, no fetch needed
+      if (debugMode) {
+        console.debug('[NFTDetailModal] Listings cache fresh for token:', {
+          tokenId,
+          cacheAgeMs: cacheAge,
+        });
+      }
+      return;
+    }
+
+    // In noCache mode: clear existing listing state so UI shows "loading" state correctly
+    // and log once that we're forcing a fresh fetch
+    // BUT: don't clear if we're already fetching this same token (avoid duplicate clear/fetch)
+    if (noCacheMode && cachedListing && currentListingsTokenRef.current !== tokenId) {
+      if (debugMode) {
+        console.debug('[NFTDetailModal] noCache mode - clearing stale listing data and forcing fresh fetch for token:', tokenId);
+      }
+      // Clear the cached entry so UI doesn't show stale data during fetch
+      delete listingsCacheRef.current[tokenId];
+      setListingsByTokenId(prev => {
+        const next = { ...prev };
+        delete next[tokenId];
+        return next;
+      });
+    }
+
+    // Abort any previous listings fetch
+    listingsAbortRef.current?.abort();
+
+    // Create new abort controller for this fetch
+    const abortController = new AbortController();
+    listingsAbortRef.current = abortController;
+    // Track which token we're currently fetching
+    currentListingsTokenRef.current = tokenId;
+
+    let cancelled = false;
+
+    const fetchListings = async () => {
+      try {
+        const openSeaService = new OpenSeaService();
+        const listings = await openSeaService.getNFTListings(
+          nftContractAddress,
+          tokenId,
+          'avalanche',
+          { signal: abortController.signal, noStore: noCacheMode }
+        );
+
+        // Check if cancelled or aborted
+        if (cancelled || abortController.signal.aborted) {
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Listings fetch cancelled/aborted for token:', tokenId);
+          }
+          return;
+        }
+
+        const lowest = listings.lowest ?? undefined;
+        const highest = listings.highest ?? undefined;
+        const average = lowest !== undefined && highest !== undefined
+          ? (lowest + highest) / 2
+          : lowest ?? highest;
+
+        if (debugMode) {
+          console.debug('[NFTDetailModal] Listings fetched:', {
+            tokenId,
+            lowest,
+            highest,
+            average,
+            ordersCount: listings.ordersCount,
+            asOfIso: listings.asOfIso,
+            error: listings.error,
+            upstreamStatus: listings.upstreamStatus,
+            transient: listings.transient,
+          });
+        }
+
+        // Build new listing data
+        const newListingData: TokenListingData = {
+          lowest,
+          highest,
+          average,
+          ordersCount: listings.ordersCount ?? 0,
+          updatedAtIso: listings.asOfIso || new Date().toISOString(),
+          error: listings.error,
+          upstreamStatus: listings.upstreamStatus,
+          transient: listings.transient,
+        };
+
+        // Update ref mirror first (sync)
+        listingsCacheRef.current = {
+          ...listingsCacheRef.current,
+          [tokenId]: newListingData,
+        };
+
+        // Then update state (triggers re-render)
+        if (!cancelled) {
+          setListingsByTokenId(prev => ({
+            ...prev,
+            [tokenId]: newListingData,
+          }));
+
+          setDebugData(prev => ({
+            ...prev,
+            marketplaceMatches: listings.ordersCount ?? 0,
+            openSeaError: listings.error,
+            openSeaUpstreamStatus: listings.upstreamStatus,
+            openSeaTransient: listings.transient,
+          }));
+        }
+      } catch (error) {
+        // Check if aborted
+        if (error instanceof Error && error.name === 'AbortError') {
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Listings fetch aborted for token:', tokenId);
+          }
+          return;
+        }
+
+        if (cancelled) return;
+
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn('[NFTDetailModal] Listings fetch failed:', errorMsg);
+
+        const errorListingData: TokenListingData = {
+          lowest: undefined,
+          highest: undefined,
+          average: undefined,
+          ordersCount: 0,
+          updatedAtIso: new Date().toISOString(),
+          error: errorMsg,
+        };
+
+        // Update ref mirror
+        listingsCacheRef.current = {
+          ...listingsCacheRef.current,
+          [tokenId]: errorListingData,
+        };
+
+        // Update state
+        setListingsByTokenId(prev => ({
+          ...prev,
+          [tokenId]: errorListingData,
+        }));
+
+        setDebugData(prev => ({
+          ...prev,
+          marketplaceMatches: 0,
+          openSeaError: errorMsg,
+        }));
+      }
+    };
+
+    fetchListings().finally(() => {
+      // Clear the current token ref when fetch completes (success or error)
+      if (currentListingsTokenRef.current === tokenId) {
+        currentListingsTokenRef.current = null;
+      }
+    });
+
+    // Cleanup: abort on unmount or token change
+    return () => {
+      cancelled = true;
+      abortController.abort();
+      // Clear ref on cleanup
+      if (currentListingsTokenRef.current === tokenId) {
+        currentListingsTokenRef.current = null;
+      }
+    };
+  }, [isOpen, nft, activeItem, debugMode, noCacheMode]);
 
   // Close on Escape key
   useEffect(() => {
@@ -1641,6 +1709,27 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
   // Get current item's purchase data
   const currentPurchaseData = activeItem ? itemPurchaseData[activeItem.tokenId] : undefined;
+
+  // Get current item's listings data (per-token cache)
+  const currentListingsData = activeItem ? listingsByTokenId[activeItem.tokenId] : undefined;
+
+  // Compute cost basis (purchase price OR decode cost)
+  const costBasisResult = useMemo(() => {
+    return determineCostBasis({
+      purchasePriceGun: currentPurchaseData?.purchasePriceGun,
+      decodeCostGun: currentPurchaseData?.decodeCostGun,
+      isFreeTransfer: currentPurchaseData?.isFreeTransfer,
+    });
+  }, [currentPurchaseData?.purchasePriceGun, currentPurchaseData?.decodeCostGun, currentPurchaseData?.isFreeTransfer]);
+
+  // Compute market reference using the new module
+  const marketRefResult: MarketReferenceResult = useMemo(() => {
+    return computeMarketReference({
+      listingLow: currentListingsData?.lowest ?? null,
+      listingHigh: currentListingsData?.highest ?? null,
+      listingCount: currentListingsData?.ordersCount ?? null,
+    });
+  }, [currentListingsData?.lowest, currentListingsData?.highest, currentListingsData?.ordersCount]);
 
   // Filter traits to exclude "None" values
   const filteredTraits = useMemo(() => {
@@ -1679,31 +1768,35 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     return chain.toUpperCase();
   };
 
-  // Calculate market reference values
+  // Calculate market reference values (using new per-token data)
+  // NOTE: We no longer fall back to nft.floorPrice/ceilingPrice to avoid
+  // showing "Source: OpenSea listings" when we actually don't have listing data.
   const getMarketReference = () => {
-    const currentValue = listingsData?.average ?? nft.floorPrice ?? nft.ceilingPrice;
-    const purchasePrice = currentPurchaseData?.purchasePriceGun;
+    // Use computed market reference from the module - no fallback
+    const refGun = marketRefResult.refGun;
 
-    if (currentValue === undefined) {
+    // If no listing-based reference, return hasMarketData: false
+    if (refGun === null) {
       return { hasMarketData: false };
     }
 
-    const usdValue = currentGunPrice ? currentValue * currentGunPrice : undefined;
+    const usdValue = currentGunPrice ? refGun * currentGunPrice : undefined;
     let deltaPercent: number | undefined;
 
-    if (purchasePrice && purchasePrice > 0 && !currentPurchaseData?.isFreeTransfer) {
-      deltaPercent = ((currentValue - purchasePrice) / purchasePrice) * 100;
+    // Use cost basis (purchase OR decode) for P/L calculation
+    const { costBasisGun } = costBasisResult;
+    if (costBasisGun && costBasisGun > 0 && !currentPurchaseData?.isFreeTransfer) {
+      deltaPercent = ((refGun - costBasisGun) / costBasisGun) * 100;
     }
-
-    // Calculate data quality (spread-based only)
-    const dataQuality = calculateDataQuality(listingsData?.lowest, listingsData?.highest);
 
     return {
       hasMarketData: true,
-      gunValue: currentValue,
+      gunValue: refGun,
       usdValue,
       deltaPercent,
-      dataQuality,
+      quality: marketRefResult.quality,
+      qualityReason: marketRefResult.qualityReason,
+      method: marketRefResult.method,
     };
   };
 
@@ -1878,12 +1971,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
               {/* ===== 3) ValueHeroSection ===== */}
               {walletAddress && (() => {
-                // Compute position label
-                const positionLabel = getPositionLabel({
-                  acquisitionPriceGun: currentPurchaseData?.isFreeTransfer ? null : currentPurchaseData?.purchasePriceGun,
-                  priceLow: listingsData?.lowest,
-                  priceHigh: listingsData?.highest,
+                // Compute position label using the unified module
+                const effectiveCostBasis = currentPurchaseData?.isFreeTransfer ? null : costBasisResult.costBasisGun;
+                const positionLabel = computePositionLabel({
+                  costBasisGun: effectiveCostBasis,
+                  marketRef: marketRefResult,
                 });
+
+                // Check if we have listing-based market data (not fallback)
+                const hasListingData = marketRefResult.refGun !== null;
 
                 // Position pill styling based on state
                 const getPositionPillStyles = () => {
@@ -1924,7 +2020,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   }
                 };
 
-                // Tooltip text
+                // Tooltip text - use qualityReason from module when available
                 const getTooltipText = () => {
                   if (positionLabel.state === 'NO_COST_BASIS') {
                     return "We can't compute your position without an acquisition cost.";
@@ -1932,11 +2028,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   if (positionLabel.state === 'NO_MARKET_REF') {
                     return "No active listings found. Market reference may be unavailable in illiquid markets.";
                   }
-                  let tooltip = "Based on observed listings (low–high). Illiquid markets can be noisy.";
-                  if (positionLabel.dataQuality) {
-                    tooltip += ` Data quality: ${positionLabel.dataQuality.charAt(0).toUpperCase() + positionLabel.dataQuality.slice(1)} (based on price spread).`;
+                  // Use the qualityReason from the module if available
+                  if (positionLabel.qualityReason) {
+                    return `Based on observed listings. ${positionLabel.qualityReason}`;
                   }
-                  return tooltip;
+                  return "Based on observed listings (low–high). Illiquid markets can be noisy.";
                 };
 
                 return (
@@ -1984,17 +2080,28 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                             Unrealized: {positionLabel.pnlPct >= 0 ? '+' : ''}{(positionLabel.pnlPct * 100).toFixed(1)}%
                           </p>
                         )}
-                        {/* Data Quality - neutral styling, spread-based only */}
-                        {positionLabel.dataQuality && (
+                        {/* Data Quality - uses qualityReason from module */}
+                        {positionLabel.quality && (
                           <p
                             className="text-[11px] text-white/60 mt-2 inline-flex items-center gap-1 cursor-help"
-                            title="Based on observed price range only. Listings are sparse and may not reflect actual sale prices."
+                            title={positionLabel.qualityReason || 'Based on observed listings'}
                           >
                             Data Quality:{' '}
-                            <span className="capitalize">{positionLabel.dataQuality}</span>
+                            <span className="capitalize">{positionLabel.quality}</span>
                             <svg className="w-3 h-3 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
+                          </p>
+                        )}
+                        {/* Source and updated time - only show when we have listing data */}
+                        {hasListingData && (
+                          <p className="text-[10px] text-white/40 mt-1.5">
+                            Source: OpenSea listings
+                            {currentListingsData?.updatedAtIso && (
+                              <span className="ml-2">
+                                · Updated: {formatRelativeTime(new Date(currentListingsData.updatedAtIso))}
+                              </span>
+                            )}
                           </p>
                         )}
                       </div>
@@ -2028,7 +2135,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         <div className="h-8 w-12 bg-white/10 rounded animate-pulse" />
                       </div>
                     </div>
-                  ) : listingsData?.lowest !== undefined && listingsData?.highest !== undefined ? (
+                  ) : currentListingsData?.lowest !== undefined && currentListingsData?.highest !== undefined ? (
                     <div className="space-y-3">
                       {/* Horizontal range bar (bullet chart pattern) */}
                       <div className="relative h-3">
@@ -2037,8 +2144,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                         {/* Average tick - subtle white vertical line */}
                         {(() => {
-                          const avg = listingsData.average ?? (listingsData.lowest + listingsData.highest) / 2;
-                          const avgPos = getPositionOnRange(avg, listingsData.lowest, listingsData.highest);
+                          const avg = currentListingsData.average ?? (currentListingsData.lowest + currentListingsData.highest) / 2;
+                          const avgPos = getPositionOnRange(avg, currentListingsData.lowest, currentListingsData.highest);
                           return (
                             <div
                               className="absolute top-0 bottom-0 w-0.5 bg-white/40"
@@ -2047,22 +2154,23 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           );
                         })()}
 
-                        {/* Acquisition price marker - dot */}
-                        {currentPurchaseData?.purchasePriceGun !== undefined && !currentPurchaseData.isFreeTransfer && (
+                        {/* Cost basis marker - dot (uses purchase OR decode cost) */}
+                        {costBasisResult.costBasisGun !== null && !currentPurchaseData?.isFreeTransfer && (
                           (() => {
-                            const acqPrice = currentPurchaseData.purchasePriceGun;
-                            const avg = listingsData.average ?? (listingsData.lowest + listingsData.highest) / 2;
-                            const acqPos = getPositionOnRange(acqPrice, listingsData.lowest, listingsData.highest);
-                            const isGoodDeal = acqPrice < avg;
+                            const costBasis = costBasisResult.costBasisGun;
+                            const avg = currentListingsData.average ?? (currentListingsData.lowest + currentListingsData.highest) / 2;
+                            const costPos = getPositionOnRange(costBasis, currentListingsData.lowest, currentListingsData.highest);
+                            const isGoodDeal = costBasis < avg;
+                            const label = costBasisResult.source === 'decode' ? 'Decode Cost' : 'Acquisition';
                             return (
                               <div
                                 className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]"
                                 style={{
-                                  left: `${acqPos}%`,
+                                  left: `${costPos}%`,
                                   transform: 'translate(-50%, -50%)',
                                   backgroundColor: isGoodDeal ? '#4ade80' : '#f87171',
                                 }}
-                                title={`Acquisition: ${acqPrice.toLocaleString()} GUN`}
+                                title={`${label}: ${costBasis.toLocaleString()} GUN`}
                               />
                             );
                           })()
@@ -2071,7 +2179,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         {/* Current reference marker - emphasized diamond/dot */}
                         {marketRef.gunValue !== undefined && (
                           (() => {
-                            const refPos = getPositionOnRange(marketRef.gunValue, listingsData.lowest, listingsData.highest);
+                            const refPos = getPositionOnRange(marketRef.gunValue, currentListingsData.lowest, currentListingsData.highest);
                             return (
                               <div
                                 className="absolute top-1/2 w-3 h-3 rotate-45 border-2 border-[#0d0d0d]"
@@ -2092,19 +2200,19 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         <div className="text-left">
                           <p className="text-white/40">Low</p>
                           <p className="font-medium text-white/70">
-                            {listingsData.lowest.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {currentListingsData.lowest.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </p>
                         </div>
                         <div className="text-center">
                           <p className="text-white/40">Avg</p>
                           <p className="font-medium text-white/70">
-                            {(listingsData.average ?? (listingsData.lowest + listingsData.highest) / 2).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {(currentListingsData.average ?? (currentListingsData.lowest + currentListingsData.highest) / 2).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-white/40">High</p>
                           <p className="font-medium text-white/70">
-                            {listingsData.highest.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {currentListingsData.highest.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </p>
                         </div>
                       </div>
@@ -2361,7 +2469,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   </button>
 
                   {debugExpanded && (
-                    <div className="mt-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20 font-mono text-xs space-y-2">
+                    <div className="mt-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20 font-mono text-xs space-y-2 select-text">
                       {/* NoCache mode indicator */}
                       {debugData.noCacheEnabled && (
                         <div className="bg-purple-500/20 border border-purple-500/30 rounded px-2 py-1 mb-2">
@@ -2763,10 +2871,43 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           <span className="text-rose-400 text-[10px]">{debugData.openSeaError}</span>
                         </div>
                       )}
+                      {debugData.openSeaUpstreamStatus !== undefined && (
+                        <div>
+                          <span className="text-amber-400/70">openSeaUpstreamStatus:</span>{' '}
+                          <span className={`font-semibold ${
+                            debugData.openSeaUpstreamStatus === 200 ? 'text-green-400' :
+                            debugData.openSeaUpstreamStatus === 0 ? 'text-amber-200' :
+                            debugData.openSeaUpstreamStatus >= 500 || debugData.openSeaUpstreamStatus === 429 ? 'text-yellow-400' :
+                            'text-rose-400'
+                          }`}>
+                            {debugData.openSeaUpstreamStatus}
+                          </span>
+                        </div>
+                      )}
+                      {debugData.openSeaTransient !== undefined && (
+                        <div>
+                          <span className="text-amber-400/70">openSeaTransient:</span>{' '}
+                          <span className={`font-semibold ${debugData.openSeaTransient ? 'text-yellow-400' : 'text-green-400'}`}>
+                            {debugData.openSeaTransient ? 'true (not cached)' : 'false'}
+                          </span>
+                        </div>
+                      )}
                       <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">listingsData:</span>
+                        <span className="text-amber-400/70">currentListingsData:</span>
                         <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all">
-{JSON.stringify(listingsData, null, 2)}
+{JSON.stringify(currentListingsData, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="border-t border-amber-500/20 pt-2">
+                        <span className="text-amber-400/70">marketRefResult:</span>
+                        <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all">
+{JSON.stringify(marketRefResult, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="border-t border-amber-500/20 pt-2">
+                        <span className="text-amber-400/70">costBasisResult:</span>
+                        <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all">
+{JSON.stringify(costBasisResult, null, 2)}
                         </pre>
                       </div>
                     </div>

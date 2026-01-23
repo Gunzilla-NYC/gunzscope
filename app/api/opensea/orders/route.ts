@@ -7,14 +7,117 @@ interface OpenSeaOrdersResponse {
   ordersCount: number;
   lowest: number | null;
   highest: number | null;
+  asOfIso: string;
   error?: string;
+  /** Upstream HTTP status code (always present for client-side caching decisions) */
+  upstreamStatus: number;
+  /** True if upstream error is transient (429/5xx) and should NOT be cached by client */
+  transient: boolean;
   _debug?: {
     hasApiKey: boolean;
-    upstreamStatus: number;
     upstreamUrl: string;
     requestedChain: string;
     mappedChain: string;
   };
+}
+
+/**
+ * Determine if an HTTP status code represents a transient error.
+ * Transient errors (429, 5xx) should NOT be cached - they may recover.
+ * @pure - Can be unit tested
+ */
+export function isTransientStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+/**
+ * Determine if an HTTP status code should trigger failure caching.
+ * Only hard failures (401, 403, 404) should be cached.
+ * @pure - Can be unit tested
+ */
+export function shouldCacheFailureStatus(status: number): boolean {
+  return status === 401 || status === 403 || status === 404;
+}
+
+/**
+ * Safe conversion from wei (bigint) to decimal number.
+ * Avoids Number(BigInt) overflow for very large values by using string manipulation.
+ */
+function formatUnitsToNumber(value: bigint, decimals: number = 18): number {
+  const valueStr = value.toString();
+
+  // Handle zero
+  if (valueStr === '0') return 0;
+
+  // Pad with leading zeros if needed
+  const paddedValue = valueStr.padStart(decimals + 1, '0');
+  const integerPart = paddedValue.slice(0, -decimals) || '0';
+  const fractionalPart = paddedValue.slice(-decimals);
+
+  // Construct decimal string and parse
+  const decimalStr = `${integerPart}.${fractionalPart}`;
+  return parseFloat(decimalStr);
+}
+
+// Cache-Control header values
+const CACHE_NO_STORE = 'no-store';
+const CACHE_SUCCESS = 'public, s-maxage=300, stale-while-revalidate=60';
+const CACHE_HARD_FAILURE = 'public, s-maxage=600, stale-while-revalidate=60';
+
+/**
+ * Resolve the appropriate Cache-Control header based on request context.
+ *
+ * Priority:
+ * 1. debug=true → always no-store (bypass CDN for fresh data)
+ * 2. transient=true → no-store (don't cache 429/5xx)
+ * 3. hard failure (401/403/404) → cache for 10 min
+ * 4. success (2xx) → cache for 5 min
+ * 5. fallback → no-store
+ */
+function resolveCacheControl(opts: {
+  debug: boolean;
+  transient: boolean;
+  upstreamStatus: number;
+  ok: boolean;
+}): string {
+  const { debug, transient, upstreamStatus, ok } = opts;
+
+  // debug=1 always bypasses CDN caching
+  if (debug === true) {
+    return CACHE_NO_STORE;
+  }
+
+  // Transient errors (429, 5xx) should not be cached
+  if (transient === true) {
+    return CACHE_NO_STORE;
+  }
+
+  // Hard failures (401, 403, 404) can be cached longer
+  if (shouldCacheFailureStatus(upstreamStatus)) {
+    return CACHE_HARD_FAILURE;
+  }
+
+  // Success responses (2xx)
+  if (ok === true) {
+    return CACHE_SUCCESS;
+  }
+
+  // Fallback: don't cache
+  return CACHE_NO_STORE;
+}
+
+/**
+ * Create a NextResponse with uniform Cache-Control header handling.
+ * Ensures every response path has an explicit Cache-Control header set.
+ */
+function jsonWithCache(
+  body: OpenSeaOrdersResponse,
+  cacheControl: string,
+  status?: number
+): NextResponse {
+  const res = NextResponse.json(body, status ? { status } : undefined);
+  res.headers.set('Cache-Control', cacheControl);
+  return res;
 }
 
 export async function GET(request: NextRequest) {
@@ -24,18 +127,27 @@ export async function GET(request: NextRequest) {
   const tokenId = searchParams.get('tokenId');
   const debug = searchParams.get('debug') === '1';
 
+  // Server timestamp for cache freshness tracking
+  const asOfIso = new Date().toISOString();
+
   // Map chain to OpenSea slug (e.g., 'avalanche' -> 'gunzilla')
   const mappedChain = toOpenSeaChain(requestedChain);
 
-  // Param validation
+  // Param validation - client errors are not cached (no-store)
   if (!contract || !tokenId) {
-    const response: OpenSeaOrdersResponse = {
-      ordersCount: 0,
-      lowest: null,
-      highest: null,
-      error: 'Missing required parameters: contract, tokenId',
-    };
-    return NextResponse.json(response, { status: 400 });
+    return jsonWithCache(
+      {
+        ordersCount: 0,
+        lowest: null,
+        highest: null,
+        asOfIso,
+        upstreamStatus: 0, // No upstream call made
+        transient: false, // Not transient - this is a client error (but still retriable after fixing params)
+        error: 'Missing required parameters: contract, tokenId',
+      },
+      resolveCacheControl({ debug, transient: false, upstreamStatus: 0, ok: false }),
+      400
+    );
   }
 
   const apiKey = process.env.OPENSEA_API_KEY;
@@ -51,97 +163,138 @@ export async function GET(request: NextRequest) {
   const upstreamUrl = `${OPENSEA_API_BASE}/orders/${mappedChain}/seaport/listings?asset_contract_address=${contract}&token_ids=${tokenId}&limit=50`;
 
   try {
-    const fetchOptions: RequestInit = {
-      headers,
-    };
-
-    // Use cache: 'no-store' for debug requests, otherwise revalidate every 5 minutes
-    if (debug) {
-      fetchOptions.cache = 'no-store';
-    } else {
-      (fetchOptions as any).next = { revalidate: 300 };
-    }
-
-    const upstreamResponse = await fetch(upstreamUrl, fetchOptions);
-    const upstreamStatus = upstreamResponse.status;
-
     // Build debug info (only included if debug=1)
     const debugInfo = debug
       ? {
           hasApiKey: !!apiKey,
-          upstreamStatus,
           upstreamUrl,
           requestedChain,
           mappedChain,
         }
       : undefined;
 
-    if (!upstreamResponse.ok) {
-      // Return empty result on OpenSea errors (rate limit, not found, etc)
-      console.warn(`OpenSea API error: ${upstreamStatus} for ${contract}/${tokenId}`);
+    // ALWAYS fetch upstream with no-store to avoid Next.js caching transient errors
+    // We control caching via response Cache-Control headers instead
+    const fetchOptions: RequestInit = {
+      headers,
+      cache: 'no-store',
+    };
 
-      const response: OpenSeaOrdersResponse = {
-        ordersCount: 0,
-        lowest: null,
-        highest: null,
-        error: `OpenSea API error: ${upstreamStatus}`,
-        _debug: debugInfo,
-      };
-      return NextResponse.json(response);
+    const upstreamResponse = await fetch(upstreamUrl, fetchOptions);
+    const upstreamStatus = upstreamResponse.status;
+    const transient = isTransientStatus(upstreamStatus);
+
+    if (!upstreamResponse.ok) {
+      // Build specific error message based on status code
+      let errorMsg: string;
+      if (upstreamStatus === 429) {
+        errorMsg = 'OpenSea rate limited (429)';
+        console.warn(`[OpenSea] Rate limited for ${contract}/${tokenId}`);
+      } else if (upstreamStatus === 401 || upstreamStatus === 403) {
+        errorMsg = `OpenSea auth error (${upstreamStatus})`;
+        console.warn(`[OpenSea] Auth error ${upstreamStatus} for ${contract}/${tokenId}`);
+      } else if (upstreamStatus === 404) {
+        errorMsg = 'OpenSea not found (404)';
+        console.warn(`[OpenSea] Not found for ${contract}/${tokenId}`);
+      } else if (upstreamStatus >= 500) {
+        errorMsg = `OpenSea upstream error (${upstreamStatus})`;
+        console.warn(`[OpenSea] Upstream error ${upstreamStatus} for ${contract}/${tokenId}`);
+      } else {
+        errorMsg = `OpenSea API error (${upstreamStatus})`;
+        console.warn(`[OpenSea] API error ${upstreamStatus} for ${contract}/${tokenId}`);
+      }
+
+      // Return 200 with error field to keep UI non-blocking
+      // Cache-Control resolved via resolveCacheControl (respects debug=1)
+      return jsonWithCache(
+        {
+          ordersCount: 0,
+          lowest: null,
+          highest: null,
+          asOfIso,
+          upstreamStatus,
+          transient,
+          error: errorMsg,
+          _debug: debugInfo,
+        },
+        resolveCacheControl({ debug, transient, upstreamStatus, ok: false })
+      );
     }
 
     const data = await upstreamResponse.json();
     const orders = data?.orders || [];
 
     if (orders.length === 0) {
-      const response: OpenSeaOrdersResponse = {
-        ordersCount: 0,
-        lowest: null,
-        highest: null,
-        _debug: debugInfo,
-      };
-      return NextResponse.json(response);
+      return jsonWithCache(
+        {
+          ordersCount: 0,
+          lowest: null,
+          highest: null,
+          asOfIso,
+          upstreamStatus,
+          transient: false, // Success response (2xx with empty data)
+          _debug: debugInfo,
+        },
+        resolveCacheControl({ debug, transient: false, upstreamStatus, ok: true })
+      );
     }
 
-    // Extract prices from orders
+    // Extract prices from orders using safe bigint conversion
     // OpenSea Seaport orders have current_price in wei
     const prices = orders
       .filter((order: any) => order.current_price)
       .map((order: any) => {
-        // current_price is in wei, convert to ether (assuming 18 decimals)
-        const priceWei = BigInt(order.current_price);
-        return Number(priceWei) / 1e18;
+        try {
+          const priceWei = BigInt(order.current_price);
+          return formatUnitsToNumber(priceWei, 18);
+        } catch {
+          // Skip orders with invalid price format
+          return 0;
+        }
       })
       .filter((price: number) => price > 0);
 
     const lowest = prices.length > 0 ? Math.min(...prices) : null;
     const highest = prices.length > 0 ? Math.max(...prices) : null;
 
-    const response: OpenSeaOrdersResponse = {
-      ordersCount: orders.length,
-      lowest,
-      highest,
-      _debug: debugInfo,
-    };
-    return NextResponse.json(response);
+    return jsonWithCache(
+      {
+        ordersCount: orders.length,
+        lowest,
+        highest,
+        asOfIso,
+        upstreamStatus,
+        transient: false, // Success response
+        _debug: debugInfo,
+      },
+      resolveCacheControl({ debug, transient: false, upstreamStatus, ok: true })
+    );
   } catch (error) {
     console.error('Error in OpenSea orders API:', error);
 
-    const response: OpenSeaOrdersResponse = {
-      ordersCount: 0,
-      lowest: null,
-      highest: null,
-      error: 'Internal server error',
-      _debug: debug
-        ? {
-            hasApiKey: !!apiKey,
-            upstreamStatus: 0,
-            upstreamUrl,
-            requestedChain,
-            mappedChain,
-          }
-        : undefined,
-    };
-    return NextResponse.json(response);
+    // Internal/network errors are transient (transient=true) because:
+    // - The request never reached OpenSea or failed mid-flight
+    // - Client should retry since the issue may be temporary
+    // - We return no-store to prevent caching this failure
+    return jsonWithCache(
+      {
+        ordersCount: 0,
+        lowest: null,
+        highest: null,
+        asOfIso,
+        upstreamStatus: 0, // No upstream response received
+        transient: true, // Internal/network errors are transient - retry allowed
+        error: 'Internal server error',
+        _debug: debug
+          ? {
+              hasApiKey: !!apiKey,
+              upstreamUrl,
+              requestedChain,
+              mappedChain,
+            }
+          : undefined,
+      },
+      resolveCacheControl({ debug, transient: true, upstreamStatus: 0, ok: false })
+    );
   }
 }

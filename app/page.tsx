@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { PortfolioHeader } from '@/components/header';
-import TokenBalance from '@/components/TokenBalance';
+import HoldingsSection from '@/components/HoldingsSection';
 import NFTGallery from '@/components/NFTGallery';
 import MarketplaceStats from '@/components/MarketplaceStats';
 import { WalletData, MarketplaceData, NFTPaginationInfo } from '@/lib/types';
@@ -600,18 +600,12 @@ export default function Home() {
               totalOwnedCount={nftPagination.totalOwnedCount}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <TokenBalance
-                balance={walletData.avalanche.gunToken}
-                chain="avalanche"
-                price={gunPrice}
-              />
-              <TokenBalance
-                balance={walletData.solana.gunToken}
-                chain="solana"
-                price={gunPrice}
-              />
-            </div>
+            <HoldingsSection
+              gunzBalance={walletData.avalanche.gunToken}
+              solanaBalance={walletData.solana.gunToken}
+              gunPrice={gunPrice}
+              nftCount={nftPagination.totalOwnedCount}
+            />
 
             <MarketplaceStats data={marketplaceData} />
 
