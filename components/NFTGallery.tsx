@@ -8,6 +8,7 @@ import { buildTokenKey } from '@/lib/utils/nftCache';
 
 type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'floor-asc' | 'floor-desc' | 'quantity-desc' | 'rarity-high' | 'rarity-low';
 type ViewMode = 'small' | 'medium' | 'list';
+type RarityFilter = 'all' | 'Mythic' | 'Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common';
 
 interface NFTGalleryProps {
   nfts: NFT[];
@@ -17,24 +18,25 @@ interface NFTGalleryProps {
   onLoadMore?: () => void;
 }
 
-// Rarity color mapping based on NFT traits (matches NFTDetailModal colors)
+// Rarity color mapping
+const RARITY_COLORS: Record<string, string> = {
+  Mythic: '#ff44ff',    // Bright magenta
+  Legendary: '#ff8800', // Orange
+  Epic: '#cc44ff',      // Purple
+  Rare: '#4488ff',      // Blue
+  Uncommon: '#44ff44',  // Green
+  Common: '#888888',    // Gray
+};
+
+// Rarity color from NFT traits (matches NFTDetailModal colors)
 function getRarityColor(nft: NFT): string {
   const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '';
-  switch (rarity) {
-    case 'Mythic':
-      return '#ff44ff'; // Bright magenta
-    case 'Legendary':
-      return '#ff8800'; // Orange
-    case 'Epic':
-      return '#cc44ff'; // Purple
-    case 'Rare':
-      return '#4488ff'; // Blue
-    case 'Uncommon':
-      return '#44ff44'; // Green
-    case 'Common':
-    default:
-      return '#888888'; // Gray
-  }
+  return RARITY_COLORS[rarity] || '#888888';
+}
+
+// Rarity color from rarity string (for filter tag)
+function getRarityColorByName(rarity: string): string {
+  return RARITY_COLORS[rarity] || '#888888';
 }
 
 // Get rarity rank for sorting (lower = rarer)
@@ -147,6 +149,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name-asc');
   const [selectedItemClass, setSelectedItemClass] = useState<string>('all');
+  const [selectedRarity, setSelectedRarity] = useState<RarityFilter>('all');
   // Default view: small grid if >16 NFTs, medium grid if <=16
   const [viewMode, setViewMode] = useState<ViewMode>(() => nfts.length > 16 ? 'small' : 'medium');
 
@@ -194,8 +197,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     return false;
   };
 
-  // Filter and sort NFTs
-  const filteredAndSortedNFTs = useMemo(() => {
+  // Filter NFTs by search and item class (before rarity filter, for counting)
+  const preRarityFilteredNFTs = useMemo(() => {
     let result = [...nfts];
 
     // Apply search filter
@@ -230,6 +233,37 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     // Item class filter (Collections dropdown)
     if (selectedItemClass !== 'all') {
       result = result.filter(nft => getItemClass(nft) === selectedItemClass);
+    }
+
+    return result;
+  }, [nfts, searchQuery, selectedItemClass]);
+
+  // Calculate rarity counts from pre-rarity-filtered NFTs (so counts are always visible)
+  const rarityCounts = useMemo(() => {
+    const counts = {
+      Mythic: 0,
+      Legendary: 0,
+      Epic: 0,
+      Rare: 0,
+      Uncommon: 0,
+      Common: 0,
+    };
+    for (const nft of preRarityFilteredNFTs) {
+      const rarity = getRarityName(nft);
+      if (rarity in counts) {
+        counts[rarity as keyof typeof counts] += nft.quantity || 1;
+      }
+    }
+    return counts;
+  }, [preRarityFilteredNFTs]);
+
+  // Apply rarity filter and sorting
+  const filteredAndSortedNFTs = useMemo(() => {
+    let result = [...preRarityFilteredNFTs];
+
+    // Apply rarity filter
+    if (selectedRarity !== 'all') {
+      result = result.filter(nft => getRarityName(nft) === selectedRarity);
     }
 
     // Apply sorting
@@ -294,26 +328,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     });
 
     return result;
-  }, [nfts, searchQuery, selectedItemClass, sortBy]);
-
-  // Calculate rarity counts from filtered NFTs
-  const rarityCounts = useMemo(() => {
-    const counts = {
-      Mythic: 0,
-      Legendary: 0,
-      Epic: 0,
-      Rare: 0,
-      Uncommon: 0,
-      Common: 0,
-    };
-    for (const nft of filteredAndSortedNFTs) {
-      const rarity = getRarityName(nft);
-      if (rarity in counts) {
-        counts[rarity as keyof typeof counts] += nft.quantity || 1;
-      }
-    }
-    return counts;
-  }, [filteredAndSortedNFTs]);
+  }, [preRarityFilteredNFTs, selectedRarity, sortBy]);
 
   const handleNFTClick = (nft: NFT) => {
     // Build unique token key for modal keying
@@ -336,10 +351,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedItemClass('all');
+    setSelectedRarity('all');
     setSortBy('name-asc');
   };
 
-  const hasActiveFilters = searchQuery || selectedItemClass !== 'all' || sortBy !== 'name-asc';
+  const hasActiveFilters = searchQuery || selectedItemClass !== 'all' || selectedRarity !== 'all' || sortBy !== 'name-asc';
 
   if (nfts.length === 0) {
     return (
@@ -513,46 +529,122 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               </button>
             </span>
           )}
+          {selectedRarity !== 'all' && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border"
+              style={{
+                backgroundColor: `${getRarityColorByName(selectedRarity)}20`,
+                color: getRarityColorByName(selectedRarity),
+                borderColor: `${getRarityColorByName(selectedRarity)}50`,
+              }}
+            >
+              {selectedRarity}
+              <button onClick={() => setSelectedRarity('all')} className="hover:text-white ml-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
         </div>
 
-        {/* Rarity Counters */}
-        <div className="flex flex-wrap items-center gap-3 text-xs">
+        {/* Rarity Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="text-gray-500">Rarity:</span>
+          {/* All pill */}
+          <button
+            onClick={() => setSelectedRarity('all')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+              selectedRarity === 'all'
+                ? 'bg-white/15 border-white/40 text-white'
+                : 'bg-transparent border-white/20 text-gray-400 hover:border-white/30 hover:text-gray-300'
+            }`}
+          >
+            All
+          </button>
           {rarityCounts.Mythic > 0 && (
-            <span className="flex items-center gap-1">
+            <button
+              onClick={() => setSelectedRarity(selectedRarity === 'Mythic' ? 'all' : 'Mythic')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+                selectedRarity === 'Mythic'
+                  ? 'border-[#ff44ff]/60 bg-[#ff44ff]/20'
+                  : 'border-[#ff44ff]/30 bg-transparent hover:border-[#ff44ff]/50 hover:bg-[#ff44ff]/10'
+              }`}
+              style={{ color: '#ff44ff' }}
+            >
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ff44ff' }}></span>
-              <span style={{ color: '#ff44ff' }}>Mythic: {rarityCounts.Mythic}</span>
-            </span>
+              Mythic: {rarityCounts.Mythic}
+            </button>
           )}
           {rarityCounts.Legendary > 0 && (
-            <span className="flex items-center gap-1">
+            <button
+              onClick={() => setSelectedRarity(selectedRarity === 'Legendary' ? 'all' : 'Legendary')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+                selectedRarity === 'Legendary'
+                  ? 'border-[#ff8800]/60 bg-[#ff8800]/20'
+                  : 'border-[#ff8800]/30 bg-transparent hover:border-[#ff8800]/50 hover:bg-[#ff8800]/10'
+              }`}
+              style={{ color: '#ff8800' }}
+            >
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ff8800' }}></span>
-              <span style={{ color: '#ff8800' }}>Legendary: {rarityCounts.Legendary}</span>
-            </span>
+              Legendary: {rarityCounts.Legendary}
+            </button>
           )}
           {rarityCounts.Epic > 0 && (
-            <span className="flex items-center gap-1">
+            <button
+              onClick={() => setSelectedRarity(selectedRarity === 'Epic' ? 'all' : 'Epic')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+                selectedRarity === 'Epic'
+                  ? 'border-[#cc44ff]/60 bg-[#cc44ff]/20'
+                  : 'border-[#cc44ff]/30 bg-transparent hover:border-[#cc44ff]/50 hover:bg-[#cc44ff]/10'
+              }`}
+              style={{ color: '#cc44ff' }}
+            >
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#cc44ff' }}></span>
-              <span style={{ color: '#cc44ff' }}>Epic: {rarityCounts.Epic}</span>
-            </span>
+              Epic: {rarityCounts.Epic}
+            </button>
           )}
           {rarityCounts.Rare > 0 && (
-            <span className="flex items-center gap-1">
+            <button
+              onClick={() => setSelectedRarity(selectedRarity === 'Rare' ? 'all' : 'Rare')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+                selectedRarity === 'Rare'
+                  ? 'border-[#4488ff]/60 bg-[#4488ff]/20'
+                  : 'border-[#4488ff]/30 bg-transparent hover:border-[#4488ff]/50 hover:bg-[#4488ff]/10'
+              }`}
+              style={{ color: '#4488ff' }}
+            >
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#4488ff' }}></span>
-              <span style={{ color: '#4488ff' }}>Rare: {rarityCounts.Rare}</span>
-            </span>
+              Rare: {rarityCounts.Rare}
+            </button>
           )}
           {rarityCounts.Uncommon > 0 && (
-            <span className="flex items-center gap-1">
+            <button
+              onClick={() => setSelectedRarity(selectedRarity === 'Uncommon' ? 'all' : 'Uncommon')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+                selectedRarity === 'Uncommon'
+                  ? 'border-[#44ff44]/60 bg-[#44ff44]/20'
+                  : 'border-[#44ff44]/30 bg-transparent hover:border-[#44ff44]/50 hover:bg-[#44ff44]/10'
+              }`}
+              style={{ color: '#44ff44' }}
+            >
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#44ff44' }}></span>
-              <span style={{ color: '#44ff44' }}>Uncommon: {rarityCounts.Uncommon}</span>
-            </span>
+              Uncommon: {rarityCounts.Uncommon}
+            </button>
           )}
           {rarityCounts.Common > 0 && (
-            <span className="flex items-center gap-1">
+            <button
+              onClick={() => setSelectedRarity(selectedRarity === 'Common' ? 'all' : 'Common')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+                selectedRarity === 'Common'
+                  ? 'border-[#888888]/60 bg-[#888888]/20'
+                  : 'border-[#888888]/30 bg-transparent hover:border-[#888888]/50 hover:bg-[#888888]/10'
+              }`}
+              style={{ color: '#888888' }}
+            >
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#888888' }}></span>
-              <span style={{ color: '#888888' }}>Common: {rarityCounts.Common}</span>
-            </span>
+              Common: {rarityCounts.Common}
+            </button>
           )}
         </div>
       </div>
