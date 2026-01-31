@@ -904,7 +904,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     }
 
     const tokenId = activeItem.tokenId;
-    const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '';
+    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '';
 
     // Build token key and cache key using new versioned cache system
     const tokenKey = buildTokenKey(nft.chain, nftContractAddress, tokenId);

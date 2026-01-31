@@ -146,7 +146,8 @@ export class OpenSeaService {
   private apiKey?: string;
 
   constructor() {
-    this.apiKey = process.env.NEXT_PUBLIC_OPENSEA_API_KEY || process.env.OPENSEA_API_KEY;
+    // OPENSEA_API_KEY is server-side only (never expose API keys to client)
+    this.apiKey = process.env.OPENSEA_API_KEY;
   }
 
   async getCollectionStats(collectionSlug: string): Promise<any | null> {

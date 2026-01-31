@@ -221,7 +221,7 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     avalancheService: AvalancheService,
     updateCallback: (enrichedNFTs: NFT[]) => void
   ) => {
-    const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE;
+    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE;
     if (!nftContractAddress || nfts.length === 0) return;
 
     setEnrichingNFTs(true);
@@ -415,8 +415,8 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       const marketplaceService = new GameMarketplaceService();
 
       // Detect network and wallet type
-      const rpcUrl = process.env.NEXT_PUBLIC_AVALANCHE_RPC_URL ||
-        'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
+      // Note: RPC URL is server-side only, client uses hardcoded fallback
+      const rpcUrl = 'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
       const networkDetector = new NetworkDetector(rpcUrl);
 
       // Fetch basic data in parallel (using paginated NFT fetch)

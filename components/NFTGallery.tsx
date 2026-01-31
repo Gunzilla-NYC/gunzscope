@@ -174,7 +174,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   const clearRarities = useCallback(() => setActiveRarities(new Set()), []);
 
   // Get the contract address for building token keys
-  const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '';
+  const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '';
 
   // Get unique item classes for filter dropdown
   const itemClasses = useMemo(() => {

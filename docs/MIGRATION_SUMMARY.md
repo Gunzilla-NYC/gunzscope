@@ -16,6 +16,9 @@ The following packages have been installed:
 ### 1. **`.env.local`**
 Added Dynamic environment ID configuration:
 ```bash
+# Server-side (for JWT verification in API routes):
+DYNAMIC_ENVIRONMENT_ID=your_dynamic_environment_id_here
+# Client-side (required for DynamicProvider wallet SDK):
 NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=your_dynamic_environment_id_here
 ```
 
@@ -78,6 +81,8 @@ The following files are no longer actively used but remain for reference:
 6. Replace `your_dynamic_environment_id_here` in `.env.local`:
 
 ```bash
+# Both versions use the same ID - server-side for auth, client-side for wallet SDK
+DYNAMIC_ENVIRONMENT_ID=paste_your_actual_id_here
 NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=paste_your_actual_id_here
 ```
 

@@ -43,13 +43,14 @@ export type AuthOutcome = AuthResult | AuthError;
 // JWKS Client Setup
 // =============================================================================
 
-const environmentId = process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID;
+// Server-side uses DYNAMIC_ENVIRONMENT_ID; client-side DynamicProvider uses NEXT_PUBLIC_ version
+const environmentId = process.env.DYNAMIC_ENVIRONMENT_ID || process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID;
 
 let jwksClient: JwksClient | null = null;
 
 function getJwksClient(): JwksClient | null {
   if (!environmentId) {
-    console.error('NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID is not configured');
+    console.error('DYNAMIC_ENVIRONMENT_ID is not configured');
     return null;
   }
 

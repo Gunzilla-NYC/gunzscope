@@ -384,13 +384,15 @@ export class AvalancheService {
   private provider: ethers.JsonRpcProvider;
 
   constructor() {
-    const rpcUrl = process.env.NEXT_PUBLIC_AVALANCHE_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc';
+    // AVALANCHE_RPC_URL is server-side only; client uses hardcoded GunzChain RPC
+    const rpcUrl = process.env.AVALANCHE_RPC_URL || 'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
   }
 
   async getGunTokenBalance(walletAddress: string): Promise<TokenBalance | null> {
     try {
-      const tokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
+      // GUN_TOKEN_AVALANCHE is server-side only; hardcoded fallback for production
+      const tokenAddress = process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB';
 
       if (!tokenAddress || tokenAddress.includes('Your')) {
         console.warn('GUN token contract address not configured for Avalanche');
@@ -448,7 +450,7 @@ export class AvalancheService {
     pageSize: number = 50
   ): Promise<NFTPageResult> {
     try {
-      const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE;
+      const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE;
 
       if (!nftContractAddress || nftContractAddress.includes('Your')) {
         console.warn('NFT collection address not configured for Avalanche');
@@ -788,7 +790,7 @@ export class AvalancheService {
 
       // ERC-20 Transfer event signature
       const erc20TransferSignature = ethers.id('Transfer(address,address,uint256)');
-      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE?.toLowerCase();
+      const gunTokenAddress = (process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB').toLowerCase();
 
       if (txReceipt && txReceipt.logs) {
         for (const log of txReceipt.logs) {
@@ -883,7 +885,7 @@ export class AvalancheService {
   private async isGunNative(): Promise<boolean> {
     if (this.gunIsNativeCache !== null) return this.gunIsNativeCache;
 
-    const tokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
+    const tokenAddress = process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB';
     if (!tokenAddress || tokenAddress.includes('Your')) {
       // Assume native if not configured
       this.gunIsNativeCache = true;
@@ -961,7 +963,7 @@ export class AvalancheService {
     }
 
     // 3. Decoder contract check
-    const decoderContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_DECODER_CONTRACT);
+    const decoderContract = normalizeAddr(process.env.OTG_DECODER_CONTRACT);
     if (decoderContract && txToLower === decoderContract) {
       return { venue: 'decoder', matchedRule: 'decoder_contract_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
@@ -970,7 +972,7 @@ export class AvalancheService {
     }
 
     // 4. OTG Marketplace check (legacy - may be superseded by in_game_marketplace)
-    const marketplaceContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_MARKETPLACE_CONTRACT);
+    const marketplaceContract = normalizeAddr(process.env.OTG_MARKETPLACE_CONTRACT);
     if (marketplaceContract && txToLower === marketplaceContract) {
       return { venue: 'otg_marketplace', matchedRule: 'marketplace_contract_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
@@ -1086,7 +1088,7 @@ export class AvalancheService {
       let costGun = 0;
       let inGameTradePriceWei: string | undefined;
       const gunIsNative = await this.isGunNative();
-      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
+      const gunTokenAddress = process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB';
 
       // Priority 0: Decode fee — tx.value is the decode cost paid to the Decoder contract
       // For decode/decoder venue, the tx.value is the decode cost, not a marketplace price

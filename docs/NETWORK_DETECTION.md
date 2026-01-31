@@ -124,14 +124,16 @@ return 'unknown';
 
 ### Environment Variables
 
+Note: RPC URLs are server-side only (not exposed to client bundle for security).
+
 **Mainnet** (default):
 ```env
-NEXT_PUBLIC_AVALANCHE_RPC_URL=https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc
+AVALANCHE_RPC_URL=https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc
 ```
 
 **Testnet** (optional):
 ```env
-NEXT_PUBLIC_TESTNET_RPC_URL=https://rpc.gunz.dev/ext/bc/ryk9vkvNuKtewME2PeCgybo9sdWXGmCkBrrx4VPuZPdVdAak8/rpc
+TESTNET_RPC_URL=https://rpc.gunz.dev/ext/bc/ryk9vkvNuKtewME2PeCgybo9sdWXGmCkBrrx4VPuZPdVdAak8/rpc
 ```
 
 ### Network Explorers

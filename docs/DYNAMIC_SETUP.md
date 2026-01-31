@@ -25,8 +25,13 @@ ZillaScope now uses [Dynamic](https://www.dynamic.xyz/) for wallet connections, 
 3. Add it to your `.env.local` file:
 
 ```bash
+# Server-side (for JWT verification in API routes):
+DYNAMIC_ENVIRONMENT_ID=your_environment_id_here
+# Client-side (required for DynamicProvider wallet SDK):
 NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=your_environment_id_here
 ```
+
+Note: Both variables should have the same value. The client-side version (`NEXT_PUBLIC_`) is required for the wallet SDK to work in the browser.
 
 ### 3. Configure Networks (Optional)
 
@@ -150,10 +155,10 @@ The previous MetaMask and Phantom wallet integrations have been replaced with Dy
 
 ### Environment ID Not Set
 
-If you see a warning about `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`, make sure you've:
+If you see a warning about Dynamic environment ID, make sure you've:
 1. Created a Dynamic account
 2. Copied your Environment ID from the dashboard
-3. Added it to `.env.local`
+3. Added both `DYNAMIC_ENVIRONMENT_ID` and `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` to `.env.local`
 4. Restarted your development server
 
 ### Wallet Not Connecting

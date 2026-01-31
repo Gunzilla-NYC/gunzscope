@@ -40,36 +40,41 @@ Open `.env.local` file and fill in your values:
 
 ```env
 # ==================================
-# BLOCKCHAIN RPC ENDPOINTS
+# BLOCKCHAIN RPC ENDPOINTS (server-side only)
 # ==================================
 # You can use public RPCs or get dedicated endpoints from:
 # - Alchemy: https://www.alchemy.com/
 # - Infura: https://infura.io/
 # - QuickNode: https://www.quicknode.com/
+# Note: RPC URLs should NOT be prefixed with NEXT_PUBLIC_ to avoid exposing them to the client
 
-NEXT_PUBLIC_AVALANCHE_RPC_URL=https://api.avax.network/ext/bc/C/rpc
-NEXT_PUBLIC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+AVALANCHE_RPC_URL=https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 
 # ==================================
 # GUN TOKEN CONTRACT ADDRESSES
 # ==================================
 # REQUIRED: Get these from your token deployment or block explorer
 
-# Avalanche (C-Chain) - ERC-20 format
+# Avalanche (C-Chain) - ERC-20 format (server-side only)
 # Find on: https://snowtrace.io/
-NEXT_PUBLIC_GUN_TOKEN_AVALANCHE=0xYourAvalancheContractAddress
+GUN_TOKEN_AVALANCHE=0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB
 
-# Solana - SPL Token format
+# Solana - SPL Token format (server-side only)
 # Find on: https://solscan.io/
-NEXT_PUBLIC_GUN_TOKEN_SOLANA=YourSolanaTokenMintAddress
+GUN_TOKEN_SOLANA=3jUf2RTyXp867piSB2dt8uUcNiLDW58asjGtXkRAkBbe
 
 # ==================================
-# NFT COLLECTION ADDRESSES
+# NFT COLLECTION ADDRESSES (server-side only)
 # ==================================
 # Optional: Add if you want to display NFTs
 
-NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE=0xYourNFTContractAddress
-NEXT_PUBLIC_NFT_COLLECTION_SOLANA=YourNFTCollectionAddress
+NFT_COLLECTION_AVALANCHE=0xYourNFTContractAddress
+NFT_COLLECTION_SOLANA=YourNFTCollectionAddress
+
+# OTG Contracts (GunzChain)
+OTG_DECODER_CONTRACT=0x1c695462A43103116C2d806f1895a17D270B270A
+OTG_MARKETPLACE_CONTRACT=0x4c9B291874fB5363E3a46cD3BF4a352ffA26A124
 
 # ==================================
 # API KEYS
@@ -77,7 +82,8 @@ NEXT_PUBLIC_NFT_COLLECTION_SOLANA=YourNFTCollectionAddress
 # Optional: For better rate limits and additional features
 
 # OpenSea API - Get from: https://docs.opensea.io/reference/api-keys
-NEXT_PUBLIC_OPENSEA_API_KEY=your_opensea_api_key_here
+# Note: API keys should NEVER be prefixed with NEXT_PUBLIC_ (server-side only)
+OPENSEA_API_KEY=your_opensea_api_key_here
 
 # CoinGecko API - Get from: https://www.coingecko.com/en/api/pricing
 COINGECKO_API_KEY=your_coingecko_api_key_here
@@ -102,7 +108,7 @@ GAME_MARKETPLACE_API_KEY=your_game_api_key_here
 2. Search for "GUN" or your token name in the search bar
 3. Click on the token result
 4. Copy the **Contract Address** (format: `0x...`)
-5. Paste into `NEXT_PUBLIC_GUN_TOKEN_AVALANCHE`
+5. Paste into `GUN_TOKEN_AVALANCHE`
 
 **Example**: `0x1234567890abcdef1234567890abcdef12345678`
 
@@ -112,7 +118,7 @@ GAME_MARKETPLACE_API_KEY=your_game_api_key_here
 2. Search for your token
 3. Look for **Token Mint Address** or **Token Address**
 4. Copy the address (Base58 format)
-5. Paste into `NEXT_PUBLIC_GUN_TOKEN_SOLANA`
+5. Paste into `GUN_TOKEN_SOLANA`
 
 **Example**: `GUNabcdefg123456789HIJKLMNOP123456789`
 
@@ -123,7 +129,7 @@ GAME_MARKETPLACE_API_KEY=your_game_api_key_here
 1. Go to [OpenSea Developer Portal](https://docs.opensea.io/reference/api-keys)
 2. Sign up / Log in
 3. Request an API key (usually instant approval)
-4. Copy the key to `NEXT_PUBLIC_OPENSEA_API_KEY`
+4. Copy the key to `OPENSEA_API_KEY`
 
 **Why?** Better rate limits + access to NFT floor prices and sales data
 
@@ -241,7 +247,7 @@ Free public RPCs can be slow or rate-limited. For better performance:
 1. **Alchemy** (Recommended):
    - Sign up at [alchemy.com](https://www.alchemy.com/)
    - Create an Avalanche app
-   - Replace `NEXT_PUBLIC_AVALANCHE_RPC_URL` with Alchemy endpoint
+   - Replace `AVALANCHE_RPC_URL` with Alchemy endpoint
    - Example: `https://avax-mainnet.g.alchemy.com/v2/YOUR_KEY`
 
 2. **QuickNode** (Alternative):

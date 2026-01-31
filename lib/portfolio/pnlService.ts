@@ -125,7 +125,7 @@ interface ValuationResult {
 // Constants
 // =============================================================================
 
-const DEFAULT_CONTRACT = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '';
+const DEFAULT_CONTRACT = process.env.NFT_COLLECTION_AVALANCHE || '';
 const COLLECTION_SLUG = 'off-the-grid';
 
 // Valuation confidence thresholds

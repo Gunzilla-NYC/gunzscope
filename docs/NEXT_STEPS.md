@@ -12,15 +12,15 @@ Location: `X:\Projects\GUNZILLA\gun-token-tracker`
 
 Edit the file: [.env.local](./.env.local)
 
-**REQUIRED - Add your contract addresses:**
+**REQUIRED - Add your contract addresses (server-side only):**
 ```env
-NEXT_PUBLIC_GUN_TOKEN_AVALANCHE=0xYourAvalancheContractAddress
-NEXT_PUBLIC_GUN_TOKEN_SOLANA=YourSolanaTokenMintAddress
+GUN_TOKEN_AVALANCHE=0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB
+GUN_TOKEN_SOLANA=3jUf2RTyXp867piSB2dt8uUcNiLDW58asjGtXkRAkBbe
 ```
 
 **OPTIONAL - Add for better features:**
 ```env
-NEXT_PUBLIC_OPENSEA_API_KEY=your_key_here
+OPENSEA_API_KEY=your_key_here
 COINGECKO_API_KEY=your_key_here
 ```
 

@@ -182,11 +182,11 @@ The modal displays comprehensive information:
 ### Environment Variables Required
 
 ```env
-# NFT Collection Contract (required for enrichment)
-NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE=0x9ed98e159be43a8d42b64053831fcae5e4d7d271
+# NFT Collection Contract (required for enrichment) - server-side only
+NFT_COLLECTION_AVALANCHE=0x9ed98e159be43a8d42b64053831fcae5e4d7d271
 
-# OpenSea API Key (required for listing data)
-NEXT_PUBLIC_OPENSEA_API_KEY=your_opensea_api_key
+# OpenSea API Key (required for listing data) - server-side only
+OPENSEA_API_KEY=your_opensea_api_key
 ```
 
 ### Block Lookback Period
@@ -262,7 +262,7 @@ This wallet has 19 NFTs from the "Off The Grid" collection.
   3. API rate limiting
 - **Solution**:
   1. This is normal if NFT isn't listed
-  2. Add `NEXT_PUBLIC_OPENSEA_API_KEY` to `.env.local`
+  2. Add `OPENSEA_API_KEY` to `.env.local`
   3. Wait and retry
 
 ### Issue: Modal doesn't close on mobile

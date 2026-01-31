@@ -53,17 +53,19 @@ vercel --prod
 2. Navigate to: **Settings → Environment Variables**
 3. Add the following variables:
 
-#### Required Variables:
+#### Required Variables (server-side only):
 ```
-NEXT_PUBLIC_GUN_TOKEN_AVALANCHE = 0xYourAvalancheContractAddress
-NEXT_PUBLIC_GUN_TOKEN_SOLANA = YourSolanaTokenMintAddress
+GUN_TOKEN_AVALANCHE = 0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB
+GUN_TOKEN_SOLANA = 3jUf2RTyXp867piSB2dt8uUcNiLDW58asjGtXkRAkBbe
 ```
 
 #### Recommended Variables:
 ```
-NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE = 0xYourNFTContractAddress
-NEXT_PUBLIC_NFT_COLLECTION_SOLANA = YourNFTCollectionAddress
-NEXT_PUBLIC_OPENSEA_API_KEY = your_opensea_api_key
+NFT_COLLECTION_AVALANCHE = 0xYourNFTContractAddress
+NFT_COLLECTION_SOLANA = YourNFTCollectionAddress
+OTG_DECODER_CONTRACT = 0x1c695462A43103116C2d806f1895a17D270B270A
+OTG_MARKETPLACE_CONTRACT = 0x4c9B291874fB5363E3a46cD3BF4a352ffA26A124
+OPENSEA_API_KEY = your_opensea_api_key
 COINGECKO_API_KEY = your_coingecko_api_key
 ```
 
@@ -109,14 +111,14 @@ You can also add a custom domain in Vercel settings!
 1. Go to [Snowtrace.io](https://snowtrace.io/)
 2. Search for "GUN token" or the token name
 3. Copy the contract address (starts with `0x`)
-4. Add to `NEXT_PUBLIC_GUN_TOKEN_AVALANCHE`
+4. Add to `GUN_TOKEN_AVALANCHE`
 
 ### For GUN Token on Solana:
 
 1. Go to [Solscan.io](https://solscan.io/)
 2. Search for your token
 3. Copy the Token Mint Address
-4. Add to `NEXT_PUBLIC_GUN_TOKEN_SOLANA`
+4. Add to `GUN_TOKEN_SOLANA`
 
 ### For NFT Collections:
 
@@ -131,7 +133,7 @@ Follow the same process, but search for your NFT collection instead.
 1. Visit: [docs.opensea.io/reference/api-keys](https://docs.opensea.io/reference/api-keys)
 2. Sign up for free
 3. Copy your API key
-4. Add to `NEXT_PUBLIC_OPENSEA_API_KEY`
+4. Add to `OPENSEA_API_KEY`
 
 **Benefits**: Higher rate limits, access to floor prices and sales data
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { calculatePortfolioPnL } from '@/lib/portfolio/pnlService';
 
-const NFT_CONTRACT = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '';
+const NFT_CONTRACT = process.env.NFT_COLLECTION_AVALANCHE || '';
 
 /**
  * Extract rarity from NFT traits

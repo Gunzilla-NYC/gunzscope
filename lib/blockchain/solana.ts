@@ -6,13 +6,15 @@ export class SolanaService {
   private connection: Connection;
 
   constructor() {
-    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+    // SOLANA_RPC_URL is server-side only; client uses hardcoded Solana mainnet
+    const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
     this.connection = new Connection(rpcUrl, 'confirmed');
   }
 
   async getGunTokenBalance(walletAddress: string): Promise<TokenBalance | null> {
     try {
-      const gunTokenMint = process.env.NEXT_PUBLIC_GUN_TOKEN_SOLANA;
+      // GUN_TOKEN_SOLANA is server-side only; hardcoded fallback for production
+      const gunTokenMint = process.env.GUN_TOKEN_SOLANA || '3jUf2RTyXp867piSB2dt8uUcNiLDW58asjGtXkRAkBbe';
 
       if (!gunTokenMint || gunTokenMint.includes('Your')) {
         console.warn('GUN token mint address not configured for Solana');
