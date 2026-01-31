@@ -7,10 +7,13 @@ import { AcquisitionVenue } from '../types';
 // Schema Versions - Increment when cache structure changes
 // =============================================================================
 const SCHEMA_VERSIONS = {
-  nftDetail: 'v7', // v7: Robust tokenURI resolver with IPFS gateway fallback and metadataDebug tracking
+  nftDetail: 'v8', // v8: Added hasAcquisition flag to prevent incomplete cache blocking enrichment
   transfers: 'v2',
   priceGunUsd: 'v1',
 } as const;
+
+// Stale threshold for incomplete cache entries (10 minutes)
+export const INCOMPLETE_CACHE_STALE_MS = 10 * 60 * 1000;
 
 // =============================================================================
 // Cache Configuration
@@ -201,6 +204,9 @@ export interface CachedNFTDetailData {
   isFreeTransfer?: boolean;
   acquisitionVenue?: AcquisitionVenue;
   acquisitionTxHash?: string;
+  // v8: Track whether acquisition data was successfully fetched
+  hasAcquisition?: boolean; // true = acquisition data is complete, false/undefined = incomplete
+  cachedAtIso?: string; // ISO timestamp when this entry was cached
 }
 
 export interface CachedTransferData {
@@ -316,6 +322,48 @@ export function setCachedHistoricalGunPrice(
 }
 
 // =============================================================================
+// Cache Completeness Helpers
+// =============================================================================
+
+/**
+ * Check if a cached NFT entry needs re-enrichment.
+ * Returns true if:
+ * - Cache doesn't exist
+ * - hasAcquisition is false/undefined (incomplete)
+ * - Cache entry is older than INCOMPLETE_CACHE_STALE_MS (for incomplete entries only)
+ */
+export function needsReEnrichment(
+  walletAddress: string,
+  tokenKey: string
+): { needsRetry: boolean; reason?: string } {
+  const result = getCachedNFTDetail(walletAddress, tokenKey);
+
+  if (!result.hit || !result.value) {
+    return { needsRetry: true, reason: 'no_cache' };
+  }
+
+  const cached = result.value;
+
+  // If acquisition is complete, no need to retry
+  if (cached.hasAcquisition === true) {
+    return { needsRetry: false };
+  }
+
+  // Acquisition is incomplete - check if cache is stale
+  if (cached.cachedAtIso) {
+    const cachedAt = new Date(cached.cachedAtIso).getTime();
+    const age = Date.now() - cachedAt;
+    if (age > INCOMPLETE_CACHE_STALE_MS) {
+      return { needsRetry: true, reason: `incomplete_stale_${Math.round(age / 1000)}s` };
+    }
+  }
+
+  // Incomplete but not stale yet - still retry to give RPC another chance
+  // (but caller may choose to use cached quantity in the meantime)
+  return { needsRetry: true, reason: 'incomplete_acquisition' };
+}
+
+// =============================================================================
 // Legacy Compatibility Layer (will be removed in future)
 // =============================================================================
 
@@ -331,6 +379,9 @@ interface LegacyCachedNFTData {
   acquisitionVenue?: AcquisitionVenue;
   acquisitionTxHash?: string;
   cachedAt: number;
+  // v8 fields - added for completeness tracking
+  hasAcquisition?: boolean;
+  cachedAtIso?: string;
 }
 
 /**
@@ -352,7 +403,9 @@ export const getCachedNFT = (
     if (newResult.hit && newResult.value) {
       return {
         ...newResult.value,
-        cachedAt: Date.now(), // Approximate - new format doesn't expose this
+        cachedAt: Date.now(), // Approximate - new format doesn't expose this directly
+        hasAcquisition: newResult.value.hasAcquisition,
+        cachedAtIso: newResult.value.cachedAtIso,
       };
     }
 
@@ -400,6 +453,8 @@ export const setCachedNFT = (
     isFreeTransfer: data.isFreeTransfer,
     acquisitionVenue: data.acquisitionVenue,
     acquisitionTxHash: data.acquisitionTxHash,
+    hasAcquisition: data.hasAcquisition,
+    cachedAtIso: data.cachedAtIso,
   });
 };
 
