@@ -27,6 +27,7 @@ export interface CollectionSaleEvent extends SaleEvent {
   tokenId: string;
   nftName: string;
   nftTraits: Record<string, string> | null;
+  contract: string;
 }
 
 /**
@@ -83,6 +84,59 @@ function setCachedFailure(tokenKey: string, error: string): void {
     for (const [key, value] of failureCache.entries()) {
       if (now - value.failedAt > FAILURE_CACHE_TTL_MS) {
         failureCache.delete(key);
+      }
+    }
+  }
+}
+
+// =============================================================================
+// Debug Mode
+// =============================================================================
+
+const DEBUG = process.env.NODE_ENV === 'development';
+
+// =============================================================================
+// Trait Cache for NFT Metadata Enrichment
+// =============================================================================
+// OpenSea v2 events/listings endpoints don't include traits.
+// Traits are only available via the Get NFT endpoint.
+// We cache trait lookups to avoid redundant API calls.
+
+interface TraitCacheEntry {
+  traits: Record<string, string> | null;
+  cachedAt: number;
+}
+
+const traitCache = new Map<string, TraitCacheEntry>();
+const TRAIT_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Get cached traits if available and not expired
+ */
+function getCachedTraits(cacheKey: string): Record<string, string> | null | undefined {
+  const entry = traitCache.get(cacheKey);
+  if (!entry) return undefined; // undefined = not in cache
+
+  if (Date.now() - entry.cachedAt > TRAIT_CACHE_TTL_MS) {
+    traitCache.delete(cacheKey);
+    return undefined;
+  }
+
+  return entry.traits; // null = cached as "no traits", object = cached traits
+}
+
+/**
+ * Store traits in cache
+ */
+function setCachedTraits(cacheKey: string, traits: Record<string, string> | null): void {
+  traitCache.set(cacheKey, { traits, cachedAt: Date.now() });
+
+  // Cleanup old entries
+  if (traitCache.size > 200) {
+    const now = Date.now();
+    for (const [key, value] of traitCache.entries()) {
+      if (now - value.cachedAt > TRAIT_CACHE_TTL_MS) {
+        traitCache.delete(key);
       }
     }
   }
@@ -426,6 +480,11 @@ export class OpenSeaService {
         const events = response.data?.asset_events || [];
         cursor = response.data?.next || null;
 
+        // Log first raw event for debugging
+        if (DEBUG && events.length > 0 && allEvents.length === 0) {
+          console.log('[getCollectionSaleEvents] Raw event sample:', JSON.stringify(events[0], null, 2));
+        }
+
         for (const event of events) {
           if (fetched >= limit) break;
           allEvents.push(this.parseCollectionSaleEvent(event));
@@ -476,114 +535,85 @@ export class OpenSeaService {
   }
 
   /**
-   * Get rarity-specific floor price by fetching collection listings
-   * and filtering by rarity trait
+   * Get rarity-specific floor price by fetching recent sales and enriching with traits.
+   *
+   * Strategy: Since OpenSea v2 listings/events don't include traits, we:
+   * 1. Fetch recent sales for the collection
+   * 2. Enrich each sale with traits via the Get NFT endpoint
+   * 3. Filter by rarity match
+   * 4. Return minimum price
    *
    * @param rarity - The rarity level to filter by (e.g., "Common", "Uncommon", "Rare", "Epic", "Legendary")
    * @param collectionSlug - OpenSea collection slug (default: 'off-the-grid')
-   * @returns The minimum listing price for items of this rarity, or null if none found
+   * @returns The minimum sale price for items of this rarity, or null if none found
    */
   async getRarityFloorPrice(
     rarity: string,
     collectionSlug: string = 'off-the-grid'
   ): Promise<{ floorPriceGUN: number | null; listingsCount: number }> {
     try {
-      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+      // Fetch recent sales for the collection
+      const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, 50);
 
-      // Fetch active listings for the collection
-      // OpenSea API v2: /api/v2/listings/collection/{collection_slug}
-      const response = await axios.get(
-        `${OPENSEA_API_BASE}/listings/collection/${collectionSlug}`,
-        {
-          headers,
-          params: {
-            limit: 100, // Get more listings to find rarity matches
-          },
+      if (recentSales.length === 0) {
+        if (DEBUG) {
+          console.log(`[getRarityFloorPrice] No recent sales found for ${collectionSlug}`);
         }
-      );
-
-      const listings = response.data?.listings || [];
-
-      if (listings.length === 0) {
         return { floorPriceGUN: null, listingsCount: 0 };
       }
 
-      // Filter listings by rarity trait
       const rarityLower = rarity.toLowerCase();
       const matchingPrices: number[] = [];
 
-      for (const listing of listings) {
-        // Get the NFT metadata from the protocol_data or the listing
-        const nft = listing.protocol_data?.parameters?.offer?.[0] || {};
-        const traits = listing.traits || nft.traits || [];
+      // Track unique tokenIds to avoid redundant trait fetches (rate limit protection)
+      const enrichedTokenIds = new Set<string>();
+      const MAX_TRAIT_FETCHES = 20;
 
-        // Check traits array for rarity match
-        let listingRarity: string | null = null;
+      for (const sale of recentSales) {
+        // Skip sales with no price
+        const effectivePrice = sale.priceGUN > 0 ? sale.priceGUN : sale.priceWGUN;
+        if (effectivePrice <= 0) continue;
 
-        // Handle traits as array (OpenSea format)
-        if (Array.isArray(traits)) {
-          for (const trait of traits) {
-            const traitType = (trait.trait_type || trait.type || '').toLowerCase();
-            if (traitType === 'rarity') {
-              listingRarity = String(trait.value).toLowerCase();
-              break;
-            }
+        // Skip if we've already processed too many unique tokens
+        if (enrichedTokenIds.size >= MAX_TRAIT_FETCHES && !enrichedTokenIds.has(sale.tokenId)) {
+          continue;
+        }
+        enrichedTokenIds.add(sale.tokenId);
+
+        // Get rarity from traits
+        let saleRarity: string | null = null;
+
+        // First check if traits were already available (unlikely with OpenSea v2)
+        if (sale.nftTraits) {
+          saleRarity =
+            sale.nftTraits['RARITY'] ||
+            sale.nftTraits['Rarity'] ||
+            sale.nftTraits['rarity'] ||
+            null;
+        }
+
+        // Enrich with traits via Get NFT endpoint if needed
+        if (!saleRarity && sale.tokenId && sale.contract) {
+          const traits = await this.fetchNFTTraits(sale.contract, sale.tokenId);
+          if (traits) {
+            saleRarity =
+              traits['RARITY'] ||
+              traits['Rarity'] ||
+              traits['rarity'] ||
+              null;
           }
         }
-        // Handle traits as object (some APIs)
-        else if (typeof traits === 'object' && traits !== null) {
-          listingRarity = (
-            traits['RARITY'] ||
-            traits['Rarity'] ||
-            traits['rarity'] ||
-            ''
-          ).toLowerCase();
-        }
 
-        if (listingRarity === rarityLower) {
-          // Extract price from the listing
-          const priceInfo = listing.price?.current || listing.current_price;
-          if (priceInfo) {
-            const priceWei = BigInt(priceInfo.value || priceInfo);
-            const decimals = priceInfo.decimals || 18;
-            const priceGUN = Number(priceWei) / Math.pow(10, decimals);
-
-            if (priceGUN > 0) {
-              matchingPrices.push(priceGUN);
-            }
-          }
+        if (saleRarity?.toLowerCase() === rarityLower) {
+          matchingPrices.push(effectivePrice);
         }
       }
 
+      if (DEBUG) {
+        console.log(`[getRarityFloorPrice] Found ${matchingPrices.length} sales matching rarity "${rarity}"`);
+      }
+
       if (matchingPrices.length === 0) {
-        // Fallback: try to get floor from recent sales of same rarity
-        const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, 100);
-        const salePrices: number[] = [];
-
-        for (const sale of recentSales) {
-          let saleRarity: string | null = null;
-          if (sale.nftTraits) {
-            saleRarity = (
-              sale.nftTraits['RARITY'] ||
-              sale.nftTraits['Rarity'] ||
-              sale.nftTraits['rarity'] ||
-              ''
-            ).toLowerCase();
-          }
-
-          if (saleRarity === rarityLower && sale.priceGUN > 0) {
-            salePrices.push(sale.priceGUN);
-          }
-        }
-
-        if (salePrices.length > 0) {
-          // Use minimum of recent sale prices as estimate
-          return {
-            floorPriceGUN: Math.min(...salePrices),
-            listingsCount: salePrices.length,
-          };
-        }
-
         return { floorPriceGUN: null, listingsCount: 0 };
       }
 
@@ -601,9 +631,10 @@ export class OpenSeaService {
    * Find recent sales of similar items for valuation
    *
    * Strategy:
-   * 1. Try to find exact matches (same name + same rarity)
-   * 2. If none found, fallback to rarity-only matches (any item with same rarity)
-   * 3. Return sorted by most recent first
+   * 1. Fetch recent sales and enrich with traits via Get NFT endpoint
+   * 2. Try to find exact matches (same name + same rarity)
+   * 3. If none found, fallback to rarity-only matches (any item with same rarity)
+   * 4. Return sorted by most recent first
    */
   async getComparableSales(
     nftName: string,
@@ -612,8 +643,6 @@ export class OpenSeaService {
     daysBack: number = 30,
     limit: number = 20
   ): Promise<ComparableSale[]> {
-    const DEBUG = process.env.NODE_ENV === 'development';
-
     try {
       const afterDate = new Date();
       afterDate.setDate(afterDate.getDate() - daysBack);
@@ -636,6 +665,10 @@ export class OpenSeaService {
       const exactMatches: ComparableSale[] = [];
       const rarityOnlyMatches: ComparableSale[] = [];
 
+      // Track unique tokenIds to avoid redundant trait fetches (rate limit protection)
+      const enrichedTokenIds = new Set<string>();
+      const MAX_TRAIT_FETCHES = 20;
+
       for (const event of events) {
         // Skip events with no price
         if (!event.priceGUN || event.priceGUN <= 0) {
@@ -647,8 +680,16 @@ export class OpenSeaService {
 
         const effectivePrice = event.priceGUN > 0 ? event.priceGUN : event.priceWGUN;
 
+        // Skip if we've already processed too many unique tokens (rate limit protection)
+        if (enrichedTokenIds.size >= MAX_TRAIT_FETCHES && !enrichedTokenIds.has(event.tokenId)) {
+          continue;
+        }
+        enrichedTokenIds.add(event.tokenId);
+
         // Extract rarity from traits (check multiple possible keys)
         let eventRarity: string | null = null;
+
+        // First check if traits were already available (unlikely with OpenSea v2)
         if (event.nftTraits) {
           eventRarity =
             event.nftTraits['RARITY'] ||
@@ -659,8 +700,22 @@ export class OpenSeaService {
             null;
         }
 
-        if (DEBUG && !eventRarity && event.nftTraits) {
-          console.log(`[getComparableSales] No rarity found in traits:`, event.nftTraits);
+        // Enrich with traits via Get NFT endpoint if needed
+        if (!eventRarity && event.tokenId && event.contract) {
+          const traits = await this.fetchNFTTraits(event.contract, event.tokenId);
+          if (traits) {
+            eventRarity =
+              traits['RARITY'] ||
+              traits['Rarity'] ||
+              traits['rarity'] ||
+              traits['Tier'] ||
+              traits['tier'] ||
+              null;
+          }
+        }
+
+        if (DEBUG && !eventRarity) {
+          console.log(`[getComparableSales] No rarity found for token ${event.tokenId}`);
         }
 
         const eventRarityLower = eventRarity?.toLowerCase().trim() || '';
@@ -721,6 +776,9 @@ export class OpenSeaService {
 
   /**
    * Parse a raw OpenSea event into a SaleEvent
+   *
+   * Note: On GunzChain, OpenSea may use different payment symbols.
+   * We accept GUN, WGUN, or native token (zero address) as GUN payments.
    */
   private parseSaleEvent(event: any): SaleEvent {
     const payment = event.payment || {};
@@ -730,11 +788,29 @@ export class OpenSeaService {
     // Convert from wei to token amount
     const priceRaw = parseFloat(quantity) / Math.pow(10, decimals);
     const symbol = (payment.symbol || '').toUpperCase();
+    const tokenAddress = (payment.token_address || '').toLowerCase();
+
+    if (DEBUG) {
+      console.log('[parseSaleEvent] Payment:', {
+        symbol,
+        quantity,
+        decimals,
+        token_address: tokenAddress,
+        priceRaw,
+      });
+    }
+
+    // GunzChain: accept GUN, WGUN, or native token payment as GUN price
+    // Native token has zero address: 0x0000000000000000000000000000000000000000
+    // OpenSea may use different symbols for the same token
+    const isNativeToken = tokenAddress === '0x0000000000000000000000000000000000000000';
+    const isGunPayment = symbol === 'GUN' || symbol === '' || isNativeToken;
+    const isWgunPayment = symbol === 'WGUN';
 
     return {
       eventTimestamp: new Date(event.event_timestamp),
-      priceGUN: symbol === 'GUN' ? priceRaw : 0,
-      priceWGUN: symbol === 'WGUN' ? priceRaw : 0,
+      priceGUN: isGunPayment ? priceRaw : 0,
+      priceWGUN: isWgunPayment ? priceRaw : 0,
       sellerAddress: event.seller || event.from_account?.address || '',
       buyerAddress: event.buyer || event.to_account?.address || '',
       txHash: event.transaction || event.transaction_hash || '',
@@ -744,12 +820,26 @@ export class OpenSeaService {
 
   /**
    * Parse a raw OpenSea event into a CollectionSaleEvent
+   *
+   * Note: OpenSea v2 events do NOT include traits in the nft object.
+   * Traits must be fetched separately via the Get NFT endpoint.
    */
   private parseCollectionSaleEvent(event: any): CollectionSaleEvent {
     const baseEvent = this.parseSaleEvent(event);
     const nft = event.nft || {};
 
+    if (DEBUG) {
+      console.log('[parseCollectionSaleEvent] NFT data:', {
+        identifier: nft.identifier,
+        name: nft.name,
+        contract: nft.contract,
+        hasTraits: !!nft.traits,
+        traitCount: nft.traits?.length ?? 0,
+      });
+    }
+
     // Parse traits into a Record<string, string>
+    // Note: This will almost always be null because OpenSea v2 events don't include traits
     let nftTraits: Record<string, string> | null = null;
     if (nft.traits && Array.isArray(nft.traits)) {
       nftTraits = {};
@@ -765,6 +855,68 @@ export class OpenSeaService {
       tokenId: nft.identifier || nft.token_id || '',
       nftName: nft.name || '',
       nftTraits,
+      contract: nft.contract || '',
     };
+  }
+
+  /**
+   * Fetch traits for a specific NFT via Get NFT endpoint.
+   * This is the ONLY OpenSea v2 endpoint that returns trait data.
+   * Results are cached to avoid redundant API calls.
+   *
+   * @param contract - NFT contract address
+   * @param identifier - Token ID
+   * @param chain - Chain name (default: 'avalanche')
+   * @returns Trait map or null if unavailable
+   */
+  async fetchNFTTraits(
+    contract: string,
+    identifier: string,
+    chain: string = 'avalanche'
+  ): Promise<Record<string, string> | null> {
+    const mappedChain = toOpenSeaChain(chain);
+    const cacheKey = `${mappedChain}:${contract.toLowerCase()}:${identifier}`;
+
+    // Check cache first
+    const cached = getCachedTraits(cacheKey);
+    if (cached !== undefined) {
+      if (DEBUG) {
+        console.log(`[fetchNFTTraits] Cache hit for ${identifier}: ${cached ? 'has traits' : 'no traits'}`);
+      }
+      return cached;
+    }
+
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/chain/${mappedChain}/contract/${contract}/nfts/${identifier}`,
+        { headers }
+      );
+
+      const traits = response.data?.nft?.traits;
+      if (traits && Array.isArray(traits)) {
+        const traitMap: Record<string, string> = {};
+        for (const t of traits) {
+          if (t.trait_type && t.value !== undefined) {
+            traitMap[t.trait_type] = String(t.value);
+          }
+        }
+
+        if (DEBUG) {
+          console.log(`[fetchNFTTraits] Fetched ${Object.keys(traitMap).length} traits for ${identifier}`);
+        }
+
+        setCachedTraits(cacheKey, traitMap);
+        return traitMap;
+      }
+
+      setCachedTraits(cacheKey, null);
+      return null;
+    } catch (error) {
+      console.warn(`[fetchNFTTraits] Failed for ${identifier}:`, error);
+      setCachedTraits(cacheKey, null);
+      return null;
+    }
   }
 }
