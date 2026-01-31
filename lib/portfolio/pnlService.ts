@@ -56,7 +56,7 @@ export interface NFTPnLResult {
   floorPriceGUN: number | null;
   estimatedValueGUN: number | null;
   estimatedValueUSD: number | null;
-  valuationSource: 'comparable_sales' | 'floor_price' | 'listing' | 'none';
+  valuationSource: 'comparable_sales' | 'rarity_floor' | 'floor_price' | 'listing' | 'none';
   valuationConfidence: 'high' | 'medium' | 'low' | 'none';
   comparableSalesCount: number;
 
@@ -115,7 +115,7 @@ export interface PortfolioPnLSummary {
 
 interface ValuationResult {
   estimatedValueGUN: number | null;
-  source: 'comparable_sales' | 'floor_price' | 'listing' | 'none';
+  source: 'comparable_sales' | 'rarity_floor' | 'floor_price' | 'listing' | 'none';
   confidence: 'high' | 'medium' | 'low' | 'none';
   comparableSalesCount: number;
   floorPriceGUN: number | null;
@@ -213,12 +213,14 @@ async function getMarketValuation(
 
     // 2. Get floor price - prefer rarity-specific floor if rarity is available
     let floorPriceGUN: number | null = null;
+    let usedRarityFloor = false;
 
     if (rarity) {
       // Try rarity-specific floor price first
       const rarityFloor = await openSeaService.getRarityFloorPrice(rarity, COLLECTION_SLUG);
       if (rarityFloor.floorPriceGUN !== null) {
         floorPriceGUN = rarityFloor.floorPriceGUN;
+        usedRarityFloor = true;
         debugLog(`Token ${tokenId} has rarity floor (${rarity}): ${floorPriceGUN} GUN`);
       }
     }
@@ -268,13 +270,14 @@ async function getMarketValuation(
       }
     }
 
-    // 4. Fall back to floor price
+    // 4. Fall back to floor price (rarity-specific or collection-wide)
     if (floorPriceGUN !== null) {
-      debugLog(`Token ${tokenId} using floor price: ${floorPriceGUN} GUN`);
+      const source = usedRarityFloor ? 'rarity_floor' : 'floor_price';
+      debugLog(`Token ${tokenId} using ${source}: ${floorPriceGUN} GUN`);
       return {
         estimatedValueGUN: floorPriceGUN,
-        source: 'floor_price',
-        confidence: 'low',
+        source,
+        confidence: usedRarityFloor ? 'medium' : 'low',
         comparableSalesCount: 0,
         floorPriceGUN,
       };
@@ -417,14 +420,15 @@ export async function calculateNFTPnL(
 
     // Check if this is a transfer/airdrop with no cost
     if (costBasisGUN === 0) {
-      if (acquisition.venue === 'transfer' || acquisition.isMint) {
+      // IMPORTANT: Check decode venue FIRST, before isMint
+      // Decode transactions have isMint=true (from zero address) but should show decode-specific warning
+      if (acquisition.venue === 'decode' || acquisition.venue === 'decoder') {
+        warnings.push('Decode fee not captured - check transaction for decode cost');
+        debugLog(`Token ${tokenId}: decode venue but costGun=0, possible data extraction issue`);
+      } else if (acquisition.venue === 'transfer' || acquisition.isMint) {
         warnings.push(
           `NFT was ${acquisition.isMint ? 'minted' : 'transferred'} - no purchase cost`
         );
-      } else if (acquisition.venue === 'decode' || acquisition.venue === 'decoder') {
-        // Decode should have cost from tx.value - if 0, log warning but don't treat as free transfer
-        warnings.push('Decode fee not captured - check transaction for decode cost');
-        debugLog(`Token ${tokenId}: decode venue but costGun=0, possible data extraction issue`);
       } else {
         warnings.push('No cost data found for this acquisition');
       }
