@@ -2,12 +2,9 @@
  * Wallet Classifier Unit Tests
  *
  * These tests verify the wallet classification logic.
- * Run with: npx vitest run lib/utils/__tests__/walletClassifier.test.ts
- * (after installing vitest: npm install -D vitest)
- *
- * Or use manual testing by importing and calling the functions.
  */
 
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   classifyWallet,
   classifyWalletSafe,
@@ -20,56 +17,10 @@ import {
   UserAccountMapping,
   WalletConnectionContext,
   WalletClassifierConfig,
-  DEFAULT_WALLET_CLASSIFIER_CONFIG,
 } from '../walletClassifier';
 
 // =============================================================================
-// Test Utilities
-// =============================================================================
-
-/**
- * Simple test runner for manual execution
- */
-interface TestResult {
-  name: string;
-  passed: boolean;
-  error?: string;
-}
-
-async function runTest(
-  name: string,
-  testFn: () => Promise<void>
-): Promise<TestResult> {
-  try {
-    await testFn();
-    return { name, passed: true };
-  } catch (error) {
-    return {
-      name,
-      passed: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-function assertEqual<T>(actual: T, expected: T, message?: string): void {
-  if (actual !== expected) {
-    throw new Error(
-      message || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`
-    );
-  }
-}
-
-function assertIncludes(array: string[], item: string, message?: string): void {
-  if (!array.includes(item)) {
-    throw new Error(
-      message || `Expected array to include "${item}", got [${array.join(', ')}]`
-    );
-  }
-}
-
-// =============================================================================
-// Test Cases
+// Test Fixtures
 // =============================================================================
 
 const TEST_ADDRESSES = {
@@ -85,362 +36,240 @@ const TEST_ADDRESSES = {
   realExternal: '0xF9434E3057432032bB621AA5144329861869c72F',
 };
 
-/**
- * Test: Connected wallet via Dynamic returns EXTERNAL
- * This is the highest priority signal - proving key ownership means external wallet
- */
-async function testConnectedWalletClassification(): Promise<void> {
-  const connectionContext: WalletConnectionContext = {
-    isConnectedWallet: true,
-    connectedAddress: TEST_ADDRESSES.external1,
-  };
-
-  const result = await classifyWallet(TEST_ADDRESSES.external1, connectionContext);
-
-  assertEqual(result.walletType, 'EXTERNAL', 'Connected wallet should be EXTERNAL');
-  assertIncludes(
-    result.walletEvidence.signals,
-    'connected_via_wallet_provider',
-    'Should have connected wallet signal'
-  );
-  assertEqual(result.fromCache, false, 'First call should not be from cache');
-}
-
-/**
- * Test: Searched address (not connected) returns UNKNOWN
- */
-async function testSearchedAddressClassification(): Promise<void> {
-  // No connection context - this is a searched address
-  const result = await classifyWallet(TEST_ADDRESSES.random1);
-
-  assertEqual(result.walletType, 'UNKNOWN', 'Searched address should be UNKNOWN');
-  assertIncludes(
-    result.walletEvidence.signals,
-    'searched_address_no_signal',
-    'Should indicate searched address with no signal'
-  );
-}
-
-/**
- * Test: Mapped custodial wallet returns INGAME
- */
-async function testCustodialWalletClassification(): Promise<void> {
-  const userAccount: UserAccountMapping = {
-    custodialWalletAddress: TEST_ADDRESSES.custodial,
-    linkedExternalWallets: [TEST_ADDRESSES.external1],
-  };
-
-  const result = await classifyWallet(TEST_ADDRESSES.custodial, undefined, userAccount);
-
-  assertEqual(result.walletType, 'INGAME', 'Custodial wallet should be INGAME');
-  assertIncludes(
-    result.walletEvidence.signals,
-    'account_custodial_wallet',
-    'Should have custodial signal'
-  );
-  assertEqual(result.fromCache, false, 'First call should not be from cache');
-}
-
-/**
- * Test: Mapped linked external wallet returns EXTERNAL
- */
-async function testLinkedExternalWalletClassification(): Promise<void> {
-  const userAccount: UserAccountMapping = {
-    custodialWalletAddress: TEST_ADDRESSES.custodial,
-    linkedExternalWallets: [TEST_ADDRESSES.external1, TEST_ADDRESSES.external2],
-  };
-
-  const result = await classifyWallet(TEST_ADDRESSES.external1, undefined, userAccount);
-
-  assertEqual(result.walletType, 'EXTERNAL', 'Linked wallet should be EXTERNAL');
-  assertIncludes(
-    result.walletEvidence.signals,
-    'account_linked_external',
-    'Should have linked external signal'
-  );
-}
-
-/**
- * Test: Unknown address returns UNKNOWN (legacy test)
- */
-async function testUnknownAddressClassification(): Promise<void> {
-  // No user account mapping provided, no connection context
-  const result = await classifyWallet(TEST_ADDRESSES.random1);
-
-  assertEqual(result.walletType, 'UNKNOWN', 'Random address should be UNKNOWN');
-  assertIncludes(
-    result.walletEvidence.signals,
-    'searched_address_no_signal',
-    'Should indicate searched address with no signal'
-  );
-}
-
-/**
- * Test: Known ingame address from config returns INGAME
- */
-async function testKnownIngameAddressClassification(): Promise<void> {
-  const config: Partial<WalletClassifierConfig> = {
-    knownIngameAddresses: [TEST_ADDRESSES.knownIngame],
-  };
-
-  const result = await classifyWallet(TEST_ADDRESSES.knownIngame, undefined, undefined, config);
-
-  assertEqual(result.walletType, 'INGAME', 'Known ingame address should be INGAME');
-  assertIncludes(
-    result.walletEvidence.signals,
-    'known_ingame_address',
-    'Should have known ingame signal'
-  );
-}
-
-/**
- * Test: Known external address from config returns EXTERNAL
- */
-async function testKnownExternalAddressClassification(): Promise<void> {
-  const config: Partial<WalletClassifierConfig> = {
-    knownExternalAddresses: [TEST_ADDRESSES.knownExternal],
-  };
-
-  const result = await classifyWallet(TEST_ADDRESSES.knownExternal, undefined, undefined, config);
-
-  assertEqual(result.walletType, 'EXTERNAL', 'Known external address should be EXTERNAL');
-  assertIncludes(
-    result.walletEvidence.signals,
-    'known_external_address',
-    'Should have known external signal'
-  );
-}
-
-/**
- * Test: Error handling returns UNKNOWN via classifyWalletSafe
- */
-async function testErrorHandlingReturnsUnknown(): Promise<void> {
-  // classifyWalletSafe should never throw, even with invalid input
-  const result = await classifyWalletSafe('');
-
-  assertEqual(result.walletType, 'UNKNOWN', 'Error case should return UNKNOWN');
-}
-
-/**
- * Test: Caching works (second call hits cache)
- */
-async function testCachingWorks(): Promise<void> {
-  // Clear cache first
-  clearWalletClassificationCache(TEST_ADDRESSES.random2);
-
-  // First call
-  const result1 = await classifyWallet(TEST_ADDRESSES.random2);
-  assertEqual(result1.fromCache, false, 'First call should not be from cache');
-
-  // Second call should hit cache
-  const result2 = await classifyWallet(TEST_ADDRESSES.random2);
-  assertEqual(result2.fromCache, true, 'Second call should be from cache');
-  assertEqual(
-    result2.walletType,
-    result1.walletType,
-    'Cached result should match original'
-  );
-}
-
-/**
- * Test: Address normalization (case-insensitive)
- */
-async function testAddressNormalization(): Promise<void> {
-  const upperCase = TEST_ADDRESSES.custodial.toUpperCase();
-  const lowerCase = TEST_ADDRESSES.custodial.toLowerCase();
-
-  const userAccount: UserAccountMapping = {
-    custodialWalletAddress: lowerCase,
-  };
-
-  // Query with uppercase, mapping has lowercase
-  const result = await classifyWallet(upperCase, undefined, userAccount);
-
-  assertEqual(result.walletType, 'INGAME', 'Should match regardless of case');
-  assertEqual(
-    result.address,
-    lowerCase,
-    'Result address should be normalized to lowercase'
-  );
-}
-
-/**
- * Test: getListingCheckConfig for INGAME wallet
- */
-async function testListingConfigIngame(): Promise<void> {
-  const classification: WalletClassification = {
-    walletType: 'INGAME',
-    walletEvidence: { signals: ['test'] },
-    address: TEST_ADDRESSES.custodial,
-    classifiedAt: new Date().toISOString(),
-    fromCache: false,
-  };
-
-  const config = getListingCheckConfig(classification);
-
-  assertEqual(config.checkIngameMarketplace, true, 'INGAME should check ingame marketplace');
-  assertEqual(config.checkOpenSea, false, 'INGAME should not check OpenSea by default');
-  assertEqual(config.priority[0], 'ingame', 'INGAME priority should be ingame first');
-}
-
-/**
- * Test: getListingCheckConfig for EXTERNAL wallet
- */
-async function testListingConfigExternal(): Promise<void> {
-  const classification: WalletClassification = {
-    walletType: 'EXTERNAL',
-    walletEvidence: { signals: ['test'] },
-    address: TEST_ADDRESSES.external1,
-    classifiedAt: new Date().toISOString(),
-    fromCache: false,
-  };
-
-  const config = getListingCheckConfig(classification);
-
-  assertEqual(config.checkOpenSea, true, 'EXTERNAL should check OpenSea');
-  assertEqual(config.checkIngameMarketplace, true, 'EXTERNAL should check ingame by default');
-  assertEqual(config.priority[0], 'opensea', 'EXTERNAL priority should be opensea first');
-}
-
-/**
- * Test: getListingCheckConfig for UNKNOWN wallet
- */
-async function testListingConfigUnknown(): Promise<void> {
-  const classification: WalletClassification = {
-    walletType: 'UNKNOWN',
-    walletEvidence: { signals: ['test'] },
-    address: TEST_ADDRESSES.random1,
-    classifiedAt: new Date().toISOString(),
-    fromCache: false,
-  };
-
-  const config = getListingCheckConfig(classification);
-
-  assertEqual(config.checkOpenSea, true, 'UNKNOWN should check OpenSea');
-  assertEqual(config.checkIngameMarketplace, true, 'UNKNOWN should check ingame');
-  assertEqual(config.priority[0], 'ingame', 'UNKNOWN priority should be ingame first (Gunzilla-native)');
-}
-
-/**
- * Test: shouldCheckOpenSea helper function
- */
-async function testShouldCheckOpenSeaHelper(): Promise<void> {
-  const ingame: WalletClassification = {
-    walletType: 'INGAME',
-    walletEvidence: { signals: [] },
-    address: TEST_ADDRESSES.custodial,
-    classifiedAt: new Date().toISOString(),
-    fromCache: false,
-  };
-
-  const external: WalletClassification = {
-    walletType: 'EXTERNAL',
-    walletEvidence: { signals: [] },
-    address: TEST_ADDRESSES.external1,
-    classifiedAt: new Date().toISOString(),
-    fromCache: false,
-  };
-
-  assertEqual(shouldCheckOpenSea(ingame), false, 'INGAME should not check OpenSea');
-  assertEqual(shouldCheckOpenSea(external), true, 'EXTERNAL should check OpenSea');
-}
-
-/**
- * Test: shouldCheckIngameMarketplace helper function
- */
-async function testShouldCheckIngameHelper(): Promise<void> {
-  const ingame: WalletClassification = {
-    walletType: 'INGAME',
-    walletEvidence: { signals: [] },
-    address: TEST_ADDRESSES.custodial,
-    classifiedAt: new Date().toISOString(),
-    fromCache: false,
-  };
-
-  const external: WalletClassification = {
-    walletType: 'EXTERNAL',
-    walletEvidence: { signals: [] },
-    address: TEST_ADDRESSES.external1,
-    classifiedAt: new Date().toISOString(),
-    fromCache: false,
-  };
-
-  assertEqual(shouldCheckIngameMarketplace(ingame), true, 'INGAME should check ingame');
-  assertEqual(shouldCheckIngameMarketplace(external), true, 'EXTERNAL should check ingame (default enabled)');
-}
-
 // =============================================================================
-// Test Runner
+// Test Cases: classifyWallet
 // =============================================================================
 
-/**
- * Run all tests and report results
- */
-export async function runAllTests(): Promise<void> {
-  console.log('\n========================================');
-  console.log('Wallet Classifier Tests');
-  console.log('========================================\n');
-
-  // Clear all caches before running tests
+// Clear caches before each test to prevent bleeding
+beforeEach(() => {
   clearAllWalletClassificationCaches();
+});
 
-  const tests = [
-    runTest('Connected wallet (Dynamic) -> EXTERNAL', testConnectedWalletClassification),
-    runTest('Searched address -> UNKNOWN', testSearchedAddressClassification),
-    runTest('Custodial wallet -> INGAME', testCustodialWalletClassification),
-    runTest('Linked external wallet -> EXTERNAL', testLinkedExternalWalletClassification),
-    runTest('Unknown address -> UNKNOWN', testUnknownAddressClassification),
-    runTest('Known ingame address -> INGAME', testKnownIngameAddressClassification),
-    runTest('Known external address -> EXTERNAL', testKnownExternalAddressClassification),
-    runTest('Error handling -> UNKNOWN', testErrorHandlingReturnsUnknown),
-    runTest('Caching works', testCachingWorks),
-    runTest('Address normalization (case-insensitive)', testAddressNormalization),
-    runTest('Listing config for INGAME', testListingConfigIngame),
-    runTest('Listing config for EXTERNAL', testListingConfigExternal),
-    runTest('Listing config for UNKNOWN', testListingConfigUnknown),
-    runTest('shouldCheckOpenSea helper', testShouldCheckOpenSeaHelper),
-    runTest('shouldCheckIngameMarketplace helper', testShouldCheckIngameHelper),
-  ];
+describe('classifyWallet', () => {
+  it('classifies connected wallet via Dynamic as EXTERNAL', async () => {
+    const connectionContext: WalletConnectionContext = {
+      isConnectedWallet: true,
+      connectedAddress: TEST_ADDRESSES.external1,
+    };
 
-  const results = await Promise.all(tests);
+    const result = await classifyWallet(TEST_ADDRESSES.external1, connectionContext);
 
-  let passed = 0;
-  let failed = 0;
+    expect(result.walletType).toBe('EXTERNAL');
+    expect(result.walletEvidence.signals).toContain('connected_via_wallet_provider');
+    expect(result.fromCache).toBe(false);
+  });
 
-  for (const result of results) {
-    if (result.passed) {
-      console.log(`  ✓ ${result.name}`);
-      passed++;
-    } else {
-      console.log(`  ✗ ${result.name}`);
-      console.log(`    Error: ${result.error}`);
-      failed++;
-    }
-  }
+  it('classifies searched address (not connected) as UNKNOWN', async () => {
+    const result = await classifyWallet(TEST_ADDRESSES.random1);
 
-  console.log('\n----------------------------------------');
-  console.log(`Results: ${passed} passed, ${failed} failed`);
-  console.log('========================================\n');
+    expect(result.walletType).toBe('UNKNOWN');
+    expect(result.walletEvidence.signals).toContain('searched_address_no_signal');
+  });
 
-  // Clean up
-  clearAllWalletClassificationCaches();
-}
+  it('classifies mapped custodial wallet as INGAME', async () => {
+    const userAccount: UserAccountMapping = {
+      custodialWalletAddress: TEST_ADDRESSES.custodial,
+      linkedExternalWallets: [TEST_ADDRESSES.external1],
+    };
 
-// Export individual tests for selective running
-export {
-  testConnectedWalletClassification,
-  testSearchedAddressClassification,
-  testCustodialWalletClassification,
-  testLinkedExternalWalletClassification,
-  testUnknownAddressClassification,
-  testKnownIngameAddressClassification,
-  testKnownExternalAddressClassification,
-  testErrorHandlingReturnsUnknown,
-  testCachingWorks,
-  testAddressNormalization,
-  testListingConfigIngame,
-  testListingConfigExternal,
-  testListingConfigUnknown,
-  testShouldCheckOpenSeaHelper,
-  testShouldCheckIngameHelper,
-};
+    const result = await classifyWallet(TEST_ADDRESSES.custodial, undefined, userAccount);
+
+    expect(result.walletType).toBe('INGAME');
+    expect(result.walletEvidence.signals).toContain('account_custodial_wallet');
+    expect(result.fromCache).toBe(false);
+  });
+
+  it('classifies mapped linked external wallet as EXTERNAL', async () => {
+    const userAccount: UserAccountMapping = {
+      custodialWalletAddress: TEST_ADDRESSES.custodial,
+      linkedExternalWallets: [TEST_ADDRESSES.external1, TEST_ADDRESSES.external2],
+    };
+
+    const result = await classifyWallet(TEST_ADDRESSES.external1, undefined, userAccount);
+
+    expect(result.walletType).toBe('EXTERNAL');
+    expect(result.walletEvidence.signals).toContain('account_linked_external');
+  });
+
+  it('classifies unknown address as UNKNOWN', async () => {
+    const result = await classifyWallet(TEST_ADDRESSES.random1);
+
+    expect(result.walletType).toBe('UNKNOWN');
+    expect(result.walletEvidence.signals).toContain('searched_address_no_signal');
+  });
+
+  it('classifies known ingame address from config as INGAME', async () => {
+    const config: Partial<WalletClassifierConfig> = {
+      knownIngameAddresses: [TEST_ADDRESSES.knownIngame],
+    };
+
+    const result = await classifyWallet(TEST_ADDRESSES.knownIngame, undefined, undefined, config);
+
+    expect(result.walletType).toBe('INGAME');
+    expect(result.walletEvidence.signals).toContain('known_ingame_address');
+  });
+
+  it('classifies known external address from config as EXTERNAL', async () => {
+    const config: Partial<WalletClassifierConfig> = {
+      knownExternalAddresses: [TEST_ADDRESSES.knownExternal],
+    };
+
+    const result = await classifyWallet(TEST_ADDRESSES.knownExternal, undefined, undefined, config);
+
+    expect(result.walletType).toBe('EXTERNAL');
+    expect(result.walletEvidence.signals).toContain('known_external_address');
+  });
+
+  it('normalizes address case (case-insensitive matching)', async () => {
+    const upperCase = TEST_ADDRESSES.custodial.toUpperCase();
+    const lowerCase = TEST_ADDRESSES.custodial.toLowerCase();
+
+    const userAccount: UserAccountMapping = {
+      custodialWalletAddress: lowerCase,
+    };
+
+    const result = await classifyWallet(upperCase, undefined, userAccount);
+
+    expect(result.walletType).toBe('INGAME');
+    expect(result.address).toBe(lowerCase);
+  });
+});
+
+// =============================================================================
+// Test Cases: classifyWalletSafe
+// =============================================================================
+
+describe('classifyWalletSafe', () => {
+  it('returns UNKNOWN on error (empty address)', async () => {
+    const result = await classifyWalletSafe('');
+
+    expect(result.walletType).toBe('UNKNOWN');
+  });
+});
+
+// =============================================================================
+// Test Cases: Caching
+// =============================================================================
+
+describe('Wallet Classification Caching', () => {
+  it('caches classification results', async () => {
+    clearWalletClassificationCache(TEST_ADDRESSES.random2);
+
+    const result1 = await classifyWallet(TEST_ADDRESSES.random2);
+    expect(result1.fromCache).toBe(false);
+
+    const result2 = await classifyWallet(TEST_ADDRESSES.random2);
+    expect(result2.fromCache).toBe(true);
+    expect(result2.walletType).toBe(result1.walletType);
+  });
+});
+
+// =============================================================================
+// Test Cases: getListingCheckConfig
+// =============================================================================
+
+describe('getListingCheckConfig', () => {
+  it('configures INGAME wallet to check ingame marketplace only', () => {
+    const classification: WalletClassification = {
+      walletType: 'INGAME',
+      walletEvidence: { signals: ['test'] },
+      address: TEST_ADDRESSES.custodial,
+      classifiedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    const config = getListingCheckConfig(classification);
+
+    expect(config.checkIngameMarketplace).toBe(true);
+    expect(config.checkOpenSea).toBe(false);
+    expect(config.priority[0]).toBe('ingame');
+  });
+
+  it('configures EXTERNAL wallet to check both marketplaces with OpenSea priority', () => {
+    const classification: WalletClassification = {
+      walletType: 'EXTERNAL',
+      walletEvidence: { signals: ['test'] },
+      address: TEST_ADDRESSES.external1,
+      classifiedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    const config = getListingCheckConfig(classification);
+
+    expect(config.checkOpenSea).toBe(true);
+    expect(config.checkIngameMarketplace).toBe(true);
+    expect(config.priority[0]).toBe('opensea');
+  });
+
+  it('configures UNKNOWN wallet to check both marketplaces with ingame priority', () => {
+    const classification: WalletClassification = {
+      walletType: 'UNKNOWN',
+      walletEvidence: { signals: ['test'] },
+      address: TEST_ADDRESSES.random1,
+      classifiedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    const config = getListingCheckConfig(classification);
+
+    expect(config.checkOpenSea).toBe(true);
+    expect(config.checkIngameMarketplace).toBe(true);
+    expect(config.priority[0]).toBe('ingame');
+  });
+});
+
+// =============================================================================
+// Test Cases: Helper Functions
+// =============================================================================
+
+describe('shouldCheckOpenSea', () => {
+  it('returns false for INGAME wallet', () => {
+    const classification: WalletClassification = {
+      walletType: 'INGAME',
+      walletEvidence: { signals: [] },
+      address: TEST_ADDRESSES.custodial,
+      classifiedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    expect(shouldCheckOpenSea(classification)).toBe(false);
+  });
+
+  it('returns true for EXTERNAL wallet', () => {
+    const classification: WalletClassification = {
+      walletType: 'EXTERNAL',
+      walletEvidence: { signals: [] },
+      address: TEST_ADDRESSES.external1,
+      classifiedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    expect(shouldCheckOpenSea(classification)).toBe(true);
+  });
+});
+
+describe('shouldCheckIngameMarketplace', () => {
+  it('returns true for INGAME wallet', () => {
+    const classification: WalletClassification = {
+      walletType: 'INGAME',
+      walletEvidence: { signals: [] },
+      address: TEST_ADDRESSES.custodial,
+      classifiedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    expect(shouldCheckIngameMarketplace(classification)).toBe(true);
+  });
+
+  it('returns true for EXTERNAL wallet (default enabled)', () => {
+    const classification: WalletClassification = {
+      walletType: 'EXTERNAL',
+      walletEvidence: { signals: [] },
+      address: TEST_ADDRESSES.external1,
+      classifiedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    expect(shouldCheckIngameMarketplace(classification)).toBe(true);
+  });
+});

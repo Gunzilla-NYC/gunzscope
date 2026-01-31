@@ -1,9 +1,17 @@
 'use client';
 
+// =============================================================================
+// TODO: REMAINING HARDENING PHASES
+// =============================================================================
+// Phase 7 — Historical USD conversion:
+//   - Requires API/provider changes: price-at-time for GUN/USD
+//   - Fallback rules + caching strategy for historical prices
+// =============================================================================
+
 import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
 import Image from 'next/image';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
 import { OpenSeaService } from '@/lib/api/opensea';
@@ -13,159 +21,35 @@ import {
   buildNftDetailCacheKey,
   getCachedNFTDetail,
   setCachedNFTDetail,
-  CacheResult,
-  CachedNFTDetailData,
 } from '@/lib/utils/nftCache';
-import { gunzExplorerAddressUrl, gunzExplorerTxUrl } from '@/lib/explorer';
 
-// Safe ISO string converter - handles Date, string, number (ms), { seconds } objects
-// Never throws, returns null for invalid/missing values
-function toIsoStringSafe(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  try {
-    // Already a string (possibly ISO format)
-    if (typeof value === 'string') {
-      const parsed = new Date(value);
-      return isNaN(parsed.getTime()) ? value : parsed.toISOString();
-    }
-    // Date object
-    if (value instanceof Date) {
-      return isNaN(value.getTime()) ? null : value.toISOString();
-    }
-    // Number (milliseconds timestamp)
-    if (typeof value === 'number') {
-      const d = new Date(value);
-      return isNaN(d.getTime()) ? null : d.toISOString();
-    }
-    // Firestore-style { seconds, nanoseconds } object
-    if (typeof value === 'object' && 'seconds' in value) {
-      const seconds = (value as { seconds: number }).seconds;
-      const d = new Date(seconds * 1000);
-      return isNaN(d.getTime()) ? null : d.toISOString();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+// =============================================================================
+// Import pure helpers from dedicated module (extracted for testability)
+// =============================================================================
+import {
+  FetchStatus,
+  TOKEN_MAP_SOFT_CAP,
+  warnOnce,
+  normalizeCostBasis,
+  isAbortError,
+  FIFOKeyTracker,
+  toIsoStringSafe,
+  computeMarketInputs,
+  getPositionLabel,
+} from '@/lib/nft/nftDetailHelpers';
 
-// Market data quality types (spread-based only)
-type DataQualityLevel = 'strong' | 'fair' | 'limited';
-
-// Position label states
-type PositionState = 'UP' | 'DOWN' | 'FLAT' | 'NO_COST_BASIS' | 'NO_MARKET_REF';
-
-interface PositionLabelResult {
-  state: PositionState;
-  pnlPct: number | null;
-  pnlGun: number | null;
-  marketRefGun: number | null;
-  dataQuality: DataQualityLevel | null;
-}
-
-interface GetPositionLabelInput {
-  acquisitionPriceGun: number | null | undefined;
-  priceLow: number | null | undefined;
-  priceHigh: number | null | undefined;
-}
-
-// Pure function to compute position label per spec
-function getPositionLabel(input: GetPositionLabelInput): PositionLabelResult {
-  const { acquisitionPriceGun, priceLow, priceHigh } = input;
-  const epsilon = 1e-9;
-
-  // Validate acquisition price
-  const hasValidAcquisition =
-    acquisitionPriceGun !== null &&
-    acquisitionPriceGun !== undefined &&
-    !isNaN(acquisitionPriceGun) &&
-    acquisitionPriceGun >= 0.000001; // Treat extremely small as missing
-
-  // Compute market reference (midpoint or single bound)
-  let marketRefGun: number | null = null;
-  const hasLow = priceLow !== null && priceLow !== undefined && !isNaN(priceLow) && priceLow >= 0;
-  const hasHigh = priceHigh !== null && priceHigh !== undefined && !isNaN(priceHigh) && priceHigh >= 0;
-
-  if (hasLow && hasHigh) {
-    marketRefGun = (priceLow + priceHigh) / 2;
-  } else if (hasLow) {
-    marketRefGun = priceLow;
-  } else if (hasHigh) {
-    marketRefGun = priceHigh;
-  }
-
-  // Compute data quality (only if both bounds exist)
-  let dataQuality: DataQualityLevel | null = null;
-  if (hasLow && hasHigh) {
-    const spreadRatio = (priceHigh - priceLow) / Math.max(priceLow, epsilon);
-    if (spreadRatio <= 0.25) dataQuality = 'strong';
-    else if (spreadRatio <= 0.60) dataQuality = 'fair';
-    else dataQuality = 'limited';
-  }
-
-  // Determine state based on missing data
-  if (marketRefGun === null) {
-    return {
-      state: 'NO_MARKET_REF',
-      pnlPct: null,
-      pnlGun: null,
-      marketRefGun: null,
-      dataQuality: null,
-    };
-  }
-
-  if (!hasValidAcquisition) {
-    return {
-      state: 'NO_COST_BASIS',
-      pnlPct: null,
-      pnlGun: null,
-      marketRefGun,
-      dataQuality,
-    };
-  }
-
-  // Compute P/L
-  const pnlGun = marketRefGun - acquisitionPriceGun!;
-  const pnlPct = pnlGun / Math.max(acquisitionPriceGun!, epsilon);
-
-  // Determine position state with ±3% deadband
-  let state: PositionState;
-  if (Math.abs(pnlPct) < 0.03) {
-    state = 'FLAT';
-  } else if (pnlPct >= 0.03) {
-    state = 'UP';
-  } else {
-    state = 'DOWN';
-  }
-
-  return {
-    state,
-    pnlPct,
-    pnlGun,
-    marketRefGun,
-    dataQuality,
-  };
-}
-
-// Calculate market data quality based solely on price spread
-// Does NOT use listing count or recency (not available from OpenSeaService)
-function calculateDataQuality(priceLow?: number, priceHigh?: number): DataQualityLevel | null {
-  // If we don't have both prices, return null (no quality to show)
-  if (priceLow === undefined || priceHigh === undefined) {
-    return null;
-  }
-
-  // Calculate spread ratio with epsilon to avoid division by zero
-  const epsilon = 0.0001;
-  const spreadRatio = (priceHigh - priceLow) / Math.max(priceLow, epsilon);
-
-  // Resolution logic per spec
-  if (spreadRatio <= 0.25) return 'strong';
-  if (spreadRatio <= 0.60) return 'fair';
-  return 'limited';
-}
+// =============================================================================
+// Import extracted presentational subcomponents
+// =============================================================================
+import {
+  NFTDetailTraitsSection,
+  NFTDetailAcquisitionCard,
+  NFTDetailObservedMarketRange,
+  NFTDetailDebugPanel,
+  type HoldingAcquisitionData,
+  type ResolvedAcquisitionData,
+  type MetadataDebugData,
+} from '@/components/nft-detail';
 
 // Rarity order from highest to lowest
 const RARITY_ORDER: Record<string, number> = {
@@ -213,36 +97,6 @@ const getDefaultRarityColors = () => ({
 // =============================================================================
 // Related Items Utility
 // =============================================================================
-
-/**
- * Extract the base weapon name from an NFT.
- * For weapons: returns the weapon name (e.g., "Kestrel Legacy" -> "Kestrel")
- * For skins/attachments: extracts the weapon name from "X for the Y" pattern
- */
-function extractWeaponName(nft: NFT): string | null {
-  const name = nft.name;
-  const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
-
-  // If this is a weapon, extract the base weapon name
-  if (itemClass === 'Weapon') {
-    // Remove common suffixes like "Legacy", "MK2", etc. to get base name
-    // But keep it as-is for matching purposes
-    return name;
-  }
-
-  // For skins/attachments, look for "for the X" or "for X" pattern
-  const forTheMatch = name.match(/\bfor\s+the\s+([A-Za-z0-9\s-]+?)(?:\s*$|\s*[-–])/i);
-  if (forTheMatch) {
-    return forTheMatch[1].trim();
-  }
-
-  const forMatch = name.match(/\bfor\s+([A-Za-z0-9]+)/i);
-  if (forMatch) {
-    return forMatch[1].trim();
-  }
-
-  return null;
-}
 
 /**
  * Check if an NFT is a weapon (base item that can have related skins/attachments)
@@ -397,6 +251,291 @@ function getVenueDisplayLabel(venue: AcquisitionVenue | undefined, hasDecodeCost
   }
 }
 
+// =============================================================================
+// RESOLVED ACQUISITION - Deterministic best-available acquisition data
+// Prevents downgrades during refresh (e.g., PURCHASE -> TRANSFER fallback)
+// =============================================================================
+
+type ResolvedAcquisitionSource = 'holdingAcquisitionRaw' | 'onchain' | 'localStorage' | 'transferDerivation' | 'unknown';
+
+interface ResolvedAcquisition {
+  acquisitionType: AcquisitionType | null;
+  venue: AcquisitionVenue | null;
+  acquiredAt: string | null;  // ISO string
+  costGun: number | null;
+  costUsd: number | null;
+  txHash: string | null;
+  fromAddress: string | null;
+  source: ResolvedAcquisitionSource;
+  qualityScore: number;
+  qualityReasons: string[];
+}
+
+// Scoring constants for acquisition quality
+const ACQUISITION_SCORE = {
+  PURCHASE_TYPE: 100,      // acquisitionType === 'PURCHASE'
+  HAS_COST_GUN: 90,        // costGun is finite and > 0
+  HAS_ACQUIRED_AT: 60,     // acquiredAt exists
+  HAS_VENUE: 30,           // venue exists and not 'unknown'
+  HAS_FROM_ADDRESS: 20,    // fromAddress exists
+  TRANSFER_NO_COST: -80,   // acquisitionType === 'TRANSFER' AND costGun is 0 or null
+  NO_ACQUIRED_AT: -50,     // acquiredAt missing
+  DECODE_VENUE: 70,        // venue is decode/decoder/mint (in-game acquisition)
+} as const;
+
+/**
+ * Score an acquisition candidate to determine quality.
+ * Higher score = better data quality. PURCHASE always beats TRANSFER.
+ */
+function scoreAcquisitionCandidate(candidate: Partial<ResolvedAcquisition>): { score: number; reasons: string[] } {
+  let score = 0;
+  const reasons: string[] = [];
+
+  // Positive scoring
+  if (candidate.acquisitionType === 'PURCHASE') {
+    score += ACQUISITION_SCORE.PURCHASE_TYPE;
+    reasons.push(`+${ACQUISITION_SCORE.PURCHASE_TYPE} PURCHASE type`);
+  }
+
+  if (candidate.costGun !== null && candidate.costGun !== undefined &&
+      Number.isFinite(candidate.costGun) && candidate.costGun > 0) {
+    score += ACQUISITION_SCORE.HAS_COST_GUN;
+    reasons.push(`+${ACQUISITION_SCORE.HAS_COST_GUN} has costGun (${candidate.costGun})`);
+  }
+
+  if (candidate.acquiredAt) {
+    score += ACQUISITION_SCORE.HAS_ACQUIRED_AT;
+    reasons.push(`+${ACQUISITION_SCORE.HAS_ACQUIRED_AT} has acquiredAt`);
+  }
+
+  if (candidate.venue && candidate.venue !== 'unknown') {
+    score += ACQUISITION_SCORE.HAS_VENUE;
+    reasons.push(`+${ACQUISITION_SCORE.HAS_VENUE} has venue (${candidate.venue})`);
+
+    // Bonus for decode venues (in-game acquisition with cost)
+    if (candidate.venue === 'decode' || candidate.venue === 'decoder' || candidate.venue === 'mint') {
+      score += ACQUISITION_SCORE.DECODE_VENUE;
+      reasons.push(`+${ACQUISITION_SCORE.DECODE_VENUE} decode venue`);
+    }
+  }
+
+  if (candidate.fromAddress) {
+    score += ACQUISITION_SCORE.HAS_FROM_ADDRESS;
+    reasons.push(`+${ACQUISITION_SCORE.HAS_FROM_ADDRESS} has fromAddress`);
+  }
+
+  // Negative scoring
+  if (candidate.acquisitionType === 'TRANSFER' &&
+      (candidate.costGun === null || candidate.costGun === undefined || candidate.costGun === 0)) {
+    score += ACQUISITION_SCORE.TRANSFER_NO_COST;
+    reasons.push(`${ACQUISITION_SCORE.TRANSFER_NO_COST} TRANSFER with no cost`);
+  }
+
+  if (!candidate.acquiredAt) {
+    score += ACQUISITION_SCORE.NO_ACQUIRED_AT;
+    reasons.push(`${ACQUISITION_SCORE.NO_ACQUIRED_AT} missing acquiredAt`);
+  }
+
+  return { score, reasons };
+}
+
+/**
+ * Build a ResolvedAcquisition candidate from holdingAcquisitionRaw (RPC-derived)
+ */
+function buildCandidateFromHoldingRaw(
+  holding: NFTHoldingAcquisition | null,
+  gunPriceAtTime?: number
+): Partial<ResolvedAcquisition> | null {
+  if (!holding || !holding.owned) return null;
+
+  // Map venue to acquisition type
+  let acquisitionType: AcquisitionType = 'UNKNOWN';
+  if (holding.isMint || holding.venue === 'mint' || holding.venue === 'decode' || holding.venue === 'decoder') {
+    acquisitionType = 'MINT';
+  } else if (holding.venue === 'opensea' || holding.venue === 'otg_marketplace' || holding.venue === 'in_game_marketplace') {
+    acquisitionType = 'PURCHASE';
+  } else if (holding.venue === 'transfer') {
+    acquisitionType = 'TRANSFER';
+  }
+
+  const costGun = holding.costGun ?? null;
+  const costUsd = costGun !== null && gunPriceAtTime ? costGun * gunPriceAtTime : null;
+
+  return {
+    acquisitionType,
+    venue: holding.venue ?? null,
+    acquiredAt: holding.acquiredAtIso ?? null,
+    costGun,
+    costUsd,
+    txHash: holding.txHash ?? null,
+    fromAddress: holding.fromAddress ?? null,
+    source: 'holdingAcquisitionRaw',
+  };
+}
+
+/**
+ * Build a ResolvedAcquisition candidate from localStorage cached data
+ * Uses fallbacks to maximize data extraction from cache:
+ * - acquiredAt: acquiredAt ?? purchaseDate
+ * - costGun: purchasePriceGun ?? decodeCostGun
+ * - txHash: acquisitionTxHash ?? marketplaceTxHash
+ * - acquisitionType: PURCHASE if costGun > 0, TRANSFER if isFreeTransfer, else null
+ */
+function buildCandidateFromCache(
+  cached: {
+    purchasePriceGun?: number;
+    purchasePriceUsd?: number;
+    purchaseDate?: string;
+    acquiredAt?: string; // May exist from some sources
+    acquisitionVenue?: AcquisitionVenue;
+    acquisitionTxHash?: string;
+    marketplaceTxHash?: string; // Fallback txHash
+    decodeCostGun?: number; // Fallback costGun
+    transferredFrom?: string;
+    isFreeTransfer?: boolean;
+  } | null
+): Partial<ResolvedAcquisition> | null {
+  if (!cached) return null;
+
+  // Extract values with fallbacks
+  const costGun = cached.purchasePriceGun ?? cached.decodeCostGun ?? null;
+  const acquiredAt = cached.acquiredAt ?? cached.purchaseDate ?? null;
+  const txHash = cached.acquisitionTxHash ?? cached.marketplaceTxHash ?? null;
+  const venue = cached.acquisitionVenue ?? null;
+
+  // Only use cache if it has ANY meaningful data
+  if (costGun === null && !acquiredAt && !venue && !txHash && !cached.isFreeTransfer) {
+    return null;
+  }
+
+  // Determine acquisition type from cached data
+  // Priority: costGun > 0 means PURCHASE, else isFreeTransfer means TRANSFER, else null
+  let acquisitionType: AcquisitionType | null = null;
+  if (typeof costGun === 'number' && costGun > 0) {
+    // Any nonzero cost indicates a purchase
+    acquisitionType = 'PURCHASE';
+  } else if (cached.isFreeTransfer === true) {
+    acquisitionType = 'TRANSFER';
+  } else if (venue === 'decode' || venue === 'decoder' || venue === 'mint') {
+    acquisitionType = 'MINT';
+  }
+
+  return {
+    acquisitionType,
+    venue,
+    acquiredAt,
+    costGun,
+    costUsd: cached.purchasePriceUsd ?? null,
+    txHash,
+    fromAddress: cached.transferredFrom ?? null,
+    source: 'localStorage',
+  };
+}
+
+/**
+ * Build a ResolvedAcquisition candidate from transfer derivation (fallback)
+ */
+function buildCandidateFromTransfer(
+  acquiredAt?: Date,
+  acquisitionType?: AcquisitionType,
+  fromAddress?: string,
+  txHash?: string
+): Partial<ResolvedAcquisition> | null {
+  if (!acquiredAt && !fromAddress && !txHash) return null;
+
+  return {
+    acquisitionType: acquisitionType ?? 'TRANSFER',
+    venue: 'transfer',
+    acquiredAt: acquiredAt?.toISOString() ?? null,
+    costGun: null,  // Transfer derivation has no cost
+    costUsd: null,
+    txHash: txHash ?? null,
+    fromAddress: fromAddress ?? null,
+    source: 'transferDerivation',
+  };
+}
+
+/**
+ * Select the best acquisition from candidates.
+ * Returns the highest-scoring candidate that meets minimum quality threshold.
+ */
+function selectBestAcquisition(
+  candidates: (Partial<ResolvedAcquisition> | null)[]
+): ResolvedAcquisition {
+  let bestCandidate: ResolvedAcquisition | null = null;
+  let bestScore = -Infinity;
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+
+    const { score, reasons } = scoreAcquisitionCandidate(candidate);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = {
+        acquisitionType: candidate.acquisitionType ?? null,
+        venue: candidate.venue ?? null,
+        acquiredAt: candidate.acquiredAt ?? null,
+        costGun: candidate.costGun ?? null,
+        costUsd: candidate.costUsd ?? null,
+        txHash: candidate.txHash ?? null,
+        fromAddress: candidate.fromAddress ?? null,
+        source: candidate.source ?? 'unknown',
+        qualityScore: score,
+        qualityReasons: reasons,
+      };
+    }
+  }
+
+  // Return best candidate or empty default
+  return bestCandidate ?? {
+    acquisitionType: null,
+    venue: null,
+    acquiredAt: null,
+    costGun: null,
+    costUsd: null,
+    txHash: null,
+    fromAddress: null,
+    source: 'unknown',
+    qualityScore: -100,
+    qualityReasons: ['no valid candidates'],
+  };
+}
+
+/**
+ * Merge new acquisition with current, only if quality improves.
+ * Prevents downgrades (e.g., PURCHASE with price -> TRANSFER without price)
+ */
+function mergeAcquisitionIfBetter(
+  current: ResolvedAcquisition | null,
+  incoming: ResolvedAcquisition
+): { result: ResolvedAcquisition; wasUpdated: boolean; reason: string } {
+  // If no current, accept incoming
+  if (!current) {
+    return {
+      result: incoming,
+      wasUpdated: true,
+      reason: 'no existing data'
+    };
+  }
+
+  // Only update if incoming has better or equal score
+  if (incoming.qualityScore >= current.qualityScore) {
+    return {
+      result: incoming,
+      wasUpdated: true,
+      reason: `score improved: ${current.qualityScore} -> ${incoming.qualityScore}`
+    };
+  }
+
+  // Keep current (prevent downgrade)
+  return {
+    result: current,
+    wasUpdated: false,
+    reason: `prevented downgrade: ${current.qualityScore} > ${incoming.qualityScore}`
+  };
+}
+
 // Structured acquisition data - separates transfer-derived vs price-derived fields
 interface AcquisitionData {
   // Source tracking
@@ -428,11 +567,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [itemPurchaseData, setItemPurchaseData] = useState<Record<string, AcquisitionData>>({});
-  const [listingsData, setListingsData] = useState<{
+  // Resolved acquisition data per token - deterministic best-available data
+  const [resolvedAcquisitions, setResolvedAcquisitions] = useState<Record<string, ResolvedAcquisition>>({});
+  // Per-token listings data to prevent cross-token leakage in multi-token NFTs
+  const [listingsByTokenId, setListingsByTokenId] = useState<Record<string, {
     lowest?: number;
     highest?: number;
     average?: number;
-  } | null>(null);
+  } | null>>({});
   const [currentGunPrice, setCurrentGunPrice] = useState<number | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [relatedItemsExpanded, setRelatedItemsExpanded] = useState(false);
@@ -443,9 +585,55 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const debugMode = searchParams.get('debugNft') === '1';
   const noCacheMode = searchParams.get('noCache') === '1';
   const [debugExpanded, setDebugExpanded] = useState(false);
+  const [debugCopied, setDebugCopied] = useState(false);
 
-  // Raw holding acquisition result from RPC (always fetched fresh for debug)
-  const [holdingAcquisitionRaw, setHoldingAcquisitionRaw] = useState<NFTHoldingAcquisition | null>(null);
+  // Ref to track fetch state and prevent duplicate fetches
+  const fetchStateRef = useRef<{
+    lastFetchedTokenKey: string | null;
+    lastFetchTimestamp: number;
+    fetchInProgress: boolean;
+  }>({
+    lastFetchedTokenKey: null,
+    lastFetchTimestamp: 0,
+    fetchInProgress: false,
+  });
+
+  // Staleness threshold for background refresh (10 minutes)
+  const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+
+  // Per-token raw holding acquisition results from RPC (prevents cross-token leakage)
+  const [holdingAcquisitionRawByTokenId, setHoldingAcquisitionRawByTokenId] = useState<Record<string, NFTHoldingAcquisition | null>>({});
+
+  // ==========================================================================
+  // HARDENING: Per-token status and error tracking (removes null ambiguity)
+  // ==========================================================================
+  const [listingsStatusByTokenId, setListingsStatusByTokenId] = useState<Record<string, FetchStatus>>({});
+  const [listingsErrorByTokenId, setListingsErrorByTokenId] = useState<Record<string, string | null>>({});
+  const [holdingAcqStatusByTokenId, setHoldingAcqStatusByTokenId] = useState<Record<string, FetchStatus>>({});
+  const [holdingAcqErrorByTokenId, setHoldingAcqErrorByTokenId] = useState<Record<string, string | null>>({});
+
+  // ==========================================================================
+  // HARDENING: AbortController refs for race-proofing async operations
+  // ==========================================================================
+  const abortControllersRef = useRef<Record<string, AbortController | undefined>>({});
+
+  // ==========================================================================
+  // HARDENING: FIFO key trackers for memory-bounded maps
+  // ==========================================================================
+  const listingsKeyTrackerRef = useRef(new FIFOKeyTracker(TOKEN_MAP_SOFT_CAP));
+  const holdingAcqKeyTrackerRef = useRef(new FIFOKeyTracker(TOKEN_MAP_SOFT_CAP));
+
+  // Async safety: track mounted state to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Abort all in-flight requests on unmount
+      Object.values(abortControllersRef.current).forEach(controller => controller?.abort());
+      abortControllersRef.current = {};
+    };
+  }, []);
 
   // Debug instrumentation state
   const [debugData, setDebugData] = useState<{
@@ -488,8 +676,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       responseKeys?: string[];
       serverProxyUsed?: boolean;
     };
-    viewerWallet: string;
-    currentOwner: string;
+    viewerWallet: string | null;
+    currentOwner: string | null;
     tokenPurchasesCount: number;
     walletPurchasesCount_viewerWallet: number;
     walletPurchasesCount_currentOwner: number;
@@ -514,6 +702,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     cacheRenderedFirst: boolean;
     backgroundRefreshAttempted: boolean;
     backgroundRefreshUpdated: boolean;
+    // Enhanced refresh diagnostics
+    refreshStartedAtIso: string | null;
+    refreshFinishedAtIso: string | null;
+    refreshError: string | null;
+    refreshResultSummary: string | null;
+    refreshExistingScore: number | null;
+    refreshNewScore: number | null;
+    refreshDecision: 'updated' | 'kept_existing_no_downgrade' | 'error' | 'no_candidates' | null;
   }>({
     tokenKey: '',
     cacheKey: '',
@@ -526,8 +722,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     // Enhanced marketplace debug defaults
     marketplaceConfigured: false,
     serverProxyUsed: true,
-    viewerWallet: '',
-    currentOwner: '',
+    viewerWallet: null,
+    currentOwner: null,
     tokenPurchasesCount: 0,
     walletPurchasesCount_viewerWallet: 0,
     walletPurchasesCount_currentOwner: 0,
@@ -541,17 +737,53 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     cacheRenderedFirst: false,
     backgroundRefreshAttempted: false,
     backgroundRefreshUpdated: false,
+    // Enhanced refresh diagnostics
+    refreshStartedAtIso: null,
+    refreshFinishedAtIso: null,
+    refreshError: null,
+    refreshResultSummary: null,
+    refreshExistingScore: null,
+    refreshNewScore: null,
+    refreshDecision: null,
   });
 
   // Reset state when modal opens (component remounts via key prop when NFT changes)
   useEffect(() => {
     if (isOpen) {
+      // =======================================================================
+      // HARDENING: Abort any in-flight requests from previous modal session
+      // =======================================================================
+      Object.values(abortControllersRef.current).forEach(controller => controller?.abort());
+      abortControllersRef.current = {};
+
       setActiveItemIndex(0);
       setItemPurchaseData({});
-      setListingsData(null);
+      setResolvedAcquisitions({});  // Reset resolved acquisition data
+      setListingsByTokenId({});     // Reset per-token listings
       setCurrentGunPrice(null);
       setDetailsExpanded(false);
-      setHoldingAcquisitionRaw(null); // Reset raw acquisition for fresh fetch
+      setHoldingAcquisitionRawByTokenId({}); // Reset per-token raw acquisition for fresh fetch
+
+      // =======================================================================
+      // HARDENING: Reset per-token status/error maps
+      // =======================================================================
+      setListingsStatusByTokenId({});
+      setListingsErrorByTokenId({});
+      setHoldingAcqStatusByTokenId({});
+      setHoldingAcqErrorByTokenId({});
+
+      // =======================================================================
+      // HARDENING: Reset FIFO key trackers
+      // =======================================================================
+      listingsKeyTrackerRef.current.reset();
+      holdingAcqKeyTrackerRef.current.reset();
+
+      // Reset fetch state for new modal session (allows fresh fetch on open)
+      fetchStateRef.current = {
+        lastFetchedTokenKey: null,
+        lastFetchTimestamp: 0,
+        fetchInProgress: false,
+      };
       // Note: debugExpanded is NOT reset here - user preference persists during session
       setDebugData({
         tokenKey: '',
@@ -565,8 +797,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         // Enhanced marketplace debug defaults
         marketplaceConfigured: false,
         serverProxyUsed: true,
-        viewerWallet: '',
-        currentOwner: '',
+        viewerWallet: null,
+        currentOwner: null,
         tokenPurchasesCount: 0,
         walletPurchasesCount_viewerWallet: 0,
         walletPurchasesCount_currentOwner: 0,
@@ -580,6 +812,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         cacheRenderedFirst: false,
         backgroundRefreshAttempted: false,
         backgroundRefreshUpdated: false,
+        // Enhanced refresh diagnostics
+        refreshStartedAtIso: null,
+        refreshFinishedAtIso: null,
+        refreshError: null,
+        refreshResultSummary: null,
+        refreshExistingScore: null,
+        refreshNewScore: null,
+        refreshDecision: null,
       });
 
       // Fetch current GUN price
@@ -652,6 +892,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   // Get currently active item
   const activeItem = sortedItems[activeItemIndex] || sortedItems[0];
 
+  // Derive current token's listings and acquisition data from per-token maps
+  // This prevents cross-token leakage when switching between items in multi-token NFTs
+  const listingsData = activeItem ? listingsByTokenId[activeItem.tokenId] ?? null : null;
+  const holdingAcquisitionRaw = activeItem ? holdingAcquisitionRawByTokenId[activeItem.tokenId] ?? null : null;
+
   // Load purchase data for the active item
   useEffect(() => {
     if (!isOpen || !nft || !walletAddress || !activeItem) {
@@ -672,6 +917,47 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       cacheKey: fullCacheKey,
     }));
 
+    // =========================================================================
+    // STALE-WHILE-REVALIDATE: Prevent duplicate/frequent fetches
+    // - Skip if fetch already in progress for this token
+    // - Skip background refresh if last fetch was within STALE_THRESHOLD_MS
+    // - Always allow fetch for NEW tokens (different tokenKey)
+    // =========================================================================
+    const now = Date.now();
+    const isSameToken = fetchStateRef.current.lastFetchedTokenKey === tokenKey;
+    const timeSinceLastFetch = now - fetchStateRef.current.lastFetchTimestamp;
+    const isStale = timeSinceLastFetch > STALE_THRESHOLD_MS;
+    const fetchInProgress = fetchStateRef.current.fetchInProgress && isSameToken;
+
+    // Skip if fetch in progress for same token (prevent race conditions)
+    if (fetchInProgress) {
+      if (debugMode) {
+        console.debug('[NFTDetailModal] Skipping fetch - already in progress for token:', tokenKey);
+      }
+      return;
+    }
+
+    // For same token: only refresh if stale (unless noCache mode forces refresh)
+    if (isSameToken && !isStale && !noCacheMode && itemPurchaseData[tokenId]) {
+      if (debugMode) {
+        console.debug('[NFTDetailModal] Skipping background refresh - data is fresh:', {
+          tokenKey,
+          timeSinceLastFetchMs: timeSinceLastFetch,
+          staleThresholdMs: STALE_THRESHOLD_MS,
+        });
+      }
+      // Update debug to show we're using cached data without refresh
+      setDebugData(prev => ({
+        ...prev,
+        cacheHit: true,
+        cacheReason: 'fresh_data',
+        priceSource: itemPurchaseData[tokenId].priceSource,
+        cacheRenderedFirst: true,
+        backgroundRefreshAttempted: false,
+      }));
+      return;
+    }
+
     // In noCache mode, log that we're bypassing caches
     if (noCacheMode && debugMode) {
       console.debug('[NFTDetailModal] noCache mode enabled - bypassing all cache reads');
@@ -691,13 +977,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
     // Check component state first (fast path for tab switching)
     // In noCache mode, skip component state to force fresh fetch
-    // BUT: Even with cache hit, we ALWAYS run background refresh unless noCache mode
+    // BUT: Even with cache hit, we run ONE background refresh if data is stale
     if (itemPurchaseData[tokenId] && !noCacheMode) {
       if (debugMode) {
-        console.debug('[NFTDetailModal] Component state exists for token (will background refresh):', {
+        console.debug('[NFTDetailModal] Component state exists for token (will background refresh if stale):', {
           tokenId,
           tokenKey,
           priceSource: itemPurchaseData[tokenId].priceSource,
+          isStale,
         });
       }
       // Mark that we have cached data rendered
@@ -756,6 +1043,26 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         [tokenId]: restoredAcquisition,
       }));
 
+      // CRITICAL: Build resolvedAcquisition from cache immediately so UI doesn't show null
+      // This ensures the modal shows correct acquisition data before background refresh completes
+      const candidateFromCacheImmediate = buildCandidateFromCache(cachedData);
+      if (candidateFromCacheImmediate) {
+        const resolvedFromCache = selectBestAcquisition([candidateFromCacheImmediate]);
+        setResolvedAcquisitions(prev => ({
+          ...prev,
+          [tokenId]: resolvedFromCache,
+        }));
+        if (debugMode) {
+          console.debug('[NFTDetailModal] Resolved acquisition from cache (immediate):', {
+            tokenId,
+            score: resolvedFromCache.qualityScore,
+            source: resolvedFromCache.source,
+            acquisitionType: resolvedFromCache.acquisitionType,
+            costGun: resolvedFromCache.costGun,
+          });
+        }
+      }
+
       cacheRenderedFirst = true;
       setDebugData(prev => ({
         ...prev,
@@ -788,20 +1095,47 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     }
 
     // =========================================================================
-    // ALWAYS run background refresh (unless we already fetched fresh data)
-    // This ensures transfer events are always fetched from blockchain
+    // STALE-WHILE-REVALIDATE: Run ONE background refresh per modal open
+    // - Only refreshes if data is stale (older than STALE_THRESHOLD_MS)
+    // - Prevents duplicate fetches via fetchStateRef
     // =========================================================================
     const loadItemDetails = async (isBackgroundRefresh: boolean) => {
+      // =====================================================================
+      // HARDENING: AbortController setup for race-proofing
+      // Abort any previous request for this token before starting a new one
+      // =====================================================================
+      const abortKey = `fetch:${tokenId}`;
+      abortControllersRef.current[abortKey]?.abort();
+      const abortController = new AbortController();
+      abortControllersRef.current[abortKey] = abortController;
+
+      // Mark fetch as in progress for this token
+      fetchStateRef.current.fetchInProgress = true;
+      fetchStateRef.current.lastFetchedTokenKey = tokenKey;
+
+      // =====================================================================
+      // HARDENING: Set per-token status to 'loading', clear previous errors
+      // =====================================================================
+      setHoldingAcqStatusByTokenId(prev => ({ ...prev, [tokenId]: 'loading' }));
+      setHoldingAcqErrorByTokenId(prev => ({ ...prev, [tokenId]: null }));
+      setListingsStatusByTokenId(prev => ({ ...prev, [tokenId]: 'loading' }));
+      setListingsErrorByTokenId(prev => ({ ...prev, [tokenId]: null }));
+
       // Only show loading spinner if this is NOT a background refresh
       if (!isBackgroundRefresh) {
         setLoadingDetails(true);
       }
 
-      // Mark background refresh as attempted
+      // Mark background refresh as attempted and record start time
       if (isBackgroundRefresh) {
         setDebugData(prev => ({
           ...prev,
           backgroundRefreshAttempted: true,
+          refreshStartedAtIso: new Date().toISOString(),
+          refreshFinishedAtIso: null,
+          refreshError: null,
+          refreshResultSummary: null,
+          refreshDecision: null,
         }));
       } else {
         setDebugData(prev => ({
@@ -833,8 +1167,42 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         // =====================================================================
         const acquisition = await avalancheService.getNFTHoldingAcquisition(nftContractAddress, tokenId, walletAddress);
 
-        // Store raw acquisition result for debug panel (always fresh)
-        setHoldingAcquisitionRaw(acquisition);
+        // HARDENING: Check for abort signal first (silent exit on abort)
+        if (abortController.signal.aborted) {
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Fetch aborted for token:', tokenId);
+          }
+          return;
+        }
+
+        // Async safety: check if still mounted and token hasn't changed
+        if (!isMountedRef.current || activeItem?.tokenId !== tokenId) {
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Aborting state update - unmounted or token changed:', {
+              isMounted: isMountedRef.current,
+              startedTokenId: tokenId,
+              currentTokenId: activeItem?.tokenId,
+            });
+          }
+          return;
+        }
+
+        // HARDENING: FIFO eviction for holdingAcquisitionRaw map
+        const holdingKeysToEvict = holdingAcqKeyTrackerRef.current.track(tokenId);
+        if (holdingKeysToEvict.length > 0 && debugMode) {
+          console.debug('[NFTDetailModal] FIFO evicting holding acquisition keys:', holdingKeysToEvict);
+        }
+
+        // Store raw acquisition result for debug panel (per-token, prevents cross-token leakage)
+        setHoldingAcquisitionRawByTokenId(prev => {
+          const next = { ...prev, [tokenId]: acquisition };
+          // Remove evicted keys
+          holdingKeysToEvict.forEach(key => delete next[key]);
+          return next;
+        });
+
+        // HARDENING: Update acquisition status to success
+        setHoldingAcqStatusByTokenId(prev => ({ ...prev, [tokenId]: 'success' }));
 
         if (debugMode) {
           console.debug('[NFTDetailModal] Acquisition result:', {
@@ -850,6 +1218,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         const acquisitionVenue = acquisition?.venue;
         const acquisitionTxHash = acquisition?.txHash;
         const costGunFromChain = acquisition?.costGun ?? 0;
+
+        // Track if acquisition fetch returned null (timeout or error)
+        if (isBackgroundRefresh && acquisition === null) {
+          setDebugData(prev => ({
+            ...prev,
+            refreshError: 'acquisition_null_or_timeout',
+            refreshResultSummary: 'acquisition fetch returned null (timeout or no data) - keeping existing',
+          }));
+        }
 
         // Backward compatibility aliases
         const hasTransferData = hasAcquisitionData;
@@ -885,6 +1262,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         if (!listingsData) {
           try {
             const listings = await openSeaService.getNFTListings(nftContractAddress, tokenId, 'avalanche');
+
+            // HARDENING: Check for abort signal (silent exit on abort)
+            if (abortController.signal.aborted) {
+              if (debugMode) {
+                console.debug('[NFTDetailModal] Listings fetch aborted for token:', tokenId);
+              }
+              return;
+            }
+
             const lowest = listings.lowest ?? undefined;
             const highest = listings.highest ?? undefined;
             const average = lowest !== undefined && highest !== undefined
@@ -904,6 +1290,16 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               });
             }
 
+            // HARDENING: Check abort signal before state updates
+            if (abortController.signal.aborted) {
+              return;
+            }
+
+            // Async safety: check if still mounted and token hasn't changed
+            if (!isMountedRef.current || activeItem?.tokenId !== tokenId) {
+              return;
+            }
+
             // Update debug marketplace matches and any error
             setDebugData(prev => ({
               ...prev,
@@ -911,15 +1307,44 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               openSeaError: listings.error,
             }));
 
-            setListingsData({
-              lowest,
-              highest,
-              average,
+            // HARDENING: FIFO eviction for listings map
+            const listingsKeysToEvict = listingsKeyTrackerRef.current.track(tokenId);
+            if (listingsKeysToEvict.length > 0 && debugMode) {
+              console.debug('[NFTDetailModal] FIFO evicting listings keys:', listingsKeysToEvict);
+            }
+
+            // Per-token listings data (prevents cross-token leakage)
+            setListingsByTokenId(prev => {
+              const next = { ...prev, [tokenId]: { lowest, highest, average } };
+              // Remove evicted keys
+              listingsKeysToEvict.forEach(key => delete next[key]);
+              return next;
             });
+
+            // HARDENING: Update listings status to success
+            setListingsStatusByTokenId(prev => ({ ...prev, [tokenId]: 'success' }));
           } catch (openSeaError) {
+            // HARDENING: Silent exit on AbortError
+            if (isAbortError(openSeaError)) {
+              if (debugMode) {
+                console.debug('[NFTDetailModal] Listings fetch aborted (AbortError) for token:', tokenId);
+              }
+              return;
+            }
+
+            // HARDENING: Check abort signal in catch block
+            if (abortController.signal.aborted) {
+              return;
+            }
+
             // OpenSea failure is non-blocking
             const errorMsg = openSeaError instanceof Error ? openSeaError.message : 'Unknown error';
             console.warn('[NFTDetailModal] OpenSea fetch failed (non-blocking):', errorMsg);
+
+            // Async safety: check if still mounted and token hasn't changed
+            if (!isMountedRef.current || activeItem?.tokenId !== tokenId) {
+              return;
+            }
 
             setDebugData(prev => ({
               ...prev,
@@ -927,11 +1352,20 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               openSeaError: errorMsg,
             }));
 
-            setListingsData({
-              lowest: undefined,
-              highest: undefined,
-              average: undefined,
-            });
+            // HARDENING: Update listings status to error and record error message
+            setListingsStatusByTokenId(prev => ({ ...prev, [tokenId]: 'error' }));
+            setListingsErrorByTokenId(prev => ({ ...prev, [tokenId]: errorMsg }));
+
+            // Per-token listings data (empty on error)
+            setListingsByTokenId(prev => ({
+              ...prev,
+              [tokenId]: { lowest: undefined, highest: undefined, average: undefined },
+            }));
+          }
+        } else {
+          // HARDENING: Already have listings data, mark as success (only if not aborted)
+          if (!abortController.signal.aborted && isMountedRef.current && activeItem?.tokenId === tokenId) {
+            setListingsStatusByTokenId(prev => ({ ...prev, [tokenId]: 'success' }));
           }
         }
 
@@ -958,9 +1392,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         let walletPurchasesTimeRange_viewerWallet: { min: string; max: string } | undefined = undefined;
         let walletPurchasesTimeRange_currentOwner: { min: string; max: string } | undefined = undefined;
 
-        // Identity setup
-        const viewerWalletLower = walletAddress.toLowerCase();
-        const currentOwnerLower = currentOwnerFromAcquisition?.toLowerCase() || '';
+        // Identity setup (use null when not available, never empty string)
+        const viewerWalletLower = walletAddress?.toLowerCase() ?? null;
+        const currentOwnerLower = currentOwnerFromAcquisition?.toLowerCase() ?? null;
         const TIME_WINDOW_MS = 10 * 60 * 1000; // 10 minutes (widened from 5)
         const MATCH_WINDOW_MINUTES = 10;
 
@@ -1546,38 +1980,106 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           });
         }
 
-        // Check if we need to update state (for background refresh, compare with existing)
-        const existingData = itemPurchaseData[tokenId];
-        const shouldUpdate = !isBackgroundRefresh || !existingData ||
-          // Update if derived data differs from cached
-          existingData.priceSource !== derivedPriceSource ||
-          // Update if cached is missing critical fields that we now have
-          (hasTransferData && !existingData.acquiredAt) ||
-          (hasTransferData && !existingData.acquisitionType) ||
-          // Update if transfer event count changed (new data available)
-          totalLogsFound > 0;
+        // =====================================================================
+        // RESOLVED ACQUISITION: Build candidates and select best (no downgrades)
+        // =====================================================================
 
-        if (debugMode && isBackgroundRefresh) {
-          console.debug('[NFTDetailModal] Background refresh comparison:', {
+        // Build candidates from all available sources
+        const candidateFromHolding = buildCandidateFromHoldingRaw(acquisition, currentGunPrice ?? undefined);
+
+        // Build candidate from the fresh acquisition data we just constructed
+        const candidateFromFresh: Partial<ResolvedAcquisition> = {
+          acquisitionType: finalAcquisitionType,
+          venue: acquisitionVenue ?? null,
+          acquiredAt: acquiredAt?.toISOString() ?? null,
+          costGun: finalPurchasePriceGun ?? finalDecodeCostGun ?? null,
+          costUsd: finalPurchasePriceUsd ?? finalDecodeCostUsd ?? null,
+          txHash: acquisitionTxHash ?? finalMarketplaceTxHash ?? null,
+          fromAddress: fromAddress ?? null,
+          source: derivedPriceSource === 'onchain' ? 'onchain' : 'holdingAcquisitionRaw',
+        };
+
+        // Build candidate from localStorage cache (if available)
+        const cachedData = cacheResult.hit && 'value' in cacheResult ? cacheResult.value : null;
+        const candidateFromCache = buildCandidateFromCache(cachedData ?? null);
+
+        // Build candidate from transfer derivation (lowest priority fallback)
+        const candidateFromTransfer = buildCandidateFromTransfer(
+          acquiredAt,
+          finalAcquisitionType,
+          fromAddress ?? undefined,
+          acquisitionTxHash ?? undefined
+        );
+
+        // Select best candidate by score
+        const newResolved = selectBestAcquisition([
+          candidateFromHolding,
+          candidateFromFresh,
+          candidateFromCache,
+          candidateFromTransfer,
+        ]);
+
+        if (debugMode) {
+          console.debug('[NFTDetailModal] Resolved acquisition candidates:', {
             tokenId,
-            existingSource: existingData?.priceSource,
-            derivedSource: derivedPriceSource,
-            existingHasAcquiredAt: !!existingData?.acquiredAt,
-            derivedHasAcquiredAt: hasTransferData,
-            shouldUpdate,
+            candidateFromHolding: candidateFromHolding ? scoreAcquisitionCandidate(candidateFromHolding) : null,
+            candidateFromFresh: scoreAcquisitionCandidate(candidateFromFresh),
+            candidateFromCache: candidateFromCache ? scoreAcquisitionCandidate(candidateFromCache) : null,
+            candidateFromTransfer: candidateFromTransfer ? scoreAcquisitionCandidate(candidateFromTransfer) : null,
+            selectedScore: newResolved.qualityScore,
+            selectedSource: newResolved.source,
+          });
+        }
+
+        // Merge with existing resolved acquisition (prevent downgrades)
+        const existingResolved = resolvedAcquisitions[tokenId] ?? null;
+        const { result: finalResolved, wasUpdated: resolvedWasUpdated, reason: mergeReason } =
+          mergeAcquisitionIfBetter(existingResolved, newResolved);
+
+        if (debugMode) {
+          console.debug('[NFTDetailModal] Resolved acquisition merge:', {
+            tokenId,
+            existingScore: existingResolved?.qualityScore ?? 'none',
+            newScore: newResolved.qualityScore,
+            wasUpdated: resolvedWasUpdated,
+            mergeReason,
+            finalScore: finalResolved.qualityScore,
           });
         }
 
         // Update debug with final price source and marketplace match info
+        // Include comprehensive refresh diagnostics for debugging
+        const refreshFinishedAt = new Date().toISOString();
+        const refreshDecision = resolvedWasUpdated ? 'updated' : 'kept_existing_no_downgrade';
+        const refreshResultSummary = resolvedWasUpdated
+          ? `updated: score ${existingResolved?.qualityScore ?? 'none'} -> ${finalResolved.qualityScore} (${finalResolved.source})`
+          : `kept existing: score ${existingResolved?.qualityScore ?? 'none'} >= new ${newResolved.qualityScore} (${mergeReason})`;
+
         setDebugData(prev => ({
           ...prev,
           priceSource: derivedPriceSource,
           marketplaceMatchedTxHash: marketplaceTxHash,
           // Mark if background refresh caused an update
-          backgroundRefreshUpdated: isBackgroundRefresh && shouldUpdate,
+          backgroundRefreshUpdated: isBackgroundRefresh && resolvedWasUpdated,
+          // Enhanced refresh diagnostics
+          ...(isBackgroundRefresh ? {
+            refreshFinishedAtIso: refreshFinishedAt,
+            refreshError: null,
+            refreshResultSummary,
+            refreshExistingScore: existingResolved?.qualityScore ?? null,
+            refreshNewScore: newResolved.qualityScore,
+            refreshDecision,
+          } : {}),
         }));
 
-        if (shouldUpdate) {
+        // Always update resolved acquisition state (it handles its own no-downgrade logic)
+        setResolvedAcquisitions(prev => ({
+          ...prev,
+          [tokenId]: finalResolved,
+        }));
+
+        // Update legacy itemPurchaseData for backwards compatibility
+        if (resolvedWasUpdated) {
           // Store FRESH data in component state - completely replace, no merging
           setItemPurchaseData(prev => ({
             ...prev,
@@ -1603,14 +2105,70 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             });
           }
         } else if (debugMode && isBackgroundRefresh) {
-          console.debug('[NFTDetailModal] Background refresh skipped update (no changes):', {
+          console.debug('[NFTDetailModal] Background refresh prevented downgrade:', {
             tokenId,
             tokenKey,
+            reason: mergeReason,
           });
         }
       } catch (error) {
+        // HARDENING: Silent exit on AbortError (user switched tokens or modal closed)
+        if (isAbortError(error)) {
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Main fetch aborted (AbortError) for token:', tokenId);
+          }
+          return;
+        }
+
+        // HARDENING: Check abort signal in catch block
+        if (abortController.signal.aborted) {
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Skipping error state update - fetch was aborted:', tokenId);
+          }
+          return;
+        }
+
+        // HARDENING: Async safety - skip state update if unmounted or token changed
+        if (!isMountedRef.current || activeItem?.tokenId !== tokenId) {
+          if (debugMode) {
+            console.debug('[NFTDetailModal] Skipping error state update - unmounted or token changed:', {
+              isMounted: isMountedRef.current,
+              startedTokenId: tokenId,
+              currentTokenId: activeItem?.tokenId,
+            });
+          }
+          return;
+        }
+
         console.error('Error loading NFT details:', error);
+
+        // HARDENING: Update per-token status to error
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setHoldingAcqStatusByTokenId(prev => ({ ...prev, [tokenId]: 'error' }));
+        setHoldingAcqErrorByTokenId(prev => ({ ...prev, [tokenId]: errorMessage }));
+        setListingsStatusByTokenId(prev => ({ ...prev, [tokenId]: 'error' }));
+        setListingsErrorByTokenId(prev => ({ ...prev, [tokenId]: errorMessage }));
+
+        // Record error in refresh diagnostics
+        if (isBackgroundRefresh) {
+          setDebugData(prev => ({
+            ...prev,
+            refreshFinishedAtIso: new Date().toISOString(),
+            refreshError: errorMessage,
+            refreshResultSummary: `error: ${errorMessage.slice(0, 100)}`,
+            refreshDecision: 'error',
+          }));
+        }
       } finally {
+        // HARDENING: Clean up AbortController reference
+        if (abortControllersRef.current[abortKey] === abortController) {
+          delete abortControllersRef.current[abortKey];
+        }
+
+        // Mark fetch as complete and update timestamp
+        fetchStateRef.current.fetchInProgress = false;
+        fetchStateRef.current.lastFetchTimestamp = Date.now();
+
         // Only clear loading if this was NOT a background refresh
         if (!isBackgroundRefresh) {
           setLoadingDetails(false);
@@ -1620,7 +2178,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
     // Run loadItemDetails - pass whether this is a background refresh
     loadItemDetails(cacheRenderedFirst);
-  }, [isOpen, nft, walletAddress, activeItem, listingsData, debugMode, noCacheMode]);
+    // Note: listingsData removed from deps - it's fetched inside and shouldn't trigger re-runs
+  }, [isOpen, nft, walletAddress, activeItem, debugMode, noCacheMode]);
 
   // Close on Escape key
   useEffect(() => {
@@ -1641,6 +2200,101 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
   // Get current item's purchase data
   const currentPurchaseData = activeItem ? itemPurchaseData[activeItem.tokenId] : undefined;
+  // Get resolved acquisition (deterministic, no-downgrade)
+  const currentResolvedAcquisition = activeItem ? resolvedAcquisitions[activeItem.tokenId] : undefined;
+
+  // Copy debug data to clipboard
+  const handleCopyDebugData = useCallback(() => {
+    const debugOutput = {
+      tokenKey: debugData.tokenKey,
+      cacheKey: debugData.cacheKey,
+      cacheHit: debugData.cacheHit,
+      cacheReason: debugData.cacheReason,
+      priceSource: debugData.priceSource,
+      noCacheEnabled: debugData.noCacheEnabled,
+      cacheBypassed: debugData.cacheBypassed,
+      cacheRenderedFirst: debugData.cacheRenderedFirst,
+      backgroundRefreshAttempted: debugData.backgroundRefreshAttempted,
+      backgroundRefreshUpdated: debugData.backgroundRefreshUpdated,
+      // Enhanced refresh diagnostics
+      refreshDiagnostics: {
+        startedAt: debugData.refreshStartedAtIso,
+        finishedAt: debugData.refreshFinishedAtIso,
+        error: debugData.refreshError,
+        resultSummary: debugData.refreshResultSummary,
+        existingScore: debugData.refreshExistingScore,
+        newScore: debugData.refreshNewScore,
+        decision: debugData.refreshDecision,
+      },
+      metadataDebug: nft?.metadataDebug ?? null,
+      // Resolved acquisition (deterministic, no-downgrade)
+      resolvedAcquisition: currentResolvedAcquisition ?? null,
+      // Legacy acquisition data
+      acquisition: {
+        priceSource: currentPurchaseData?.priceSource ?? 'none',
+        acquisitionVenue: currentPurchaseData?.acquisitionVenue ?? null,
+        acquiredAt: toIsoStringSafe(currentPurchaseData?.acquiredAt) ?? null,
+        fromAddress: currentPurchaseData?.fromAddress ?? null,
+        acquisitionType: currentPurchaseData?.acquisitionType ?? null,
+        acquisitionTxHash: currentPurchaseData?.acquisitionTxHash ?? null,
+        purchasePriceGun: currentPurchaseData?.purchasePriceGun ?? null,
+        purchasePriceUsd: currentPurchaseData?.purchasePriceUsd ?? null,
+        purchaseDate: toIsoStringSafe(currentPurchaseData?.purchaseDate) ?? null,
+        marketplaceTxHash: currentPurchaseData?.marketplaceTxHash ?? null,
+        decodeCostGun: currentPurchaseData?.decodeCostGun ?? null,
+        decodeCostUsd: currentPurchaseData?.decodeCostUsd ?? null,
+        transferredFrom: currentPurchaseData?.transferredFrom ?? null,
+        isFreeTransfer: currentPurchaseData?.isFreeTransfer ?? null,
+      },
+      holdingAcquisitionRaw,
+      transferDerivation: {
+        derivedAcquiredAt: debugData.derivedAcquiredAt ?? null,
+        derivedAcquisitionType: debugData.derivedAcquisitionType ?? null,
+      },
+      marketplaceMatching: {
+        viewerWallet: debugData.viewerWallet,
+        currentOwner: debugData.currentOwner,
+        endpointBaseUrl: debugData.marketplaceEndpointBaseUrl,
+        network: debugData.marketplaceNetwork,
+        configured: debugData.marketplaceConfigured,
+        serverProxyUsed: debugData.serverProxyUsed,
+        testConnection: debugData.marketplaceTestConnection ?? null,
+        matchWindowMinutes: debugData.matchWindowMinutes,
+        tokenPurchasesCount: debugData.tokenPurchasesCount,
+        walletPurchasesCount_viewerWallet: debugData.walletPurchasesCount_viewerWallet,
+        walletPurchasesTimeRange_viewerWallet: debugData.walletPurchasesTimeRange_viewerWallet ?? null,
+        walletPurchasesCount_currentOwner: debugData.walletPurchasesCount_currentOwner,
+        walletPurchasesTimeRange_currentOwner: debugData.walletPurchasesTimeRange_currentOwner ?? null,
+        candidatesCount: debugData.marketplaceCandidatesCount,
+        candidateTimes: debugData.marketplaceCandidateTimes ?? null,
+        matchMethod: debugData.marketplaceMatchMethod,
+        matchedPurchaseId: debugData.marketplaceMatchedPurchaseId ?? null,
+        matchedOrderId: debugData.marketplaceMatchedOrderId ?? null,
+        matchedTimestamp: debugData.marketplaceMatchedTimestamp ?? null,
+        matchedTxHash: debugData.marketplaceMatchedTxHash ?? null,
+      },
+      gunUsdRate: currentGunPrice ?? null,
+      gunPriceTimestamp: toIsoStringSafe(debugData.gunPriceTimestamp) ?? null,
+      transferEventCount: debugData.transferEventCount,
+      transferQueryInfo: debugData.transferQueryInfo ?? null,
+      marketplaceMatches: debugData.marketplaceMatches,
+      openSeaError: debugData.openSeaError ?? null,
+      listingsData,
+      // Computed market inputs (single source of truth for hero + position label)
+      marketInputs: computeMarketInputs(listingsData, nft?.floorPrice, nft?.ceilingPrice),
+      // Active token ID for context
+      activeTokenId: activeItem?.tokenId ?? null,
+    };
+
+    navigator.clipboard.writeText(JSON.stringify(debugOutput, null, 2))
+      .then(() => {
+        setDebugCopied(true);
+        setTimeout(() => setDebugCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error('Failed to copy debug data:', err);
+      });
+  }, [debugData, nft, activeItem, currentPurchaseData, currentResolvedAcquisition, holdingAcquisitionRaw, currentGunPrice, listingsData]);
 
   // Filter traits to exclude "None" values
   const filteredTraits = useMemo(() => {
@@ -1679,35 +2333,42 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     return chain.toUpperCase();
   };
 
-  // Calculate market reference values
-  const getMarketReference = () => {
-    const currentValue = listingsData?.average ?? nft.floorPrice ?? nft.ceilingPrice;
-    const purchasePrice = currentPurchaseData?.purchasePriceGun;
+  // =============================================================================
+  // Canonical cost basis from resolved acquisition (single source of truth)
+  // Uses normalizeCostBasis helper for consistent validation
+  // =============================================================================
+  const costBasisGun: number | null = (() => {
+    // Transfers have no cost basis
+    if (!currentResolvedAcquisition || currentResolvedAcquisition.acquisitionType === 'TRANSFER') {
+      return null;
+    }
+    const rawCost = currentResolvedAcquisition.costGun;
+    const normalized = normalizeCostBasis(rawCost);
 
-    if (currentValue === undefined) {
-      return { hasMarketData: false };
+    // HARDENING: warnOnce if we filtered out an anomalous value
+    if (rawCost !== null && rawCost !== undefined && normalized === null) {
+      warnOnce(`costBasis:${activeItem?.tokenId ?? 'unknown'}`, 'Anomalous cost basis filtered:', rawCost);
     }
 
-    const usdValue = currentGunPrice ? currentValue * currentGunPrice : undefined;
-    let deltaPercent: number | undefined;
+    return normalized;
+  })();
 
-    if (purchasePrice && purchasePrice > 0 && !currentPurchaseData?.isFreeTransfer) {
-      deltaPercent = ((currentValue - purchasePrice) / purchasePrice) * 100;
-    }
+  // =============================================================================
+  // Canonical market inputs (single source of truth for hero + position label)
+  // Memoized to prevent recomputation on every render
+  // =============================================================================
+  const marketInputs = useMemo(
+    () => computeMarketInputs(listingsData, nft.floorPrice, nft.ceilingPrice),
+    [listingsData, nft.floorPrice, nft.ceilingPrice]
+  );
 
-    // Calculate data quality (spread-based only)
-    const dataQuality = calculateDataQuality(listingsData?.lowest, listingsData?.highest);
-
-    return {
-      hasMarketData: true,
-      gunValue: currentValue,
-      usdValue,
-      deltaPercent,
-      dataQuality,
-    };
+  // Market reference values for display (uses marketInputs)
+  const marketRef = {
+    hasMarketData: marketInputs.ref !== null,
+    gunValue: marketInputs.ref,
+    usdValue: marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : undefined,
+    dataQuality: marketInputs.dataQuality,
   };
-
-  const marketRef = getMarketReference();
 
   // Calculate position of a value on the range bar (0-100%)
   const getPositionOnRange = (value: number, low: number, high: number): number => {
@@ -1721,6 +2382,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const hasAcquisitionData = currentPurchaseData?.purchaseDate ||
     currentPurchaseData?.purchasePriceGun !== undefined ||
     currentPurchaseData?.isFreeTransfer;
+
+  // Per-token holdingAcq status (for UI feedback)
+  const activeTokenId = activeItem?.tokenId ?? '';
+  const holdingAcqStatus = holdingAcqStatusByTokenId[activeTokenId] ?? 'idle';
+  const holdingAcqError = holdingAcqErrorByTokenId[activeTokenId] ?? null;
 
   // Check if we have any details to show in accordion
   const hasDetails = hasAcquisitionData || Object.keys(filteredTraits).length > 0;
@@ -1878,11 +2544,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
               {/* ===== 3) ValueHeroSection ===== */}
               {walletAddress && (() => {
-                // Compute position label
+                // Compute position label using canonical sources (costBasisGun + marketInputs)
                 const positionLabel = getPositionLabel({
-                  acquisitionPriceGun: currentPurchaseData?.isFreeTransfer ? null : currentPurchaseData?.purchasePriceGun,
-                  priceLow: listingsData?.lowest,
-                  priceHigh: listingsData?.highest,
+                  acquisitionPriceGun: costBasisGun,
+                  marketRefGun: marketInputs.ref,
+                  dataQuality: marketInputs.dataQuality,
                 });
 
                 // Position pill styling based on state
@@ -2012,116 +2678,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               })()}
 
               {/* ===== 4) MarketReferenceSection (Observed Range Visualization) ===== */}
-              {walletAddress && (
-                <div className="py-4 border-t border-white/[0.12]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/65 mb-3">
-                    Observed Market Range
-                  </p>
-
-                  {loadingDetails ? (
-                    // Loading skeleton
-                    <div className="space-y-3">
-                      <div className="h-3 bg-white/10 rounded-full animate-pulse" />
-                      <div className="flex justify-between">
-                        <div className="h-8 w-12 bg-white/10 rounded animate-pulse" />
-                        <div className="h-8 w-12 bg-white/10 rounded animate-pulse" />
-                        <div className="h-8 w-12 bg-white/10 rounded animate-pulse" />
-                      </div>
-                    </div>
-                  ) : listingsData?.lowest !== undefined && listingsData?.highest !== undefined ? (
-                    <div className="space-y-3">
-                      {/* Horizontal range bar (bullet chart pattern) */}
-                      <div className="relative h-3">
-                        {/* Base range bar - neutral gray */}
-                        <div className="absolute inset-0 bg-white/10 rounded-full" />
-
-                        {/* Average tick - subtle white vertical line */}
-                        {(() => {
-                          const avg = listingsData.average ?? (listingsData.lowest + listingsData.highest) / 2;
-                          const avgPos = getPositionOnRange(avg, listingsData.lowest, listingsData.highest);
-                          return (
-                            <div
-                              className="absolute top-0 bottom-0 w-0.5 bg-white/40"
-                              style={{ left: `${avgPos}%`, transform: 'translateX(-50%)' }}
-                            />
-                          );
-                        })()}
-
-                        {/* Acquisition price marker - dot */}
-                        {currentPurchaseData?.purchasePriceGun !== undefined && !currentPurchaseData.isFreeTransfer && (
-                          (() => {
-                            const acqPrice = currentPurchaseData.purchasePriceGun;
-                            const avg = listingsData.average ?? (listingsData.lowest + listingsData.highest) / 2;
-                            const acqPos = getPositionOnRange(acqPrice, listingsData.lowest, listingsData.highest);
-                            const isGoodDeal = acqPrice < avg;
-                            return (
-                              <div
-                                className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]"
-                                style={{
-                                  left: `${acqPos}%`,
-                                  transform: 'translate(-50%, -50%)',
-                                  backgroundColor: isGoodDeal ? '#4ade80' : '#f87171',
-                                }}
-                                title={`Acquisition: ${acqPrice.toLocaleString()} GUN`}
-                              />
-                            );
-                          })()
-                        )}
-
-                        {/* Current reference marker - emphasized diamond/dot */}
-                        {marketRef.gunValue !== undefined && (
-                          (() => {
-                            const refPos = getPositionOnRange(marketRef.gunValue, listingsData.lowest, listingsData.highest);
-                            return (
-                              <div
-                                className="absolute top-1/2 w-3 h-3 rotate-45 border-2 border-[#0d0d0d]"
-                                style={{
-                                  left: `${refPos}%`,
-                                  transform: 'translate(-50%, -50%) rotate(45deg)',
-                                  backgroundColor: '#00ffc8',
-                                }}
-                                title={`Current: ${marketRef.gunValue.toLocaleString()} GUN`}
-                              />
-                            );
-                          })()
-                        )}
-                      </div>
-
-                      {/* Labels */}
-                      <div className="flex justify-between text-xs">
-                        <div className="text-left">
-                          <p className="text-white/40">Low</p>
-                          <p className="font-medium text-white/70">
-                            {listingsData.lowest.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-white/40">Avg</p>
-                          <p className="font-medium text-white/70">
-                            {(listingsData.average ?? (listingsData.lowest + listingsData.highest) / 2).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white/40">High</p>
-                          <p className="font-medium text-white/70">
-                            {listingsData.highest.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Helper text */}
-                      <p className="text-[10px] text-white/40 text-center">
-                        Based on observed listings
-                      </p>
-                    </div>
-                  ) : (
-                    // Missing data state
-                    <p className="text-xs text-white/50 text-center py-2">
-                      Not enough market data to display range
-                    </p>
-                  )}
-                </div>
-              )}
+              <NFTDetailObservedMarketRange
+                show={!!walletAddress}
+                loading={loadingDetails}
+                marketInputs={marketInputs}
+                costBasisGun={costBasisGun}
+                getPositionOnRange={getPositionOnRange}
+                listingsStatus={listingsStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
+                listingsError={listingsErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
+              />
 
               {/* ===== 5) DetailsAccordion ===== */}
               {hasDetails && (
@@ -2152,180 +2717,19 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                         {/* ===== Acquisition Card ===== */}
                         {hasAcquisitionData && (
-                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 h-full flex flex-col">
-                            {/* Card title */}
-                            <h4 className="text-sm font-semibold tracking-wide text-white/80 mb-2">
-                              Acquisition
-                            </h4>
-                            <div className="h-px bg-white/10 mb-4" />
-
-                            {/* Top section: Source, Acquired on, Cost */}
-                            <div className="flex-1 space-y-4">
-                              {/* Source row */}
-                              {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' && (
-                                <div>
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Source</p>
-                                  <p className={`text-base font-medium ${
-                                    currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
-                                    currentPurchaseData.acquisitionVenue === 'otg_marketplace' ? 'text-purple-400' :
-                                    currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-amber-400' :
-                                    currentPurchaseData.acquisitionVenue === 'mint' ? 'text-green-400' :
-                                    'text-white/90'
-                                  }`}>
-                                    {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0)}
-                                  </p>
-                                </div>
-                              )}
-
-                              {/* Acquired on row */}
-                              {currentPurchaseData?.purchaseDate && (
-                                <div>
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Acquired on</p>
-                                  <p className="text-base font-medium text-white/90 tabular-nums">{formatDate(currentPurchaseData.purchaseDate)}</p>
-                                </div>
-                              )}
-
-                              {/* Cost row - multiple conditions */}
-                              {currentPurchaseData?.decodeCostGun !== undefined && currentPurchaseData.decodeCostGun > 0 ? (
-                                <div>
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Decode Cost</p>
-                                  <p className="text-base font-medium text-amber-300 tabular-nums">
-                                    {currentPurchaseData.decodeCostGun.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })} GUN
-                                    {currentPurchaseData.decodeCostUsd !== undefined && (
-                                      <span className="text-sm text-white/55 tabular-nums">
-                                        <span className="mx-2">·</span>${currentPurchaseData.decodeCostUsd.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
-                              ) : currentPurchaseData?.isFreeTransfer ? (
-                                <>
-                                  <div>
-                                    <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Cost</p>
-                                    <p className="text-base font-medium text-white/90 tabular-nums">
-                                      0.00 GUN
-                                      <span className="text-sm text-white/55">
-                                        <span className="mx-2">·</span>
-                                        {currentPurchaseData.acquisitionVenue === 'mint' ? 'Mint' :
-                                          currentPurchaseData.acquisitionVenue === 'decoder' ? 'Decoded' :
-                                          'Transfer'}
-                                      </span>
-                                    </p>
-                                  </div>
-                                  {currentPurchaseData.transferredFrom && (
-                                    <div>
-                                      <p className="text-xs uppercase tracking-wider text-white/55 mb-1">From</p>
-                                      <a
-                                        href={gunzExplorerAddressUrl(currentPurchaseData.transferredFrom)}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-base font-medium text-[#64ffff] hover:text-[#96aaff] hover:underline underline-offset-2 transition tabular-nums"
-                                        title={currentPurchaseData.transferredFrom}
-                                      >
-                                        {currentPurchaseData.transferredFrom.slice(0, 6)}...{currentPurchaseData.transferredFrom.slice(-4)}
-                                      </a>
-                                    </div>
-                                  )}
-                                </>
-                              ) : currentPurchaseData?.purchasePriceGun !== undefined ? (
-                                <div>
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Cost</p>
-                                  <p className="text-base font-medium text-white/90 tabular-nums">
-                                    {currentPurchaseData.purchasePriceGun.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })} GUN
-                                    {currentPurchaseData.purchasePriceUsd !== undefined && (
-                                      <span className="text-sm text-white/55 tabular-nums">
-                                        <span className="mx-2">·</span>${currentPurchaseData.purchasePriceUsd.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
-                              ) : !debugData.marketplaceConfigured && currentPurchaseData?.acquiredAt ? (
-                                <div>
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Cost</p>
-                                  <p className="text-sm text-white/40 italic">Marketplace data unavailable</p>
-                                </div>
-                              ) : null}
-                            </div>
-
-                            {/* Bottom section: Transaction (anchored at bottom) */}
-                            {(() => {
-                              const txHash = currentPurchaseData?.marketplaceTxHash
-                                || currentPurchaseData?.acquisitionTxHash
-                                || holdingAcquisitionRaw?.txHash;
-
-                              if (!txHash) return null;
-
-                              return (
-                                <div className="mt-auto pt-4">
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Transaction</p>
-                                  <a
-                                    href={gunzExplorerTxUrl(txHash)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-base font-medium text-[#64ffff] hover:text-[#96aaff] hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:rounded-sm transition"
-                                    title={txHash}
-                                  >
-                                    View on Gunzscan
-                                    <svg className="w-3.5 h-3.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
-                                  </a>
-                                </div>
-                              );
-                            })()}
-                          </div>
+                          <NFTDetailAcquisitionCard
+                            status={holdingAcqStatus}
+                            error={holdingAcqError}
+                            data={currentPurchaseData}
+                            fallbackTxHash={holdingAcquisitionRaw?.txHash ?? undefined}
+                            marketplaceConfigured={debugData.marketplaceConfigured}
+                            formatDate={formatDate}
+                            getVenueDisplayLabel={getVenueDisplayLabel}
+                          />
                         )}
 
                         {/* ===== Traits Card ===== */}
-                        {Object.keys(filteredTraits).length > 0 && (
-                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 h-full flex flex-col">
-                            {/* Card title */}
-                            <h4 className="text-sm font-semibold tracking-wide text-white/80 mb-2">
-                              Traits
-                            </h4>
-                            <div className="h-px bg-white/10 mb-4" />
-
-                            {/* Traits list: Mint Number, Rarity, Class, Platform */}
-                            <div className="space-y-4">
-                              {filteredTraits['Serial Number'] && (
-                                <div className="min-w-0">
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Mint Number</p>
-                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Serial Number']}</p>
-                                </div>
-                              )}
-                              {filteredTraits['Rarity'] && (
-                                <div className="min-w-0">
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Rarity</p>
-                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Rarity']}</p>
-                                </div>
-                              )}
-                              {filteredTraits['Class'] && (
-                                <div className="min-w-0">
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Class</p>
-                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Class']}</p>
-                                </div>
-                              )}
-                              {filteredTraits['Platform'] && (
-                                <div className="min-w-0">
-                                  <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Platform</p>
-                                  <p className="text-sm font-medium text-white/90 whitespace-nowrap tracking-tight leading-tight">{filteredTraits['Platform']}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        <NFTDetailTraitsSection filteredTraits={filteredTraits} />
                       </div>
                     </div>
                   )}
@@ -2333,446 +2737,42 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               )}
 
               {/* ===== Debug Section (only visible with ?debugNft=1) ===== */}
-              {debugMode && (
-                <div className="border-t border-amber-500/30 pt-3 mt-4">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDebugExpanded(v => !v);
-                    }}
-                    className="w-full flex items-center justify-between py-2 text-sm text-amber-400 hover:text-amber-300 transition"
-                  >
-                    <span className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                      </svg>
-                      {debugExpanded ? 'Hide Debug Info' : 'Show Debug Info'}
-                    </span>
-                    <svg
-                      className={`w-4 h-4 transition-transform ${debugExpanded ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {debugExpanded && (
-                    <div className="mt-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20 font-mono text-xs space-y-2">
-                      {/* NoCache mode indicator */}
-                      {debugData.noCacheEnabled && (
-                        <div className="bg-purple-500/20 border border-purple-500/30 rounded px-2 py-1 mb-2">
-                          <span className="text-purple-300 font-semibold">⚡ noCache mode enabled</span>
-                          <span className="text-purple-200/70 text-[10px] ml-2">
-                            (bypassed: {debugData.cacheBypassed ? 'yes' : 'no'})
-                          </span>
-                        </div>
-                      )}
-                      {/* Background refresh status */}
-                      {debugData.cacheRenderedFirst && (
-                        <div className="bg-blue-500/20 border border-blue-500/30 rounded px-2 py-1 mb-2">
-                          <span className="text-blue-300 font-semibold">🔄 Background refresh</span>
-                          <span className="text-blue-200/70 text-[10px] ml-2">
-                            attempted: {debugData.backgroundRefreshAttempted ? 'yes' : 'no'},
-                            updated: {debugData.backgroundRefreshUpdated ? 'yes' : 'no'}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-amber-400/70">tokenKey:</span>{' '}
-                        <span className="text-amber-200 break-all">{debugData.tokenKey || '(not set)'}</span>
-                      </div>
-                      <div>
-                        <span className="text-amber-400/70">cacheKey:</span>{' '}
-                        <span className="text-amber-200 break-all text-[10px]">{debugData.cacheKey || '(not set)'}</span>
-                      </div>
-                      <div className="flex gap-4">
-                        <div>
-                          <span className="text-amber-400/70">cacheHit:</span>{' '}
-                          <span className={debugData.cacheHit ? 'text-green-400' : 'text-rose-400'}>
-                            {debugData.cacheHit ? 'true' : 'false'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-amber-400/70">reason:</span>{' '}
-                          <span className="text-amber-200">{debugData.cacheReason || '—'}</span>
-                        </div>
-                      </div>
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">priceSource:</span>{' '}
-                        <span className={`font-semibold ${
-                          debugData.priceSource === 'onchain' ? 'text-purple-400' :
-                          debugData.priceSource === 'transfers' ? 'text-green-400' :
-                          debugData.priceSource === 'localStorage' ? 'text-blue-400' :
-                          'text-rose-400'
-                        }`}>
-                          {debugData.priceSource}
-                        </span>
-                      </div>
-                      {/* Metadata Debug Section */}
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-green-400 font-semibold">metadata debug:</span>
-                        <div className="mt-1 ml-2 text-[10px] space-y-1">
-                          <div>
-                            <span className="text-green-400/50">metadataSource:</span>{' '}
-                            <span className={`font-semibold ${
-                              nft?.metadataDebug?.metadataSource === 'tokenURI' ? 'text-green-400' :
-                              nft?.metadataDebug?.metadataSource === 'gunzscan' ? 'text-blue-400' :
-                              'text-rose-400'
-                            }`}>
-                              {nft?.metadataDebug?.metadataSource ?? 'unknown'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-green-400/50">hasDescription:</span>{' '}
-                            <span className={nft?.metadataDebug?.hasDescription ? 'text-green-400' : 'text-rose-400'}>
-                              {nft?.metadataDebug?.hasDescription?.toString() ?? 'false'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-green-400/50">descriptionLength:</span>{' '}
-                            <span className="text-green-200/80">{nft?.metadataDebug?.descriptionLength ?? 0}</span>
-                          </div>
-                          <div>
-                            <span className="text-green-400/50">tokenURI:</span>{' '}
-                            <span className="text-green-200/80 break-all text-[9px]">
-                              {nft?.metadataDebug?.tokenURI
-                                ? (nft.metadataDebug.tokenURI.length > 200
-                                    ? nft.metadataDebug.tokenURI.slice(0, 200) + '...'
-                                    : nft.metadataDebug.tokenURI)
-                                : '(not set)'}
-                            </span>
-                          </div>
-                          {nft?.metadataDebug?.error && (
-                            <div>
-                              <span className="text-rose-400/50">error:</span>{' '}
-                              <span className="text-rose-300">{nft.metadataDebug.error}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">acquisition (full):</span>
-                        <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all text-[10px]">
-{JSON.stringify({
-  // Source tracking
-  priceSource: currentPurchaseData?.priceSource ?? 'none',
-  acquisitionVenue: currentPurchaseData?.acquisitionVenue ?? null,
-
-  // Transfer-derived (blockchain)
-  acquiredAt: toIsoStringSafe(currentPurchaseData?.acquiredAt) ?? null,
-  fromAddress: currentPurchaseData?.fromAddress ?? null,
-  acquisitionType: currentPurchaseData?.acquisitionType ?? null,
-  acquisitionTxHash: currentPurchaseData?.acquisitionTxHash ?? null,
-
-  // Marketplace purchase price (OpenSea, OTG Marketplace, etc.)
-  purchasePriceGun: currentPurchaseData?.purchasePriceGun ?? null,
-  purchasePriceUsd: currentPurchaseData?.purchasePriceUsd ?? null,
-  purchaseDate: toIsoStringSafe(currentPurchaseData?.purchaseDate) ?? null,
-  marketplaceTxHash: currentPurchaseData?.marketplaceTxHash ?? null,
-
-  // Decode/Mint cost (in-game, NOT marketplace)
-  decodeCostGun: currentPurchaseData?.decodeCostGun ?? null,
-  decodeCostUsd: currentPurchaseData?.decodeCostUsd ?? null,
-
-  // Legacy
-  transferredFrom: currentPurchaseData?.transferredFrom ?? null,
-  isFreeTransfer: currentPurchaseData?.isFreeTransfer ?? null,
-}, null, 2)}
-                        </pre>
-                      </div>
-                      {/* Debug: Holding Acquisition from RPC (getNFTHoldingAcquisition) */}
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-cyan-400 font-semibold">holding acquisition (RPC):</span>
-                        <pre className="text-cyan-200 mt-1 whitespace-pre-wrap break-all text-[10px] bg-cyan-500/5 p-2 rounded">
-{JSON.stringify(holdingAcquisitionRaw, null, 2)}
-                        </pre>
-                        <div className="mt-2 ml-2 text-[10px] space-y-1">
-                          <div>
-                            <span className="text-cyan-400/50">owned:</span>{' '}
-                            <span className={`font-semibold ${holdingAcquisitionRaw?.owned ? 'text-green-400' : 'text-rose-400'}`}>
-                              {holdingAcquisitionRaw?.owned?.toString() ?? 'null'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-cyan-400/50">acquisitionVenue:</span>{' '}
-                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.venue ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-cyan-400/50">acquisitionTxHash:</span>{' '}
-                            <span className="text-cyan-200/80 break-all">{holdingAcquisitionRaw?.txHash ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-cyan-400/50">costGun:</span>{' '}
-                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.costGun ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-cyan-400/50">fromAddress:</span>{' '}
-                            <span className="text-cyan-200/80 break-all">{holdingAcquisitionRaw?.fromAddress ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-cyan-400/50">isMint:</span>{' '}
-                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.isMint?.toString() ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-cyan-400/50">acquiredAtIso:</span>{' '}
-                            <span className="text-cyan-200/80">{holdingAcquisitionRaw?.acquiredAtIso ?? 'null'}</span>
-                          </div>
-                          {/* Debug sub-fields */}
-                          {holdingAcquisitionRaw?.debug && (
-                            <div className="border-t border-cyan-500/20 pt-1 mt-1">
-                              <span className="text-cyan-400/50">debug.txTo:</span>{' '}
-                              <span className="text-cyan-200/80 break-all">{holdingAcquisitionRaw.debug.txTo ?? 'null'}</span>
-                            </div>
-                          )}
-                          {holdingAcquisitionRaw?.debug && (
-                            <div>
-                              <span className="text-cyan-400/50">debug.selector:</span>{' '}
-                              <span className="text-cyan-200/80">{holdingAcquisitionRaw.debug.selector ?? 'null'}</span>
-                            </div>
-                          )}
-                          {holdingAcquisitionRaw?.debug && (
-                            <div>
-                              <span className="text-cyan-400/50">debug.gunIsNative:</span>{' '}
-                              <span className="text-cyan-200/80">{holdingAcquisitionRaw.debug.gunIsNative?.toString() ?? 'null'}</span>
-                            </div>
-                          )}
-                          {holdingAcquisitionRaw?.debug && (
-                            <div>
-                              <span className="text-cyan-400/50">debug.matchedRule:</span>{' '}
-                              <span className="text-cyan-200/80">{holdingAcquisitionRaw.debug.matchedRule ?? 'null'}</span>
-                            </div>
-                          )}
-                          {holdingAcquisitionRaw?.debug && (
-                            <div>
-                              <span className="text-cyan-400/50">debug.hasOrderFulfilled:</span>{' '}
-                              <span className={`font-semibold ${holdingAcquisitionRaw.debug.hasOrderFulfilled ? 'text-green-400' : 'text-cyan-200/80'}`}>
-                                {holdingAcquisitionRaw.debug.hasOrderFulfilled?.toString() ?? 'null'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {/* Debug: Transfer derivation details (legacy) */}
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">transfer derivation (legacy):</span>
-                        <div className="mt-1 ml-2 text-[10px] space-y-1">
-                          <div>
-                            <span className="text-amber-400/50">derivedAcquiredAt:</span>{' '}
-                            <span className="text-amber-200/80">{debugData.derivedAcquiredAt ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">derivedAcquisitionType:</span>{' '}
-                            <span className="text-amber-200/80">{debugData.derivedAcquisitionType ?? 'null'}</span>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Debug: Marketplace matching (enhanced) */}
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">marketplace matching:</span>
-                        <div className="mt-1 ml-2 text-[10px] space-y-1">
-                          {/* Identity info */}
-                          <div>
-                            <span className="text-amber-400/50">viewerWallet:</span>{' '}
-                            <span className="text-amber-200/80 break-all">{debugData.viewerWallet || 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">currentOwner:</span>{' '}
-                            <span className="text-amber-200/80 break-all">{debugData.currentOwner || 'null'}</span>
-                          </div>
-                          {/* Endpoint info */}
-                          <div className="border-t border-amber-500/10 pt-1 mt-1">
-                            <span className="text-amber-400/50">endpointBaseUrl:</span>{' '}
-                            <span className="text-amber-200/80 break-all">{debugData.marketplaceEndpointBaseUrl || 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">network:</span>{' '}
-                            <span className={`font-semibold ${
-                              debugData.marketplaceNetwork === 'mainnet' ? 'text-green-400' :
-                              debugData.marketplaceNetwork === 'testnet' ? 'text-yellow-400' :
-                              'text-rose-400'
-                            }`}>
-                              {debugData.marketplaceNetwork || 'unconfigured'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">configured:</span>{' '}
-                            <span className={`font-semibold ${debugData.marketplaceConfigured ? 'text-green-400' : 'text-rose-400'}`}>
-                              {debugData.marketplaceConfigured ? 'true' : 'false'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">serverProxy:</span>{' '}
-                            <span className={`font-semibold ${debugData.serverProxyUsed ? 'text-green-400' : 'text-amber-400'}`}>
-                              {debugData.serverProxyUsed ? 'true' : 'false'}
-                            </span>
-                          </div>
-                          {debugData.marketplaceTestConnection && (
-                            <div className="ml-2 text-[9px]">
-                              <span className="text-amber-400/30">testConnection:</span>{' '}
-                              <span className={`${debugData.marketplaceTestConnection.success ? 'text-green-400' : 'text-rose-400'}`}>
-                                {debugData.marketplaceTestConnection.success ? 'OK' : 'FAIL'}
-                                {debugData.marketplaceTestConnection.statusCode && ` (${debugData.marketplaceTestConnection.statusCode})`}
-                              </span>
-                              {debugData.marketplaceTestConnection.error && (
-                                <span className="text-rose-300/80 ml-1">{debugData.marketplaceTestConnection.error}</span>
-                              )}
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-amber-400/50">matchWindowMinutes:</span>{' '}
-                            <span className="text-amber-200/80">{debugData.matchWindowMinutes}</span>
-                          </div>
-                          {/* Retrieval counts */}
-                          <div className="border-t border-amber-500/10 pt-1 mt-1">
-                            <span className="text-amber-400/50">tokenPurchasesCount:</span>{' '}
-                            <span className={`font-semibold ${debugData.tokenPurchasesCount > 0 ? 'text-green-400' : 'text-amber-200/80'}`}>
-                              {debugData.tokenPurchasesCount}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">walletPurchasesCount (viewer):</span>{' '}
-                            <span className={`font-semibold ${debugData.walletPurchasesCount_viewerWallet > 0 ? 'text-green-400' : 'text-amber-200/80'}`}>
-                              {debugData.walletPurchasesCount_viewerWallet}
-                            </span>
-                          </div>
-                          {debugData.walletPurchasesTimeRange_viewerWallet && (
-                            <div className="ml-2">
-                              <span className="text-amber-400/30">timeRange:</span>{' '}
-                              <span className="text-amber-200/60 text-[9px]">
-                                {debugData.walletPurchasesTimeRange_viewerWallet.min} → {debugData.walletPurchasesTimeRange_viewerWallet.max}
-                              </span>
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-amber-400/50">walletPurchasesCount (owner):</span>{' '}
-                            <span className={`font-semibold ${debugData.walletPurchasesCount_currentOwner > 0 ? 'text-green-400' : 'text-amber-200/80'}`}>
-                              {debugData.walletPurchasesCount_currentOwner}
-                            </span>
-                          </div>
-                          {debugData.walletPurchasesTimeRange_currentOwner && (
-                            <div className="ml-2">
-                              <span className="text-amber-400/30">timeRange:</span>{' '}
-                              <span className="text-amber-200/60 text-[9px]">
-                                {debugData.walletPurchasesTimeRange_currentOwner.min} → {debugData.walletPurchasesTimeRange_currentOwner.max}
-                              </span>
-                            </div>
-                          )}
-                          {/* Merged candidates */}
-                          <div className="border-t border-amber-500/10 pt-1 mt-1">
-                            <span className="text-amber-400/50">candidatesCount (merged):</span>{' '}
-                            <span className={`font-semibold ${debugData.marketplaceCandidatesCount > 0 ? 'text-green-400' : 'text-amber-200/80'}`}>
-                              {debugData.marketplaceCandidatesCount}
-                            </span>
-                          </div>
-                          {debugData.marketplaceCandidateTimes && (
-                            <div>
-                              <span className="text-amber-400/50">candidateTimes:</span>{' '}
-                              <span className="text-amber-200/80 text-[9px]">
-                                {debugData.marketplaceCandidateTimes.min} → {debugData.marketplaceCandidateTimes.max}
-                              </span>
-                            </div>
-                          )}
-                          {/* Match result */}
-                          <div className="border-t border-amber-500/10 pt-1 mt-1">
-                            <span className="text-amber-400/50">matchMethod:</span>{' '}
-                            <span className={`font-semibold ${
-                              debugData.marketplaceMatchMethod === 'txHash' ? 'text-purple-400' :
-                              debugData.marketplaceMatchMethod === 'timeWindow' ? 'text-blue-400' :
-                              'text-rose-400'
-                            }`}>
-                              {debugData.marketplaceMatchMethod}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">matchedPurchaseId:</span>{' '}
-                            <span className="text-amber-200/80">{debugData.marketplaceMatchedPurchaseId ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">matchedOrderId:</span>{' '}
-                            <span className="text-amber-200/80">{debugData.marketplaceMatchedOrderId ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">matchedTimestamp:</span>{' '}
-                            <span className="text-amber-200/80">{debugData.marketplaceMatchedTimestamp ?? 'null'}</span>
-                          </div>
-                          <div>
-                            <span className="text-amber-400/50">matchedTxHash:</span>{' '}
-                            <span className="text-amber-200/80 break-all">{debugData.marketplaceMatchedTxHash ?? 'null'}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">gunUsdRate:</span>{' '}
-                        <span className="text-amber-200">{currentGunPrice ?? 'null'}</span>
-                      </div>
-                      <div>
-                        <span className="text-amber-400/70">gunPriceTimestamp:</span>{' '}
-                        <span className="text-amber-200">
-                          {toIsoStringSafe(debugData.gunPriceTimestamp) ?? 'null'}
-                        </span>
-                      </div>
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">transferEventCount:</span>{' '}
-                        <span className={`font-semibold ${debugData.transferEventCount > 0 ? 'text-green-400' : 'text-rose-400'}`}>
-                          {debugData.transferEventCount}
-                        </span>
-                      </div>
-                      {debugData.transferQueryInfo && (
-                        <div className="mt-1 ml-2 text-[10px] space-y-1">
-                          {debugData.transferQueryInfo.fromBlock !== undefined && debugData.transferQueryInfo.toBlock !== undefined && (
-                            <div>
-                              <span className="text-amber-400/50">blockRange:</span>{' '}
-                              <span className="text-amber-200/80">
-                                {debugData.transferQueryInfo.fromBlock.toLocaleString()} → {debugData.transferQueryInfo.toBlock.toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                          {debugData.transferQueryInfo.chunksQueried !== undefined && (
-                            <div>
-                              <span className="text-amber-400/50">chunksQueried:</span>{' '}
-                              <span className="text-amber-200/80">{debugData.transferQueryInfo.chunksQueried}</span>
-                            </div>
-                          )}
-                          {debugData.transferQueryInfo.currentOwner !== undefined && (
-                            <div>
-                              <span className="text-amber-400/50">currentOwner:</span>{' '}
-                              <span className="text-amber-200/80 break-all">
-                                {debugData.transferQueryInfo.currentOwner || 'null'}
-                              </span>
-                            </div>
-                          )}
-                          {debugData.transferQueryInfo.matchedRule && (
-                            <div>
-                              <span className="text-amber-400/50">venueMatchedBy:</span>{' '}
-                              <span className="text-amber-200/80">{debugData.transferQueryInfo.matchedRule}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-amber-400/70">marketplaceMatches:</span>{' '}
-                        <span className="text-amber-200">{debugData.marketplaceMatches}</span>
-                      </div>
-                      {debugData.openSeaError && (
-                        <div className="mt-1">
-                          <span className="text-amber-400/70">openSeaError:</span>{' '}
-                          <span className="text-rose-400 text-[10px]">{debugData.openSeaError}</span>
-                        </div>
-                      )}
-                      <div className="border-t border-amber-500/20 pt-2">
-                        <span className="text-amber-400/70">listingsData:</span>
-                        <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all">
-{JSON.stringify(listingsData, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              <NFTDetailDebugPanel
+                show={debugMode}
+                expanded={debugExpanded}
+                copied={debugCopied}
+                debugData={debugData}
+                metadataDebug={nft?.metadataDebug as MetadataDebugData | undefined}
+                currentPurchaseDataJson={JSON.stringify({
+                  priceSource: currentPurchaseData?.priceSource ?? 'none',
+                  acquisitionVenue: currentPurchaseData?.acquisitionVenue ?? null,
+                  acquiredAt: toIsoStringSafe(currentPurchaseData?.acquiredAt) ?? null,
+                  fromAddress: currentPurchaseData?.fromAddress ?? null,
+                  acquisitionType: currentPurchaseData?.acquisitionType ?? null,
+                  acquisitionTxHash: currentPurchaseData?.acquisitionTxHash ?? null,
+                  purchasePriceGun: currentPurchaseData?.purchasePriceGun ?? null,
+                  purchasePriceUsd: currentPurchaseData?.purchasePriceUsd ?? null,
+                  purchaseDate: toIsoStringSafe(currentPurchaseData?.purchaseDate) ?? null,
+                  marketplaceTxHash: currentPurchaseData?.marketplaceTxHash ?? null,
+                  decodeCostGun: currentPurchaseData?.decodeCostGun ?? null,
+                  decodeCostUsd: currentPurchaseData?.decodeCostUsd ?? null,
+                  transferredFrom: currentPurchaseData?.transferredFrom ?? null,
+                  isFreeTransfer: currentPurchaseData?.isFreeTransfer ?? null,
+                }, null, 2)}
+                currentResolvedAcquisition={currentResolvedAcquisition as ResolvedAcquisitionData | undefined}
+                holdingAcquisitionRaw={holdingAcquisitionRaw as HoldingAcquisitionData | null}
+                currentGunPrice={currentGunPrice}
+                listingsDataJson={JSON.stringify(listingsData, null, 2)}
+                listingsStatus={listingsStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
+                listingsError={listingsErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
+                holdingAcqStatus={holdingAcqStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
+                holdingAcqError={holdingAcqErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
+                listingsMapSize={Object.keys(listingsStatusByTokenId).length}
+                holdingAcqMapSize={Object.keys(holdingAcqStatusByTokenId).length}
+                onToggleExpanded={() => setDebugExpanded(v => !v)}
+                onCopyDebugData={handleCopyDebugData}
+                toIsoStringSafe={toIsoStringSafe}
+              />
             </div>
           </div>
 

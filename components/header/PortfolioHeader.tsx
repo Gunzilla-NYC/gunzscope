@@ -7,6 +7,7 @@ import WalletIdentity from './WalletIdentity';
 import PortfolioGlanceCard from './PortfolioGlanceCard';
 import GunCard from './GunCard';
 import { addPortfolioSnapshot } from '@/lib/utils/portfolioHistory';
+import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 
 interface PortfolioHeaderProps {
   walletData: WalletData;
@@ -16,6 +17,7 @@ interface PortfolioHeaderProps {
   networkInfo?: NetworkInfo | null;
   walletType?: 'in-game' | 'external' | 'unknown';
   totalOwnedCount?: number;
+  portfolioResult?: PortfolioCalcResult | null;
 }
 
 export default function PortfolioHeader({
@@ -26,9 +28,26 @@ export default function PortfolioHeader({
   networkInfo,
   walletType = 'unknown',
   totalOwnedCount,
+  portfolioResult,
 }: PortfolioHeaderProps) {
-  // Calculate values
+  // Derive display values from portfolioResult (single source of truth)
+  // Falls back to legacy calculation if portfolioResult not provided
   const { totalTokenValue, breakdown, totalBalance } = useMemo(() => {
+    if (portfolioResult) {
+      // Use calcPortfolio result as single source of truth
+      return {
+        totalTokenValue: portfolioResult.totalUsd,
+        totalBalance: portfolioResult.totalGunBalance,
+        breakdown: {
+          gunValue: portfolioResult.tokensUsd,
+          nftValue: portfolioResult.nftsUsd,
+          otherValue: 0,
+          nftCount: portfolioResult.nftCount,
+        },
+      };
+    }
+
+    // Legacy fallback (should not be reached when portfolioResult is provided)
     const avalancheBalance = walletData.avalanche.gunToken?.balance || 0;
     const solanaBalance = walletData.solana.gunToken?.balance || 0;
     const totalBal = avalancheBalance + solanaBalance;
@@ -64,7 +83,7 @@ export default function PortfolioHeader({
         nftCount: totalNFTCount,
       },
     };
-  }, [walletData, gunPrice, totalOwnedCount]);
+  }, [walletData, gunPrice, totalOwnedCount, portfolioResult]);
 
   // Add portfolio snapshot for history tracking
   useEffect(() => {
@@ -84,6 +103,9 @@ export default function PortfolioHeader({
             networkInfo={networkInfo}
             walletType={walletType}
             lastUpdated={walletData.lastUpdated}
+            gunBalance={totalBalance}
+            gunValueUsd={breakdown.gunValue}
+            gunPrice={gunPrice}
           />
         </div>
 

@@ -11,6 +11,12 @@ interface WalletIdentityProps {
   lastUpdated?: Date;
   isUpdating?: boolean;
   className?: string;
+  /** GUN token balance (total across chains) */
+  gunBalance?: number;
+  /** GUN value in USD (balance * price) */
+  gunValueUsd?: number;
+  /** Current GUN price in USD */
+  gunPrice?: number;
 }
 
 interface PopoverPosition {
@@ -25,6 +31,9 @@ export default function WalletIdentity({
   lastUpdated,
   isUpdating = false,
   className = '',
+  gunBalance,
+  gunValueUsd,
+  gunPrice,
 }: WalletIdentityProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -378,7 +387,62 @@ export default function WalletIdentity({
         )}
       </div>
 
-      {/* Row 4: Details affordance */}
+      {/* Row 4: GUN Balance + USD Value */}
+      {(gunBalance !== undefined || gunValueUsd !== undefined) && (
+        <div className="mb-4 pt-3 border-t border-white/5">
+          <div className="flex items-baseline justify-between gap-4">
+            {/* Balance */}
+            <div>
+              <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
+                Balance
+              </span>
+              <span className="text-[18px] font-semibold text-white tabular-nums">
+                {gunBalance !== undefined ? (
+                  <>
+                    {gunBalance.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                    <span className="text-[13px] text-white/60 ml-1.5">GUN</span>
+                  </>
+                ) : (
+                  <span className="text-white/40">—</span>
+                )}
+              </span>
+            </div>
+
+            {/* USD Value */}
+            <div className="text-right">
+              <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
+                Value
+              </span>
+              <span className="text-[18px] font-semibold text-[#beffd2] tabular-nums">
+                {gunValueUsd !== undefined && gunValueUsd > 0 ? (
+                  <>
+                    ${gunValueUsd.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </>
+                ) : gunBalance !== undefined && gunBalance > 0 && !gunPrice ? (
+                  <span className="text-white/40 text-[14px]">Price unavailable</span>
+                ) : (
+                  <span className="text-white/40">—</span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Unit price as subtle info */}
+          {gunPrice !== undefined && gunPrice > 0 && (
+            <p className="text-[11px] text-white/40 mt-2">
+              @ ${gunPrice.toFixed(6)} per GUN
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Row 5: Details affordance */}
       <button
         ref={triggerRef}
         onClick={toggleDetails}

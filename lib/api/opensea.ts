@@ -3,6 +3,56 @@ import { toOpenSeaChain } from '@/lib/utils/openseaChain';
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
+// =============================================================================
+// Exported Interfaces for Sale Events
+// =============================================================================
+
+/**
+ * A single sale event for an NFT
+ */
+export interface SaleEvent {
+  eventTimestamp: Date;
+  priceGUN: number;
+  priceWGUN: number;
+  sellerAddress: string;
+  buyerAddress: string;
+  txHash: string;
+  marketplace: string;
+}
+
+/**
+ * A sale event with NFT metadata (for collection-wide queries)
+ */
+export interface CollectionSaleEvent extends SaleEvent {
+  tokenId: string;
+  nftName: string;
+  nftTraits: Record<string, string> | null;
+}
+
+/**
+ * Floor price and collection statistics
+ */
+export interface FloorPriceResult {
+  floorPriceGUN: number | null;
+  totalVolume: number | null;
+  totalSales: number | null;
+  numOwners: number | null;
+  lastUpdated: Date;
+}
+
+/**
+ * A comparable sale for valuation purposes
+ */
+export interface ComparableSale {
+  tokenId: string;
+  nftName: string;
+  rarity: string;
+  salePriceGUN: number;
+  saleDate: Date;
+  buyerAddress: string;
+  sellerAddress: string;
+}
+
 // Check if running in browser
 const isBrowser = typeof window !== 'undefined';
 
@@ -296,5 +346,425 @@ export class OpenSeaService {
       console.error('Error fetching last sale price from OpenSea:', error);
       return null;
     }
+  }
+
+  // ===========================================================================
+  // Sale Events Methods
+  // ===========================================================================
+
+  /**
+   * Get sale history for a specific NFT
+   */
+  async getSaleEvents(
+    contractAddress: string,
+    tokenId: string,
+    chain: string = 'avalanche'
+  ): Promise<SaleEvent[]> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+      const mappedChain = toOpenSeaChain(chain);
+
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/events/chain/${mappedChain}/contract/${contractAddress}/nfts/${tokenId}`,
+        {
+          headers,
+          params: {
+            event_type: 'sale',
+            limit: 50,
+          },
+        }
+      );
+
+      const events = response.data?.asset_events || [];
+
+      return events.map((event: any) => this.parseSaleEvent(event));
+    } catch (error) {
+      console.warn('Error fetching sale events from OpenSea:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get recent sales across the whole collection with pagination support
+   */
+  async getCollectionSaleEvents(
+    collectionSlug: string = 'off-the-grid',
+    afterDate?: Date,
+    limit: number = 50
+  ): Promise<CollectionSaleEvent[]> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      const params: Record<string, string | number> = {
+        event_type: 'sale',
+        limit: Math.min(limit, 50), // OpenSea max is 50 per request
+      };
+
+      if (afterDate) {
+        // OpenSea expects Unix timestamp in seconds
+        params.after = Math.floor(afterDate.getTime() / 1000);
+      }
+
+      const allEvents: CollectionSaleEvent[] = [];
+      let cursor: string | null = null;
+      let fetched = 0;
+
+      // Paginate until we have enough results or no more pages
+      do {
+        const requestParams: Record<string, string | number> = cursor
+          ? { ...params, next: cursor }
+          : params;
+
+        const response = await axios.get<{
+          asset_events?: any[];
+          next?: string | null;
+        }>(`${OPENSEA_API_BASE}/events/collection/${collectionSlug}`, {
+          headers,
+          params: requestParams,
+        });
+
+        const events = response.data?.asset_events || [];
+        cursor = response.data?.next || null;
+
+        for (const event of events) {
+          if (fetched >= limit) break;
+          allEvents.push(this.parseCollectionSaleEvent(event));
+          fetched++;
+        }
+      } while (cursor && fetched < limit);
+
+      return allEvents;
+    } catch (error) {
+      console.warn('Error fetching collection sale events from OpenSea:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get floor price and collection statistics
+   */
+  async getCollectionFloorPrice(
+    collectionSlug: string = 'off-the-grid'
+  ): Promise<FloorPriceResult> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/collections/${collectionSlug}/stats`,
+        { headers }
+      );
+
+      const stats = response.data?.total || response.data;
+
+      return {
+        floorPriceGUN: stats?.floor_price ?? null,
+        totalVolume: stats?.volume ?? null,
+        totalSales: stats?.sales ?? null,
+        numOwners: stats?.num_owners ?? null,
+        lastUpdated: new Date(),
+      };
+    } catch (error) {
+      console.warn('Error fetching collection floor price from OpenSea:', error);
+      return {
+        floorPriceGUN: null,
+        totalVolume: null,
+        totalSales: null,
+        numOwners: null,
+        lastUpdated: new Date(),
+      };
+    }
+  }
+
+  /**
+   * Get rarity-specific floor price by fetching collection listings
+   * and filtering by rarity trait
+   *
+   * @param rarity - The rarity level to filter by (e.g., "Common", "Uncommon", "Rare", "Epic", "Legendary")
+   * @param collectionSlug - OpenSea collection slug (default: 'off-the-grid')
+   * @returns The minimum listing price for items of this rarity, or null if none found
+   */
+  async getRarityFloorPrice(
+    rarity: string,
+    collectionSlug: string = 'off-the-grid'
+  ): Promise<{ floorPriceGUN: number | null; listingsCount: number }> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      // Fetch active listings for the collection
+      // OpenSea API v2: /api/v2/listings/collection/{collection_slug}
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/listings/collection/${collectionSlug}`,
+        {
+          headers,
+          params: {
+            limit: 100, // Get more listings to find rarity matches
+          },
+        }
+      );
+
+      const listings = response.data?.listings || [];
+
+      if (listings.length === 0) {
+        return { floorPriceGUN: null, listingsCount: 0 };
+      }
+
+      // Filter listings by rarity trait
+      const rarityLower = rarity.toLowerCase();
+      const matchingPrices: number[] = [];
+
+      for (const listing of listings) {
+        // Get the NFT metadata from the protocol_data or the listing
+        const nft = listing.protocol_data?.parameters?.offer?.[0] || {};
+        const traits = listing.traits || nft.traits || [];
+
+        // Check traits array for rarity match
+        let listingRarity: string | null = null;
+
+        // Handle traits as array (OpenSea format)
+        if (Array.isArray(traits)) {
+          for (const trait of traits) {
+            const traitType = (trait.trait_type || trait.type || '').toLowerCase();
+            if (traitType === 'rarity') {
+              listingRarity = String(trait.value).toLowerCase();
+              break;
+            }
+          }
+        }
+        // Handle traits as object (some APIs)
+        else if (typeof traits === 'object' && traits !== null) {
+          listingRarity = (
+            traits['RARITY'] ||
+            traits['Rarity'] ||
+            traits['rarity'] ||
+            ''
+          ).toLowerCase();
+        }
+
+        if (listingRarity === rarityLower) {
+          // Extract price from the listing
+          const priceInfo = listing.price?.current || listing.current_price;
+          if (priceInfo) {
+            const priceWei = BigInt(priceInfo.value || priceInfo);
+            const decimals = priceInfo.decimals || 18;
+            const priceGUN = Number(priceWei) / Math.pow(10, decimals);
+
+            if (priceGUN > 0) {
+              matchingPrices.push(priceGUN);
+            }
+          }
+        }
+      }
+
+      if (matchingPrices.length === 0) {
+        // Fallback: try to get floor from recent sales of same rarity
+        const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, 100);
+        const salePrices: number[] = [];
+
+        for (const sale of recentSales) {
+          let saleRarity: string | null = null;
+          if (sale.nftTraits) {
+            saleRarity = (
+              sale.nftTraits['RARITY'] ||
+              sale.nftTraits['Rarity'] ||
+              sale.nftTraits['rarity'] ||
+              ''
+            ).toLowerCase();
+          }
+
+          if (saleRarity === rarityLower && sale.priceGUN > 0) {
+            salePrices.push(sale.priceGUN);
+          }
+        }
+
+        if (salePrices.length > 0) {
+          // Use minimum of recent sale prices as estimate
+          return {
+            floorPriceGUN: Math.min(...salePrices),
+            listingsCount: salePrices.length,
+          };
+        }
+
+        return { floorPriceGUN: null, listingsCount: 0 };
+      }
+
+      return {
+        floorPriceGUN: Math.min(...matchingPrices),
+        listingsCount: matchingPrices.length,
+      };
+    } catch (error) {
+      console.warn(`Error fetching rarity floor price for ${rarity}:`, error);
+      return { floorPriceGUN: null, listingsCount: 0 };
+    }
+  }
+
+  /**
+   * Find recent sales of similar items for valuation
+   *
+   * Strategy:
+   * 1. Try to find exact matches (same name + same rarity)
+   * 2. If none found, fallback to rarity-only matches (any item with same rarity)
+   * 3. Return sorted by most recent first
+   */
+  async getComparableSales(
+    nftName: string,
+    rarity: string,
+    collectionSlug: string = 'off-the-grid',
+    daysBack: number = 30,
+    limit: number = 20
+  ): Promise<ComparableSale[]> {
+    const DEBUG = process.env.NODE_ENV === 'development';
+
+    try {
+      const afterDate = new Date();
+      afterDate.setDate(afterDate.getDate() - daysBack);
+
+      // Fetch more events than limit to account for filtering
+      const events = await this.getCollectionSaleEvents(
+        collectionSlug,
+        afterDate,
+        limit * 10 // Fetch 10x to ensure enough after filtering
+      );
+
+      if (DEBUG) {
+        console.log(`[getComparableSales] Fetched ${events.length} events for ${nftName} (${rarity})`);
+      }
+
+      // Normalize for comparison
+      const nameLower = nftName.toLowerCase().trim();
+      const rarityLower = rarity.toLowerCase().trim();
+
+      const exactMatches: ComparableSale[] = [];
+      const rarityOnlyMatches: ComparableSale[] = [];
+
+      for (const event of events) {
+        // Skip events with no price
+        if (!event.priceGUN || event.priceGUN <= 0) {
+          // Also check priceWGUN as fallback
+          if (!event.priceWGUN || event.priceWGUN <= 0) {
+            continue;
+          }
+        }
+
+        const effectivePrice = event.priceGUN > 0 ? event.priceGUN : event.priceWGUN;
+
+        // Extract rarity from traits (check multiple possible keys)
+        let eventRarity: string | null = null;
+        if (event.nftTraits) {
+          eventRarity =
+            event.nftTraits['RARITY'] ||
+            event.nftTraits['Rarity'] ||
+            event.nftTraits['rarity'] ||
+            event.nftTraits['Tier'] ||
+            event.nftTraits['tier'] ||
+            null;
+        }
+
+        if (DEBUG && !eventRarity && event.nftTraits) {
+          console.log(`[getComparableSales] No rarity found in traits:`, event.nftTraits);
+        }
+
+        const eventRarityLower = eventRarity?.toLowerCase().trim() || '';
+        const eventNameLower = (event.nftName || '').toLowerCase().trim();
+
+        // Check for rarity match
+        const rarityMatches = eventRarityLower === rarityLower;
+
+        // Check for name match (allow partial/contains match for robustness)
+        const exactNameMatch = eventNameLower === nameLower;
+        const partialNameMatch =
+          eventNameLower.includes(nameLower) || nameLower.includes(eventNameLower);
+
+        const comparableSale: ComparableSale = {
+          tokenId: event.tokenId,
+          nftName: event.nftName,
+          rarity: eventRarity || rarity,
+          salePriceGUN: effectivePrice,
+          saleDate: event.eventTimestamp,
+          buyerAddress: event.buyerAddress,
+          sellerAddress: event.sellerAddress,
+        };
+
+        if (rarityMatches && (exactNameMatch || partialNameMatch)) {
+          exactMatches.push(comparableSale);
+        } else if (rarityMatches) {
+          rarityOnlyMatches.push(comparableSale);
+        }
+      }
+
+      if (DEBUG) {
+        console.log(`[getComparableSales] Found ${exactMatches.length} exact matches, ${rarityOnlyMatches.length} rarity-only matches`);
+      }
+
+      // Use exact matches if available, otherwise fallback to rarity-only
+      let results = exactMatches.length > 0 ? exactMatches : rarityOnlyMatches;
+
+      // Sort by most recent first
+      results.sort((a, b) => b.saleDate.getTime() - a.saleDate.getTime());
+
+      // Limit results
+      results = results.slice(0, limit);
+
+      if (DEBUG) {
+        console.log(`[getComparableSales] Returning ${results.length} comparable sales`);
+      }
+
+      return results;
+    } catch (error) {
+      console.warn('Error fetching comparable sales from OpenSea:', error);
+      return [];
+    }
+  }
+
+  // ===========================================================================
+  // Private Helper Methods
+  // ===========================================================================
+
+  /**
+   * Parse a raw OpenSea event into a SaleEvent
+   */
+  private parseSaleEvent(event: any): SaleEvent {
+    const payment = event.payment || {};
+    const decimals = payment.decimals || 18;
+    const quantity = payment.quantity || '0';
+
+    // Convert from wei to token amount
+    const priceRaw = parseFloat(quantity) / Math.pow(10, decimals);
+    const symbol = (payment.symbol || '').toUpperCase();
+
+    return {
+      eventTimestamp: new Date(event.event_timestamp),
+      priceGUN: symbol === 'GUN' ? priceRaw : 0,
+      priceWGUN: symbol === 'WGUN' ? priceRaw : 0,
+      sellerAddress: event.seller || event.from_account?.address || '',
+      buyerAddress: event.buyer || event.to_account?.address || '',
+      txHash: event.transaction || event.transaction_hash || '',
+      marketplace: 'opensea',
+    };
+  }
+
+  /**
+   * Parse a raw OpenSea event into a CollectionSaleEvent
+   */
+  private parseCollectionSaleEvent(event: any): CollectionSaleEvent {
+    const baseEvent = this.parseSaleEvent(event);
+    const nft = event.nft || {};
+
+    // Parse traits into a Record<string, string>
+    let nftTraits: Record<string, string> | null = null;
+    if (nft.traits && Array.isArray(nft.traits)) {
+      nftTraits = {};
+      for (const trait of nft.traits) {
+        if (trait.trait_type && trait.value !== undefined) {
+          nftTraits[trait.trait_type] = String(trait.value);
+        }
+      }
+    }
+
+    return {
+      ...baseEvent,
+      tokenId: nft.identifier || nft.token_id || '',
+      nftName: nft.name || '',
+      nftTraits,
+    };
   }
 }

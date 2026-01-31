@@ -1088,8 +1088,17 @@ export class AvalancheService {
       const gunIsNative = await this.isGunNative();
       const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
 
+      // Priority 0: Decode fee — tx.value is the decode cost paid to the Decoder contract
+      // For decode/decoder venue, the tx.value is the decode cost, not a marketplace price
+      if ((venue === 'decode' || venue === 'decoder') && tx && tx.value > BigInt(0)) {
+        costGun = parseFloat(ethers.formatEther(tx.value));
+
+        if (DEBUG_ACQUISITION) {
+          console.log(`[getNFTHoldingAcquisition] Decode fee from tx.value: ${costGun} GUN`);
+        }
+      }
       // Priority 1: Extract price from in-game marketplace trade event
-      if (hasInGameTrade && inGameTradeLog) {
+      else if (hasInGameTrade && inGameTradeLog) {
         try {
           // The trade event data contains the price in wei (18 decimals)
           const priceWei = inGameTradeLog.data && inGameTradeLog.data !== '0x'

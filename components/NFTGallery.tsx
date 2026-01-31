@@ -2,13 +2,13 @@
 
 import { NFT, NFTPaginationInfo } from '@/lib/types';
 import Image from 'next/image';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import NFTDetailModal from './NFTDetailModal';
 import { buildTokenKey } from '@/lib/utils/nftCache';
 
-type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'floor-asc' | 'floor-desc' | 'quantity-desc' | 'rarity-high' | 'rarity-low';
+type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc';
 type ViewMode = 'small' | 'medium' | 'list';
-type RarityFilter = 'all' | 'Mythic' | 'Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common';
+type Rarity = 'Mythic' | 'Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common';
 
 interface NFTGalleryProps {
   nfts: NFT[];
@@ -27,6 +27,10 @@ const RARITY_COLORS: Record<string, string> = {
   Uncommon: '#44ff44',  // Green
   Common: '#888888',    // Gray
 };
+
+// Rarity display order when filters are active (Epic → Rare → Uncommon → Common)
+// Note: Mythic and Legendary are higher rarities but grouped with Epic if present
+const RARITY_ORDER: Rarity[] = ['Mythic', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
 
 // Rarity color from NFT traits (matches NFTDetailModal colors)
 function getRarityColor(nft: NFT): string {
@@ -147,11 +151,27 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   const [selectedTokenKeyString, setSelectedTokenKeyString] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('name-asc');
+  const [sortBy, setSortBy] = useState<SortOption>('mint-asc');
   const [selectedItemClass, setSelectedItemClass] = useState<string>('all');
-  const [selectedRarity, setSelectedRarity] = useState<RarityFilter>('all');
+  const [activeRarities, setActiveRarities] = useState<Set<Rarity>>(() => new Set());
   // Default view: small grid if >16 NFTs, medium grid if <=16
   const [viewMode, setViewMode] = useState<ViewMode>(() => nfts.length > 16 ? 'small' : 'medium');
+
+  // Toggle a rarity on/off (multi-select)
+  const toggleRarity = useCallback((rarity: Rarity) => {
+    setActiveRarities(prev => {
+      const next = new Set(prev);
+      if (next.has(rarity)) {
+        next.delete(rarity);
+      } else {
+        next.add(rarity);
+      }
+      return next;
+    });
+  }, []);
+
+  // Clear all rarity selections (show all)
+  const clearRarities = useCallback(() => setActiveRarities(new Set()), []);
 
   // Get the contract address for building token keys
   const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '';
@@ -261,74 +281,70 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   const filteredAndSortedNFTs = useMemo(() => {
     let result = [...preRarityFilteredNFTs];
 
-    // Apply rarity filter
-    if (selectedRarity !== 'all') {
-      result = result.filter(nft => getRarityName(nft) === selectedRarity);
+    // Apply rarity filter (multi-select: union of selected rarities)
+    // If no rarities selected, show all (no filtering)
+    if (activeRarities.size > 0) {
+      result = result.filter(nft => {
+        const rarity = getRarityName(nft);
+        return activeRarities.has(rarity as Rarity);
+      });
     }
 
     // Apply sorting
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case 'name-asc':
-          return a.name.localeCompare(b.name);
-        case 'name-desc':
-          return b.name.localeCompare(a.name);
-        case 'mint-asc': {
-          // Numeric mints first (low to high), then alphanumeric mints
-          const mintA = getMintNumericValue(a.mintNumber);
-          const mintB = getMintNumericValue(b.mintNumber);
-          if (mintA !== mintB) return mintA - mintB;
-          // Both are alphanumeric or same numeric, sort by string
-          return (a.mintNumber || '').localeCompare(b.mintNumber || '');
-        }
-        case 'mint-desc': {
-          // Alphanumeric mints first (they're "low"), then numeric mints (high to low)
-          const aIsNumeric = isNumericMint(a.mintNumber);
-          const bIsNumeric = isNumericMint(b.mintNumber);
-          if (aIsNumeric && !bIsNumeric) return -1; // Numeric comes before alphanumeric in desc
-          if (!aIsNumeric && bIsNumeric) return 1;
-          if (!aIsNumeric && !bIsNumeric) {
-            // Both alphanumeric - sort alphabetically
+    // When rarity filters are active, group by rarity order (Epic → Rare → Uncommon → Common),
+    // then sort by mint number ascending within each group
+    if (activeRarities.size > 0) {
+      result.sort((a, b) => {
+        // Primary sort: by rarity rank (lower = rarer)
+        const rarityDiff = getRarityRank(a) - getRarityRank(b);
+        if (rarityDiff !== 0) return rarityDiff;
+        // Secondary sort: mint number low to high
+        const mintA = getMintNumericValue(a.mintNumber);
+        const mintB = getMintNumericValue(b.mintNumber);
+        if (mintA !== mintB) return mintA - mintB;
+        return (a.mintNumber || '').localeCompare(b.mintNumber || '');
+      });
+    } else {
+      // No rarity filters active - use sortBy dropdown
+      result.sort((a, b) => {
+        switch (sortBy) {
+          case 'name-asc':
+            return a.name.localeCompare(b.name);
+          case 'name-desc':
+            return b.name.localeCompare(a.name);
+          case 'mint-asc': {
+            // Numeric mints first (low to high), then alphanumeric mints
+            const mintA = getMintNumericValue(a.mintNumber);
+            const mintB = getMintNumericValue(b.mintNumber);
+            if (mintA !== mintB) return mintA - mintB;
+            // Both are alphanumeric or same numeric, sort by string
             return (a.mintNumber || '').localeCompare(b.mintNumber || '');
           }
-          // Both numeric - high to low
-          const mintA = parseInt(a.mintNumber || '0', 10);
-          const mintB = parseInt(b.mintNumber || '0', 10);
-          return mintB - mintA;
+          case 'mint-desc': {
+            // Alphanumeric mints first (they're "low"), then numeric mints (high to low)
+            const aIsNumeric = isNumericMint(a.mintNumber);
+            const bIsNumeric = isNumericMint(b.mintNumber);
+            if (aIsNumeric && !bIsNumeric) return -1; // Numeric comes before alphanumeric in desc
+            if (!aIsNumeric && bIsNumeric) return 1;
+            if (!aIsNumeric && !bIsNumeric) {
+              // Both alphanumeric - sort alphabetically
+              return (a.mintNumber || '').localeCompare(b.mintNumber || '');
+            }
+            // Both numeric - high to low
+            const mintA = parseInt(a.mintNumber || '0', 10);
+            const mintB = parseInt(b.mintNumber || '0', 10);
+            return mintB - mintA;
+          }
+          case 'quantity-desc':
+            return (b.quantity || 1) - (a.quantity || 1);
+          default:
+            return 0;
         }
-        case 'floor-asc':
-          return (a.floorPrice || 0) - (b.floorPrice || 0);
-        case 'floor-desc':
-          return (b.floorPrice || 0) - (a.floorPrice || 0);
-        case 'quantity-desc':
-          return (b.quantity || 1) - (a.quantity || 1);
-        case 'rarity-high': {
-          // Lower rank = rarer, so ascending order gives high-to-low rarity
-          const rarityDiff = getRarityRank(a) - getRarityRank(b);
-          if (rarityDiff !== 0) return rarityDiff;
-          // Secondary sort: mint number low to high
-          const mintA = getMintNumericValue(a.mintNumber);
-          const mintB = getMintNumericValue(b.mintNumber);
-          if (mintA !== mintB) return mintA - mintB;
-          return (a.mintNumber || '').localeCompare(b.mintNumber || '');
-        }
-        case 'rarity-low': {
-          // Higher rank = more common, so descending order gives low-to-high rarity
-          const rarityDiff = getRarityRank(b) - getRarityRank(a);
-          if (rarityDiff !== 0) return rarityDiff;
-          // Secondary sort: mint number low to high
-          const mintA = getMintNumericValue(a.mintNumber);
-          const mintB = getMintNumericValue(b.mintNumber);
-          if (mintA !== mintB) return mintA - mintB;
-          return (a.mintNumber || '').localeCompare(b.mintNumber || '');
-        }
-        default:
-          return 0;
-      }
-    });
+      });
+    }
 
     return result;
-  }, [preRarityFilteredNFTs, selectedRarity, sortBy]);
+  }, [preRarityFilteredNFTs, activeRarities, sortBy]);
 
   const handleNFTClick = (nft: NFT) => {
     // Build unique token key for modal keying
@@ -351,11 +367,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedItemClass('all');
-    setSelectedRarity('all');
-    setSortBy('name-asc');
+    clearRarities();
+    setSortBy('mint-asc');
   };
 
-  const hasActiveFilters = searchQuery || selectedItemClass !== 'all' || selectedRarity !== 'all' || sortBy !== 'name-asc';
+  const hasActiveFilters = searchQuery || selectedItemClass !== 'all' || activeRarities.size > 0 || sortBy !== 'mint-asc';
 
   if (nfts.length === 0) {
     return (
@@ -449,14 +465,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="select-dropdown pl-3 pr-8 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
             >
-              <option value="name-asc">Name (A-Z)</option>
-              <option value="name-desc">Name (Z-A)</option>
               <option value="mint-asc">Mint # (Low-High)</option>
               <option value="mint-desc">Mint # (High-Low)</option>
-              <option value="rarity-high">Rarity (High-Low)</option>
-              <option value="rarity-low">Rarity (Low-High)</option>
-              <option value="floor-asc">Floor (Low-High)</option>
-              <option value="floor-desc">Floor (High-Low)</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
               <option value="quantity-desc">Quantity</option>
             </select>
           </div>
@@ -529,33 +541,35 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               </button>
             </span>
           )}
-          {selectedRarity !== 'all' && (
+          {Array.from(activeRarities).map(rarity => (
             <span
+              key={rarity}
               className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border"
               style={{
-                backgroundColor: `${getRarityColorByName(selectedRarity)}20`,
-                color: getRarityColorByName(selectedRarity),
-                borderColor: `${getRarityColorByName(selectedRarity)}50`,
+                backgroundColor: `${getRarityColorByName(rarity)}20`,
+                color: getRarityColorByName(rarity),
+                borderColor: `${getRarityColorByName(rarity)}50`,
               }}
             >
-              {selectedRarity}
-              <button onClick={() => setSelectedRarity('all')} className="hover:text-white ml-1">
+              {rarity}
+              <button onClick={() => toggleRarity(rarity)} className="hover:text-white ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </span>
-          )}
+          ))}
         </div>
 
-        {/* Rarity Filter Pills */}
+        {/* Rarity Filter Pills (multi-select) */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="text-gray-500">Rarity:</span>
-          {/* All pill */}
+          {/* All pill - active when no rarities selected */}
           <button
-            onClick={() => setSelectedRarity('all')}
+            onClick={clearRarities}
+            aria-pressed={activeRarities.size === 0}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-              selectedRarity === 'all'
+              activeRarities.size === 0
                 ? 'bg-white/15 border-white/40 text-white'
                 : 'bg-transparent border-white/20 text-gray-400 hover:border-white/30 hover:text-gray-300'
             }`}
@@ -564,9 +578,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           </button>
           {rarityCounts.Mythic > 0 && (
             <button
-              onClick={() => setSelectedRarity(selectedRarity === 'Mythic' ? 'all' : 'Mythic')}
+              onClick={() => toggleRarity('Mythic')}
+              aria-pressed={activeRarities.has('Mythic')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                selectedRarity === 'Mythic'
+                activeRarities.has('Mythic')
                   ? 'border-[#ff44ff]/60 bg-[#ff44ff]/20'
                   : 'border-[#ff44ff]/30 bg-transparent hover:border-[#ff44ff]/50 hover:bg-[#ff44ff]/10'
               }`}
@@ -578,9 +593,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           )}
           {rarityCounts.Legendary > 0 && (
             <button
-              onClick={() => setSelectedRarity(selectedRarity === 'Legendary' ? 'all' : 'Legendary')}
+              onClick={() => toggleRarity('Legendary')}
+              aria-pressed={activeRarities.has('Legendary')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                selectedRarity === 'Legendary'
+                activeRarities.has('Legendary')
                   ? 'border-[#ff8800]/60 bg-[#ff8800]/20'
                   : 'border-[#ff8800]/30 bg-transparent hover:border-[#ff8800]/50 hover:bg-[#ff8800]/10'
               }`}
@@ -592,9 +608,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           )}
           {rarityCounts.Epic > 0 && (
             <button
-              onClick={() => setSelectedRarity(selectedRarity === 'Epic' ? 'all' : 'Epic')}
+              onClick={() => toggleRarity('Epic')}
+              aria-pressed={activeRarities.has('Epic')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                selectedRarity === 'Epic'
+                activeRarities.has('Epic')
                   ? 'border-[#cc44ff]/60 bg-[#cc44ff]/20'
                   : 'border-[#cc44ff]/30 bg-transparent hover:border-[#cc44ff]/50 hover:bg-[#cc44ff]/10'
               }`}
@@ -606,9 +623,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           )}
           {rarityCounts.Rare > 0 && (
             <button
-              onClick={() => setSelectedRarity(selectedRarity === 'Rare' ? 'all' : 'Rare')}
+              onClick={() => toggleRarity('Rare')}
+              aria-pressed={activeRarities.has('Rare')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                selectedRarity === 'Rare'
+                activeRarities.has('Rare')
                   ? 'border-[#4488ff]/60 bg-[#4488ff]/20'
                   : 'border-[#4488ff]/30 bg-transparent hover:border-[#4488ff]/50 hover:bg-[#4488ff]/10'
               }`}
@@ -620,9 +638,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           )}
           {rarityCounts.Uncommon > 0 && (
             <button
-              onClick={() => setSelectedRarity(selectedRarity === 'Uncommon' ? 'all' : 'Uncommon')}
+              onClick={() => toggleRarity('Uncommon')}
+              aria-pressed={activeRarities.has('Uncommon')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                selectedRarity === 'Uncommon'
+                activeRarities.has('Uncommon')
                   ? 'border-[#44ff44]/60 bg-[#44ff44]/20'
                   : 'border-[#44ff44]/30 bg-transparent hover:border-[#44ff44]/50 hover:bg-[#44ff44]/10'
               }`}
@@ -634,9 +653,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           )}
           {rarityCounts.Common > 0 && (
             <button
-              onClick={() => setSelectedRarity(selectedRarity === 'Common' ? 'all' : 'Common')}
+              onClick={() => toggleRarity('Common')}
+              aria-pressed={activeRarities.has('Common')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                selectedRarity === 'Common'
+                activeRarities.has('Common')
                   ? 'border-[#888888]/60 bg-[#888888]/20'
                   : 'border-[#888888]/30 bg-transparent hover:border-[#888888]/50 hover:bg-[#888888]/10'
               }`}
