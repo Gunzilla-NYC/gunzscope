@@ -3,35 +3,64 @@ import { toOpenSeaChain } from '@/lib/utils/openseaChain';
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
+// =============================================================================
+// Exported Interfaces for Sale Events
+// =============================================================================
+
+/**
+ * A single sale event for an NFT
+ */
+export interface SaleEvent {
+  eventTimestamp: Date;
+  priceGUN: number;
+  priceWGUN: number;
+  sellerAddress: string;
+  buyerAddress: string;
+  txHash: string;
+  marketplace: string;
+}
+
+/**
+ * A sale event with NFT metadata (for collection-wide queries)
+ */
+export interface CollectionSaleEvent extends SaleEvent {
+  tokenId: string;
+  nftName: string;
+  nftTraits: Record<string, string> | null;
+  contract: string;
+}
+
+/**
+ * Floor price and collection statistics
+ */
+export interface FloorPriceResult {
+  floorPriceGUN: number | null;
+  totalVolume: number | null;
+  totalSales: number | null;
+  numOwners: number | null;
+  lastUpdated: Date;
+}
+
+/**
+ * A comparable sale for valuation purposes
+ */
+export interface ComparableSale {
+  tokenId: string;
+  nftName: string;
+  rarity: string;
+  salePriceGUN: number;
+  saleDate: Date;
+  buyerAddress: string;
+  sellerAddress: string;
+}
+
 // Check if running in browser
 const isBrowser = typeof window !== 'undefined';
 
-// Circuit breaker: cache HARD failures only to avoid spamming
+// Circuit breaker: cache failures to avoid spamming
 // Key: tokenKey, Value: { failedAt: timestamp, error: string }
-// Note: We only cache 401/403/404 and config errors; NOT rate limits, aborts, or 5xx
 const failureCache = new Map<string, { failedAt: number; error: string }>();
 const FAILURE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-// Status codes that should be cached (hard failures unlikely to recover soon)
-const CACHEABLE_STATUS_CODES = new Set([401, 403, 404]);
-
-/**
- * Determine if an HTTP status code represents a transient error.
- * Transient errors (429, 5xx) should NOT be cached - they may recover.
- * @pure - Can be unit tested
- */
-export function isTransientStatus(status: number): boolean {
-  return status === 429 || status >= 500;
-}
-
-/**
- * Determine if an HTTP status code should trigger failure caching.
- * Only hard failures (401, 403, 404) should be cached.
- * @pure - Can be unit tested
- */
-export function shouldCacheFailureStatus(status: number): boolean {
-  return CACHEABLE_STATUS_CODES.has(status);
-}
 
 function getCachedFailure(tokenKey: string): { error: string } | null {
   const cached = failureCache.get(tokenKey);
@@ -60,48 +89,56 @@ function setCachedFailure(tokenKey: string, error: string): void {
   }
 }
 
+// =============================================================================
+// Debug Mode
+// =============================================================================
+
+const DEBUG = process.env.NODE_ENV === 'development';
+
+// =============================================================================
+// Trait Cache for NFT Metadata Enrichment
+// =============================================================================
+// OpenSea v2 events/listings endpoints don't include traits.
+// Traits are only available via the Get NFT endpoint.
+// We cache trait lookups to avoid redundant API calls.
+
+interface TraitCacheEntry {
+  traits: Record<string, string> | null;
+  cachedAt: number;
+}
+
+const traitCache = new Map<string, TraitCacheEntry>();
+const TRAIT_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 /**
- * Safe conversion from wei (bigint) to decimal number.
- * Avoids Number(BigInt) overflow for very large values by using string manipulation.
+ * Get cached traits if available and not expired
  */
-function formatUnitsToNumber(value: bigint, decimals: number = 18): number {
-  const valueStr = value.toString();
+function getCachedTraits(cacheKey: string): Record<string, string> | null | undefined {
+  const entry = traitCache.get(cacheKey);
+  if (!entry) return undefined; // undefined = not in cache
 
-  // Handle zero
-  if (valueStr === '0') return 0;
+  if (Date.now() - entry.cachedAt > TRAIT_CACHE_TTL_MS) {
+    traitCache.delete(cacheKey);
+    return undefined;
+  }
 
-  // Pad with leading zeros if needed
-  const paddedValue = valueStr.padStart(decimals + 1, '0');
-  const integerPart = paddedValue.slice(0, -decimals) || '0';
-  const fractionalPart = paddedValue.slice(-decimals);
-
-  // Construct decimal string and parse
-  const decimalStr = `${integerPart}.${fractionalPart}`;
-  return parseFloat(decimalStr);
+  return entry.traits; // null = cached as "no traits", object = cached traits
 }
 
 /**
- * Normalize a price value to number | null.
- * Guards against NaN, undefined, and invalid values.
- * Used by both browser and server paths for consistent price handling.
+ * Store traits in cache
  */
-function normalizePrice(val: unknown): number | null {
-  if (val === null || val === undefined) return null;
-  const num = typeof val === 'number' ? val : Number(val);
-  return Number.isNaN(num) ? null : num;
-}
+function setCachedTraits(cacheKey: string, traits: Record<string, string> | null): void {
+  traitCache.set(cacheKey, { traits, cachedAt: Date.now() });
 
-/**
- * Throw an error if called from browser context.
- * These methods require direct API access which fails with CORS.
- */
-function assertServerOnly(methodName: string): void {
-  if (isBrowser) {
-    throw new Error(
-      `OpenSeaService.${methodName}() cannot be called from browser. ` +
-      `This method requires direct OpenSea API access. Use a proxy route instead.`
-    );
+  // Cleanup old entries
+  if (traitCache.size > 200) {
+    const now = Date.now();
+    for (const [key, value] of traitCache.entries()) {
+      if (now - value.cachedAt > TRAIT_CACHE_TTL_MS) {
+        traitCache.delete(key);
+      }
+    }
   }
 }
 
@@ -109,12 +146,10 @@ export class OpenSeaService {
   private apiKey?: string;
 
   constructor() {
-    // Only use server-side API key; client always goes through /api/opensea/orders proxy
-    this.apiKey = process.env.OPENSEA_API_KEY;
+    this.apiKey = process.env.NEXT_PUBLIC_OPENSEA_API_KEY || process.env.OPENSEA_API_KEY;
   }
 
   async getCollectionStats(collectionSlug: string): Promise<any | null> {
-    assertServerOnly('getCollectionStats');
     try {
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
@@ -133,7 +168,6 @@ export class OpenSeaService {
   }
 
   async getNFTFloorPrice(contractAddress: string, chain: string = 'avalanche'): Promise<number | null> {
-    assertServerOnly('getNFTFloorPrice');
     try {
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
@@ -158,7 +192,6 @@ export class OpenSeaService {
     chain: string = 'avalanche',
     limit: number = 50
   ): Promise<any[]> {
-    assertServerOnly('getNFTsByWallet');
     try {
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
@@ -182,7 +215,6 @@ export class OpenSeaService {
   }
 
   async getListings(contractAddress: string, chain: string = 'avalanche'): Promise<any[]> {
-    assertServerOnly('getListings');
     try {
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
@@ -203,94 +235,37 @@ export class OpenSeaService {
   async getNFTListings(
     contractAddress: string,
     tokenId: string,
-    chain: string = 'avalanche',
-    options?: { signal?: AbortSignal; noStore?: boolean }
-  ): Promise<{
-    lowest: number | null;
-    highest: number | null;
-    ordersCount: number;
-    asOfIso?: string;
-    error?: string;
-    /** Upstream HTTP status code from proxy (0 if no call made or internal error) */
-    upstreamStatus?: number;
-    /** True if error is transient (429/5xx) - client should NOT cache */
-    transient?: boolean;
-  }> {
+    chain: string = 'avalanche'
+  ): Promise<{ lowest: number | null; highest: number | null; error?: string }> {
     const tokenKey = `${chain}:${contractAddress}:${tokenId}`;
 
-    // Check circuit breaker (only for hard failures)
-    // Skip circuit breaker when noStore is true (force fresh fetch)
-    if (!options?.noStore) {
-      const cachedFailure = getCachedFailure(tokenKey);
-      if (cachedFailure) {
-        return { lowest: null, highest: null, ordersCount: 0, error: cachedFailure.error };
-      }
+    // Check circuit breaker
+    const cachedFailure = getCachedFailure(tokenKey);
+    if (cachedFailure) {
+      return { lowest: null, highest: null, error: cachedFailure.error };
     }
 
     try {
       // In browser, use our API route to avoid CORS
       if (isBrowser) {
-        // Build URL with optional debug=1 for noStore mode
-        let url = `/api/opensea/orders?chain=${encodeURIComponent(chain)}&contract=${encodeURIComponent(contractAddress)}&tokenId=${encodeURIComponent(tokenId)}`;
-        if (options?.noStore) {
-          url += '&debug=1'; // debug=1 triggers cache='no-store' in the proxy
-        }
+        const response = await fetch(
+          `/api/opensea/orders?chain=${encodeURIComponent(chain)}&contract=${encodeURIComponent(contractAddress)}&tokenId=${encodeURIComponent(tokenId)}`
+        );
 
-        const response = await fetch(url, { signal: options?.signal });
-
-        // Handle non-ok responses from our proxy - don't cache based on proxy status
-        // The proxy should always return 200 with error in JSON; non-200 means something else went wrong
         if (!response.ok) {
-          const errorMsg = `Proxy error: ${response.status}`;
-          // Don't cache proxy-level errors (these are transient/infrastructure issues)
-          return { lowest: null, highest: null, ordersCount: 0, error: errorMsg };
+          const errorMsg = `API error: ${response.status}`;
+          setCachedFailure(tokenKey, errorMsg);
+          return { lowest: null, highest: null, error: errorMsg };
         }
 
         const data = await response.json();
 
-        // Extract status/transient fields from proxy response
-        // The proxy now always includes upstreamStatus (0 if no upstream call was made)
-        const upstreamStatus = typeof data.upstreamStatus === 'number' ? data.upstreamStatus : 0;
-        // Use transient field from proxy if available, otherwise compute from status
-        const transient = typeof data.transient === 'boolean' ? data.transient : isTransientStatus(upstreamStatus);
-
-        // NaN normalization - proxy should send valid numbers, but guard anyway
-        const lowest = normalizePrice(data.lowest);
-        const highest = normalizePrice(data.highest);
-
-        // Handle upstream errors with status-driven caching
         if (data.error) {
-          // GUARDRAIL: Never cache if transient===true
-          // Only cache when upstreamStatus indicates a hard failure (401, 403, 404)
-          // Do NOT cache when:
-          // - transient is true
-          // - upstreamStatus is 0 (no upstream call / internal error)
-          // - upstreamStatus is 429 (rate limited)
-          // - upstreamStatus >= 500 (server error)
-          if (!transient && shouldCacheFailureStatus(upstreamStatus)) {
-            setCachedFailure(tokenKey, data.error);
-          }
-          // Transient errors are NOT cached - will retry next time
-
-          return {
-            lowest,
-            highest,
-            ordersCount: data.ordersCount ?? 0,
-            asOfIso: data.asOfIso,
-            error: data.error,
-            upstreamStatus,
-            transient,
-          };
+          // Don't cache this as failure - it's from OpenSea, might recover
+          return { lowest: data.lowest, highest: data.highest, error: data.error };
         }
 
-        return {
-          lowest,
-          highest,
-          ordersCount: data.ordersCount ?? 0,
-          asOfIso: data.asOfIso,
-          upstreamStatus,
-          transient: false, // Success response
-        };
+        return { lowest: data.lowest, highest: data.highest };
       }
 
       // Server-side: call OpenSea directly with mapped chain
@@ -302,74 +277,36 @@ export class OpenSeaService {
 
       const response = await axios.get(
         `${OPENSEA_API_BASE}/orders/${mappedChain}/seaport/listings?asset_contract_address=${contractAddress}&token_ids=${tokenId}&limit=50`,
-        { headers, signal: options?.signal }
+        { headers }
       );
 
       const orders = response.data?.orders || [];
-      const asOfIso = new Date().toISOString();
 
       if (orders.length === 0) {
-        return { lowest: null, highest: null, ordersCount: 0, asOfIso };
+        return { lowest: null, highest: null };
       }
 
       const prices = orders
         .filter((order: any) => order.current_price)
         .map((order: any) => {
-          try {
-            const priceWei = BigInt(order.current_price);
-            return formatUnitsToNumber(priceWei, 18);
-          } catch {
-            // Skip orders with invalid price format
-            return 0;
-          }
+          const priceWei = BigInt(order.current_price);
+          return Number(priceWei) / 1e18;
         })
         .filter((price: number) => price > 0);
 
       if (prices.length === 0) {
-        return { lowest: null, highest: null, ordersCount: orders.length, asOfIso };
+        return { lowest: null, highest: null };
       }
-
-      // Normalize computed prices to guard against any edge cases producing NaN
-      const lowest = normalizePrice(Math.min(...prices));
-      const highest = normalizePrice(Math.max(...prices));
 
       return {
-        lowest,
-        highest,
-        ordersCount: orders.length,
-        asOfIso,
+        lowest: Math.min(...prices),
+        highest: Math.max(...prices),
       };
     } catch (error) {
-      // Check if aborted (browser AbortError or axios cancellation) - never cache aborts
-      if (error instanceof Error && error.name === 'AbortError') {
-        return { lowest: null, highest: null, ordersCount: 0, error: 'Request aborted' };
-      }
-
-      // Check for axios cancellation (ERR_CANCELED or message contains 'canceled')
-      if (axios.isAxiosError(error)) {
-        if (error.code === 'ERR_CANCELED' || error.message?.toLowerCase().includes('canceled')) {
-          return { lowest: null, highest: null, ordersCount: 0, error: 'Request aborted' };
-        }
-
-        // Check for axios errors with status codes
-        if (error.response?.status) {
-          const status = error.response.status;
-          const errorMsg = `OpenSea API error: ${status}`;
-          const transient = isTransientStatus(status);
-
-          // Only cache hard failures (401, 403, 404), never transient errors
-          if (!transient && shouldCacheFailureStatus(status)) {
-            setCachedFailure(tokenKey, errorMsg);
-          }
-
-          return { lowest: null, highest: null, ordersCount: 0, error: errorMsg, upstreamStatus: status, transient };
-        }
-      }
-
-      // Generic network error - don't cache (might be transient)
       const errorMsg = error instanceof Error ? error.message : 'Network error';
       console.warn('OpenSea listings fetch failed (non-blocking):', errorMsg);
-      return { lowest: null, highest: null, ordersCount: 0, error: errorMsg };
+      setCachedFailure(tokenKey, errorMsg);
+      return { lowest: null, highest: null, error: errorMsg };
     }
   }
 
@@ -378,7 +315,6 @@ export class OpenSeaService {
     tokenId: string,
     chain: string = 'avalanche'
   ): Promise<any | null> {
-    assertServerOnly('getNFTMetadata');
     try {
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
@@ -408,7 +344,6 @@ export class OpenSeaService {
     walletAddress: string,
     chain: string = 'avalanche'
   ): Promise<{ price: number; date: Date; currency: string } | null> {
-    assertServerOnly('getLastSalePrice');
     try {
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
@@ -463,6 +398,524 @@ export class OpenSeaService {
       return { price, date, currency };
     } catch (error) {
       console.error('Error fetching last sale price from OpenSea:', error);
+      return null;
+    }
+  }
+
+  // ===========================================================================
+  // Sale Events Methods
+  // ===========================================================================
+
+  /**
+   * Get sale history for a specific NFT
+   */
+  async getSaleEvents(
+    contractAddress: string,
+    tokenId: string,
+    chain: string = 'avalanche'
+  ): Promise<SaleEvent[]> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+      const mappedChain = toOpenSeaChain(chain);
+
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/events/chain/${mappedChain}/contract/${contractAddress}/nfts/${tokenId}`,
+        {
+          headers,
+          params: {
+            event_type: 'sale',
+            limit: 50,
+          },
+        }
+      );
+
+      const events = response.data?.asset_events || [];
+
+      return events.map((event: any) => this.parseSaleEvent(event));
+    } catch (error) {
+      console.warn('Error fetching sale events from OpenSea:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get recent sales across the whole collection with pagination support
+   */
+  async getCollectionSaleEvents(
+    collectionSlug: string = 'off-the-grid',
+    afterDate?: Date,
+    limit: number = 50
+  ): Promise<CollectionSaleEvent[]> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      const params: Record<string, string | number> = {
+        event_type: 'sale',
+        limit: Math.min(limit, 50), // OpenSea max is 50 per request
+      };
+
+      if (afterDate) {
+        // OpenSea expects Unix timestamp in seconds
+        params.after = Math.floor(afterDate.getTime() / 1000);
+      }
+
+      const allEvents: CollectionSaleEvent[] = [];
+      let cursor: string | null = null;
+      let fetched = 0;
+
+      // Paginate until we have enough results or no more pages
+      do {
+        const requestParams: Record<string, string | number> = cursor
+          ? { ...params, next: cursor }
+          : params;
+
+        const response = await axios.get<{
+          asset_events?: any[];
+          next?: string | null;
+        }>(`${OPENSEA_API_BASE}/events/collection/${collectionSlug}`, {
+          headers,
+          params: requestParams,
+        });
+
+        const events = response.data?.asset_events || [];
+        cursor = response.data?.next || null;
+
+        // Log first raw event for debugging
+        if (DEBUG && events.length > 0 && allEvents.length === 0) {
+          console.log('[getCollectionSaleEvents] Raw event sample:', JSON.stringify(events[0], null, 2));
+        }
+
+        for (const event of events) {
+          if (fetched >= limit) break;
+          allEvents.push(this.parseCollectionSaleEvent(event));
+          fetched++;
+        }
+      } while (cursor && fetched < limit);
+
+      return allEvents;
+    } catch (error) {
+      console.warn('Error fetching collection sale events from OpenSea:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get floor price and collection statistics
+   */
+  async getCollectionFloorPrice(
+    collectionSlug: string = 'off-the-grid'
+  ): Promise<FloorPriceResult> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/collections/${collectionSlug}/stats`,
+        { headers }
+      );
+
+      const stats = response.data?.total || response.data;
+
+      return {
+        floorPriceGUN: stats?.floor_price ?? null,
+        totalVolume: stats?.volume ?? null,
+        totalSales: stats?.sales ?? null,
+        numOwners: stats?.num_owners ?? null,
+        lastUpdated: new Date(),
+      };
+    } catch (error) {
+      console.warn('Error fetching collection floor price from OpenSea:', error);
+      return {
+        floorPriceGUN: null,
+        totalVolume: null,
+        totalSales: null,
+        numOwners: null,
+        lastUpdated: new Date(),
+      };
+    }
+  }
+
+  /**
+   * Get rarity-specific floor price by fetching recent sales and enriching with traits.
+   *
+   * Strategy: Since OpenSea v2 listings/events don't include traits, we:
+   * 1. Fetch recent sales for the collection
+   * 2. Enrich each sale with traits via the Get NFT endpoint
+   * 3. Filter by rarity match
+   * 4. Return minimum price
+   *
+   * @param rarity - The rarity level to filter by (e.g., "Common", "Uncommon", "Rare", "Epic", "Legendary")
+   * @param collectionSlug - OpenSea collection slug (default: 'off-the-grid')
+   * @returns The minimum sale price for items of this rarity, or null if none found
+   */
+  async getRarityFloorPrice(
+    rarity: string,
+    collectionSlug: string = 'off-the-grid'
+  ): Promise<{ floorPriceGUN: number | null; listingsCount: number }> {
+    try {
+      // Fetch recent sales for the collection
+      const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, 50);
+
+      if (recentSales.length === 0) {
+        if (DEBUG) {
+          console.log(`[getRarityFloorPrice] No recent sales found for ${collectionSlug}`);
+        }
+        return { floorPriceGUN: null, listingsCount: 0 };
+      }
+
+      const rarityLower = rarity.toLowerCase();
+      const matchingPrices: number[] = [];
+
+      // Track unique tokenIds to avoid redundant trait fetches (rate limit protection)
+      const enrichedTokenIds = new Set<string>();
+      const MAX_TRAIT_FETCHES = 20;
+
+      for (const sale of recentSales) {
+        // Skip sales with no price
+        const effectivePrice = sale.priceGUN > 0 ? sale.priceGUN : sale.priceWGUN;
+        if (effectivePrice <= 0) continue;
+
+        // Skip if we've already processed too many unique tokens
+        if (enrichedTokenIds.size >= MAX_TRAIT_FETCHES && !enrichedTokenIds.has(sale.tokenId)) {
+          continue;
+        }
+        enrichedTokenIds.add(sale.tokenId);
+
+        // Get rarity from traits
+        let saleRarity: string | null = null;
+
+        // First check if traits were already available (unlikely with OpenSea v2)
+        if (sale.nftTraits) {
+          saleRarity =
+            sale.nftTraits['RARITY'] ||
+            sale.nftTraits['Rarity'] ||
+            sale.nftTraits['rarity'] ||
+            null;
+        }
+
+        // Enrich with traits via Get NFT endpoint if needed
+        if (!saleRarity && sale.tokenId && sale.contract) {
+          const traits = await this.fetchNFTTraits(sale.contract, sale.tokenId);
+          if (traits) {
+            saleRarity =
+              traits['RARITY'] ||
+              traits['Rarity'] ||
+              traits['rarity'] ||
+              null;
+          }
+        }
+
+        if (saleRarity?.toLowerCase() === rarityLower) {
+          matchingPrices.push(effectivePrice);
+        }
+      }
+
+      if (DEBUG) {
+        console.log(`[getRarityFloorPrice] Found ${matchingPrices.length} sales matching rarity "${rarity}"`);
+      }
+
+      if (matchingPrices.length === 0) {
+        return { floorPriceGUN: null, listingsCount: 0 };
+      }
+
+      return {
+        floorPriceGUN: Math.min(...matchingPrices),
+        listingsCount: matchingPrices.length,
+      };
+    } catch (error) {
+      console.warn(`Error fetching rarity floor price for ${rarity}:`, error);
+      return { floorPriceGUN: null, listingsCount: 0 };
+    }
+  }
+
+  /**
+   * Find recent sales of similar items for valuation
+   *
+   * Strategy:
+   * 1. Fetch recent sales and enrich with traits via Get NFT endpoint
+   * 2. Try to find exact matches (same name + same rarity)
+   * 3. If none found, fallback to rarity-only matches (any item with same rarity)
+   * 4. Return sorted by most recent first
+   */
+  async getComparableSales(
+    nftName: string,
+    rarity: string,
+    collectionSlug: string = 'off-the-grid',
+    daysBack: number = 30,
+    limit: number = 20
+  ): Promise<ComparableSale[]> {
+    try {
+      const afterDate = new Date();
+      afterDate.setDate(afterDate.getDate() - daysBack);
+
+      // Fetch more events than limit to account for filtering
+      const events = await this.getCollectionSaleEvents(
+        collectionSlug,
+        afterDate,
+        limit * 10 // Fetch 10x to ensure enough after filtering
+      );
+
+      if (DEBUG) {
+        console.log(`[getComparableSales] Fetched ${events.length} events for ${nftName} (${rarity})`);
+      }
+
+      // Normalize for comparison
+      const nameLower = nftName.toLowerCase().trim();
+      const rarityLower = rarity.toLowerCase().trim();
+
+      const exactMatches: ComparableSale[] = [];
+      const rarityOnlyMatches: ComparableSale[] = [];
+
+      // Track unique tokenIds to avoid redundant trait fetches (rate limit protection)
+      const enrichedTokenIds = new Set<string>();
+      const MAX_TRAIT_FETCHES = 20;
+
+      for (const event of events) {
+        // Skip events with no price
+        if (!event.priceGUN || event.priceGUN <= 0) {
+          // Also check priceWGUN as fallback
+          if (!event.priceWGUN || event.priceWGUN <= 0) {
+            continue;
+          }
+        }
+
+        const effectivePrice = event.priceGUN > 0 ? event.priceGUN : event.priceWGUN;
+
+        // Skip if we've already processed too many unique tokens (rate limit protection)
+        if (enrichedTokenIds.size >= MAX_TRAIT_FETCHES && !enrichedTokenIds.has(event.tokenId)) {
+          continue;
+        }
+        enrichedTokenIds.add(event.tokenId);
+
+        // Extract rarity from traits (check multiple possible keys)
+        let eventRarity: string | null = null;
+
+        // First check if traits were already available (unlikely with OpenSea v2)
+        if (event.nftTraits) {
+          eventRarity =
+            event.nftTraits['RARITY'] ||
+            event.nftTraits['Rarity'] ||
+            event.nftTraits['rarity'] ||
+            event.nftTraits['Tier'] ||
+            event.nftTraits['tier'] ||
+            null;
+        }
+
+        // Enrich with traits via Get NFT endpoint if needed
+        if (!eventRarity && event.tokenId && event.contract) {
+          const traits = await this.fetchNFTTraits(event.contract, event.tokenId);
+          if (traits) {
+            eventRarity =
+              traits['RARITY'] ||
+              traits['Rarity'] ||
+              traits['rarity'] ||
+              traits['Tier'] ||
+              traits['tier'] ||
+              null;
+          }
+        }
+
+        if (DEBUG && !eventRarity) {
+          console.log(`[getComparableSales] No rarity found for token ${event.tokenId}`);
+        }
+
+        const eventRarityLower = eventRarity?.toLowerCase().trim() || '';
+        const eventNameLower = (event.nftName || '').toLowerCase().trim();
+
+        // Check for rarity match
+        const rarityMatches = eventRarityLower === rarityLower;
+
+        // Check for name match (allow partial/contains match for robustness)
+        const exactNameMatch = eventNameLower === nameLower;
+        const partialNameMatch =
+          eventNameLower.includes(nameLower) || nameLower.includes(eventNameLower);
+
+        const comparableSale: ComparableSale = {
+          tokenId: event.tokenId,
+          nftName: event.nftName,
+          rarity: eventRarity || rarity,
+          salePriceGUN: effectivePrice,
+          saleDate: event.eventTimestamp,
+          buyerAddress: event.buyerAddress,
+          sellerAddress: event.sellerAddress,
+        };
+
+        if (rarityMatches && (exactNameMatch || partialNameMatch)) {
+          exactMatches.push(comparableSale);
+        } else if (rarityMatches) {
+          rarityOnlyMatches.push(comparableSale);
+        }
+      }
+
+      if (DEBUG) {
+        console.log(`[getComparableSales] Found ${exactMatches.length} exact matches, ${rarityOnlyMatches.length} rarity-only matches`);
+      }
+
+      // Use exact matches if available, otherwise fallback to rarity-only
+      let results = exactMatches.length > 0 ? exactMatches : rarityOnlyMatches;
+
+      // Sort by most recent first
+      results.sort((a, b) => b.saleDate.getTime() - a.saleDate.getTime());
+
+      // Limit results
+      results = results.slice(0, limit);
+
+      if (DEBUG) {
+        console.log(`[getComparableSales] Returning ${results.length} comparable sales`);
+      }
+
+      return results;
+    } catch (error) {
+      console.warn('Error fetching comparable sales from OpenSea:', error);
+      return [];
+    }
+  }
+
+  // ===========================================================================
+  // Private Helper Methods
+  // ===========================================================================
+
+  /**
+   * Parse a raw OpenSea event into a SaleEvent
+   *
+   * Note: On GunzChain, OpenSea may use different payment symbols.
+   * We accept GUN, WGUN, or native token (zero address) as GUN payments.
+   */
+  private parseSaleEvent(event: any): SaleEvent {
+    const payment = event.payment || {};
+    const decimals = payment.decimals || 18;
+    const quantity = payment.quantity || '0';
+
+    // Convert from wei to token amount
+    const priceRaw = parseFloat(quantity) / Math.pow(10, decimals);
+    const symbol = (payment.symbol || '').toUpperCase();
+    const tokenAddress = (payment.token_address || '').toLowerCase();
+
+    if (DEBUG) {
+      console.log('[parseSaleEvent] Payment:', {
+        symbol,
+        quantity,
+        decimals,
+        token_address: tokenAddress,
+        priceRaw,
+      });
+    }
+
+    // GunzChain: accept GUN, WGUN, or native token payment as GUN price
+    // Native token has zero address: 0x0000000000000000000000000000000000000000
+    // OpenSea may use different symbols for the same token
+    const isNativeToken = tokenAddress === '0x0000000000000000000000000000000000000000';
+    const isGunPayment = symbol === 'GUN' || symbol === '' || isNativeToken;
+    const isWgunPayment = symbol === 'WGUN';
+
+    return {
+      eventTimestamp: new Date(event.event_timestamp),
+      priceGUN: isGunPayment ? priceRaw : 0,
+      priceWGUN: isWgunPayment ? priceRaw : 0,
+      sellerAddress: event.seller || event.from_account?.address || '',
+      buyerAddress: event.buyer || event.to_account?.address || '',
+      txHash: event.transaction || event.transaction_hash || '',
+      marketplace: 'opensea',
+    };
+  }
+
+  /**
+   * Parse a raw OpenSea event into a CollectionSaleEvent
+   *
+   * Note: OpenSea v2 events do NOT include traits in the nft object.
+   * Traits must be fetched separately via the Get NFT endpoint.
+   */
+  private parseCollectionSaleEvent(event: any): CollectionSaleEvent {
+    const baseEvent = this.parseSaleEvent(event);
+    const nft = event.nft || {};
+
+    if (DEBUG) {
+      console.log('[parseCollectionSaleEvent] NFT data:', {
+        identifier: nft.identifier,
+        name: nft.name,
+        contract: nft.contract,
+        hasTraits: !!nft.traits,
+        traitCount: nft.traits?.length ?? 0,
+      });
+    }
+
+    // Parse traits into a Record<string, string>
+    // Note: This will almost always be null because OpenSea v2 events don't include traits
+    let nftTraits: Record<string, string> | null = null;
+    if (nft.traits && Array.isArray(nft.traits)) {
+      nftTraits = {};
+      for (const trait of nft.traits) {
+        if (trait.trait_type && trait.value !== undefined) {
+          nftTraits[trait.trait_type] = String(trait.value);
+        }
+      }
+    }
+
+    return {
+      ...baseEvent,
+      tokenId: nft.identifier || nft.token_id || '',
+      nftName: nft.name || '',
+      nftTraits,
+      contract: nft.contract || '',
+    };
+  }
+
+  /**
+   * Fetch traits for a specific NFT via Get NFT endpoint.
+   * This is the ONLY OpenSea v2 endpoint that returns trait data.
+   * Results are cached to avoid redundant API calls.
+   *
+   * @param contract - NFT contract address
+   * @param identifier - Token ID
+   * @param chain - Chain name (default: 'avalanche')
+   * @returns Trait map or null if unavailable
+   */
+  async fetchNFTTraits(
+    contract: string,
+    identifier: string,
+    chain: string = 'avalanche'
+  ): Promise<Record<string, string> | null> {
+    const mappedChain = toOpenSeaChain(chain);
+    const cacheKey = `${mappedChain}:${contract.toLowerCase()}:${identifier}`;
+
+    // Check cache first
+    const cached = getCachedTraits(cacheKey);
+    if (cached !== undefined) {
+      if (DEBUG) {
+        console.log(`[fetchNFTTraits] Cache hit for ${identifier}: ${cached ? 'has traits' : 'no traits'}`);
+      }
+      return cached;
+    }
+
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/chain/${mappedChain}/contract/${contract}/nfts/${identifier}`,
+        { headers }
+      );
+
+      const traits = response.data?.nft?.traits;
+      if (traits && Array.isArray(traits)) {
+        const traitMap: Record<string, string> = {};
+        for (const t of traits) {
+          if (t.trait_type && t.value !== undefined) {
+            traitMap[t.trait_type] = String(t.value);
+          }
+        }
+
+        if (DEBUG) {
+          console.log(`[fetchNFTTraits] Fetched ${Object.keys(traitMap).length} traits for ${identifier}`);
+        }
+
+        setCachedTraits(cacheKey, traitMap);
+        return traitMap;
+      }
+
+      setCachedTraits(cacheKey, null);
+      return null;
+    } catch (error) {
+      console.warn(`[fetchNFTTraits] Failed for ${identifier}:`, error);
+      setCachedTraits(cacheKey, null);
       return null;
     }
   }

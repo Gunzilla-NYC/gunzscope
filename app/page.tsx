@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PortfolioHeader } from '@/components/header';
-import HoldingsSection from '@/components/HoldingsSection';
 import NFTGallery from '@/components/NFTGallery';
 import MarketplaceStats from '@/components/MarketplaceStats';
+import DebugPanel from '@/components/DebugPanel';
 import { WalletData, MarketplaceData, NFTPaginationInfo } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { SolanaService } from '@/lib/blockchain/solana';
@@ -13,14 +14,32 @@ import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { NFT } from '@/lib/types';
 import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata } from '@/lib/utils/nftGrouping';
-import { getCachedNFT, setCachedNFT } from '@/lib/utils/nftCache';
+import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey } from '@/lib/utils/nftCache';
 import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
+import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
+
+// Wrapper component to provide Suspense boundary for useSearchParams
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const debugMode = searchParams.get('debug') === '1';
+
+  return <HomeInner debugMode={debugMode} />;
+}
+
+// Main export wrapped in Suspense
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <HomeContent />
+    </Suspense>
+  );
+}
 
 // Batch size for parallel NFT enrichment
 const ENRICHMENT_BATCH_SIZE = 5;
 
-export default function Home() {
+function HomeInner({ debugMode }: { debugMode: boolean }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [marketplaceData, setMarketplaceData] = useState<MarketplaceData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
@@ -44,6 +63,16 @@ export default function Home() {
 
   // Ref to track if enrichment should be cancelled
   const enrichmentCancelledRef = useRef(false);
+
+  // Single source of truth for portfolio calculations
+  const portfolioResult: PortfolioCalcResult | null = useMemo(() => {
+    if (!walletData) return null;
+    return calcPortfolio({
+      walletData,
+      gunPrice,
+      totalOwnedNftCount: nftPagination.totalOwnedCount,
+    });
+  }, [walletData, gunPrice, nftPagination.totalOwnedCount]);
 
   // Helper to add timeout to promises
   const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
@@ -74,6 +103,7 @@ export default function Home() {
   };
 
   // Enrich a single NFT with caching
+  // IMPORTANT: Only caches when acquisition data is meaningful to prevent blocking future enrichment
   const enrichSingleNFT = async (
     nft: NFT,
     walletAddress: string,
@@ -82,9 +112,10 @@ export default function Home() {
   ): Promise<NFT> => {
     const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
 
-    // Check cache first
+    // Check cache - but only use it if acquisition is complete
     const cached = getCachedNFT(walletAddress, primaryTokenId);
-    if (cached) {
+    if (cached && cached.hasAcquisition === true) {
+      // Complete cache entry - use it
       return {
         ...nft,
         quantity: cached.quantity ?? nft.quantity ?? 1,
@@ -92,25 +123,40 @@ export default function Home() {
         purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
         transferredFrom: cached.transferredFrom,
         isFreeTransfer: cached.isFreeTransfer,
+        acquisitionVenue: cached.acquisitionVenue,
+        acquisitionTxHash: cached.acquisitionTxHash,
       };
     }
+
+    // If cache exists but is incomplete, we still have quantity - use it as baseline
+    const cachedQuantity = cached?.quantity;
 
     try {
       // Fetch quantity and acquisition details in parallel
       const [quantity, acquisition] = await Promise.all([
         // For non-grouped NFTs, fetch quantity (ERC-1155 check)
-        nft.tokenIds && nft.tokenIds.length > 1
-          ? Promise.resolve(nft.quantity || nft.tokenIds.length)
-          : withTimeout(
-              avalancheService.detectNFTQuantity(nftContractAddress, nft.tokenId, walletAddress),
-              3000
-            ),
+        // Skip if we already have cached quantity
+        cachedQuantity !== undefined
+          ? Promise.resolve(cachedQuantity)
+          : nft.tokenIds && nft.tokenIds.length > 1
+            ? Promise.resolve(nft.quantity || nft.tokenIds.length)
+            : withTimeout(
+                avalancheService.detectNFTQuantity(nftContractAddress, nft.tokenId, walletAddress),
+                3000
+              ),
         // Fetch acquisition details (current holding)
         withTimeout(
           avalancheService.getNFTHoldingAcquisition(nftContractAddress, primaryTokenId, walletAddress),
           5000
         ),
       ]);
+
+      // Determine if acquisition data is meaningful (not null/timeout result)
+      const hasAcquisitionData = acquisition !== null && (
+        acquisition.txHash !== undefined ||
+        (typeof acquisition.costGun === 'number' && Number.isFinite(acquisition.costGun)) ||
+        acquisition.acquiredAtIso !== undefined
+      );
 
       // Map acquisition data to NFT fields
       const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint;
@@ -124,16 +170,39 @@ export default function Home() {
         acquisitionTxHash: acquisition?.txHash ?? undefined,
       };
 
-      // Save to cache (convert Date to ISO string for storage)
-      setCachedNFT(walletAddress, primaryTokenId, {
-        quantity: enrichedData.quantity,
-        purchasePriceGun: enrichedData.purchasePriceGun,
-        purchaseDate: enrichedData.purchaseDate?.toISOString(),
-        transferredFrom: enrichedData.transferredFrom,
-        isFreeTransfer: enrichedData.isFreeTransfer,
-        acquisitionVenue: enrichedData.acquisitionVenue,
-        acquisitionTxHash: enrichedData.acquisitionTxHash,
-      });
+      // Only cache if acquisition is meaningful OR we're caching quantity-only for ERC-1155
+      if (hasAcquisitionData) {
+        // Full cache with acquisition data
+        setCachedNFT(walletAddress, primaryTokenId, {
+          quantity: enrichedData.quantity,
+          purchasePriceGun: enrichedData.purchasePriceGun,
+          purchaseDate: enrichedData.purchaseDate?.toISOString(),
+          transferredFrom: enrichedData.transferredFrom,
+          isFreeTransfer: enrichedData.isFreeTransfer,
+          acquisitionVenue: enrichedData.acquisitionVenue,
+          acquisitionTxHash: enrichedData.acquisitionTxHash,
+          hasAcquisition: true,
+          cachedAtIso: new Date().toISOString(),
+        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[NFT Cache] Cached complete: ${primaryTokenId} (txHash: ${acquisition?.txHash?.slice(0, 10)}...)`);
+        }
+      } else if (quantity !== null && quantity !== undefined) {
+        // Quantity-only cache (incomplete) - allows retry for acquisition
+        setCachedNFT(walletAddress, primaryTokenId, {
+          quantity: enrichedData.quantity,
+          hasAcquisition: false,
+          cachedAtIso: new Date().toISOString(),
+        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[NFT Cache] Skipped acquisition cache (incomplete): ${primaryTokenId} - acquisition was ${acquisition === null ? 'null/timeout' : 'missing data'}`);
+        }
+      } else {
+        // Nothing meaningful to cache
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[NFT Cache] Skipped cache entirely: ${primaryTokenId} - no acquisition or quantity`);
+        }
+      }
 
       return {
         ...nft,
@@ -158,7 +227,7 @@ export default function Home() {
     setEnrichingNFTs(true);
     enrichmentCancelledRef.current = false;
 
-    // Start with cached data applied immediately
+    // Start with cached data applied immediately (even incomplete cache has quantity)
     const nftsWithCache = nfts.map(nft => {
       const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
       const cached = getCachedNFT(walletAddress, primaryTokenId);
@@ -170,6 +239,8 @@ export default function Home() {
           purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
           transferredFrom: cached.transferredFrom,
           isFreeTransfer: cached.isFreeTransfer,
+          acquisitionVenue: cached.acquisitionVenue,
+          acquisitionTxHash: cached.acquisitionTxHash,
         };
       }
       return nft;
@@ -178,15 +249,29 @@ export default function Home() {
     // Update immediately with cached data
     updateCallback(nftsWithCache);
 
-    // Find NFTs that still need enrichment (no cache)
+    // Find NFTs that need enrichment:
+    // - No cache at all
+    // - Cache exists but hasAcquisition is false/undefined (incomplete)
+    // - Cache is incomplete AND older than INCOMPLETE_CACHE_STALE_MS
     const nftsNeedingEnrichment = nftsWithCache.filter(nft => {
       const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
-      return !getCachedNFT(walletAddress, primaryTokenId);
+      const tokenKey = buildTokenKey('avalanche', nftContractAddress, primaryTokenId);
+      const { needsRetry, reason } = needsReEnrichment(walletAddress, tokenKey);
+
+      if (needsRetry && process.env.NODE_ENV === 'development' && reason !== 'no_cache') {
+        console.log(`[NFT Enrichment] Retrying ${primaryTokenId}: ${reason}`);
+      }
+
+      return needsRetry;
     });
 
     if (nftsNeedingEnrichment.length === 0) {
       setEnrichingNFTs(false);
       return;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[NFT Enrichment] ${nftsNeedingEnrichment.length}/${nfts.length} NFTs need enrichment`);
     }
 
     // Process in batches and update progressively
@@ -378,10 +463,8 @@ export default function Home() {
       setNetworkInfo(detectedNetworkInfo);
       setWalletType(detectedWalletType);
 
-      const totalValue =
-        ((avalancheToken?.balance || 0) + (solanaToken?.balance || 0)) * (price || 0);
-
-      // Show data immediately with unenriched NFTs
+      // totalValue is derived from calcPortfolio (portfolioResult.totalUsd)
+      // No ad-hoc arithmetic here - this value is just a placeholder for the WalletData type
       const initialData: WalletData = {
         address,
         avalanche: {
@@ -392,7 +475,7 @@ export default function Home() {
           gunToken: solanaToken,
           nfts: groupedSolanaNFTs,
         },
-        totalValue,
+        totalValue: 0, // Calculated via calcPortfolio
         lastUpdated: new Date(),
       };
 
@@ -598,13 +681,7 @@ export default function Home() {
               networkInfo={networkInfo}
               walletType={walletType}
               totalOwnedCount={nftPagination.totalOwnedCount}
-            />
-
-            <HoldingsSection
-              gunzBalance={walletData.avalanche.gunToken}
-              solanaBalance={walletData.solana.gunToken}
-              gunPrice={gunPrice}
-              nftCount={nftPagination.totalOwnedCount}
+              portfolioResult={portfolioResult}
             />
 
             <MarketplaceStats data={marketplaceData} />
@@ -624,6 +701,14 @@ export default function Home() {
           <p className="mt-2 text-gray-700">Real-time blockchain portfolio tracking</p>
         </footer>
       </div>
+
+      {/* Debug Panel - visible when ?debug=1 */}
+      <DebugPanel
+        portfolioResult={portfolioResult}
+        walletAddress={walletData?.address ?? null}
+        gunPrice={gunPrice}
+        isVisible={debugMode}
+      />
     </div>
   );
 }
