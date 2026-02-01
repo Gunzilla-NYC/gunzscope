@@ -65,6 +65,57 @@ async function fetchGunzscanMetadata(
   }
 }
 
+/**
+ * Fetch NFT metadata from the canonical metadata.gunzchain.io API.
+ * This API returns the authoritative Serial Number and attributes.
+ * Used as override source when tokenURI returns Serial Number: 0.
+ * API: GET /api/v1/nft/{contract}/{tokenId}
+ */
+async function fetchCanonicalMetadata(
+  contractAddress: string,
+  tokenId: string
+): Promise<{ name?: string; description?: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } | null> {
+  try {
+    const url = `https://metadata.gunzchain.io/api/v1/nft/${contractAddress}/${tokenId}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+
+      // This API returns flat format: { name, description, image, attributes: [...] }
+      // Attributes are standard: [{ trait_type: "Serial Number", value: "768" }, ...]
+      if (data && Array.isArray(data.attributes)) {
+        return {
+          name: data.name,
+          description: data.description,
+          image: data.image || data.image_url,
+          attributes: data.attributes,
+        };
+      }
+
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch (error) {
+    if (DEBUG_ACQUISITION) {
+      console.warn(`[fetchCanonicalMetadata] Failed for token ${tokenId}:`, error);
+    }
+    return null;
+  }
+}
+
 // =============================================================================
 // Robust TokenURI Resolver
 // =============================================================================
@@ -530,18 +581,51 @@ export class AvalancheService {
           }
 
           // Process traits and extract mint number
-          const traits = resolvedMeta.attributes?.reduce((acc: Record<string, string>, attr) => {
+          let traits = resolvedMeta.attributes?.reduce((acc: Record<string, string>, attr) => {
             acc[attr.trait_type] = String(attr.value);
             return acc;
           }, {} as Record<string, string>);
 
           // Extract mint number from traits (check various possible trait names)
-          const mintNumber = traits?.['Mint Number'] ||
-                            traits?.['MINT_NUMBER'] ||
-                            traits?.['Serial Number'] ||
-                            traits?.['SERIAL_NUMBER'] ||
-                            traits?.['Serial Number'] ||
-                            traits?.['serialNumber'];
+          let mintNumber = traits?.['Mint Number'] ||
+                          traits?.['MINT_NUMBER'] ||
+                          traits?.['Serial Number'] ||
+                          traits?.['SERIAL_NUMBER'] ||
+                          traits?.['serialNumber'];
+
+          // Fix mint #0: If serial number is 0 or missing, fetch from canonical API
+          // The contract tokenURI sometimes returns Serial Number: 0 for valid tokens
+          if (nftContractAddress && (!mintNumber || mintNumber === '0')) {
+            try {
+              const canonicalMeta = await fetchCanonicalMetadata(
+                nftContractAddress,
+                tokenId.toString()
+              );
+              if (canonicalMeta?.attributes) {
+                const canonicalTraits = canonicalMeta.attributes.reduce(
+                  (acc: Record<string, string>, attr) => {
+                    acc[attr.trait_type] = String(attr.value);
+                    return acc;
+                  },
+                  {} as Record<string, string>
+                );
+                const canonicalMint = canonicalTraits['Serial Number'] ||
+                                     canonicalTraits['Mint Number'];
+                if (canonicalMint && canonicalMint !== '0') {
+                  mintNumber = canonicalMint;
+                  // Also update traits with canonical values for display
+                  if (traits) {
+                    traits['Serial Number'] = canonicalMint;
+                  }
+                  if (DEBUG_ACQUISITION) {
+                    console.log(`[Canonical Override] Token ${tokenId}: Serial Number 0 → ${canonicalMint}`);
+                  }
+                }
+              }
+            } catch {
+              // Non-critical: keep original mint number
+            }
+          }
 
           // Build metadata debug info
           const metadataDebug: NFTMetadataDebug = {
