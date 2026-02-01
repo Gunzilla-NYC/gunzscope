@@ -18,6 +18,7 @@ interface PortfolioHeaderProps {
   walletType?: 'in-game' | 'external' | 'unknown';
   totalOwnedCount?: number;
   portfolioResult?: PortfolioCalcResult | null;
+  isPortfolioInitializing?: boolean;
 }
 
 export default function PortfolioHeader({
@@ -29,6 +30,7 @@ export default function PortfolioHeader({
   walletType = 'unknown',
   totalOwnedCount,
   portfolioResult,
+  isPortfolioInitializing = false,
 }: PortfolioHeaderProps) {
   // Derive display values from portfolioResult (single source of truth)
   // Falls back to legacy calculation if portfolioResult not provided
@@ -164,7 +166,7 @@ export default function PortfolioHeader({
               </>
             ) : (
               <span className="text-[12px] text-white/40 italic">
-                {portfolioResult?.nftsWithPrice === 0 ? 'Calculating...' : 'Unpriced'}
+                {isPortfolioInitializing ? 'Calculating...' : 'Unpriced'}
               </span>
             )}
           </div>

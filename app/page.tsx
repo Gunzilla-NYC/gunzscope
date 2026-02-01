@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo, Suspense } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PortfolioHeader } from '@/components/header';
 import NFTGallery from '@/components/NFTGallery';
@@ -65,6 +65,10 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
   // Ref to track if enrichment should be cancelled
   const enrichmentCancelledRef = useRef(false);
 
+  // Track if initial portfolio data has loaded (for "Calculating..." state)
+  // Once set to false, stays false until new wallet search
+  const [isPortfolioInitializing, setIsPortfolioInitializing] = useState(true);
+
   // Single source of truth for portfolio calculations
   const portfolioResult: PortfolioCalcResult | null = useMemo(() => {
     if (!walletData) return null;
@@ -74,6 +78,35 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       totalOwnedNftCount: nftPagination.totalOwnedCount,
     });
   }, [walletData, gunPrice, nftPagination.totalOwnedCount]);
+
+  // Transition out of initializing state when we have valid NFT price data OR after timeout
+  // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
+  useEffect(() => {
+    if (!isPortfolioInitializing) return;
+    if (!portfolioResult || !gunPrice || gunPrice <= 0) return;
+
+    // If we have NFT price data, transition immediately
+    if (portfolioResult.nftsWithPrice > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarded one-time transition
+      setIsPortfolioInitializing(false);
+      return;
+    }
+
+    // If no NFTs, transition immediately (nothing to calculate)
+    if (portfolioResult.nftCount === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarded one-time transition
+      setIsPortfolioInitializing(false);
+      return;
+    }
+
+    // Otherwise, wait for enrichment with a timeout (max 10 seconds)
+    const timeoutId = setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Timeout-based transition
+      setIsPortfolioInitializing(false);
+    }, 10000);
+
+    return () => clearTimeout(timeoutId);
+  }, [isPortfolioInitializing, portfolioResult, gunPrice]);
 
   // Helper to add timeout to promises
   const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
@@ -268,13 +301,12 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     });
 
     if (nftsNeedingEnrichment.length === 0) {
+      console.log(`[NFT Enrichment] All ${nfts.length} NFTs loaded from cache`);
       setEnrichingNFTs(false);
       return;
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[NFT Enrichment] ${nftsNeedingEnrichment.length}/${nfts.length} NFTs need enrichment`);
-    }
+    console.log(`[NFT Enrichment] ${nftsNeedingEnrichment.length}/${nfts.length} NFTs need enrichment`);
 
     // Process in batches and update progressively
     const enrichedResults = new Map<string, NFT>();
@@ -292,10 +324,11 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
         batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService))
       );
 
-      // Update results map
+      // Update results map and log enrichment results
       batchResults.forEach(enrichedNFT => {
         const key = enrichedNFT.tokenIds?.[0] || enrichedNFT.tokenId;
         enrichedResults.set(key, enrichedNFT);
+        console.log(`[NFT Enrichment] ${key}: purchasePriceGun=${enrichedNFT.purchasePriceGun ?? 'undefined'}`);
       });
 
       // Reconstruct array in original order and update UI
@@ -308,6 +341,8 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       }
     }
 
+    const withPrice = Array.from(enrichedResults.values()).filter(n => n.purchasePriceGun !== undefined).length;
+    console.log(`[NFT Enrichment] Complete: ${withPrice}/${nfts.length} NFTs have price data`);
     setEnrichingNFTs(false);
   }, []);
 
@@ -406,6 +441,9 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Cancel any ongoing enrichment
     enrichmentCancelledRef.current = true;
+
+    // Reset portfolio states for new search
+    setIsPortfolioInitializing(true);
 
     setLoading(true);
     setError(null);
@@ -718,6 +756,7 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
               walletType={walletType}
               totalOwnedCount={nftPagination.totalOwnedCount}
               portfolioResult={portfolioResult}
+              isPortfolioInitializing={isPortfolioInitializing}
             />
 
             <MarketplaceStats data={marketplaceData} />
