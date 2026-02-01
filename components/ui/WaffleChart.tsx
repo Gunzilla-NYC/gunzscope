@@ -1,34 +1,20 @@
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef } from 'react';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface WaffleCollection {
-  name: string;
-  percentOfNfts: number;
-  color: string;
-  valueUsd: number;
-  count: number;
-}
-
-interface WaffleChartProps {
+interface CompositionChartProps {
   gunPercent: number;
   nftPercent: number;
   gunValueUsd?: number;
   nftValueUsd?: number;
   nftCount?: number;
-  collections?: WaffleCollection[]; // Optional, for future use
   size?: number;
   showLegend?: boolean;
   className?: string;
-}
-
-interface CellData {
-  type: 'gun' | 'nft' | 'empty';
-  color: string;
 }
 
 interface TooltipState {
@@ -48,13 +34,11 @@ interface TooltipState {
 // Constants
 // =============================================================================
 
-const GRID_SIZE = 10;
-const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
 const GUN_COLOR = '#64ffff';
 const NFT_COLOR = '#96aaff';
 
 // =============================================================================
-// Component
+// Component (exported as WaffleChart for backwards compatibility)
 // =============================================================================
 
 export default function WaffleChart({
@@ -63,11 +47,10 @@ export default function WaffleChart({
   gunValueUsd = 0,
   nftValueUsd = 0,
   nftCount,
-  collections = [],
   size = 160,
   showLegend = false,
   className = '',
-}: WaffleChartProps) {
+}: CompositionChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
     visible: false,
@@ -76,50 +59,27 @@ export default function WaffleChart({
     content: null,
   });
 
-  // Calculate total NFT count from collections if not provided directly
-  const totalNftCount = nftCount ?? collections.reduce((sum, c) => sum + c.count, 0);
-
-  // Calculate cell assignments - simplified to just GUN and NFT colors
-  const cells = useMemo(() => {
-    const result: CellData[] = [];
-
-    // GUN cells (rounded)
-    const gunCells = Math.round(gunPercent);
-    for (let i = 0; i < gunCells && result.length < TOTAL_CELLS; i++) {
-      result.push({ type: 'gun', color: GUN_COLOR });
-    }
-
-    // NFT cells - all same color
-    const nftCells = Math.round(nftPercent);
-    for (let i = 0; i < nftCells && result.length < TOTAL_CELLS; i++) {
-      result.push({ type: 'nft', color: NFT_COLOR });
-    }
-
-    // Empty cells
-    while (result.length < TOTAL_CELLS) {
-      result.push({ type: 'empty', color: 'transparent' });
-    }
-
-    return result;
+  // Normalize percentages to ensure they sum to 100 (or less)
+  const { normalizedGun, normalizedNft } = useMemo(() => {
+    const total = gunPercent + nftPercent;
+    if (total === 0) return { normalizedGun: 0, normalizedNft: 0 };
+    if (total <= 100) return { normalizedGun: gunPercent, normalizedNft: nftPercent };
+    // Scale down if over 100
+    const scale = 100 / total;
+    return { normalizedGun: gunPercent * scale, normalizedNft: nftPercent * scale };
   }, [gunPercent, nftPercent]);
 
-  // Tooltip handlers
-  const handleCellHover = (
+  const handleBlockHover = (
     e: React.MouseEvent,
-    cell: CellData
+    type: 'gun' | 'nft'
   ) => {
-    if (cell.type === 'empty') {
-      setTooltip(prev => ({ ...prev, visible: false, content: null }));
-      return;
-    }
-
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top - 50;
+    const y = -50;
 
-    if (cell.type === 'gun') {
+    if (type === 'gun') {
       setTooltip({
         visible: true,
         x,
@@ -141,7 +101,7 @@ export default function WaffleChart({
           label: 'NFT Holdings',
           valueUsd: nftValueUsd,
           percent: nftPercent,
-          count: totalNftCount > 0 ? totalNftCount : undefined,
+          count: nftCount,
         },
       });
     }
@@ -161,45 +121,80 @@ export default function WaffleChart({
     setTooltip(prev => ({ ...prev, visible: false, content: null }));
   };
 
-  // Close tooltip on scroll
-  useEffect(() => {
-    const handleScroll = () => {
-      if (tooltip.visible) {
-        setTooltip(prev => ({ ...prev, visible: false }));
-      }
-    };
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
-  }, [tooltip.visible]);
+  // Empty state
+  if (normalizedGun === 0 && normalizedNft === 0) {
+    return (
+      <div className={className}>
+        <div
+          data-testid="waffle-grid"
+          className="rounded-lg overflow-hidden"
+          style={{ width: size, height: size }}
+        >
+          <div
+            data-testid="waffle-cell-empty"
+            className="w-full h-full bg-white/5 flex items-center justify-center"
+          >
+            <span className="text-xs text-white/30">No data</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${className}`} ref={containerRef}>
-      {/* Waffle Grid */}
+      {/* Composition Square - Two blocks */}
       <div
         data-testid="waffle-grid"
-        className="grid relative"
-        style={{
-          width: size,
-          height: size,
-          gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-          gap: 2,
-        }}
+        className="rounded-lg overflow-hidden relative"
+        style={{ width: size, height: size }}
       >
-        {cells.map((cell, idx) => (
-          <div
-            key={idx}
-            data-testid={`waffle-cell-${cell.type}`}
-            className="rounded-sm transition-all duration-200 hover:scale-110 hover:z-10 cursor-pointer waffle-cell-animated"
-            style={{
-              backgroundColor: cell.type === 'empty' ? 'rgba(255,255,255,0.05)' : cell.color,
-              aspectRatio: '1',
-              animationDelay: `${idx * 8}ms`,
-            }}
-            onMouseEnter={(e) => handleCellHover(e, cell)}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-          />
-        ))}
+        {/* Vertical split layout */}
+        <div className="w-full h-full flex flex-col">
+          {/* GUN Block (top) */}
+          {normalizedGun > 0 && (
+            <div
+              data-testid="waffle-cell-gun"
+              className="w-full transition-all duration-300 cursor-pointer hover:brightness-110 flex items-center justify-center"
+              style={{
+                height: `${normalizedGun}%`,
+                backgroundColor: GUN_COLOR,
+                minHeight: normalizedGun > 0 ? '20px' : 0,
+              }}
+              onMouseEnter={(e) => handleBlockHover(e, 'gun')}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            >
+              {normalizedGun >= 15 && (
+                <span className="text-black/70 text-xs font-medium">
+                  {normalizedGun.toFixed(0)}%
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* NFT Block (bottom) */}
+          {normalizedNft > 0 && (
+            <div
+              data-testid="waffle-cell-nft"
+              className="w-full transition-all duration-300 cursor-pointer hover:brightness-110 flex items-center justify-center"
+              style={{
+                height: `${normalizedNft}%`,
+                backgroundColor: NFT_COLOR,
+                minHeight: normalizedNft > 0 ? '20px' : 0,
+              }}
+              onMouseEnter={(e) => handleBlockHover(e, 'nft')}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            >
+              {normalizedNft >= 15 && (
+                <span className="text-black/70 text-xs font-medium">
+                  {normalizedNft.toFixed(0)}%
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Tooltip */}
         {tooltip.visible && tooltip.content && (
@@ -219,7 +214,7 @@ export default function WaffleChart({
                 ${tooltip.content.valueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 <span className="text-white/50 ml-1">({tooltip.content.percent.toFixed(1)}%)</span>
               </div>
-              {tooltip.content.count !== undefined && (
+              {tooltip.content.count !== undefined && tooltip.content.count > 0 && (
                 <div className="text-white/50 text-[10px] mt-0.5">
                   {tooltip.content.count} {tooltip.content.count === 1 ? 'item' : 'items'}
                 </div>
@@ -233,20 +228,17 @@ export default function WaffleChart({
         )}
       </div>
 
-      {/* Legend - simplified to just GUN and NFTs */}
+      {/* Legend */}
       {showLegend && (
         <div data-testid="waffle-legend" className="mt-3 space-y-1.5">
-          {/* GUN legend item */}
-          {gunPercent > 0 && (
+          {normalizedGun > 0 && (
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: GUN_COLOR }} />
               <span className="text-[11px] text-white/70">GUN</span>
               <span className="text-[10px] text-white/40 ml-auto">{gunPercent.toFixed(0)}%</span>
             </div>
           )}
-
-          {/* NFT legend item */}
-          {nftPercent > 0 && (
+          {normalizedNft > 0 && (
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: NFT_COLOR }} />
               <span className="text-[11px] text-white/70">NFTs</span>
@@ -257,4 +249,14 @@ export default function WaffleChart({
       )}
     </div>
   );
+}
+
+// Re-export types for backwards compatibility
+export type { CompositionChartProps as WaffleChartProps };
+export interface WaffleCollection {
+  name: string;
+  percentOfNfts: number;
+  color: string;
+  valueUsd: number;
+  count: number;
 }
