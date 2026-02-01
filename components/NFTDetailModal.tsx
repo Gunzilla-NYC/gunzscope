@@ -2415,7 +2415,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         <div className="flex items-stretch gap-0 pointer-events-auto">
           {/* Main Modal */}
           <div
-            className={`relative w-full min-w-[360px] max-w-[440px] max-h-[85vh] bg-[#0d0d0d] rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 ${
+            className={`relative w-full min-w-[432px] max-w-[440px] max-h-[85vh] bg-[#0d0d0d] rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 ${
               isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
             } ${hasRelatedItems && relatedItemsExpanded ? 'rounded-r-none' : ''}`}
             style={{
@@ -2436,8 +2436,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             </button>
           </div>
 
-          {/* Scrollable Content Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-premium overscroll-contain [-webkit-overflow-scrolling:touch] select-none [scrollbar-gutter:stable]">
+          {/* Scrollable Content Area - hidden scrollbar to prevent any width shift */}
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden overscroll-contain [-webkit-overflow-scrolling:touch] select-none">
             <div className="p-4 space-y-4">
 
               {/* ===== 2) IdentitySection ===== */}

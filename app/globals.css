@@ -86,6 +86,63 @@ body {
   background-color: rgba(255, 255, 255, 0.30);
 }
 
+/* Scrollbar Stable Variant - ensures scrollbar always reserves space */
+.scrollbar-stable {
+  scrollbar-gutter: stable;
+}
+
+.scrollbar-stable::-webkit-scrollbar {
+  width: 8px !important;
+  display: block !important;
+}
+
+.scrollbar-stable::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03) !important; /* Subtle but visible, forces space reservation */
+  display: block !important;
+}
+
+.scrollbar-stable::-webkit-scrollbar-thumb {
+  min-height: 20px; /* Ensure thumb is always rendered */
+}
+
+/* Scrollbar Always Visible - guarantees scrollbar always takes space */
+.scrollbar-always {
+  overflow-y: scroll !important;
+}
+
+.scrollbar-always::-webkit-scrollbar {
+  width: 8px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.scrollbar-always::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04) !important;
+  visibility: visible !important;
+}
+
+.scrollbar-always::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  min-height: 30px;
+}
+
+.scrollbar-always:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Hidden Scrollbar - completely invisible, no space taken */
+.scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
+}
+
 /* Scroll Affordance Fades */
 
 .scroll-fade-bottom {
