@@ -2,8 +2,22 @@
 
 import { useMemo, useState } from 'react';
 import Sparkline from '@/components/ui/Sparkline';
-import CompositionBar from '@/components/ui/CompositionBar';
+import WaffleChart, { WaffleCollection } from '@/components/ui/WaffleChart';
+import { calculateCollectionBreakdown } from '@/lib/portfolio/collectionBreakdown';
 import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
+import type { NFT } from '@/lib/types';
+
+// Color palette for collections (up to 8 distinct colors)
+const COLLECTION_COLORS = [
+  '#96aaff', // Primary purple (NFT default)
+  '#c4b5fd', // Violet
+  '#f0abfc', // Fuchsia
+  '#f9a8d4', // Pink
+  '#a5b4fc', // Indigo
+  '#93c5fd', // Blue
+  '#7dd3fc', // Sky
+  '#5eead4', // Teal
+];
 
 interface PortfolioBreakdown {
   gunValue: number;
@@ -23,6 +37,8 @@ interface PortfolioGlanceCardProps {
   totalValue: number;
   breakdown: PortfolioBreakdown;
   costBasis?: CostBasis;
+  nfts?: NFT[];
+  gunPriceUsd?: number;
   className?: string;
 }
 
@@ -66,6 +82,8 @@ export default function PortfolioGlanceCard({
   totalValue,
   breakdown,
   costBasis,
+  nfts = [],
+  gunPriceUsd = 0,
   className = '',
 }: PortfolioGlanceCardProps) {
   const [showPerformanceTooltip, setShowPerformanceTooltip] = useState(false);
@@ -91,41 +109,31 @@ export default function PortfolioGlanceCard({
     return { tokens: tokenPnL, nfts: nftPnL, total: totalPnL };
   }, [breakdown, totalValue, costBasis]);
 
-  // Composition bar segments
-  const compositionSegments = useMemo(() => {
-    const segments = [];
+  // Waffle chart data
+  const waffleData = useMemo(() => {
+    // Calculate collection breakdown if NFTs are provided
+    const collectionBreakdown = nfts.length > 0 && gunPriceUsd > 0
+      ? calculateCollectionBreakdown(nfts, gunPriceUsd)
+      : null;
 
-    if (breakdown.gunValue > 0) {
-      segments.push({
-        id: 'gun',
-        label: 'GUN',
-        value: breakdown.gunValue,
-        color: '#64ffff',
-      });
-    }
+    // Calculate percentages
+    const total = totalValue > 0 ? totalValue : 1;
+    const gunPercent = (breakdown.gunValue / total) * 100;
+    const nftPercent = (breakdown.nftValue / total) * 100;
 
-    if (breakdown.nftValue > 0 || breakdown.nftCount > 0) {
-      segments.push({
-        id: 'nfts',
-        label: 'NFTs',
-        value: breakdown.nftValue,
-        color: '#96aaff',
-        isUnpriced: breakdown.nftValue === 0 && breakdown.nftCount > 0,
-        count: breakdown.nftCount,
-      });
-    }
+    // Map collections to waffle format with colors
+    const collections: WaffleCollection[] = collectionBreakdown
+      ? collectionBreakdown.collections.map((coll, idx) => ({
+          name: coll.name,
+          percentOfNfts: coll.percentOfNfts,
+          color: COLLECTION_COLORS[idx % COLLECTION_COLORS.length],
+          valueUsd: coll.valueUsd,
+          count: coll.count,
+        }))
+      : [];
 
-    if (breakdown.otherValue > 0) {
-      segments.push({
-        id: 'other',
-        label: 'Other',
-        value: breakdown.otherValue,
-        color: '#fbbf24',
-      });
-    }
-
-    return segments;
-  }, [breakdown]);
+    return { gunPercent, nftPercent, collections };
+  }, [totalValue, breakdown, nfts, gunPriceUsd]);
 
   // Format changes
   const change24h = formatChange(changes.change24h);
@@ -263,16 +271,22 @@ export default function PortfolioGlanceCard({
         </div>
       )}
 
-      {/* Composition section */}
+      {/* Composition section - Waffle Chart */}
       <div className="border-t border-white/10 pt-3 mt-3">
-        <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium mb-2 block">
+        <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium mb-3 block">
           Composition
         </span>
-        <CompositionBar
-          segments={compositionSegments}
-          height={6}
-          showInlineLabels={true}
-        />
+        <div className="flex justify-center">
+          <WaffleChart
+            gunPercent={waffleData.gunPercent}
+            nftPercent={waffleData.nftPercent}
+            gunValueUsd={breakdown.gunValue}
+            nftValueUsd={breakdown.nftValue}
+            collections={waffleData.collections}
+            size={140}
+            showLegend={true}
+          />
+        </div>
       </div>
 
       {/* Status line - tertiary helper text */}

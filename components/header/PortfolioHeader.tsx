@@ -119,6 +119,8 @@ export default function PortfolioHeader({
             address={walletData.address}
             totalValue={totalTokenValue}
             breakdown={breakdown}
+            nfts={[...walletData.avalanche.nfts, ...walletData.solana.nfts]}
+            gunPriceUsd={gunPrice}
           />
         </div>
 
