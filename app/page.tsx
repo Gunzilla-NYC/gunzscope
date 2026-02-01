@@ -253,6 +253,7 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     nfts: NFT[],
     walletAddress: string,
     avalancheService: AvalancheService,
+    marketplaceService: GameMarketplaceService | null,
     updateCallback: (enrichedNFTs: NFT[]) => void
   ) => {
     // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
@@ -399,11 +400,15 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
         }));
 
         // Start background enrichment for new NFTs
+        const paginationMarketplaceService = new GameMarketplaceService();
+        const paginationMarketplaceConfigured = paginationMarketplaceService.isConfigured();
+
         enrichNFTsInBackground(
           uniqueNewNFTs,
           walletData.address,
           avalancheService,
-          (enrichedNFTs) => {
+          paginationMarketplaceConfigured ? paginationMarketplaceService : null,
+          (enrichedNFTs: NFT[]) => {
             setWalletData(prev => {
               if (!prev) return prev;
               // Merge enriched NFTs back
@@ -524,10 +529,14 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       setLoading(false);
 
       // Start background enrichment for Avalanche NFTs
+      // Reuse existing marketplace service (will gracefully handle unconfigured state)
+      const marketplaceConfigured = marketplaceService.isConfigured();
+
       enrichNFTsInBackground(
         groupedAvalancheNFTs,
         address,
         avalancheService,
+        marketplaceConfigured ? marketplaceService : null,
         (enrichedNFTs) => {
           setWalletData(prev => {
             if (!prev || prev.address !== address) return prev;
