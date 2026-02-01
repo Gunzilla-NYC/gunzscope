@@ -18,7 +18,7 @@ export interface TokenBalance {
 export type AcquisitionVenue = 'decode' | 'opensea' | 'otg_marketplace' | 'in_game_marketplace' | 'decoder' | 'transfer' | 'mint' | 'system_mint' | 'unknown';
 
 // Metadata source tracking for debugging
-export type MetadataSource = 'tokenURI' | 'gunzscan' | 'canonical' | 'none';
+export type MetadataSource = 'tokenURI' | 'gunzscan' | 'canonical' | 'cache' | 'none';
 
 // Debug info for NFT metadata resolution
 export interface NFTMetadataDebug {

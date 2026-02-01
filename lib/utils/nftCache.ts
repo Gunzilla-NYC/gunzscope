@@ -10,6 +10,7 @@ const SCHEMA_VERSIONS = {
   nftDetail: 'v8', // v8: Added hasAcquisition flag to prevent incomplete cache blocking enrichment
   transfers: 'v2',
   priceGunUsd: 'v1',
+  metadata: 'v1', // v1: NFT metadata cache (name, image, traits, mintNumber)
 } as const;
 
 // Stale threshold for incomplete cache entries (10 minutes)
@@ -191,6 +192,18 @@ export function buildHistoricalPriceCacheKey(date: Date): string {
   return `${CACHE_NAMESPACE}:price:gunusd:${SCHEMA_VERSIONS.priceGunUsd}:historical:${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Build cache key for NFT metadata
+ * Format: zillascope:nft:meta:v1:${chain}:${contract}:${tokenId}
+ */
+export function buildMetadataCacheKey(
+  chain: string,
+  contractAddress: string,
+  tokenId: string
+): string {
+  return `${CACHE_NAMESPACE}:nft:meta:${SCHEMA_VERSIONS.metadata}:${chain}:${contractAddress.toLowerCase()}:${tokenId}`;
+}
+
 // =============================================================================
 // NFT Detail Cache Types
 // =============================================================================
@@ -219,6 +232,18 @@ export interface CachedTransferData {
 export interface CachedPriceData {
   gunUsdRate: number;
   timestamp: string; // ISO string
+}
+
+/**
+ * Cached NFT metadata - prevents re-fetching metadata on every page load
+ * This is separate from acquisition data (which is wallet-specific)
+ */
+export interface CachedMetadataData {
+  name: string;
+  description?: string;
+  image: string;
+  traits?: Record<string, string>;
+  mintNumber?: string;
 }
 
 // =============================================================================
@@ -319,6 +344,37 @@ export function setCachedHistoricalGunPrice(
     timestamp: date.toISOString(),
   };
   cacheSet(fullKey, SCHEMA_VERSIONS.priceGunUsd, data, ttlSeconds);
+}
+
+// =============================================================================
+// Typed Cache Functions for NFT Metadata
+// =============================================================================
+
+/**
+ * Get cached NFT metadata for a specific token
+ * Metadata is token-specific (not wallet-specific) since it doesn't change per holder
+ */
+export function getCachedMetadata(
+  chain: string,
+  contractAddress: string,
+  tokenId: string
+): CacheResult<CachedMetadataData> {
+  const fullKey = buildMetadataCacheKey(chain, contractAddress, tokenId);
+  return cacheGet<CachedMetadataData>(fullKey, SCHEMA_VERSIONS.metadata);
+}
+
+/**
+ * Set cached NFT metadata (7 day TTL - metadata rarely changes for game NFTs)
+ */
+export function setCachedMetadata(
+  chain: string,
+  contractAddress: string,
+  tokenId: string,
+  data: CachedMetadataData,
+  ttlSeconds: number = 7 * 24 * 60 * 60 // 7 days
+): void {
+  const fullKey = buildMetadataCacheKey(chain, contractAddress, tokenId);
+  cacheSet(fullKey, SCHEMA_VERSIONS.metadata, data, ttlSeconds);
 }
 
 // =============================================================================

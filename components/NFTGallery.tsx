@@ -372,20 +372,34 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           case 'quantity-desc':
             return (b.quantity || 1) - (a.quantity || 1);
           case 'value-desc': {
-            // Sort by floor price descending, NFTs without floorPrice go last
-            const aVal = a.floorPrice ?? -Infinity;
-            const bVal = b.floorPrice ?? -Infinity;
-            return bVal - aVal;
+            // Sort by value descending: prefer floorPrice, fall back to cost basis
+            // NFTs without any value data go last
+            const aVal = a.floorPrice ?? a.purchasePriceGun ?? -Infinity;
+            const bVal = b.floorPrice ?? b.purchasePriceGun ?? -Infinity;
+            if (aVal !== bVal) return bVal - aVal;
+            // Secondary sort by name for stability
+            return a.name.localeCompare(b.name);
           }
           case 'pnl-desc': {
-            // Sort by unrealized P&L % descending, NFTs missing data go last
-            const aPnl = (a.purchasePriceGun && a.purchasePriceGun > 0 && a.floorPrice !== undefined)
-              ? ((a.floorPrice - a.purchasePriceGun) / a.purchasePriceGun) * 100
-              : -Infinity;
-            const bPnl = (b.purchasePriceGun && b.purchasePriceGun > 0 && b.floorPrice !== undefined)
-              ? ((b.floorPrice - b.purchasePriceGun) / b.purchasePriceGun) * 100
-              : -Infinity;
-            return bPnl - aPnl;
+            // Sort by unrealized P&L % descending
+            // If floor price available: (floor - cost) / cost * 100
+            // If no floor price: use 0% (break even assumption) to still show NFTs with cost data
+            // NFTs missing cost data go last
+            const getEffectivePnl = (nft: NFT): number => {
+              if (!nft.purchasePriceGun || nft.purchasePriceGun <= 0) return -Infinity;
+              if (nft.floorPrice !== undefined) {
+                return ((nft.floorPrice - nft.purchasePriceGun) / nft.purchasePriceGun) * 100;
+              }
+              // No floor price but has cost basis - assume 0% for now
+              return 0;
+            };
+            const aPnl = getEffectivePnl(a);
+            const bPnl = getEffectivePnl(b);
+            if (aPnl !== bPnl) return bPnl - aPnl;
+            // Secondary sort by value for NFTs with same P&L
+            const aVal = a.floorPrice ?? a.purchasePriceGun ?? 0;
+            const bVal = b.floorPrice ?? b.purchasePriceGun ?? 0;
+            return bVal - aVal;
           }
           default:
             return 0;

@@ -11,6 +11,7 @@ import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { SolanaService } from '@/lib/blockchain/solana';
 import { CoinGeckoService } from '@/lib/api/coingecko';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
+import { OpenSeaService } from '@/lib/api/opensea';
 import { NFT } from '@/lib/types';
 import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata } from '@/lib/utils/nftGrouping';
@@ -502,6 +503,40 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
           });
         }
       );
+
+      // Fetch collection floor price in background and apply to all NFTs
+      // This enables Value/P&L sorting in the gallery
+      const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
+      if (nftContractAddress) {
+        const openSeaService = new OpenSeaService();
+        openSeaService.getNFTFloorPrice(nftContractAddress, 'avalanche')
+          .then(floorPrice => {
+            if (floorPrice !== null && floorPrice > 0) {
+              setWalletData(prev => {
+                if (!prev || prev.address !== address) return prev;
+                // Apply collection floor price to all NFTs that don't already have one
+                const nftsWithFloor = prev.avalanche.nfts.map(nft => ({
+                  ...nft,
+                  floorPrice: nft.floorPrice ?? floorPrice,
+                }));
+                return {
+                  ...prev,
+                  avalanche: {
+                    ...prev.avalanche,
+                    nfts: nftsWithFloor,
+                  },
+                };
+              });
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`[Floor Price] Applied collection floor: ${floorPrice} GUN`);
+              }
+            }
+          })
+          .catch(err => {
+            // Non-critical - portfolio still works without floor price
+            console.warn('[Floor Price] Failed to fetch from OpenSea:', err);
+          });
+      }
 
     } catch (err) {
       console.error('Error fetching wallet data:', err);

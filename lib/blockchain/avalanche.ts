@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { TokenBalance, NFT, NFTPageResult, AcquisitionVenue, MetadataSource, NFTMetadataDebug } from '../types';
+import { getCachedMetadata, setCachedMetadata } from '../utils/nftCache';
 
 // =============================================================================
 // Contract Deployment Block Configuration
@@ -528,6 +529,32 @@ export class AvalancheService {
       for (let i = startIndex; i < endIndex; i++) {
         try {
           const tokenId = await contract.tokenOfOwnerByIndex(walletAddress, i);
+          const tokenIdStr = tokenId.toString();
+
+          // Check metadata cache first (token-specific, not wallet-specific)
+          const cachedMeta = getCachedMetadata('avalanche', nftContractAddress, tokenIdStr);
+          if (cachedMeta.hit && cachedMeta.value) {
+            // Use cached metadata - instant load
+            nfts.push({
+              tokenId: tokenIdStr,
+              mintNumber: cachedMeta.value.mintNumber,
+              name: cachedMeta.value.name,
+              description: cachedMeta.value.description,
+              image: cachedMeta.value.image,
+              collection: 'Off The Grid NFT Collection',
+              chain: 'avalanche',
+              traits: cachedMeta.value.traits,
+              metadataDebug: {
+                tokenURI: '',
+                metadataSource: 'cache' as MetadataSource,
+                hasDescription: !!cachedMeta.value.description,
+                descriptionLength: cachedMeta.value.description?.length ?? 0,
+              },
+            });
+            continue; // Skip network fetch
+          }
+
+          // No cache hit - fetch from network
           const tokenURI = await contract.tokenURI(tokenId);
 
           // Use robust tokenURI resolver with IPFS gateway fallback
@@ -536,7 +563,7 @@ export class AvalancheService {
           // Fallback: If description is missing, try Gunzscan Blockscout API
           if (!resolvedMeta.description && nftContractAddress) {
             try {
-              const gunzscanMeta = await fetchGunzscanMetadata(nftContractAddress, tokenId.toString());
+              const gunzscanMeta = await fetchGunzscanMetadata(nftContractAddress, tokenIdStr);
               // Merge with priority: keep tokenURI values, fill in missing from gunzscan
               resolvedMeta = mergeMetadata(resolvedMeta, gunzscanMeta);
             } catch {
@@ -563,7 +590,7 @@ export class AvalancheService {
             try {
               const canonicalMeta = await fetchCanonicalMetadata(
                 nftContractAddress,
-                tokenId.toString()
+                tokenIdStr
               );
               if (canonicalMeta?.attributes) {
                 const canonicalTraits = canonicalMeta.attributes.reduce(
@@ -606,10 +633,24 @@ export class AvalancheService {
             imageUrl = imageUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
           }
 
+          const finalName = resolvedMeta.name || `NFT #${tokenId}`;
+
+          // Cache the resolved metadata for future loads (7 day TTL)
+          // Only cache if we got meaningful data (has name or image)
+          if (finalName && finalName !== `NFT #${tokenId}` || imageUrl) {
+            setCachedMetadata('avalanche', nftContractAddress, tokenIdStr, {
+              name: finalName,
+              description: resolvedMeta.description,
+              image: imageUrl,
+              traits,
+              mintNumber: mintNumber?.toString(),
+            });
+          }
+
           nfts.push({
-            tokenId: tokenId.toString(),
+            tokenId: tokenIdStr,
             mintNumber: mintNumber?.toString(),
-            name: resolvedMeta.name || `NFT #${tokenId}`,
+            name: finalName,
             description: resolvedMeta.description || undefined,
             image: imageUrl,
             collection: 'Off The Grid NFT Collection',
