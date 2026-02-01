@@ -221,7 +221,8 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     avalancheService: AvalancheService,
     updateCallback: (enrichedNFTs: NFT[]) => void
   ) => {
-    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE;
+    // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
+    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
     if (!nftContractAddress || nfts.length === 0) return;
 
     setEnrichingNFTs(true);

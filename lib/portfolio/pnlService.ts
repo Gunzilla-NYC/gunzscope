@@ -125,7 +125,8 @@ interface ValuationResult {
 // Constants
 // =============================================================================
 
-const DEFAULT_CONTRACT = process.env.NFT_COLLECTION_AVALANCHE || '';
+// NFT_COLLECTION_AVALANCHE with hardcoded fallback for production
+const DEFAULT_CONTRACT = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
 const COLLECTION_SLUG = 'off-the-grid';
 
 // Valuation confidence thresholds
@@ -420,11 +421,16 @@ export async function calculateNFTPnL(
 
     // Check if this is a transfer/airdrop with no cost
     if (costBasisGUN === 0) {
-      // IMPORTANT: Check decode venue FIRST, before isMint
+      // IMPORTANT: Check venue type FIRST, before isMint
       // Decode transactions have isMint=true (from zero address) but should show decode-specific warning
-      if (acquisition.venue === 'decode' || acquisition.venue === 'decoder') {
-        warnings.push('Decode fee not captured - check transaction for decode cost');
-        debugLog(`Token ${tokenId}: decode venue but costGun=0, possible data extraction issue`);
+      if (acquisition.venue === 'system_mint') {
+        // System-initiated mint (mintForUser) - decode fee was paid off-chain in game's internal system
+        warnings.push('System mint — decode fee paid off-chain (not available from blockchain data)');
+        debugLog(`Token ${tokenId}: system_mint venue, cost paid off-chain`);
+      } else if (acquisition.venue === 'decode' || acquisition.venue === 'decoder') {
+        // User-initiated decode with no on-chain cost - likely a free decode or reward
+        warnings.push('Decode cost not found on-chain — may be a free decode or reward');
+        debugLog(`Token ${tokenId}: decode venue but costGun=0, may be free decode`);
       } else if (acquisition.venue === 'transfer' || acquisition.isMint) {
         warnings.push(
           `NFT was ${acquisition.isMint ? 'minted' : 'transferred'} - no purchase cost`

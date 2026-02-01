@@ -396,7 +396,8 @@ export const getCachedNFT = (
 
   try {
     // First try new cache format
-    const contractAddress = process.env.NFT_COLLECTION_AVALANCHE || '';
+    // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
+    const contractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
     const tokenKey = buildTokenKey('avalanche', contractAddress, tokenId);
     const newResult = getCachedNFTDetail(walletAddress, tokenKey);
 
@@ -441,7 +442,8 @@ export const setCachedNFT = (
   if (!isBrowser) return;
 
   // Write to new cache format
-  const contractAddress = process.env.NFT_COLLECTION_AVALANCHE || '';
+  // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
+  const contractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
   const tokenKey = buildTokenKey('avalanche', contractAddress, tokenId);
 
   setCachedNFTDetail(walletAddress, tokenKey, {

@@ -450,7 +450,8 @@ export class AvalancheService {
     pageSize: number = 50
   ): Promise<NFTPageResult> {
     try {
-      const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE;
+      // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
+      const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
 
       if (!nftContractAddress || nftContractAddress.includes('Your')) {
         console.warn('NFT collection address not configured for Avalanche');
@@ -1071,7 +1072,18 @@ export class AvalancheService {
       const selector = getSelector(tx?.data);
 
       // Classify venue (pass receipt for OrderFulfilled and in-game trade detection)
-      const { venue, matchedRule, hasOrderFulfilled, hasInGameTrade, inGameTradeLog } = this.classifyVenue(txTo, selector, acquisitionEvent.from, receipt);
+      let { venue, matchedRule, hasOrderFulfilled, hasInGameTrade, inGameTradeLog } = this.classifyVenue(txTo, selector, acquisitionEvent.from, receipt);
+
+      // Refine decode venue: distinguish user-initiated decode from system mint
+      // System mints (mintForUser) have tx.from !== wallet, meaning the game system
+      // minted on behalf of the user. Any decode fee was paid off-chain.
+      if (venue === 'decode' && isMint && tx) {
+        const txFrom = normalizeAddr(tx.from);
+        if (txFrom !== walletLower) {
+          venue = 'system_mint';
+          matchedRule = 'system_mint_not_wallet_sender';
+        }
+      }
 
       if (DEBUG_ACQUISITION) {
         console.log(`[getNFTHoldingAcquisition] Venue classification:`, {

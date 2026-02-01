@@ -13,8 +13,9 @@ export interface TokenBalance {
 // - 'decoder': Legacy decoder contract (separate from decode mint)
 // - 'transfer': Free transfer between wallets
 // - 'mint': Generic mint (legacy, prefer 'decode' for hex decodes)
+// - 'system_mint': System-initiated mint (mintForUser) - decode fee paid off-chain
 // - 'unknown': Could not determine venue
-export type AcquisitionVenue = 'decode' | 'opensea' | 'otg_marketplace' | 'in_game_marketplace' | 'decoder' | 'transfer' | 'mint' | 'unknown';
+export type AcquisitionVenue = 'decode' | 'opensea' | 'otg_marketplace' | 'in_game_marketplace' | 'decoder' | 'transfer' | 'mint' | 'system_mint' | 'unknown';
 
 // Metadata source tracking for debugging
 export type MetadataSource = 'tokenURI' | 'gunzscan' | 'none';

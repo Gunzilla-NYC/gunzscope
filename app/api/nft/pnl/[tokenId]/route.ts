@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateNFTPnL } from '@/lib/portfolio/pnlService';
 
-const NFT_CONTRACT = process.env.NFT_COLLECTION_AVALANCHE || '';
+// NFT_COLLECTION_AVALANCHE with hardcoded fallback for production
+const NFT_CONTRACT = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
 
 export async function GET(
   request: NextRequest,

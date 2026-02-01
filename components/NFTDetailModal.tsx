@@ -231,6 +231,9 @@ function getVenueDisplayLabel(venue: AcquisitionVenue | undefined, hasDecodeCost
     case 'decode':
       // In-game hex decode (mint from zero address)
       return 'Decoded (in-game)';
+    case 'system_mint':
+      // System-initiated mint (mintForUser) - decode fee paid off-chain
+      return 'System Reward / Airdrop';
     case 'opensea':
       return 'OpenSea';
     case 'otg_marketplace':
@@ -313,7 +316,7 @@ function scoreAcquisitionCandidate(candidate: Partial<ResolvedAcquisition>): { s
     reasons.push(`+${ACQUISITION_SCORE.HAS_VENUE} has venue (${candidate.venue})`);
 
     // Bonus for decode venues (in-game acquisition with cost)
-    if (candidate.venue === 'decode' || candidate.venue === 'decoder' || candidate.venue === 'mint') {
+    if (candidate.venue === 'decode' || candidate.venue === 'decoder' || candidate.venue === 'mint' || candidate.venue === 'system_mint') {
       score += ACQUISITION_SCORE.DECODE_VENUE;
       reasons.push(`+${ACQUISITION_SCORE.DECODE_VENUE} decode venue`);
     }
@@ -350,7 +353,7 @@ function buildCandidateFromHoldingRaw(
 
   // Map venue to acquisition type
   let acquisitionType: AcquisitionType = 'UNKNOWN';
-  if (holding.isMint || holding.venue === 'mint' || holding.venue === 'decode' || holding.venue === 'decoder') {
+  if (holding.isMint || holding.venue === 'mint' || holding.venue === 'decode' || holding.venue === 'decoder' || holding.venue === 'system_mint') {
     acquisitionType = 'MINT';
   } else if (holding.venue === 'opensea' || holding.venue === 'otg_marketplace' || holding.venue === 'in_game_marketplace') {
     acquisitionType = 'PURCHASE';
@@ -416,7 +419,7 @@ function buildCandidateFromCache(
     acquisitionType = 'PURCHASE';
   } else if (cached.isFreeTransfer === true) {
     acquisitionType = 'TRANSFER';
-  } else if (venue === 'decode' || venue === 'decoder' || venue === 'mint') {
+  } else if (venue === 'decode' || venue === 'decoder' || venue === 'mint' || venue === 'system_mint') {
     acquisitionType = 'MINT';
   }
 
@@ -904,7 +907,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     }
 
     const tokenId = activeItem.tokenId;
-    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '';
+    // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
+    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
 
     // Build token key and cache key using new versioned cache system
     const tokenKey = buildTokenKey(nft.chain, nftContractAddress, tokenId);
@@ -1726,11 +1730,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         // F) unknown/fallback -> use legacy logic or defaults
         // =====================================================================
 
-        if (acquisitionVenue === 'decode' || acquisitionVenue === 'mint' || acquisitionVenue === 'decoder') {
+        if (acquisitionVenue === 'decode' || acquisitionVenue === 'mint' || acquisitionVenue === 'decoder' || acquisitionVenue === 'system_mint') {
           // A) DECODE/MINT: In-game hex decode (mint from zero address) - use decode cost fields, not purchase price
           // 'decode' = new venue for in-game hex decodes
           // 'mint' = legacy venue (kept for backwards compatibility)
           // 'decoder' = legacy decoder contract
+          // 'system_mint' = system-initiated mint (mintForUser) - decode fee paid off-chain
           derivedPriceSource = costGunFromChain > 0 ? 'onchain' : 'transfers';
           finalAcquisitionType = 'MINT';
           // Decode cost (NOT purchase price)
