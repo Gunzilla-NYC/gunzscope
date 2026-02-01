@@ -142,7 +142,8 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     nft: NFT,
     walletAddress: string,
     nftContractAddress: string,
-    avalancheService: AvalancheService
+    avalancheService: AvalancheService,
+    marketplaceService: GameMarketplaceService | null
   ): Promise<NFT> => {
     const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
 
@@ -322,7 +323,7 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       const batch = nftsNeedingEnrichment.slice(i, i + ENRICHMENT_BATCH_SIZE);
 
       const batchResults = await Promise.all(
-        batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService))
+        batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService))
       );
 
       // Update results map and log enrichment results
