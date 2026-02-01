@@ -2547,6 +2547,124 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 </div>
               </div>
 
+              {/* ===== 2.5) YOUR POSITION Section ===== */}
+              {walletAddress && costBasisGun !== null && (() => {
+                // Compute USD values for position tracking
+                const costBasisUsdAtAcquisition = currentPurchaseData?.purchasePriceUsd
+                  ?? currentPurchaseData?.decodeCostUsd
+                  ?? currentResolvedAcquisition?.costUsd
+                  ?? null;
+
+                const currentValueUsd = costBasisGun !== null && currentGunPrice !== null
+                  ? costBasisGun * currentGunPrice
+                  : null;
+
+                const unrealizedUsd = (currentValueUsd !== null && costBasisUsdAtAcquisition !== null)
+                  ? currentValueUsd - costBasisUsdAtAcquisition
+                  : null;
+
+                const unrealizedPct = (unrealizedUsd !== null && costBasisUsdAtAcquisition !== null && costBasisUsdAtAcquisition > 0)
+                  ? (unrealizedUsd / costBasisUsdAtAcquisition) * 100
+                  : null;
+
+                // Status pill based on acquisition type
+                const acquisitionType = currentResolvedAcquisition?.acquisitionType;
+                const getStatusPill = () => {
+                  if (acquisitionType === 'MINT') {
+                    return { text: 'Decoded', style: 'bg-emerald-500/20 text-emerald-300' };
+                  }
+                  if (acquisitionType === 'PURCHASE') {
+                    return { text: 'Acquired', style: 'bg-emerald-500/20 text-emerald-300' };
+                  }
+                  if (acquisitionType === 'TRANSFER') {
+                    return { text: 'Transferred', style: 'bg-white/10 text-white/50' };
+                  }
+                  return null;
+                };
+
+                const statusPill = getStatusPill();
+
+                // Unrealized line color
+                const getUnrealizedColor = () => {
+                  if (unrealizedUsd === null) return 'text-white/60';
+                  if (unrealizedUsd > 0.01) return 'text-emerald-300';
+                  if (unrealizedUsd < -0.01) return 'text-rose-300';
+                  return 'text-white/60';
+                };
+
+                // Format unrealized display
+                const formatUnrealized = () => {
+                  if (unrealizedUsd === null || unrealizedPct === null) return null;
+                  const sign = unrealizedUsd >= 0 ? '+' : '';
+                  const usdStr = `${sign}$${Math.abs(unrealizedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  const pctStr = `(${sign}${unrealizedPct.toFixed(1)}%)`;
+                  return `${usdStr} ${pctStr}`;
+                };
+
+                return (
+                  <div
+                    className="rounded-xl p-4"
+                    style={{ backgroundColor: 'rgba(0, 255, 200, 0.06)' }}
+                  >
+                    {/* Header row: YOUR POSITION + Status pill */}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/65">
+                        Your Position
+                      </p>
+                      {/* Status pill */}
+                      {statusPill && (
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusPill.style}`}>
+                          {statusPill.text}
+                        </span>
+                      )}
+                    </div>
+
+                    {loadingDetails ? (
+                      // Loading skeleton
+                      <div className="space-y-2">
+                        <div className="h-8 w-28 bg-white/10 rounded animate-pulse" />
+                        <div className="h-4 w-36 bg-white/10 rounded animate-pulse" />
+                        <div className="h-4 w-32 bg-white/10 rounded animate-pulse" />
+                        <div className="h-4 w-40 bg-white/10 rounded animate-pulse" />
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {/* Current USD value */}
+                        <p className="text-[26px] font-bold text-white">
+                          {currentValueUsd !== null
+                            ? `$${currentValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : '—'}
+                        </p>
+
+                        {/* Cost basis in GUN */}
+                        <p className="text-[13px] text-white/70">
+                          Cost basis: {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                        </p>
+
+                        {/* USD at acquisition */}
+                        {costBasisUsdAtAcquisition !== null && (
+                          <p className="text-[13px] text-white/50">
+                            At acquisition: ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        )}
+
+                        {/* Unrealized P&L */}
+                        {formatUnrealized() && (
+                          <p className={`text-[13px] ${getUnrealizedColor()}`}>
+                            Unrealized (GUN): {formatUnrealized()}
+                          </p>
+                        )}
+
+                        {/* Explanation text */}
+                        <p className="text-[11px] text-white/40 mt-2 leading-relaxed">
+                          Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* ===== 3) ValueHeroSection ===== */}
               {walletAddress && (() => {
                 // Compute position label using canonical sources (costBasisGun + marketInputs)
