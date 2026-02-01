@@ -15,6 +15,7 @@ interface CompositionChartProps {
   size?: number;
   showLegend?: boolean;
   className?: string;
+  isLoading?: boolean;
 }
 
 interface TooltipState {
@@ -52,6 +53,7 @@ export default function WaffleChart({
   size = 160,
   showLegend = false,
   className = '',
+  isLoading = false,
 }: CompositionChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
@@ -135,6 +137,29 @@ export default function WaffleChart({
     setTooltip(prev => ({ ...prev, visible: false, content: null }));
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className={className}>
+        <div
+          data-testid="waffle-grid"
+          className="rounded-lg overflow-hidden"
+          style={{ width: size, height: size }}
+        >
+          <div
+            data-testid="waffle-loading"
+            className="w-full h-full bg-white/5 animate-pulse flex items-center justify-center"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-2 border-white/20 border-t-[#64ffff] rounded-full animate-spin" />
+              <span className="text-[10px] text-white/40">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Empty state
   if (gunCells === 0 && nftCells === 0) {
     return (
@@ -160,10 +185,11 @@ export default function WaffleChart({
       {/* Grid - seamless NFT cells, bordered GUN cells */}
       <div
         data-testid="waffle-grid"
-        className="rounded-lg overflow-hidden relative"
+        className="overflow-hidden relative"
         style={{
           width: size,
           height: size,
+          borderRadius: '0.1rem',
           display: 'grid',
           gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
           gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
@@ -174,24 +200,55 @@ export default function WaffleChart({
           const isNft = cellType === 'nft';
           const isEmpty = cellType === 'empty';
 
-          // Calculate adjacency for NFT cells to round corners near GUN boundary
+          // Calculate adjacency for NFT cells next to GUN
           const row = Math.floor(idx / GRID_SIZE);
           const col = idx % GRID_SIZE;
           const leftNeighborIdx = col > 0 ? idx - 1 : -1;
           const topNeighborIdx = row > 0 ? idx - GRID_SIZE : -1;
 
-          // Check if this NFT cell is adjacent to a GUN cell
-          const hasGunToLeft = isNft && leftNeighborIdx >= 0 && cells[leftNeighborIdx] === 'gun';
-          const hasGunAbove = isNft && topNeighborIdx >= 0 && cells[topNeighborIdx] === 'gun';
+          // Check adjacency for boundary detection
+          const isLeftEdge = col === 0;
+          const isRightEdge = col === GRID_SIZE - 1;
+          const rightNeighborIdx = col < GRID_SIZE - 1 ? idx + 1 : -1;
+          const bottomNeighborIdx = row < GRID_SIZE - 1 ? idx + GRID_SIZE : -1;
 
-          // Build border radius for NFT cells adjacent to GUN
-          let nftBorderRadius = '0';
+          const hasGunToLeft = leftNeighborIdx >= 0 && cells[leftNeighborIdx] === 'gun';
+          const hasGunAbove = topNeighborIdx >= 0 && cells[topNeighborIdx] === 'gun';
+          const hasNftToRight = rightNeighborIdx >= 0 && cells[rightNeighborIdx] === 'nft';
+          const hasNftBelow = bottomNeighborIdx >= 0 && cells[bottomNeighborIdx] === 'nft';
+
+          let borderRadius = '0';
+
+          // Only round GUN (teal) cell corners - NFT stays sharp for clean fit
+          if (isGun) {
+            const hasGunToRight = rightNeighborIdx >= 0 && cells[rightNeighborIdx] === 'gun';
+            const hasGunBelow = bottomNeighborIdx >= 0 && cells[bottomNeighborIdx] === 'gun';
+
+            // Determine which corners of this GUN cell touch NFT
+            const nftToRight = hasNftToRight;
+            const nftBelow = hasNftBelow;
+            const nftAtBottomRight = !hasGunToRight && !hasGunBelow && (nftToRight || nftBelow);
+
+            // Bottom-right corner: NFT is to right AND/OR below (L-corner or step)
+            if (nftToRight && nftBelow) {
+              borderRadius = '0 0 0.1rem 0'; // bottom-right only
+            }
+            // Right edge with NFT below
+            else if (isRightEdge && nftBelow) {
+              borderRadius = '0 0 0.1rem 0'; // bottom-right
+            }
+            // Left edge with NFT below (bottom-left corner)
+            else if (isLeftEdge && nftBelow) {
+              borderRadius = '0 0 0 0.1rem'; // bottom-left
+            }
+          }
+
+          // Margin creates separation at the boundary
+          let cellMargin = '0';
           if (isNft && (hasGunToLeft || hasGunAbove)) {
-            const tl = hasGunToLeft && hasGunAbove ? '4px' : hasGunAbove ? '4px' : hasGunToLeft ? '4px' : '0';
-            const tr = hasGunAbove ? '4px' : '0';
-            const br = '0';
-            const bl = hasGunToLeft ? '4px' : '0';
-            nftBorderRadius = `${tl} ${tr} ${br} ${bl}`;
+            const mt = hasGunAbove ? '1px' : '0';
+            const ml = hasGunToLeft ? '1px' : '0';
+            cellMargin = `${mt} 0 0 ${ml}`;
           }
 
           return (
@@ -201,11 +258,8 @@ export default function WaffleChart({
               className="transition-opacity duration-200"
               style={{
                 backgroundColor: isGun ? GUN_COLOR : isNft ? NFT_COLOR : 'rgba(255,255,255,0.05)',
-                // Only GUN cells get a border for separation
-                border: isGun ? '1px solid rgba(0, 0, 0, 0.3)' : 'none',
-                borderRadius: isGun ? '2px' : nftBorderRadius,
-                // Slight inset for GUN cells to show the border
-                margin: isGun ? '1px' : '0',
+                borderRadius: borderRadius,
+                margin: cellMargin,
               }}
               onMouseEnter={(e) => {
                 if (!isEmpty) handleBlockHover(e, cellType as 'gun' | 'nft');
