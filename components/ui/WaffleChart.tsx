@@ -157,17 +157,18 @@ export default function WaffleChart({
 
   return (
     <div className={`${className}`} ref={containerRef}>
-      {/* Hidden grid that renders as seamless blocks */}
+      {/* Grid with subtle gaps for visual separation */}
       <div
         data-testid="waffle-grid"
-        className="rounded-lg overflow-hidden relative"
+        className="rounded-lg overflow-hidden relative bg-black/30"
         style={{
           width: size,
           height: size,
           display: 'grid',
           gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
           gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
-          // No gap - cells are seamless
+          gap: '1px',
+          padding: '1px',
         }}
       >
         {cells.map((cellType, idx) => {
@@ -179,7 +180,7 @@ export default function WaffleChart({
             <div
               key={idx}
               data-testid={`waffle-cell-${cellType}`}
-              className="transition-opacity duration-200"
+              className="transition-opacity duration-200 rounded-[2px]"
               style={{
                 backgroundColor: isGun ? GUN_COLOR : isNft ? NFT_COLOR : 'rgba(255,255,255,0.05)',
               }}
@@ -192,18 +193,6 @@ export default function WaffleChart({
           );
         })}
 
-        {/* Separator line between GUN and NFT sections */}
-        {gunCells > 0 && nftCells > 0 && (
-          <div
-            className="absolute left-0 right-0 pointer-events-none"
-            style={{
-              top: `${gunCells}%`,
-              height: '2px',
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              boxShadow: '0 1px 0 rgba(255, 255, 255, 0.1)',
-            }}
-          />
-        )}
 
         {/* Tooltip */}
         {tooltip.visible && tooltip.content && (
