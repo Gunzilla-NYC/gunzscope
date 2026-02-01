@@ -157,18 +157,16 @@ export default function WaffleChart({
 
   return (
     <div className={`${className}`} ref={containerRef}>
-      {/* Grid with subtle gaps for visual separation */}
+      {/* Grid - seamless NFT cells, bordered GUN cells */}
       <div
         data-testid="waffle-grid"
-        className="rounded-lg overflow-hidden relative bg-black/30"
+        className="rounded-lg overflow-hidden relative"
         style={{
           width: size,
           height: size,
           display: 'grid',
           gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
           gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
-          gap: '1px',
-          padding: '1px',
         }}
       >
         {cells.map((cellType, idx) => {
@@ -180,9 +178,14 @@ export default function WaffleChart({
             <div
               key={idx}
               data-testid={`waffle-cell-${cellType}`}
-              className="transition-opacity duration-200 rounded-[2px]"
+              className="transition-opacity duration-200"
               style={{
                 backgroundColor: isGun ? GUN_COLOR : isNft ? NFT_COLOR : 'rgba(255,255,255,0.05)',
+                // Only GUN cells get a border for separation
+                border: isGun ? '1px solid rgba(0, 0, 0, 0.3)' : 'none',
+                borderRadius: isGun ? '2px' : '0',
+                // Slight inset for GUN cells to show the border
+                margin: isGun ? '1px' : '0',
               }}
               onMouseEnter={(e) => {
                 if (!isEmpty) handleBlockHover(e, cellType as 'gun' | 'nft');
