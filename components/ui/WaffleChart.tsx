@@ -192,16 +192,15 @@ export default function WaffleChart({
           );
         })}
 
-        {/* Overlay for hover effect - GUN region */}
-        {gunCells > 0 && (
+        {/* Separator line between GUN and NFT sections */}
+        {gunCells > 0 && nftCells > 0 && (
           <div
-            className="absolute inset-0 pointer-events-none"
+            className="absolute left-0 right-0 pointer-events-none"
             style={{
-              background: `linear-gradient(to bottom,
-                transparent 0%,
-                transparent ${gunCells}%,
-                transparent ${gunCells}%,
-                transparent 100%)`,
+              top: `${gunCells}%`,
+              height: '2px',
+              backgroundColor: 'rgba(0, 0, 0, 0.4)',
+              boxShadow: '0 1px 0 rgba(255, 255, 255, 0.1)',
             }}
           />
         )}
