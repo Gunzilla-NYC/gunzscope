@@ -66,17 +66,18 @@ async function fetchGunzscanMetadata(
 }
 
 /**
- * Fetch NFT metadata from the canonical metadata.gunzchain.io API.
+ * Fetch NFT metadata from the canonical metadata.gunzchain.io API via local proxy.
  * This API returns the authoritative Serial Number and attributes.
  * Used as override source when tokenURI returns Serial Number: 0.
- * API: GET /api/v1/nft/{contract}/{tokenId}
+ * Uses /api/metadata proxy to avoid CORS issues on production.
  */
 async function fetchCanonicalMetadata(
   contractAddress: string,
   tokenId: string
 ): Promise<{ name?: string; description?: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } | null> {
   try {
-    const url = `https://metadata.gunzchain.io/api/v1/nft/${contractAddress}/${tokenId}`;
+    // Use local proxy to avoid CORS issues (metadata.gunzchain.io doesn't allow cross-origin)
+    const url = `/api/metadata/${contractAddress}/${tokenId}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
