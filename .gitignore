@@ -44,3 +44,9 @@ next-env.d.ts
 /lib/generated/prisma
 prisma/dev.db
 prisma/dev.db-journal
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json
+
+# Personal reference docs
+boris-cherny-workflow-guide.md
