@@ -4,7 +4,7 @@ import WaffleChart from '../WaffleChart';
 
 describe('WaffleChart (Composition Heatmap)', () => {
   describe('block rendering', () => {
-    it('should render GUN and NFT blocks', () => {
+    it('should render GUN and NFT cells', () => {
       render(
         <WaffleChart
           gunPercent={50}
@@ -12,22 +12,28 @@ describe('WaffleChart (Composition Heatmap)', () => {
         />
       );
 
-      expect(screen.getByTestId('waffle-cell-gun')).toBeInTheDocument();
-      expect(screen.getByTestId('waffle-cell-nft')).toBeInTheDocument();
+      // With underlying grid, there are multiple cells of each type
+      const gunCells = screen.getAllByTestId('waffle-cell-gun');
+      const nftCells = screen.getAllByTestId('waffle-cell-nft');
+
+      expect(gunCells.length).toBe(50); // 50% = 50 cells
+      expect(nftCells.length).toBe(50); // 50% = 50 cells
     });
 
-    it('should render only GUN block when 100% GUN', () => {
+    it('should render only GUN cells when 100% GUN', () => {
       render(<WaffleChart gunPercent={100} nftPercent={0} />);
 
-      expect(screen.getByTestId('waffle-cell-gun')).toBeInTheDocument();
+      const gunCells = screen.getAllByTestId('waffle-cell-gun');
+      expect(gunCells.length).toBe(100);
       expect(screen.queryByTestId('waffle-cell-nft')).not.toBeInTheDocument();
     });
 
-    it('should render only NFT block when 100% NFTs', () => {
+    it('should render only NFT cells when 100% NFTs', () => {
       render(<WaffleChart gunPercent={0} nftPercent={100} />);
 
+      const nftCells = screen.getAllByTestId('waffle-cell-nft');
+      expect(nftCells.length).toBe(100);
       expect(screen.queryByTestId('waffle-cell-gun')).not.toBeInTheDocument();
-      expect(screen.getByTestId('waffle-cell-nft')).toBeInTheDocument();
     });
 
     it('should render empty state when no data', () => {
@@ -50,21 +56,25 @@ describe('WaffleChart (Composition Heatmap)', () => {
       expect(grid).toHaveStyle({ width: '200px', height: '200px' });
     });
 
-    it('should show percentage labels when blocks are large enough', () => {
+    it('should allocate cells accurately for small percentages', () => {
       render(
         <WaffleChart
-          gunPercent={60}
-          nftPercent={40}
+          gunPercent={99}
+          nftPercent={1}
         />
       );
 
-      expect(screen.getByText('60%')).toBeInTheDocument();
-      expect(screen.getByText('40%')).toBeInTheDocument();
+      const gunCells = screen.getAllByTestId('waffle-cell-gun');
+      const nftCells = screen.getAllByTestId('waffle-cell-nft');
+
+      // 99% = 99 cells, 1% = 1 cell - accurate representation
+      expect(gunCells.length).toBe(99);
+      expect(nftCells.length).toBe(1);
     });
   });
 
   describe('tooltips', () => {
-    it('should show tooltip on GUN block hover', async () => {
+    it('should show tooltip on GUN cell hover', async () => {
       render(
         <WaffleChart
           gunPercent={50}
@@ -74,8 +84,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
         />
       );
 
-      const gunBlock = screen.getByTestId('waffle-cell-gun');
-      fireEvent.mouseEnter(gunBlock);
+      const gunCells = screen.getAllByTestId('waffle-cell-gun');
+      fireEvent.mouseEnter(gunCells[0]);
 
       expect(await screen.findByText(/GUN Tokens/)).toBeInTheDocument();
     });
@@ -91,8 +101,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
         />
       );
 
-      const nftBlock = screen.getByTestId('waffle-cell-nft');
-      fireEvent.mouseEnter(nftBlock);
+      const nftCells = screen.getAllByTestId('waffle-cell-nft');
+      fireEvent.mouseEnter(nftCells[0]);
 
       expect(await screen.findByText(/NFT Holdings/)).toBeInTheDocument();
       expect(await screen.findByText(/5 items/)).toBeInTheDocument();
@@ -107,11 +117,11 @@ describe('WaffleChart (Composition Heatmap)', () => {
         />
       );
 
-      const gunBlock = screen.getByTestId('waffle-cell-gun');
-      fireEvent.mouseEnter(gunBlock);
+      const gunCells = screen.getAllByTestId('waffle-cell-gun');
+      fireEvent.mouseEnter(gunCells[0]);
       expect(await screen.findByText(/GUN Tokens/)).toBeInTheDocument();
 
-      fireEvent.mouseLeave(gunBlock);
+      fireEvent.mouseLeave(gunCells[0]);
       expect(screen.queryByText(/GUN Tokens/)).not.toBeInTheDocument();
     });
   });

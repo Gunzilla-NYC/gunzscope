@@ -34,11 +34,13 @@ interface TooltipState {
 // Constants
 // =============================================================================
 
+const GRID_SIZE = 10;
+const TOTAL_CELLS = GRID_SIZE * GRID_SIZE; // 100 cells = 100%
 const GUN_COLOR = '#64ffff';
 const NFT_COLOR = '#96aaff';
 
 // =============================================================================
-// Component (exported as WaffleChart for backwards compatibility)
+// Component
 // =============================================================================
 
 export default function WaffleChart({
@@ -59,14 +61,26 @@ export default function WaffleChart({
     content: null,
   });
 
-  // Normalize percentages to ensure they sum to 100 (or less)
-  const { normalizedGun, normalizedNft } = useMemo(() => {
-    const total = gunPercent + nftPercent;
-    if (total === 0) return { normalizedGun: 0, normalizedNft: 0 };
-    if (total <= 100) return { normalizedGun: gunPercent, normalizedNft: nftPercent };
-    // Scale down if over 100
-    const scale = 100 / total;
-    return { normalizedGun: gunPercent * scale, normalizedNft: nftPercent * scale };
+  // Calculate cell assignments - each cell = 1%
+  const { gunCells, nftCells, cells } = useMemo(() => {
+    // Round to whole cells (each cell = 1%)
+    const gun = Math.round(gunPercent);
+    const nft = Math.round(nftPercent);
+
+    // Build cell array
+    const cellArray: Array<'gun' | 'nft' | 'empty'> = [];
+
+    for (let i = 0; i < gun && cellArray.length < TOTAL_CELLS; i++) {
+      cellArray.push('gun');
+    }
+    for (let i = 0; i < nft && cellArray.length < TOTAL_CELLS; i++) {
+      cellArray.push('nft');
+    }
+    while (cellArray.length < TOTAL_CELLS) {
+      cellArray.push('empty');
+    }
+
+    return { gunCells: gun, nftCells: nft, cells: cellArray };
   }, [gunPercent, nftPercent]);
 
   const handleBlockHover = (
@@ -122,7 +136,7 @@ export default function WaffleChart({
   };
 
   // Empty state
-  if (normalizedGun === 0 && normalizedNft === 0) {
+  if (gunCells === 0 && nftCells === 0) {
     return (
       <div className={className}>
         <div
@@ -143,58 +157,54 @@ export default function WaffleChart({
 
   return (
     <div className={`${className}`} ref={containerRef}>
-      {/* Composition Square - Two blocks */}
+      {/* Hidden grid that renders as seamless blocks */}
       <div
         data-testid="waffle-grid"
         className="rounded-lg overflow-hidden relative"
-        style={{ width: size, height: size }}
+        style={{
+          width: size,
+          height: size,
+          display: 'grid',
+          gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+          gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
+          // No gap - cells are seamless
+        }}
       >
-        {/* Vertical split layout */}
-        <div className="w-full h-full flex flex-col">
-          {/* GUN Block (top) */}
-          {normalizedGun > 0 && (
-            <div
-              data-testid="waffle-cell-gun"
-              className="w-full transition-all duration-300 cursor-pointer hover:brightness-110 flex items-center justify-center"
-              style={{
-                height: `${normalizedGun}%`,
-                backgroundColor: GUN_COLOR,
-                minHeight: normalizedGun > 0 ? '20px' : 0,
-              }}
-              onMouseEnter={(e) => handleBlockHover(e, 'gun')}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-            >
-              {normalizedGun >= 15 && (
-                <span className="text-black/70 text-xs font-medium">
-                  {normalizedGun.toFixed(0)}%
-                </span>
-              )}
-            </div>
-          )}
+        {cells.map((cellType, idx) => {
+          const isGun = cellType === 'gun';
+          const isNft = cellType === 'nft';
+          const isEmpty = cellType === 'empty';
 
-          {/* NFT Block (bottom) */}
-          {normalizedNft > 0 && (
+          return (
             <div
-              data-testid="waffle-cell-nft"
-              className="w-full transition-all duration-300 cursor-pointer hover:brightness-110 flex items-center justify-center"
+              key={idx}
+              data-testid={`waffle-cell-${cellType}`}
+              className="transition-opacity duration-200"
               style={{
-                height: `${normalizedNft}%`,
-                backgroundColor: NFT_COLOR,
-                minHeight: normalizedNft > 0 ? '20px' : 0,
+                backgroundColor: isGun ? GUN_COLOR : isNft ? NFT_COLOR : 'rgba(255,255,255,0.05)',
               }}
-              onMouseEnter={(e) => handleBlockHover(e, 'nft')}
+              onMouseEnter={(e) => {
+                if (!isEmpty) handleBlockHover(e, cellType as 'gun' | 'nft');
+              }}
               onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
-            >
-              {normalizedNft >= 15 && (
-                <span className="text-black/70 text-xs font-medium">
-                  {normalizedNft.toFixed(0)}%
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+            />
+          );
+        })}
+
+        {/* Overlay for hover effect - GUN region */}
+        {gunCells > 0 && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `linear-gradient(to bottom,
+                transparent 0%,
+                transparent ${gunCells}%,
+                transparent ${gunCells}%,
+                transparent 100%)`,
+            }}
+          />
+        )}
 
         {/* Tooltip */}
         {tooltip.visible && tooltip.content && (
@@ -231,14 +241,14 @@ export default function WaffleChart({
       {/* Legend */}
       {showLegend && (
         <div data-testid="waffle-legend" className="mt-3 space-y-1.5">
-          {normalizedGun > 0 && (
+          {gunCells > 0 && (
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: GUN_COLOR }} />
               <span className="text-[11px] text-white/70">GUN</span>
               <span className="text-[10px] text-white/40 ml-auto">{gunPercent.toFixed(0)}%</span>
             </div>
           )}
-          {normalizedNft > 0 && (
+          {nftCells > 0 && (
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: NFT_COLOR }} />
               <span className="text-[11px] text-white/70">NFTs</span>
