@@ -35,7 +35,7 @@ const GUNZSCAN_API_BASE = process.env.NEXT_PUBLIC_GUNZ_EXPLORER_BASE || 'https:/
 async function fetchGunzscanMetadata(
   contractAddress: string,
   tokenId: string
-): Promise<{ description?: string; name?: string; image?: string } | null> {
+): Promise<{ description?: string; name?: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } | null> {
   try {
     const url = `${GUNZSCAN_API_BASE}/api/v2/tokens/${contractAddress}/instances/${tokenId}`;
     const response = await fetch(url, {
@@ -57,6 +57,7 @@ async function fetchGunzscanMetadata(
       description: metadata.description,
       name: metadata.name,
       image: metadata.image,
+      attributes: Array.isArray(metadata.attributes) ? metadata.attributes : undefined,
     };
   } catch (error) {
     console.warn(`[fetchGunzscanMetadata] Failed for token ${tokenId}:`, error);
@@ -80,7 +81,7 @@ interface ResolvedMetadata {
   name?: string;
   description?: string;
   image?: string;
-  attributes?: Array<{ trait_type: string; value: string }>;
+  attributes?: Array<{ trait_type: string; value: string | number; display_type?: string }>;
   source: MetadataSource;
   tokenURI?: string; // Raw tokenURI for debug
   error?: string; // Error message if resolution failed
@@ -126,6 +127,44 @@ async function fetchFromIPFS(cid: string, timeoutMs: number = 8000): Promise<any
 }
 
 /**
+ * Normalize a raw metadata JSON response to extract standard NFT fields.
+ * Handles two formats:
+ *   1. Standard: { name, description, image, attributes, ... }
+ *   2. Wrapped:  { metadata: { name, description, image, attributes, ... }, image_url, ... }
+ *      (used by metadata.gunzchain.io and Gunzscan/Blockscout APIs)
+ */
+function normalizeMetadataResponse(raw: Record<string, unknown>): {
+  name?: string;
+  description?: string;
+  image?: string;
+  attributes?: Array<{ trait_type: string; value: string | number }>;
+} {
+  // If `attributes` exists at top level, it's already standard format
+  if (Array.isArray(raw.attributes)) {
+    return raw as any;
+  }
+
+  // Check for nested `metadata` wrapper (metadata.gunzchain.io / Blockscout format)
+  const nested = raw.metadata;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    const meta = nested as Record<string, unknown>;
+    return {
+      name: (meta.name as string) || (raw.name as string),
+      description: (meta.description as string) || (raw.description as string),
+      image: (meta.image as string) || (raw.image_url as string) || (raw.image as string),
+      attributes: Array.isArray(meta.attributes) ? meta.attributes : undefined,
+    };
+  }
+
+  // Fallback: use top-level image_url if image is missing
+  if (!raw.image && raw.image_url) {
+    return { ...raw, image: raw.image_url } as any;
+  }
+
+  return raw as any;
+}
+
+/**
  * Resolve tokenURI to metadata with robust handling for all URI types
  * Supports: http(s), ipfs://, data:application/json;base64, data:application/json;utf8
  */
@@ -141,16 +180,18 @@ async function resolveTokenURIMetadata(tokenURI: string): Promise<ResolvedMetada
       if (!response.ok) {
         return { source: 'none', tokenURI, error: `HTTP ${response.status}` };
       }
-      const metadata = await response.json();
-      return { ...metadata, source: 'tokenURI', tokenURI };
+      const raw = await response.json();
+      const normalized = normalizeMetadataResponse(raw);
+      return { ...normalized, source: 'tokenURI', tokenURI };
     }
 
     // IPFS URLs - try multiple gateways
     if (tokenURI.startsWith('ipfs://')) {
       const cid = tokenURI.slice('ipfs://'.length);
-      const metadata = await fetchFromIPFS(cid);
-      if (metadata) {
-        return { ...metadata, source: 'tokenURI', tokenURI };
+      const raw = await fetchFromIPFS(cid);
+      if (raw) {
+        const normalized = normalizeMetadataResponse(raw);
+        return { ...normalized, source: 'tokenURI', tokenURI };
       }
       return { source: 'none', tokenURI, error: 'All IPFS gateways failed' };
     }
@@ -159,8 +200,9 @@ async function resolveTokenURIMetadata(tokenURI: string): Promise<ResolvedMetada
     if (tokenURI.startsWith('data:application/json;base64,')) {
       const base64Data = tokenURI.slice('data:application/json;base64,'.length);
       const jsonString = atob(base64Data);
-      const metadata = JSON.parse(jsonString);
-      return { ...metadata, source: 'tokenURI', tokenURI };
+      const raw = JSON.parse(jsonString);
+      const normalized = normalizeMetadataResponse(raw);
+      return { ...normalized, source: 'tokenURI', tokenURI };
     }
 
     // UTF-8 encoded JSON data URI (with or without explicit utf8)
@@ -170,8 +212,9 @@ async function resolveTokenURIMetadata(tokenURI: string): Promise<ResolvedMetada
         : 'data:application/json,';
       const encodedData = tokenURI.slice(prefix.length);
       const jsonString = decodeURIComponent(encodedData);
-      const metadata = JSON.parse(jsonString);
-      return { ...metadata, source: 'tokenURI', tokenURI };
+      const raw = JSON.parse(jsonString);
+      const normalized = normalizeMetadataResponse(raw);
+      return { ...normalized, source: 'tokenURI', tokenURI };
     }
 
     // Unknown URI scheme
@@ -191,7 +234,7 @@ async function resolveTokenURIMetadata(tokenURI: string): Promise<ResolvedMetada
  */
 function mergeMetadata(
   primary: ResolvedMetadata,
-  fallback: { description?: string; name?: string; image?: string } | null
+  fallback: { description?: string; name?: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } | null
 ): ResolvedMetadata {
   // Helper to check if a string value is non-empty
   const isNonEmpty = (val: unknown): val is string =>
@@ -201,7 +244,7 @@ function mergeMetadata(
     name: isNonEmpty(primary.name) ? primary.name : (isNonEmpty(fallback?.name) ? fallback.name : primary.name),
     description: isNonEmpty(primary.description) ? primary.description : (isNonEmpty(fallback?.description) ? fallback.description : undefined),
     image: isNonEmpty(primary.image) ? primary.image : (isNonEmpty(fallback?.image) ? fallback.image : primary.image),
-    attributes: primary.attributes,
+    attributes: primary.attributes?.length ? primary.attributes : (fallback?.attributes as any) ?? primary.attributes,
     source: isNonEmpty(primary.description) ? primary.source : (isNonEmpty(fallback?.description) ? 'gunzscan' : primary.source),
     tokenURI: primary.tokenURI,
     error: primary.error,
@@ -384,15 +427,13 @@ export class AvalancheService {
   private provider: ethers.JsonRpcProvider;
 
   constructor() {
-    // AVALANCHE_RPC_URL is server-side only; client uses hardcoded GunzChain RPC
-    const rpcUrl = process.env.AVALANCHE_RPC_URL || 'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
+    const rpcUrl = process.env.NEXT_PUBLIC_AVALANCHE_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc';
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
   }
 
   async getGunTokenBalance(walletAddress: string): Promise<TokenBalance | null> {
     try {
-      // GUN_TOKEN_AVALANCHE is server-side only; hardcoded fallback for production
-      const tokenAddress = process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB';
+      const tokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
 
       if (!tokenAddress || tokenAddress.includes('Your')) {
         console.warn('GUN token contract address not configured for Avalanche');
@@ -450,8 +491,7 @@ export class AvalancheService {
     pageSize: number = 50
   ): Promise<NFTPageResult> {
     try {
-      // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
-      const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
+      const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE;
 
       if (!nftContractAddress || nftContractAddress.includes('Your')) {
         console.warn('NFT collection address not configured for Avalanche');
@@ -791,7 +831,7 @@ export class AvalancheService {
 
       // ERC-20 Transfer event signature
       const erc20TransferSignature = ethers.id('Transfer(address,address,uint256)');
-      const gunTokenAddress = (process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB').toLowerCase();
+      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE?.toLowerCase();
 
       if (txReceipt && txReceipt.logs) {
         for (const log of txReceipt.logs) {
@@ -886,7 +926,7 @@ export class AvalancheService {
   private async isGunNative(): Promise<boolean> {
     if (this.gunIsNativeCache !== null) return this.gunIsNativeCache;
 
-    const tokenAddress = process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB';
+    const tokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
     if (!tokenAddress || tokenAddress.includes('Your')) {
       // Assume native if not configured
       this.gunIsNativeCache = true;
@@ -964,7 +1004,7 @@ export class AvalancheService {
     }
 
     // 3. Decoder contract check
-    const decoderContract = normalizeAddr(process.env.OTG_DECODER_CONTRACT);
+    const decoderContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_DECODER_CONTRACT);
     if (decoderContract && txToLower === decoderContract) {
       return { venue: 'decoder', matchedRule: 'decoder_contract_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
@@ -973,7 +1013,7 @@ export class AvalancheService {
     }
 
     // 4. OTG Marketplace check (legacy - may be superseded by in_game_marketplace)
-    const marketplaceContract = normalizeAddr(process.env.OTG_MARKETPLACE_CONTRACT);
+    const marketplaceContract = normalizeAddr(process.env.NEXT_PUBLIC_OTG_MARKETPLACE_CONTRACT);
     if (marketplaceContract && txToLower === marketplaceContract) {
       return { venue: 'otg_marketplace', matchedRule: 'marketplace_contract_match', hasOrderFulfilled, hasInGameTrade, inGameTradeLog };
     }
@@ -1072,18 +1112,7 @@ export class AvalancheService {
       const selector = getSelector(tx?.data);
 
       // Classify venue (pass receipt for OrderFulfilled and in-game trade detection)
-      let { venue, matchedRule, hasOrderFulfilled, hasInGameTrade, inGameTradeLog } = this.classifyVenue(txTo, selector, acquisitionEvent.from, receipt);
-
-      // Refine decode venue: distinguish user-initiated decode from system mint
-      // System mints (mintForUser) have tx.from !== wallet, meaning the game system
-      // minted on behalf of the user. Any decode fee was paid off-chain.
-      if (venue === 'decode' && isMint && tx) {
-        const txFrom = normalizeAddr(tx.from);
-        if (txFrom !== walletLower) {
-          venue = 'system_mint';
-          matchedRule = 'system_mint_not_wallet_sender';
-        }
-      }
+      const { venue, matchedRule, hasOrderFulfilled, hasInGameTrade, inGameTradeLog } = this.classifyVenue(txTo, selector, acquisitionEvent.from, receipt);
 
       if (DEBUG_ACQUISITION) {
         console.log(`[getNFTHoldingAcquisition] Venue classification:`, {
@@ -1100,19 +1129,10 @@ export class AvalancheService {
       let costGun = 0;
       let inGameTradePriceWei: string | undefined;
       const gunIsNative = await this.isGunNative();
-      const gunTokenAddress = process.env.GUN_TOKEN_AVALANCHE || '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB';
+      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
 
-      // Priority 0: Decode fee — tx.value is the decode cost paid to the Decoder contract
-      // For decode/decoder venue, the tx.value is the decode cost, not a marketplace price
-      if ((venue === 'decode' || venue === 'decoder') && tx && tx.value > BigInt(0)) {
-        costGun = parseFloat(ethers.formatEther(tx.value));
-
-        if (DEBUG_ACQUISITION) {
-          console.log(`[getNFTHoldingAcquisition] Decode fee from tx.value: ${costGun} GUN`);
-        }
-      }
       // Priority 1: Extract price from in-game marketplace trade event
-      else if (hasInGameTrade && inGameTradeLog) {
+      if (hasInGameTrade && inGameTradeLog) {
         try {
           // The trade event data contains the price in wei (18 decimals)
           const priceWei = inGameTradeLog.data && inGameTradeLog.data !== '0x'
