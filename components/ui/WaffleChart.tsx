@@ -174,6 +174,26 @@ export default function WaffleChart({
           const isNft = cellType === 'nft';
           const isEmpty = cellType === 'empty';
 
+          // Calculate adjacency for NFT cells to round corners near GUN boundary
+          const row = Math.floor(idx / GRID_SIZE);
+          const col = idx % GRID_SIZE;
+          const leftNeighborIdx = col > 0 ? idx - 1 : -1;
+          const topNeighborIdx = row > 0 ? idx - GRID_SIZE : -1;
+
+          // Check if this NFT cell is adjacent to a GUN cell
+          const hasGunToLeft = isNft && leftNeighborIdx >= 0 && cells[leftNeighborIdx] === 'gun';
+          const hasGunAbove = isNft && topNeighborIdx >= 0 && cells[topNeighborIdx] === 'gun';
+
+          // Build border radius for NFT cells adjacent to GUN
+          let nftBorderRadius = '0';
+          if (isNft && (hasGunToLeft || hasGunAbove)) {
+            const tl = hasGunToLeft && hasGunAbove ? '4px' : hasGunAbove ? '4px' : hasGunToLeft ? '4px' : '0';
+            const tr = hasGunAbove ? '4px' : '0';
+            const br = '0';
+            const bl = hasGunToLeft ? '4px' : '0';
+            nftBorderRadius = `${tl} ${tr} ${br} ${bl}`;
+          }
+
           return (
             <div
               key={idx}
@@ -183,7 +203,7 @@ export default function WaffleChart({
                 backgroundColor: isGun ? GUN_COLOR : isNft ? NFT_COLOR : 'rgba(255,255,255,0.05)',
                 // Only GUN cells get a border for separation
                 border: isGun ? '1px solid rgba(0, 0, 0, 0.3)' : 'none',
-                borderRadius: isGun ? '2px' : '0',
+                borderRadius: isGun ? '2px' : nftBorderRadius,
                 // Slight inset for GUN cells to show the border
                 margin: isGun ? '1px' : '0',
               }}
