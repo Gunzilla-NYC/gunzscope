@@ -239,7 +239,7 @@ export default function WaffleChart({
           <div
             key={idx}
             data-testid={`waffle-cell-${cell.type}${cell.collection ? `-${cell.collection}` : ''}`}
-            className="rounded-sm transition-all duration-200 hover:scale-110 hover:z-10 cursor-pointer"
+            className="rounded-sm transition-all duration-200 hover:scale-110 hover:z-10 cursor-pointer waffle-cell-animated"
             style={{
               backgroundColor: cell.type === 'empty' ? 'rgba(255,255,255,0.05)' : cell.color,
               aspectRatio: '1',
