@@ -2,22 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import Sparkline from '@/components/ui/Sparkline';
-import WaffleChart, { WaffleCollection } from '@/components/ui/WaffleChart';
-import { calculateCollectionBreakdown } from '@/lib/portfolio/collectionBreakdown';
+import WaffleChart from '@/components/ui/WaffleChart';
 import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
-import type { NFT } from '@/lib/types';
-
-// Color palette for collections (up to 8 distinct colors)
-const COLLECTION_COLORS = [
-  '#96aaff', // Primary purple (NFT default)
-  '#c4b5fd', // Violet
-  '#f0abfc', // Fuchsia
-  '#f9a8d4', // Pink
-  '#a5b4fc', // Indigo
-  '#93c5fd', // Blue
-  '#7dd3fc', // Sky
-  '#5eead4', // Teal
-];
 
 interface PortfolioBreakdown {
   gunValue: number;
@@ -37,8 +23,6 @@ interface PortfolioGlanceCardProps {
   totalValue: number;
   breakdown: PortfolioBreakdown;
   costBasis?: CostBasis;
-  nfts?: NFT[];
-  gunPriceUsd?: number;
   className?: string;
 }
 
@@ -82,8 +66,6 @@ export default function PortfolioGlanceCard({
   totalValue,
   breakdown,
   costBasis,
-  nfts = [],
-  gunPriceUsd = 0,
   className = '',
 }: PortfolioGlanceCardProps) {
   const [showPerformanceTooltip, setShowPerformanceTooltip] = useState(false);
@@ -109,31 +91,13 @@ export default function PortfolioGlanceCard({
     return { tokens: tokenPnL, nfts: nftPnL, total: totalPnL };
   }, [breakdown, totalValue, costBasis]);
 
-  // Waffle chart data
+  // Waffle chart percentages
   const waffleData = useMemo(() => {
-    // Calculate collection breakdown if NFTs are provided
-    const collectionBreakdown = nfts.length > 0 && gunPriceUsd > 0
-      ? calculateCollectionBreakdown(nfts, gunPriceUsd)
-      : null;
-
-    // Calculate percentages
     const total = totalValue > 0 ? totalValue : 1;
     const gunPercent = (breakdown.gunValue / total) * 100;
     const nftPercent = (breakdown.nftValue / total) * 100;
-
-    // Map collections to waffle format with colors
-    const collections: WaffleCollection[] = collectionBreakdown
-      ? collectionBreakdown.collections.map((coll, idx) => ({
-          name: coll.name,
-          percentOfNfts: coll.percentOfNfts,
-          color: COLLECTION_COLORS[idx % COLLECTION_COLORS.length],
-          valueUsd: coll.valueUsd,
-          count: coll.count,
-        }))
-      : [];
-
-    return { gunPercent, nftPercent, collections };
-  }, [totalValue, breakdown, nfts, gunPriceUsd]);
+    return { gunPercent, nftPercent };
+  }, [totalValue, breakdown]);
 
   // Format changes
   const change24h = formatChange(changes.change24h);
@@ -282,7 +246,7 @@ export default function PortfolioGlanceCard({
             nftPercent={waffleData.nftPercent}
             gunValueUsd={breakdown.gunValue}
             nftValueUsd={breakdown.nftValue}
-            collections={waffleData.collections}
+            nftCount={breakdown.nftCount}
             size={140}
             showLegend={true}
           />

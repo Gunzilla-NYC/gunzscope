@@ -19,7 +19,8 @@ interface WaffleChartProps {
   nftPercent: number;
   gunValueUsd?: number;
   nftValueUsd?: number;
-  collections: WaffleCollection[];
+  nftCount?: number;
+  collections?: WaffleCollection[]; // Optional, for future use
   size?: number;
   showLegend?: boolean;
   className?: string;
@@ -27,7 +28,6 @@ interface WaffleChartProps {
 
 interface CellData {
   type: 'gun' | 'nft' | 'empty';
-  collection?: string;
   color: string;
 }
 
@@ -51,18 +51,7 @@ interface TooltipState {
 const GRID_SIZE = 10;
 const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
 const GUN_COLOR = '#64ffff';
-
-// Color palette for collections (up to 8 distinct colors)
-const COLLECTION_COLORS = [
-  '#96aaff', // Primary purple (NFT default)
-  '#c4b5fd', // Violet
-  '#f0abfc', // Fuchsia
-  '#f9a8d4', // Pink
-  '#a5b4fc', // Indigo
-  '#93c5fd', // Blue
-  '#7dd3fc', // Sky
-  '#5eead4', // Teal
-];
+const NFT_COLOR = '#96aaff';
 
 // =============================================================================
 // Component
@@ -73,7 +62,8 @@ export default function WaffleChart({
   nftPercent,
   gunValueUsd = 0,
   nftValueUsd = 0,
-  collections,
+  nftCount,
+  collections = [],
   size = 160,
   showLegend = false,
   className = '',
@@ -86,7 +76,10 @@ export default function WaffleChart({
     content: null,
   });
 
-  // Calculate cell assignments
+  // Calculate total NFT count from collections if not provided directly
+  const totalNftCount = nftCount ?? collections.reduce((sum, c) => sum + c.count, 0);
+
+  // Calculate cell assignments - simplified to just GUN and NFT colors
   const cells = useMemo(() => {
     const result: CellData[] = [];
 
@@ -96,52 +89,10 @@ export default function WaffleChart({
       result.push({ type: 'gun', color: GUN_COLOR });
     }
 
-    // NFT cells distributed by collection
+    // NFT cells - all same color
     const nftCells = Math.round(nftPercent);
-    if (nftCells > 0 && collections.length > 0) {
-      // Distribute NFT cells proportionally across collections
-      let remainingNftCells = nftCells;
-
-      // First pass: allocate cells to each collection
-      const collectionCells: Array<{ name: string; color: string; cells: number }> = [];
-
-      collections.forEach((coll, idx) => {
-        const collCells = Math.round((coll.percentOfNfts / 100) * nftCells);
-        collectionCells.push({
-          name: coll.name,
-          color: coll.color || COLLECTION_COLORS[idx % COLLECTION_COLORS.length],
-          cells: collCells,
-        });
-      });
-
-      // Adjust for rounding errors - ensure total matches nftCells
-      const totalAllocated = collectionCells.reduce((sum, c) => sum + c.cells, 0);
-      if (totalAllocated !== nftCells && collectionCells.length > 0) {
-        // Add or remove from the largest collection
-        collectionCells[0].cells += nftCells - totalAllocated;
-      }
-
-      // Add cells for each collection
-      for (const coll of collectionCells) {
-        for (let i = 0; i < coll.cells && result.length < TOTAL_CELLS; i++) {
-          result.push({
-            type: 'nft',
-            collection: coll.name,
-            color: coll.color,
-          });
-          remainingNftCells--;
-        }
-      }
-
-      // Fill any remaining NFT cells with default color
-      for (let i = 0; i < remainingNftCells && result.length < TOTAL_CELLS; i++) {
-        result.push({ type: 'nft', color: COLLECTION_COLORS[0] });
-      }
-    } else {
-      // No collections, just fill with default NFT color
-      for (let i = 0; i < nftCells && result.length < TOTAL_CELLS; i++) {
-        result.push({ type: 'nft', color: COLLECTION_COLORS[0] });
-      }
+    for (let i = 0; i < nftCells && result.length < TOTAL_CELLS; i++) {
+      result.push({ type: 'nft', color: NFT_COLOR });
     }
 
     // Empty cells
@@ -150,7 +101,7 @@ export default function WaffleChart({
     }
 
     return result;
-  }, [gunPercent, nftPercent, collections]);
+  }, [gunPercent, nftPercent]);
 
   // Tooltip handlers
   const handleCellHover = (
@@ -181,17 +132,16 @@ export default function WaffleChart({
         },
       });
     } else {
-      const coll = collections.find(c => c.name === cell.collection);
       setTooltip({
         visible: true,
         x,
         y,
         content: {
           type: 'nft',
-          label: coll?.name || 'NFTs',
-          valueUsd: coll?.valueUsd || nftValueUsd,
-          percent: coll ? (coll.percentOfNfts / 100) * nftPercent : nftPercent,
-          count: coll?.count,
+          label: 'NFT Holdings',
+          valueUsd: nftValueUsd,
+          percent: nftPercent,
+          count: totalNftCount > 0 ? totalNftCount : undefined,
         },
       });
     }
@@ -238,7 +188,7 @@ export default function WaffleChart({
         {cells.map((cell, idx) => (
           <div
             key={idx}
-            data-testid={`waffle-cell-${cell.type}${cell.collection ? `-${cell.collection}` : ''}`}
+            data-testid={`waffle-cell-${cell.type}`}
             className="rounded-sm transition-all duration-200 hover:scale-110 hover:z-10 cursor-pointer waffle-cell-animated"
             style={{
               backgroundColor: cell.type === 'empty' ? 'rgba(255,255,255,0.05)' : cell.color,
@@ -283,7 +233,7 @@ export default function WaffleChart({
         )}
       </div>
 
-      {/* Legend */}
+      {/* Legend - simplified to just GUN and NFTs */}
       {showLegend && (
         <div data-testid="waffle-legend" className="mt-3 space-y-1.5">
           {/* GUN legend item */}
@@ -295,27 +245,12 @@ export default function WaffleChart({
             </div>
           )}
 
-          {/* Collection legend items (max 5) */}
-          {collections.slice(0, 5).map((coll, idx) => (
-            <div key={coll.name} className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-sm flex-shrink-0"
-                style={{ backgroundColor: coll.color || COLLECTION_COLORS[idx % COLLECTION_COLORS.length] }}
-              />
-              <span className="text-[11px] text-white/70 truncate max-w-[100px]">{coll.name}</span>
-              <span className="text-[10px] text-white/40 ml-auto">
-                {((coll.percentOfNfts / 100) * nftPercent).toFixed(0)}%
-              </span>
-            </div>
-          ))}
-
-          {/* "+N more" if more than 5 collections */}
-          {collections.length > 5 && (
+          {/* NFT legend item */}
+          {nftPercent > 0 && (
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm flex-shrink-0 bg-white/20" />
-              <span className="text-[11px] text-white/50 italic">
-                +{collections.length - 5} more
-              </span>
+              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: NFT_COLOR }} />
+              <span className="text-[11px] text-white/70">NFTs</span>
+              <span className="text-[10px] text-white/40 ml-auto">{nftPercent.toFixed(0)}%</span>
             </div>
           )}
         </div>

@@ -9,7 +9,6 @@ describe('WaffleChart', () => {
         <WaffleChart
           gunPercent={50}
           nftPercent={50}
-          collections={[]}
         />
       );
 
@@ -22,7 +21,6 @@ describe('WaffleChart', () => {
         <WaffleChart
           gunPercent={30}
           nftPercent={70}
-          collections={[]}
         />
       );
 
@@ -30,12 +28,23 @@ describe('WaffleChart', () => {
       expect(gunCells).toHaveLength(30);
     });
 
+    it('should fill correct number of cells for NFTs', () => {
+      render(
+        <WaffleChart
+          gunPercent={30}
+          nftPercent={70}
+        />
+      );
+
+      const nftCells = screen.getAllByTestId(/^waffle-cell-nft/);
+      expect(nftCells).toHaveLength(70);
+    });
+
     it('should show empty cells when total < 100%', () => {
       render(
         <WaffleChart
           gunPercent={40}
           nftPercent={30}
-          collections={[]}
         />
       );
 
@@ -48,7 +57,6 @@ describe('WaffleChart', () => {
         <WaffleChart
           gunPercent={50}
           nftPercent={50}
-          collections={[]}
           size={200}
         />
       );
@@ -58,65 +66,23 @@ describe('WaffleChart', () => {
     });
   });
 
-  describe('collection distribution', () => {
-    it('should distribute NFT cells across collections proportionally', () => {
-      render(
-        <WaffleChart
-          gunPercent={0}
-          nftPercent={100}
-          collections={[
-            { name: 'Genesis', percentOfNfts: 60, color: '#96aaff', valueUsd: 600, count: 3 },
-            { name: 'Weapons', percentOfNfts: 40, color: '#c4b5fd', valueUsd: 400, count: 2 },
-          ]}
-        />
-      );
-
-      // Genesis should have ~60 cells, Weapons ~40 cells
-      const genesisCells = screen.getAllByTestId(/waffle-cell-nft-Genesis/);
-      const weaponsCells = screen.getAllByTestId(/waffle-cell-nft-Weapons/);
-
-      expect(genesisCells.length).toBeGreaterThanOrEqual(55);
-      expect(genesisCells.length).toBeLessThanOrEqual(65);
-      expect(weaponsCells.length).toBeGreaterThanOrEqual(35);
-      expect(weaponsCells.length).toBeLessThanOrEqual(45);
-    });
-  });
-
   describe('edge cases', () => {
     it('should handle 100% GUN', () => {
-      render(<WaffleChart gunPercent={100} nftPercent={0} collections={[]} />);
+      render(<WaffleChart gunPercent={100} nftPercent={0} />);
       const gunCells = screen.getAllByTestId(/^waffle-cell-gun/);
       expect(gunCells).toHaveLength(100);
     });
 
     it('should handle 100% NFTs', () => {
-      render(
-        <WaffleChart
-          gunPercent={0}
-          nftPercent={100}
-          collections={[{ name: 'All NFTs', percentOfNfts: 100, color: '#96aaff', valueUsd: 100, count: 10 }]}
-        />
-      );
+      render(<WaffleChart gunPercent={0} nftPercent={100} />);
       const nftCells = screen.getAllByTestId(/^waffle-cell-nft/);
       expect(nftCells).toHaveLength(100);
     });
 
     it('should handle empty portfolio', () => {
-      render(<WaffleChart gunPercent={0} nftPercent={0} collections={[]} />);
+      render(<WaffleChart gunPercent={0} nftPercent={0} />);
       const emptyCells = screen.getAllByTestId(/^waffle-cell-empty/);
       expect(emptyCells).toHaveLength(100);
-    });
-
-    it('should handle single collection', () => {
-      render(
-        <WaffleChart
-          gunPercent={50}
-          nftPercent={50}
-          collections={[{ name: 'Only', percentOfNfts: 100, color: '#96aaff', valueUsd: 500, count: 5 }]}
-        />
-      );
-      const nftCells = screen.getAllByTestId(/^waffle-cell-nft/);
-      expect(nftCells).toHaveLength(50);
     });
   });
 
@@ -128,7 +94,6 @@ describe('WaffleChart', () => {
           nftPercent={50}
           gunValueUsd={1000}
           nftValueUsd={1000}
-          collections={[{ name: 'Genesis', percentOfNfts: 100, color: '#96aaff', valueUsd: 1000, count: 5 }]}
         />
       );
 
@@ -138,21 +103,22 @@ describe('WaffleChart', () => {
       expect(await screen.findByText(/GUN Tokens/)).toBeInTheDocument();
     });
 
-    it('should show collection name in NFT tooltip', async () => {
+    it('should show NFT Holdings in NFT tooltip', async () => {
       render(
         <WaffleChart
           gunPercent={20}
           nftPercent={80}
           gunValueUsd={200}
           nftValueUsd={800}
-          collections={[{ name: 'OTG Genesis', percentOfNfts: 100, color: '#96aaff', valueUsd: 800, count: 3 }]}
+          nftCount={5}
         />
       );
 
       const nftCell = screen.getAllByTestId(/^waffle-cell-nft/)[0];
       fireEvent.mouseEnter(nftCell);
 
-      expect(await screen.findByText(/OTG Genesis/)).toBeInTheDocument();
+      expect(await screen.findByText(/NFT Holdings/)).toBeInTheDocument();
+      expect(await screen.findByText(/5 items/)).toBeInTheDocument();
     });
 
     it('should hide tooltip on mouse leave', async () => {
@@ -161,7 +127,6 @@ describe('WaffleChart', () => {
           gunPercent={50}
           nftPercent={50}
           gunValueUsd={500}
-          collections={[]}
         />
       );
 
@@ -170,28 +135,24 @@ describe('WaffleChart', () => {
       expect(await screen.findByText(/GUN Tokens/)).toBeInTheDocument();
 
       fireEvent.mouseLeave(gunCell);
-      // Tooltip should be hidden after mouse leave
       expect(screen.queryByText(/GUN Tokens/)).not.toBeInTheDocument();
     });
   });
 
   describe('legend', () => {
-    it('should show legend with all collections when showLegend is true', () => {
+    it('should show legend with GUN and NFTs when showLegend is true', () => {
       render(
         <WaffleChart
-          gunPercent={20}
-          nftPercent={80}
+          gunPercent={40}
+          nftPercent={60}
           showLegend={true}
-          collections={[
-            { name: 'Genesis', percentOfNfts: 60, color: '#96aaff', valueUsd: 600, count: 3 },
-            { name: 'Weapons', percentOfNfts: 40, color: '#c4b5fd', valueUsd: 400, count: 2 },
-          ]}
         />
       );
 
       expect(screen.getByText('GUN')).toBeInTheDocument();
-      expect(screen.getByText('Genesis')).toBeInTheDocument();
-      expect(screen.getByText('Weapons')).toBeInTheDocument();
+      expect(screen.getByText('NFTs')).toBeInTheDocument();
+      expect(screen.getByText('40%')).toBeInTheDocument();
+      expect(screen.getByText('60%')).toBeInTheDocument();
     });
 
     it('should hide legend when showLegend is false', () => {
@@ -200,33 +161,36 @@ describe('WaffleChart', () => {
           gunPercent={50}
           nftPercent={50}
           showLegend={false}
-          collections={[{ name: 'Genesis', percentOfNfts: 100, color: '#96aaff', valueUsd: 500, count: 1 }]}
         />
       );
 
       expect(screen.queryByTestId('waffle-legend')).not.toBeInTheDocument();
     });
 
-    it('should show "+N more" for many collections', () => {
-      const manyCollections = Array.from({ length: 8 }, (_, i) => ({
-        name: `Collection ${i + 1}`,
-        percentOfNfts: 12.5,
-        color: '#96aaff',
-        valueUsd: 100,
-        count: 1,
-      }));
+    it('should only show GUN in legend when no NFTs', () => {
+      render(
+        <WaffleChart
+          gunPercent={100}
+          nftPercent={0}
+          showLegend={true}
+        />
+      );
 
+      expect(screen.getByText('GUN')).toBeInTheDocument();
+      expect(screen.queryByText('NFTs')).not.toBeInTheDocument();
+    });
+
+    it('should only show NFTs in legend when no GUN', () => {
       render(
         <WaffleChart
           gunPercent={0}
           nftPercent={100}
           showLegend={true}
-          collections={manyCollections}
         />
       );
 
-      // Should show first 5 collections + "more"
-      expect(screen.getByText(/\+3 more/)).toBeInTheDocument();
+      expect(screen.queryByText('GUN')).not.toBeInTheDocument();
+      expect(screen.getByText('NFTs')).toBeInTheDocument();
     });
   });
 });
