@@ -7,7 +7,7 @@ import { AcquisitionVenue } from '../types';
 // Schema Versions - Increment when cache structure changes
 // =============================================================================
 const SCHEMA_VERSIONS = {
-  nftDetail: 'v8', // v8: Added hasAcquisition flag to prevent incomplete cache blocking enrichment
+  nftDetail: 'v9', // v9: Added hasMarketplacePrice + priceSource for marketplace enrichment
   transfers: 'v2',
   priceGunUsd: 'v1',
   metadata: 'v1', // v1: NFT metadata cache (name, image, traits, mintNumber)
@@ -219,6 +219,9 @@ export interface CachedNFTDetailData {
   acquisitionTxHash?: string;
   // v8: Track whether acquisition data was successfully fetched
   hasAcquisition?: boolean; // true = acquisition data is complete, false/undefined = incomplete
+  // v9: Track whether marketplace price was fetched (separate from blockchain acquisition)
+  hasMarketplacePrice?: boolean; // true = marketplace price lookup was attempted
+  priceSource?: 'blockchain' | 'marketplace'; // Where purchasePriceGun came from
   cachedAtIso?: string; // ISO timestamp when this entry was cached
 }
 
