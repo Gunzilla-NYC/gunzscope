@@ -441,6 +441,9 @@ interface LegacyCachedNFTData {
   // v8 fields - added for completeness tracking
   hasAcquisition?: boolean;
   cachedAtIso?: string;
+  // v9 fields - marketplace price tracking
+  hasMarketplacePrice?: boolean;
+  priceSource?: 'blockchain' | 'marketplace';
 }
 
 /**
@@ -515,6 +518,8 @@ export const setCachedNFT = (
     acquisitionVenue: data.acquisitionVenue,
     acquisitionTxHash: data.acquisitionTxHash,
     hasAcquisition: data.hasAcquisition,
+    hasMarketplacePrice: data.hasMarketplacePrice,
+    priceSource: data.priceSource,
     cachedAtIso: data.cachedAtIso,
   });
 };

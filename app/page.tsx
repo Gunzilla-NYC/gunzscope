@@ -268,6 +268,7 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       // Only cache if acquisition is meaningful OR we're caching quantity-only for ERC-1155
       if (hasAcquisitionData) {
         // Full cache with acquisition data
+        const priceSource = marketplacePriceGun !== undefined ? 'marketplace' : (acquisition?.costGun !== undefined ? 'blockchain' : undefined);
         setCachedNFT(walletAddress, primaryTokenId, {
           quantity: enrichedData.quantity,
           purchasePriceGun: enrichedData.purchasePriceGun,
@@ -277,6 +278,8 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
           acquisitionVenue: enrichedData.acquisitionVenue,
           acquisitionTxHash: enrichedData.acquisitionTxHash,
           hasAcquisition: true,
+          hasMarketplacePrice: marketplacePriceGun !== undefined,
+          priceSource,
           cachedAtIso: new Date().toISOString(),
         });
         if (process.env.NODE_ENV === 'development') {
