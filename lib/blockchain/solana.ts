@@ -1,6 +1,8 @@
 import { Connection, PublicKey, ParsedAccountData } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { TokenBalance, NFT } from '../types';
+
+// Token Program ID - well-known Solana constant (avoids vulnerable @solana/spl-token dependency)
+const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 
 export class SolanaService {
   private connection: Connection;
