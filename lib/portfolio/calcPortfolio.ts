@@ -109,24 +109,22 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   // Use pagination total if provided, otherwise use counted quantity
   const nftCount = totalOwnedNftCount ?? totalNftQuantity;
 
-  // Determine if NFT pricing is reliable
-  // NFT USD is reliable only if we have price data for a significant portion of NFTs
+  // Determine NFT pricing coverage and reliability
+  // nftUsdReliable indicates if we have price data for a majority of NFTs
+  // but we always include the partial value now (UI can show warning based on flag)
   const nftPriceCoverage = totalNftQuantity > 0 ? nftsWithPrice / totalNftQuantity : 0;
   const nftUsdReliable = nftPriceCoverage > 0.5 && nftsWithPrice > 0;
 
-  if (!nftUsdReliable && totalNftQuantity > 0) {
+  if (totalNftQuantity > 0) {
     if (nftsWithPrice === 0) {
       warnings.push('No NFT price data available');
-    } else {
-      warnings.push(`Only ${(nftPriceCoverage * 100).toFixed(0)}% of NFTs have price data`);
+    } else if (!nftUsdReliable) {
+      warnings.push(`Only ${(nftPriceCoverage * 100).toFixed(0)}% of NFTs have price data (partial value shown)`);
     }
   }
 
-  // If NFT pricing is unreliable, set to 0 with warning
-  const effectiveNftsUsd = nftUsdReliable ? nftsUsd : 0;
-  if (!nftUsdReliable && nftsUsd > 0) {
-    warnings.push(`NFT value (${nftsUsd.toFixed(2)} USD) excluded due to unreliable pricing`);
-  }
+  // Always include NFT value (even partial) - UI uses nftUsdReliable flag for warnings
+  const effectiveNftsUsd = nftsUsd;
 
   // ==========================================================================
   // 3. Calculate total and breakdown

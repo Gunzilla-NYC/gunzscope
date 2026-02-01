@@ -32,7 +32,7 @@ export default function PortfolioHeader({
 }: PortfolioHeaderProps) {
   // Derive display values from portfolioResult (single source of truth)
   // Falls back to legacy calculation if portfolioResult not provided
-  const { totalTokenValue, breakdown, totalBalance } = useMemo(() => {
+  const { totalTokenValue, breakdown, totalBalance, nftUsdReliable } = useMemo(() => {
     if (portfolioResult) {
       // Use calcPortfolio result as single source of truth
       return {
@@ -44,6 +44,7 @@ export default function PortfolioHeader({
           otherValue: 0,
           nftCount: portfolioResult.nftCount,
         },
+        nftUsdReliable: portfolioResult.nftUsdReliable,
       };
     }
 
@@ -82,6 +83,7 @@ export default function PortfolioHeader({
         otherValue: 0,
         nftCount: totalNFTCount,
       },
+      nftUsdReliable: true, // Legacy fallback assumes reliable
     };
   }, [walletData, gunPrice, totalOwnedCount, portfolioResult]);
 
@@ -154,15 +156,15 @@ export default function PortfolioHeader({
             {breakdown.nftValue > 0 ? (
               <>
                 <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block">
-                  Est. Value
+                  Est. Value{!nftUsdReliable && ' (partial)'}
                 </span>
-                <span className="text-[14px] font-semibold text-[#96aaff]">
+                <span className={`text-[14px] font-semibold ${nftUsdReliable ? 'text-[#96aaff]' : 'text-[#96aaff]/70'}`}>
                   ${breakdown.nftValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </>
             ) : (
               <span className="text-[12px] text-white/40 italic">
-                Unpriced
+                {portfolioResult?.nftsWithPrice === 0 ? 'Calculating...' : 'Unpriced'}
               </span>
             )}
           </div>
