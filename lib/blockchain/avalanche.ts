@@ -452,14 +452,6 @@ function getQueryStartBlock(
   return Math.max(0, currentBlock - DEFAULT_LOOKBACK_BLOCKS);
 }
 
-// ERC-20 ABI for token balance queries
-const ERC20_ABI = [
-  'function balanceOf(address owner) view returns (uint256)',
-  'function decimals() view returns (uint8)',
-  'function symbol() view returns (string)',
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-];
-
 // ERC-721 ABI for NFT queries
 const ERC721_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
@@ -485,45 +477,16 @@ export class AvalancheService {
 
   async getGunTokenBalance(walletAddress: string): Promise<TokenBalance | null> {
     try {
-      const tokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
+      // GUN is the native token on GUNZ chain (chainId 43419), like ETH on Ethereum
+      // Simply fetch the native balance - no ERC-20 contract needed
+      const balance = await this.provider.getBalance(walletAddress);
+      const formattedBalance = parseFloat(ethers.formatEther(balance));
 
-      if (!tokenAddress || tokenAddress.includes('Your')) {
-        console.warn('GUN token contract address not configured for Avalanche');
-        return null;
-      }
-
-      // Check if this is a native token (no contract code) or ERC-20
-      const code = await this.provider.getCode(tokenAddress);
-
-      if (code === '0x') {
-        // Native token - get balance directly from wallet
-        console.log('GUN is native token on GunzChain, fetching native balance');
-        const balance = await this.provider.getBalance(walletAddress);
-        const formattedBalance = parseFloat(ethers.formatEther(balance));
-
-        return {
-          balance: formattedBalance,
-          decimals: 18,
-          symbol: 'GUN',
-        };
-      } else {
-        // ERC-20 token - use contract
-        const contract = new ethers.Contract(tokenAddress, ERC20_ABI, this.provider);
-
-        const [balance, decimals, symbol] = await Promise.all([
-          contract.balanceOf(walletAddress),
-          contract.decimals(),
-          contract.symbol(),
-        ]);
-
-        const formattedBalance = parseFloat(ethers.formatUnits(balance, decimals));
-
-        return {
-          balance: formattedBalance,
-          decimals: Number(decimals),
-          symbol,
-        };
-      }
+      return {
+        balance: formattedBalance,
+        decimals: 18,
+        symbol: 'GUN',
+      };
     } catch (error) {
       console.error('Error fetching Avalanche GUN token balance:', error);
       return null;
@@ -1007,25 +970,11 @@ export class AvalancheService {
    * Check if GUN is native token (no contract code) or ERC-20
    * Caches result for efficiency
    */
-  private gunIsNativeCache: boolean | null = null;
+  /**
+   * GUN is always the native token on GUNZ chain (chainId 43419)
+   */
   private async isGunNative(): Promise<boolean> {
-    if (this.gunIsNativeCache !== null) return this.gunIsNativeCache;
-
-    const tokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
-    if (!tokenAddress || tokenAddress.includes('Your')) {
-      // Assume native if not configured
-      this.gunIsNativeCache = true;
-      return true;
-    }
-
-    try {
-      const code = await this.provider.getCode(tokenAddress);
-      this.gunIsNativeCache = code === '0x';
-      return this.gunIsNativeCache;
-    } catch {
-      this.gunIsNativeCache = true;
-      return true;
-    }
+    return true;
   }
 
   /**
