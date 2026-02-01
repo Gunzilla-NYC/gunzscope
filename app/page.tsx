@@ -186,6 +186,65 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
         ),
       ]);
 
+      // =========================================================================
+      // MARKETPLACE PRICE LOOKUP
+      // If acquisition shows a marketplace venue, query for the purchase price
+      // =========================================================================
+      let marketplacePriceGun: number | undefined;
+      let marketplacePurchaseDate: Date | undefined;
+
+      const isMarketplaceVenue = acquisition?.venue && [
+        'opensea',
+        'in_game_marketplace',
+        'otg_marketplace',
+      ].includes(acquisition.venue);
+
+      if (marketplaceService && isMarketplaceVenue && acquisition?.acquiredAtIso) {
+        try {
+          const acquiredAt = new Date(acquisition.acquiredAtIso);
+          // Query purchases within ±24 hours of blockchain acquisition
+          const purchases = await withTimeout(
+            marketplaceService.getPurchasesForWallet(walletAddress, {
+              fromDate: new Date(acquiredAt.getTime() - 24 * 60 * 60 * 1000),
+              toDate: new Date(acquiredAt.getTime() + 24 * 60 * 60 * 1000),
+              limit: 20,
+            }),
+            5000 // 5 second timeout
+          );
+
+          if (purchases && purchases.length > 0) {
+            // Find purchase matching this NFT's tokenId
+            const tokenId = nft.tokenIds?.[0] || nft.tokenId;
+            const matchingPurchases = purchases.filter(p => {
+              // tokenKey format: chain:contract:tokenId
+              const parts = p.tokenKey.split(':');
+              return parts[2] === tokenId;
+            });
+
+            if (matchingPurchases.length > 0) {
+              // Find closest timestamp match
+              const matchedPurchase = matchingPurchases.reduce((closest, p) => {
+                const closestDiff = Math.abs(new Date(closest.purchaseDateIso).getTime() - acquiredAt.getTime());
+                const pDiff = Math.abs(new Date(p.purchaseDateIso).getTime() - acquiredAt.getTime());
+                return pDiff < closestDiff ? p : closest;
+              });
+
+              marketplacePriceGun = matchedPurchase.priceGun;
+              marketplacePurchaseDate = new Date(matchedPurchase.purchaseDateIso);
+
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`[NFT Enrichment] Marketplace match for ${tokenId}: ${marketplacePriceGun} GUN`);
+              }
+            }
+          }
+        } catch (marketplaceError) {
+          // Non-blocking - continue with blockchain data only
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`[NFT Enrichment] Marketplace lookup failed for ${nft.tokenId}:`, marketplaceError);
+          }
+        }
+      }
+
       // Determine if acquisition data is meaningful (not null/timeout result)
       const hasAcquisitionData = acquisition !== null && (
         acquisition.txHash !== undefined ||
@@ -194,11 +253,12 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       );
 
       // Map acquisition data to NFT fields
+      // Prefer marketplace price over blockchain cost (blockchain only has mint costs)
       const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint;
       const enrichedData = {
         quantity: quantity ?? 1,
-        purchasePriceGun: acquisition?.costGun,
-        purchaseDate: acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined,
+        purchasePriceGun: marketplacePriceGun ?? acquisition?.costGun,
+        purchaseDate: marketplacePurchaseDate ?? (acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined),
         transferredFrom: isFreeTransfer ? acquisition?.fromAddress : undefined,
         isFreeTransfer,
         acquisitionVenue: acquisition?.venue,
