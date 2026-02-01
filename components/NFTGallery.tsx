@@ -6,7 +6,7 @@ import { useState, useMemo, useCallback } from 'react';
 import NFTDetailModal from './NFTDetailModal';
 import { buildTokenKey } from '@/lib/utils/nftCache';
 
-type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc';
+type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc' | 'value-desc' | 'pnl-desc';
 type ViewMode = 'small' | 'medium' | 'list';
 type Rarity = 'Mythic' | 'Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common';
 
@@ -188,13 +188,46 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     });
   }, [nfts]);
 
-  // Calculate total GUN spent on all NFTs
-  const totalGunSpent = useMemo(() => {
-    return nfts.reduce((total, nft) => {
+  // Calculate portfolio summary: spent, estimated value, and P&L
+  const portfolioSummary = useMemo(() => {
+    let totalSpent = 0;
+    let totalEstValue = 0;
+    let itemsWithBothValues = 0;
+    let spentForPnlCalc = 0; // Only from items that have both purchase price and floor
+
+    for (const nft of nfts) {
       const price = nft.purchasePriceGun || 0;
       const quantity = nft.quantity || 1;
-      return total + (price * quantity);
-    }, 0);
+      const floor = nft.floorPrice;
+
+      // Always add to total spent
+      totalSpent += price * quantity;
+
+      // Add to estimated value if floor price available
+      if (floor !== undefined && floor > 0) {
+        totalEstValue += floor * quantity;
+      }
+
+      // Track items with both values for accurate P&L calculation
+      if (price > 0 && floor !== undefined && floor > 0) {
+        itemsWithBothValues += quantity;
+        spentForPnlCalc += price * quantity;
+      }
+    }
+
+    // Calculate unrealized P&L only if we have items with both values
+    const unrealizedPnlGun = itemsWithBothValues > 0 ? totalEstValue - spentForPnlCalc : null;
+    const unrealizedPnlPct = (itemsWithBothValues > 0 && spentForPnlCalc > 0)
+      ? (unrealizedPnlGun! / spentForPnlCalc) * 100
+      : null;
+
+    return {
+      totalSpent,
+      totalEstValue,
+      itemsWithBothValues,
+      unrealizedPnlGun,
+      unrealizedPnlPct,
+    };
   }, [nfts]);
 
 
@@ -338,6 +371,22 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           }
           case 'quantity-desc':
             return (b.quantity || 1) - (a.quantity || 1);
+          case 'value-desc': {
+            // Sort by floor price descending, NFTs without floorPrice go last
+            const aVal = a.floorPrice ?? -Infinity;
+            const bVal = b.floorPrice ?? -Infinity;
+            return bVal - aVal;
+          }
+          case 'pnl-desc': {
+            // Sort by unrealized P&L % descending, NFTs missing data go last
+            const aPnl = (a.purchasePriceGun && a.purchasePriceGun > 0 && a.floorPrice !== undefined)
+              ? ((a.floorPrice - a.purchasePriceGun) / a.purchasePriceGun) * 100
+              : -Infinity;
+            const bPnl = (b.purchasePriceGun && b.purchasePriceGun > 0 && b.floorPrice !== undefined)
+              ? ((b.floorPrice - b.purchasePriceGun) / b.purchasePriceGun) * 100
+              : -Infinity;
+            return bPnl - aPnl;
+          }
           default:
             return 0;
         }
@@ -394,9 +443,34 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <h3 className="text-lg font-semibold text-white">
               Off The Grid Game Assets ({filteredAndSortedNFTs.length}{filteredAndSortedNFTs.length !== nfts.length ? ` of ${nfts.length}` : ''})
             </h3>
-            {totalGunSpent > 0 && (
-              <span className="text-sm text-gray-400">
-                Total Spent: <span className="text-[#beffd2] font-medium">{totalGunSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN</span>
+            {portfolioSummary.totalSpent > 0 && (
+              <span className="text-sm text-gray-400 flex items-center gap-1 flex-wrap">
+                <span>
+                  Spent: <span className="text-white font-medium">{portfolioSummary.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN</span>
+                </span>
+                {portfolioSummary.totalEstValue > 0 && (
+                  <>
+                    <span className="text-gray-600">·</span>
+                    <span>
+                      Est. Value: <span className="text-[#64ffff] font-medium">{portfolioSummary.totalEstValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN</span>
+                    </span>
+                  </>
+                )}
+                {portfolioSummary.unrealizedPnlGun !== null && portfolioSummary.unrealizedPnlPct !== null && (
+                  <>
+                    <span className="text-gray-600">·</span>
+                    <span>
+                      P&L:{' '}
+                      <span className={`font-medium ${
+                        portfolioSummary.unrealizedPnlPct > 1 ? 'text-[#beffd2]' :
+                        portfolioSummary.unrealizedPnlPct < -1 ? 'text-[#ff6b6b]' : 'text-gray-400'
+                      }`}>
+                        {portfolioSummary.unrealizedPnlGun >= 0 ? '+' : ''}{portfolioSummary.unrealizedPnlGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                        {' '}({portfolioSummary.unrealizedPnlPct >= 0 ? '+' : ''}{portfolioSummary.unrealizedPnlPct.toFixed(1)}%)
+                      </span>
+                    </span>
+                  </>
+                )}
               </span>
             )}
           </div>
@@ -471,6 +545,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               <option value="name-asc">Name (A-Z)</option>
               <option value="name-desc">Name (Z-A)</option>
               <option value="quantity-desc">Quantity</option>
+              <option value="value-desc">Value (High-Low)</option>
+              <option value="pnl-desc">P&L % (Best-Worst)</option>
             </select>
           </div>
 
@@ -727,6 +803,25 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                   }`}>
                     ×{nft.quantity}
                   </div>
+                )}
+
+                {/* P&L Badge */}
+                {nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0 && nft.floorPrice !== undefined && (
+                  (() => {
+                    const pnlPct = ((nft.floorPrice - nft.purchasePriceGun) / nft.purchasePriceGun) * 100;
+                    const isPositive = pnlPct > 1;
+                    const isNegative = pnlPct < -1;
+                    const color = isPositive ? 'text-[#beffd2]' : isNegative ? 'text-[#ff6b6b]' : 'text-gray-400';
+                    const arrow = isPositive ? '▲' : isNegative ? '▼' : '';
+                    const displayPct = Math.abs(pnlPct) < 1 ? '0%' : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(0)}%`;
+                    return (
+                      <div className={`absolute bottom-1 left-1 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 font-medium ${color} ${
+                        viewMode === 'small' ? 'text-[10px]' : 'text-xs'
+                      }`}>
+                        {arrow}{displayPct}
+                      </div>
+                    );
+                  })()
                 )}
               </div>
 
