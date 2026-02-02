@@ -25,6 +25,7 @@ interface PortfolioGlanceCardProps {
   breakdown: PortfolioBreakdown;
   costBasis?: CostBasis;
   pnlLoading?: boolean;
+  pnlCoverage?: number;  // 0-1, fraction of NFTs with cost basis
   className?: string;
 }
 
@@ -69,6 +70,7 @@ export default function PortfolioGlanceCard({
   breakdown,
   costBasis,
   pnlLoading = false,
+  pnlCoverage,
   className = '',
 }: PortfolioGlanceCardProps) {
   const [showPerformanceTooltip, setShowPerformanceTooltip] = useState(false);
@@ -214,6 +216,11 @@ export default function PortfolioGlanceCard({
         {pnlLoading && (
           <div className="text-[9px] text-white/40 italic mt-2 text-center">
             Calculating P&L...
+          </div>
+        )}
+        {!pnlLoading && pnlCoverage !== undefined && pnlCoverage < 0.5 && pnlCoverage > 0 && (
+          <div className="text-[9px] text-[#ff6b6b]/70 mt-2 text-center">
+            P&L partial ({Math.round(pnlCoverage * 100)}% coverage)
           </div>
         )}
       </div>
