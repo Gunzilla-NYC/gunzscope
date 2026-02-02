@@ -53,49 +53,9 @@ import {
 import { WeaponLabDrawer, LockedWeaponIndicator } from '@/components/weapon';
 import { isWeaponLocked, isWeapon as isWeaponLib, getFunctionalTier } from '@/lib/weapon';
 import TierBadge from '@/components/ui/TierBadge';
+import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
 
-// Rarity order from highest to lowest
-const RARITY_ORDER: Record<string, number> = {
-  'Mythic': 1,
-  'Legendary': 2,
-  'Epic': 3,
-  'Rare': 4,
-  'Uncommon': 5,
-  'Common': 6,
-};
-
-// Rarity colors based on the game's color scheme
-const RARITY_COLORS: Record<string, { primary: string; border: string }> = {
-  'Mythic': {
-    primary: '#ff44ff',
-    border: 'rgba(255, 68, 255, 0.65)',
-  },
-  'Legendary': {
-    primary: '#ff8800',
-    border: 'rgba(255, 136, 0, 0.65)',
-  },
-  'Epic': {
-    primary: '#cc44ff',
-    border: 'rgba(204, 68, 255, 0.65)',
-  },
-  'Rare': {
-    primary: '#4488ff',
-    border: 'rgba(68, 136, 255, 0.65)',
-  },
-  'Uncommon': {
-    primary: '#44ff44',
-    border: 'rgba(68, 255, 68, 0.65)',
-  },
-  'Common': {
-    primary: '#888888',
-    border: 'rgba(136, 136, 136, 0.65)',
-  },
-};
-
-const getDefaultRarityColors = () => ({
-  primary: '#b05bff',
-  border: 'rgba(176, 91, 255, 0.65)',
-});
+const getDefaultRarityColors = () => DEFAULT_RARITY_COLORS;
 
 // =============================================================================
 // Related Items Utility

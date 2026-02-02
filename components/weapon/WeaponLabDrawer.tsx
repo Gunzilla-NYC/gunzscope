@@ -1,20 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { NFT } from '@/lib/types';
 import { findCompatibleItems, getFunctionalTier, CompatibleItem } from '@/lib/weapon/weaponCompatibility';
+import { getRarityColors } from '@/lib/utils/rarityColors';
 import TierBadge from '@/components/ui/TierBadge';
-
-// Rarity colors (same as NFTDetailModal)
-const RARITY_COLORS: Record<string, { primary: string; border: string }> = {
-  'Mythic': { primary: '#ff44ff', border: 'rgba(255, 68, 255, 0.65)' },
-  'Legendary': { primary: '#ff8800', border: 'rgba(255, 136, 0, 0.65)' },
-  'Epic': { primary: '#cc44ff', border: 'rgba(204, 68, 255, 0.65)' },
-  'Rare': { primary: '#4488ff', border: 'rgba(68, 136, 255, 0.65)' },
-  'Uncommon': { primary: '#44ff44', border: 'rgba(68, 255, 68, 0.65)' },
-  'Common': { primary: '#888888', border: 'rgba(136, 136, 136, 0.65)' },
-};
 
 interface WeaponLabDrawerProps {
   isOpen: boolean;
@@ -23,13 +14,9 @@ interface WeaponLabDrawerProps {
   inventory: NFT[];
 }
 
-function getRarityColor(nft: NFT): { primary: string; border: string } {
-  const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '';
-  return RARITY_COLORS[rarity] || { primary: '#888888', border: 'rgba(136, 136, 136, 0.4)' };
-}
-
 function CompatibleItemCard({ item }: { item: CompatibleItem }) {
-  const colors = getRarityColor(item.nft);
+  const [imageError, setImageError] = useState(false);
+  const colors = getRarityColors(item.nft);
   const rarity = item.nft.traits?.['RARITY'] || item.nft.traits?.['Rarity'] || '';
   const tier = getFunctionalTier(item.nft);
   const categoryLabel = item.category === 'skin' ? 'Weapon Skin' : 'Weapon Attachment';
@@ -41,16 +28,25 @@ function CompatibleItemCard({ item }: { item: CompatibleItem }) {
     >
       {/* Thumbnail */}
       <div
-        className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-black/30"
-        style={{ borderColor: colors.border, borderWidth: 1 }}
+        className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-black/30 border"
+        style={{ borderColor: colors.border }}
       >
-        <Image
-          src={item.nft.image}
-          alt={item.nft.name}
-          width={56}
-          height={56}
-          className="w-full h-full object-cover"
-        />
+        {!imageError && item.nft.image ? (
+          <Image
+            src={item.nft.image}
+            alt={item.nft.name}
+            width={56}
+            height={56}
+            className="w-full h-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-600">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -78,6 +74,22 @@ export default function WeaponLabDrawer({ isOpen, onClose, weapon, inventory }: 
 
   const skins = compatibleItems.filter(item => item.category === 'skin');
   const attachments = compatibleItems.filter(item => item.category === 'attachment');
+
+  // Handle Escape key to close drawer
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      onClose();
+    }
+  }, [onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isOpen, handleKeyDown]);
 
   if (!isOpen) return null;
 

@@ -4,6 +4,7 @@
  */
 
 import { NFT } from '@/lib/types';
+import { RARITY_ORDER } from '@/lib/utils/rarityColors';
 
 /** Functional tier values from type_spec.Item.rarity */
 export type FunctionalTier = 'Standard' | 'Refined' | 'Elite' | 'Premium' | 'Classified' | 'Unknown';
@@ -88,11 +89,6 @@ export interface CompatibleItem {
   matchConfidence: MatchConfidence;
   category: ItemCategory;
 }
-
-// Rarity order for sorting (lower = better)
-const RARITY_ORDER: Record<string, number> = {
-  'Mythic': 1, 'Legendary': 2, 'Epic': 3, 'Rare': 4, 'Uncommon': 5, 'Common': 6,
-};
 
 /**
  * Check if an NFT is a weapon.
