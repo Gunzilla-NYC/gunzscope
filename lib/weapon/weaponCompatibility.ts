@@ -74,3 +74,119 @@ export function getFunctionalTier(nft: NFT): FunctionalTier {
   const validTiers: FunctionalTier[] = ['Standard', 'Refined', 'Elite', 'Premium', 'Classified'];
   return validTiers.includes(tier as FunctionalTier) ? (tier as FunctionalTier) : 'Unknown';
 }
+
+/** Match confidence level */
+export type MatchConfidence = 'high' | 'medium' | 'low';
+
+/** Category of compatible item */
+export type ItemCategory = 'attachment' | 'skin';
+
+/** Result of matching a compatible item */
+export interface CompatibleItem {
+  nft: NFT;
+  matchTier: 1 | 2 | 3;
+  matchConfidence: MatchConfidence;
+  category: ItemCategory;
+}
+
+// Rarity order for sorting (lower = better)
+const RARITY_ORDER: Record<string, number> = {
+  'Mythic': 1, 'Legendary': 2, 'Epic': 3, 'Rare': 4, 'Uncommon': 5, 'Common': 6,
+};
+
+/**
+ * Check if an NFT is a weapon.
+ */
+export function isWeapon(nft: NFT): boolean {
+  const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
+  return itemClass === 'Weapon' ||
+         itemClass === 'Primary Weapon' ||
+         itemClass === 'Secondary Weapon' ||
+         itemClass === 'Melee Weapon';
+}
+
+/**
+ * Get item category from class trait.
+ */
+function getItemCategory(nft: NFT): ItemCategory | null {
+  const itemClass = (nft.traits?.['CLASS'] || nft.traits?.['Class'] || '').toLowerCase();
+  if (itemClass.includes('skin')) return 'skin';
+  if (itemClass.includes('attachment') || itemClass.includes('accessory')) return 'attachment';
+  return null;
+}
+
+/**
+ * Extract weapon family name for Tier 2 matching.
+ * Strips suffixes like Legacy, MK2, Celebrity, Solana, etc.
+ */
+function getWeaponFamily(name: string): string {
+  return name
+    .replace(/\s+(Legacy|MK\d+|Pro|Elite|Prime|Standard|Celebrity|Enforcer|Liberator|Templar|Banananizer|Feedkiller|Buzzboy|Pioneer|Solana)\s*$/i, '')
+    .trim();
+}
+
+/**
+ * Find all compatible items (attachments, skins) for a weapon.
+ * Uses tiered matching: asset-path model ID (Tier 1), name-based (Tier 2).
+ */
+export function findCompatibleItems(weapon: NFT, inventory: NFT[]): CompatibleItem[] {
+  if (!isWeapon(weapon)) return [];
+
+  const weaponModelCode = extractModelCode(weapon.image);
+  const weaponFamily = getWeaponFamily(weapon.name);
+  const weaponFamilyLower = weaponFamily.toLowerCase();
+  const results: CompatibleItem[] = [];
+
+  for (const item of inventory) {
+    // Skip the weapon itself
+    if (item.tokenId === weapon.tokenId) continue;
+
+    // Only consider attachments and skins
+    const category = getItemCategory(item);
+    if (!category) continue;
+
+    // Tier 1: Model code match (highest confidence)
+    if (weaponModelCode) {
+      const itemModelCode = extractModelCode(item.image);
+      if (itemModelCode === weaponModelCode) {
+        results.push({
+          nft: item,
+          matchTier: 1,
+          matchConfidence: 'high',
+          category,
+        });
+        continue;
+      }
+    }
+
+    // Tier 2: Name-based match (fallback)
+    const itemNameLower = item.name.toLowerCase();
+    if (
+      itemNameLower.includes(weaponFamilyLower) ||
+      itemNameLower.includes(`for the ${weaponFamilyLower}`) ||
+      itemNameLower.includes(`for ${weaponFamilyLower}`)
+    ) {
+      results.push({
+        nft: item,
+        matchTier: 2,
+        matchConfidence: 'medium',
+        category,
+      });
+    }
+  }
+
+  // Sort: skins first, then by rarity (best first), then by name
+  return results.sort((a, b) => {
+    // Skins before attachments
+    if (a.category === 'skin' && b.category !== 'skin') return -1;
+    if (b.category === 'skin' && a.category !== 'skin') return 1;
+
+    // Then by rarity
+    const rarityA = RARITY_ORDER[a.nft.traits?.['RARITY'] || a.nft.traits?.['Rarity'] || ''] || 99;
+    const rarityB = RARITY_ORDER[b.nft.traits?.['RARITY'] || b.nft.traits?.['Rarity'] || ''] || 99;
+    if (rarityA !== rarityB) return rarityA - rarityB;
+
+    // Then by name
+    return a.nft.name.localeCompare(b.nft.name);
+  });
+}
