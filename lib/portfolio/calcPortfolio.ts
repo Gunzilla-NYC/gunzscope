@@ -38,6 +38,8 @@ export interface PortfolioCalcResult {
   nftCount: number;
   nftsWithPrice: number;
   nftsWithoutPrice: number;
+  // Total GUN spent on NFTs (sum of purchasePriceGun)
+  totalGunSpent: number;
 }
 
 export interface CalcPortfolioInput {
@@ -93,14 +95,20 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   let nftsWithPrice = 0;
   let nftsWithoutPrice = 0;
   let totalNftQuantity = 0;
+  let totalGunSpent = 0;
 
   for (const nft of allNFTs) {
     const quantity = nft.quantity ?? 1;
     totalNftQuantity += quantity;
 
-    if (nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0 && effectiveGunPrice > 0) {
-      nftsUsd += nft.purchasePriceGun * effectiveGunPrice * quantity;
-      nftsWithPrice += quantity;
+    if (nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0) {
+      totalGunSpent += nft.purchasePriceGun * quantity;
+      if (effectiveGunPrice > 0) {
+        nftsUsd += nft.purchasePriceGun * effectiveGunPrice * quantity;
+        nftsWithPrice += quantity;
+      } else {
+        nftsWithoutPrice += quantity;
+      }
     } else {
       nftsWithoutPrice += quantity;
     }
@@ -210,6 +218,7 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
     nftCount,
     nftsWithPrice,
     nftsWithoutPrice,
+    totalGunSpent,
   };
 }
 

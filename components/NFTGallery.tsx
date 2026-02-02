@@ -3,8 +3,15 @@
 import { NFT, NFTPaginationInfo } from '@/lib/types';
 import Image from 'next/image';
 import { useState, useMemo, useCallback } from 'react';
-import NFTDetailModal from './NFTDetailModal';
+import dynamic from 'next/dynamic';
 import { buildTokenKey } from '@/lib/utils/nftCache';
+
+// Dynamic import for NFTDetailModal - only loaded when user clicks an NFT
+// This reduces initial bundle size as the modal has heavy dependencies
+const NFTDetailModal = dynamic(() => import('./NFTDetailModal'), {
+  ssr: false,
+  loading: () => null, // Modal is hidden by default, no loading UI needed
+});
 
 type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc' | 'value-desc' | 'pnl-desc';
 type ViewMode = 'small' | 'medium' | 'list';
@@ -100,10 +107,13 @@ function getItemClassDisplayName(itemClass: string): string {
   return displayNames[itemClass] || itemClass;
 }
 
+// Regex for pure numeric strings - hoisted for performance
+const NUMERIC_ONLY_RE = /^\d+$/;
+
 // Strip leading zeros from mint number string
 function stripLeadingZeros(mint: string): string {
   // Check if mint is purely numeric (possibly with leading zeros)
-  if (/^\d+$/.test(mint)) {
+  if (NUMERIC_ONLY_RE.test(mint)) {
     return String(parseInt(mint, 10));
   }
   // For alphanumeric mints, return as-is
@@ -113,7 +123,7 @@ function stripLeadingZeros(mint: string): string {
 // Check if mint number is purely numeric
 function isNumericMint(mint: string | undefined): boolean {
   if (!mint) return false;
-  return /^\d+$/.test(mint);
+  return NUMERIC_ONLY_RE.test(mint);
 }
 
 // Get numeric value from mint (returns Infinity for non-numeric)
@@ -453,41 +463,9 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
       {/* Header with Title */}
       <div className="flex flex-col gap-4 mb-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h3 className="text-lg font-semibold text-white">
-              Off The Grid Game Assets ({filteredAndSortedNFTs.length}{filteredAndSortedNFTs.length !== nfts.length ? ` of ${nfts.length}` : ''})
-            </h3>
-            {portfolioSummary.totalSpent > 0 && (
-              <span className="text-sm text-gray-400 flex items-center gap-1 flex-wrap">
-                <span>
-                  Spent: <span className="text-white font-medium">{portfolioSummary.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN</span>
-                </span>
-                {portfolioSummary.totalEstValue > 0 && (
-                  <>
-                    <span className="text-gray-600">·</span>
-                    <span>
-                      Est. Value: <span className="text-[#64ffff] font-medium">{portfolioSummary.totalEstValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN</span>
-                    </span>
-                  </>
-                )}
-                {portfolioSummary.unrealizedPnlGun !== null && portfolioSummary.unrealizedPnlPct !== null && (
-                  <>
-                    <span className="text-gray-600">·</span>
-                    <span>
-                      P&L:{' '}
-                      <span className={`font-medium ${
-                        portfolioSummary.unrealizedPnlPct > 1 ? 'text-[#beffd2]' :
-                        portfolioSummary.unrealizedPnlPct < -1 ? 'text-[#ff6b6b]' : 'text-gray-400'
-                      }`}>
-                        {portfolioSummary.unrealizedPnlGun >= 0 ? '+' : ''}{portfolioSummary.unrealizedPnlGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
-                        {' '}({portfolioSummary.unrealizedPnlPct >= 0 ? '+' : ''}{portfolioSummary.unrealizedPnlPct.toFixed(1)}%)
-                      </span>
-                    </span>
-                  </>
-                )}
-              </span>
-            )}
-          </div>
+          <h3 className="text-lg font-semibold text-white">
+            Off The Grid Game Assets
+          </h3>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
@@ -533,9 +511,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 onChange={(e) => setSelectedItemClass(e.target.value)}
                 className="select-dropdown pl-3 pr-8 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
               >
-                <option value="all">All ({nfts.length})</option>
+                <option value="all">All ({nfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0)})</option>
                 {itemClasses.map(itemClass => {
-                  const count = nfts.filter(nft => getItemClass(nft) === itemClass).length;
+                  const count = nfts
+                    .filter(nft => getItemClass(nft) === itemClass)
+                    .reduce((sum, nft) => sum + (nft.quantity || 1), 0);
                   return (
                     <option key={itemClass} value={itemClass}>
                       {getItemClassDisplayName(itemClass)} ({count})
@@ -797,6 +777,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     alt={nft.name}
                     fill
                     className="object-cover"
+                    loading="lazy"
+                    sizes={viewMode === 'small' ? '(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 12.5vw' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
@@ -892,6 +874,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     alt={nft.name}
                     fill
                     className="object-cover"
+                    loading="lazy"
+                    sizes="64px"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';

@@ -170,6 +170,28 @@ export class OpenSeaService {
 
   async getNFTFloorPrice(contractAddress: string, chain: string = 'avalanche'): Promise<number | null> {
     try {
+      // In browser, use our API route to avoid CORS and access server-side API key
+      if (isBrowser) {
+        const response = await fetch(
+          `/api/opensea/floor?chain=${encodeURIComponent(chain)}&contract=${encodeURIComponent(contractAddress)}`
+        );
+
+        if (!response.ok) {
+          console.warn(`[OpenSea Floor] API error: ${response.status}`);
+          return null;
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          console.warn(`[OpenSea Floor] ${data.error}`);
+          return null;
+        }
+
+        return data.floorPrice ?? null;
+      }
+
+      // Server-side: call OpenSea directly
       const headers = this.apiKey
         ? { 'X-API-KEY': this.apiKey }
         : {};
@@ -408,7 +430,8 @@ export class OpenSeaService {
   // ===========================================================================
 
   /**
-   * Get sale history for a specific NFT
+   * Get sale history for a specific NFT.
+   * Uses browser-safe API route when running in browser to avoid CORS issues.
    */
   async getSaleEvents(
     contractAddress: string,
@@ -416,6 +439,37 @@ export class OpenSeaService {
     chain: string = 'avalanche'
   ): Promise<SaleEvent[]> {
     try {
+      // In browser, use our API route to avoid CORS
+      if (isBrowser) {
+        const response = await fetch(
+          `/api/opensea/sales?chain=${encodeURIComponent(chain)}&contract=${encodeURIComponent(contractAddress)}&tokenId=${encodeURIComponent(tokenId)}`
+        );
+
+        if (!response.ok) {
+          console.warn(`[OpenSea Sales] API error: ${response.status}`);
+          return [];
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          console.warn(`[OpenSea Sales] ${data.error}`);
+          return [];
+        }
+
+        // Convert API response to SaleEvent format
+        return (data.sales || []).map((sale: any) => ({
+          eventTimestamp: new Date(sale.eventTimestamp),
+          priceGUN: sale.priceGUN || 0,
+          priceWGUN: sale.priceWGUN || 0,
+          sellerAddress: sale.sellerAddress || '',
+          buyerAddress: sale.buyerAddress || '',
+          txHash: sale.txHash || '',
+          marketplace: sale.marketplace || 'opensea',
+        }));
+      }
+
+      // Server-side: call OpenSea directly
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
       const mappedChain = toOpenSeaChain(chain);
 

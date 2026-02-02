@@ -10,6 +10,7 @@ interface PortfolioBreakdown {
   nftValue: number;
   otherValue: number;
   nftCount: number;
+  totalGunSpent?: number;
 }
 
 interface CostBasis {
@@ -186,55 +187,6 @@ export default function PortfolioGlanceCard({
         </div>
       </div>
 
-      {/* Cost Basis & PnL section */}
-      {costBasis && (
-        <div className="border-t border-white/10 pt-3 mt-3">
-          <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium mb-2 block">
-            Cost Basis & P/L
-          </span>
-          <div className="grid grid-cols-3 gap-3">
-            {/* Tokens */}
-            <div>
-              <div className="text-[12px] text-white/55 mb-0.5">Tokens</div>
-              <div className="text-[13px] font-medium text-white/85">
-                {costBasis.tokens !== null ? `$${formatUSD(costBasis.tokens)}` : '—'}
-              </div>
-              {pnl && pnl.tokens !== null && (
-                <div className={`text-[12px] ${pnl.tokens >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
-                  {pnl.tokens >= 0 ? '+' : ''}{formatUSD(pnl.tokens)}
-                </div>
-              )}
-            </div>
-
-            {/* NFTs */}
-            <div>
-              <div className="text-[12px] text-white/55 mb-0.5">NFTs</div>
-              <div className="text-[13px] font-medium text-white/85">
-                {costBasis.nfts !== null ? `$${formatUSD(costBasis.nfts)}` : '—'}
-              </div>
-              {pnl && pnl.nfts !== null && (
-                <div className={`text-[12px] ${pnl.nfts >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
-                  {pnl.nfts >= 0 ? '+' : ''}{formatUSD(pnl.nfts)}
-                </div>
-              )}
-            </div>
-
-            {/* Total */}
-            <div>
-              <div className="text-[12px] text-white/55 mb-0.5">Total</div>
-              <div className="text-[13px] font-medium text-white/85">
-                {costBasis.total !== null ? `$${formatUSD(costBasis.total)}` : '—'}
-              </div>
-              {pnl && pnl.total !== null && (
-                <div className={`text-[12px] font-medium ${pnl.total >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
-                  {pnl.total >= 0 ? '+' : ''}{formatUSD(pnl.total)}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Composition section - Waffle Chart */}
       <div className="border-t border-white/10 pt-3 mt-3">
         <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium mb-3 block">
@@ -249,6 +201,11 @@ export default function PortfolioGlanceCard({
             nftCount={breakdown.nftCount}
             size={140}
             showLegend={true}
+            gunCostBasis={costBasis?.tokens}
+            nftCostBasis={costBasis?.nfts}
+            gunPnl={pnl?.tokens}
+            nftPnl={pnl?.nfts}
+            totalGunSpent={breakdown.totalGunSpent}
           />
         </div>
       </div>

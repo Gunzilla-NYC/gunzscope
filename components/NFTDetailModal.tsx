@@ -10,6 +10,7 @@
 
 import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -50,7 +51,13 @@ import {
   type ResolvedAcquisitionData,
   type MetadataDebugData,
 } from '@/components/nft-detail';
-import { WeaponLabDrawer, LockedWeaponIndicator } from '@/components/weapon';
+import { LockedWeaponIndicator } from '@/components/weapon';
+
+// Dynamic import for WeaponLabDrawer - only loaded when user opens weapon lab
+const WeaponLabDrawer = dynamic(() => import('@/components/weapon/WeaponLabDrawer'), {
+  ssr: false,
+  loading: () => null,
+});
 import { isWeaponLocked, isWeapon as isWeaponLib, getFunctionalTier } from '@/lib/weapon';
 import TierBadge from '@/components/ui/TierBadge';
 import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
@@ -1405,35 +1412,40 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               // Skip all marketplace retrieval - we'll show "Marketplace data unavailable" in UI
             } else {
               // =========================================================
-              // DUAL RETRIEVAL STRATEGY
+              // DUAL RETRIEVAL STRATEGY (PARALLELIZED)
               // 1. Fetch by token
               // 2. Fetch by wallet (for both viewerWallet AND currentOwner)
               // 3. Merge and dedupe all results
+              // All three queries run in parallel for faster loading
               // =========================================================
 
-              // Strategy A: Fetch purchases for this specific token
-              const tokenPurchases = await marketplaceService.getPurchasesForToken(tokenKey);
-            tokenPurchasesCount = tokenPurchases.length;
-
-            if (debugMode) {
-              console.debug('[NFTDetailModal] Token purchases:', {
-                tokenKey,
-                count: tokenPurchasesCount,
-                purchases: tokenPurchases,
-              });
-            }
-
-            // Strategy B: Fetch purchases for viewerWallet (user's wallet)
-            let viewerWalletPurchases: MarketplacePurchase[] = [];
-            if (viewerWalletLower) {
-              viewerWalletPurchases = await marketplaceService.getPurchasesForWallet(viewerWalletLower, {
-                // Wider time range to catch the purchase
+              // Build fetch options for wallet queries
+              const walletFetchOptions = {
                 fromDate: new Date(acquiredAt.getTime() - 24 * 60 * 60 * 1000), // 24h before
                 toDate: new Date(acquiredAt.getTime() + 24 * 60 * 60 * 1000),   // 24h after
                 limit: 100,
-              });
-              walletPurchasesCount_viewerWallet = viewerWalletPurchases.length;
+              };
 
+              // Execute all three queries in parallel
+              const [tokenPurchases, viewerWalletPurchases, currentOwnerPurchases] = await Promise.all([
+                // Strategy A: Fetch purchases for this specific token
+                marketplaceService.getPurchasesForToken(tokenKey),
+                // Strategy B: Fetch purchases for viewerWallet (user's wallet)
+                viewerWalletLower
+                  ? marketplaceService.getPurchasesForWallet(viewerWalletLower, walletFetchOptions)
+                  : Promise.resolve([]),
+                // Strategy C: Fetch purchases for currentOwner (if different from viewerWallet)
+                (currentOwnerLower && currentOwnerLower !== viewerWalletLower)
+                  ? marketplaceService.getPurchasesForWallet(currentOwnerLower, walletFetchOptions)
+                  : Promise.resolve([]),
+              ]);
+
+              // Update counts
+              tokenPurchasesCount = tokenPurchases.length;
+              walletPurchasesCount_viewerWallet = viewerWalletPurchases.length;
+              walletPurchasesCount_currentOwner = currentOwnerPurchases.length;
+
+              // Calculate time ranges for viewer wallet purchases
               if (viewerWalletPurchases.length > 0) {
                 const sorted = [...viewerWalletPurchases].sort(
                   (a, b) => new Date(a.purchaseDateIso).getTime() - new Date(b.purchaseDateIso).getTime()
@@ -1444,26 +1456,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 };
               }
 
-              if (debugMode) {
-                console.debug('[NFTDetailModal] Viewer wallet purchases:', {
-                  viewerWallet: viewerWalletLower,
-                  count: walletPurchasesCount_viewerWallet,
-                  timeRange: walletPurchasesTimeRange_viewerWallet,
-                });
-              }
-            }
-
-            // Strategy C: Fetch purchases for currentOwner (if different from viewerWallet)
-            // Important for custodial wallets where currentOwner != viewerWallet
-            let currentOwnerPurchases: MarketplacePurchase[] = [];
-            if (currentOwnerLower && currentOwnerLower !== viewerWalletLower) {
-              currentOwnerPurchases = await marketplaceService.getPurchasesForWallet(currentOwnerLower, {
-                fromDate: new Date(acquiredAt.getTime() - 24 * 60 * 60 * 1000),
-                toDate: new Date(acquiredAt.getTime() + 24 * 60 * 60 * 1000),
-                limit: 100,
-              });
-              walletPurchasesCount_currentOwner = currentOwnerPurchases.length;
-
+              // Calculate time ranges for current owner purchases
               if (currentOwnerPurchases.length > 0) {
                 const sorted = [...currentOwnerPurchases].sort(
                   (a, b) => new Date(a.purchaseDateIso).getTime() - new Date(b.purchaseDateIso).getTime()
@@ -1475,13 +1468,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               }
 
               if (debugMode) {
-                console.debug('[NFTDetailModal] Current owner purchases:', {
-                  currentOwner: currentOwnerLower,
-                  count: walletPurchasesCount_currentOwner,
-                  timeRange: walletPurchasesTimeRange_currentOwner,
+                console.debug('[NFTDetailModal] Parallel fetch results:', {
+                  tokenPurchases: { tokenKey, count: tokenPurchasesCount },
+                  viewerWallet: { wallet: viewerWalletLower, count: walletPurchasesCount_viewerWallet, timeRange: walletPurchasesTimeRange_viewerWallet },
+                  currentOwner: { wallet: currentOwnerLower, count: walletPurchasesCount_currentOwner, timeRange: walletPurchasesTimeRange_currentOwner },
                 });
               }
-            }
 
             // =========================================================
             // MERGE AND DEDUPE all purchases

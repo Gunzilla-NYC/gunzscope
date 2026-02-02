@@ -160,24 +160,30 @@ async function fetchWithTimeout(url: string, timeoutMs: number = 10000): Promise
 }
 
 /**
- * Try fetching from multiple IPFS gateways with fallback
+ * Try fetching from multiple IPFS gateways in parallel using Promise.any()
+ * Returns the first successful response, significantly faster than sequential fallback
  */
 async function fetchFromIPFS(cid: string, timeoutMs: number = 8000): Promise<any | null> {
-  for (const gateway of IPFS_GATEWAYS) {
-    try {
-      const url = `${gateway}${cid}`;
-      const response = await fetchWithTimeout(url, timeoutMs);
-      if (response.ok) {
-        return await response.json();
-      }
-    } catch (error) {
-      // Try next gateway
-      if (DEBUG_ACQUISITION) {
-        console.warn(`[fetchFromIPFS] Gateway ${gateway} failed for ${cid}`);
-      }
+  try {
+    // Race all gateways in parallel - first success wins
+    const result = await Promise.any(
+      IPFS_GATEWAYS.map(async (gateway) => {
+        const url = `${gateway}${cid}`;
+        const response = await fetchWithTimeout(url, timeoutMs);
+        if (!response.ok) {
+          throw new Error(`Gateway ${gateway} returned ${response.status}`);
+        }
+        return response.json();
+      })
+    );
+    return result;
+  } catch (error) {
+    // All gateways failed (AggregateError from Promise.any)
+    if (DEBUG_ACQUISITION) {
+      console.warn(`[fetchFromIPFS] All gateways failed for ${cid}`);
     }
+    return null;
   }
-  return null;
 }
 
 /**

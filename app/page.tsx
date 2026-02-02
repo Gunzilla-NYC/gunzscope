@@ -38,7 +38,8 @@ export default function Home() {
 }
 
 // Batch size for parallel NFT enrichment
-const ENRICHMENT_BATCH_SIZE = 5;
+// Increased from 5 to 10 now that RPC timeout is 45s and OpenSea uses API routes
+const ENRICHMENT_BATCH_SIZE = 10;
 
 function HomeInner({ debugMode }: { debugMode: boolean }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
@@ -180,9 +181,10 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
                 3000
               ),
         // Fetch acquisition details (current holding)
+        // Timeout increased to 45s because blockchain RPC scans 13M+ blocks and can be very slow
         withTimeout(
           avalancheService.getNFTHoldingAcquisition(nftContractAddress, primaryTokenId, walletAddress),
-          5000
+          45000
         ),
       ]);
 
@@ -242,6 +244,45 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
           if (process.env.NODE_ENV === 'development') {
             console.warn(`[NFT Enrichment] Marketplace lookup failed for ${nft.tokenId}:`, marketplaceError);
           }
+        }
+      }
+
+      // =========================================================================
+      // OPENSEA FALLBACK: If venue is OpenSea and we don't have a price yet,
+      // query OpenSea's sale events API directly
+      // =========================================================================
+      if (acquisition?.venue === 'opensea' && marketplacePriceGun === undefined) {
+        try {
+          const openSeaService = new OpenSeaService();
+          const tokenId = nft.tokenIds?.[0] || nft.tokenId;
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[NFT Enrichment] OpenSea fallback for token ${tokenId} (venue: opensea, no marketplace price)`);
+          }
+
+          const saleEvents = await withTimeout(
+            openSeaService.getSaleEvents(nftContractAddress, tokenId, 'avalanche'),
+            8000 // 8 second timeout for OpenSea API
+          );
+
+          if (saleEvents && saleEvents.length > 0) {
+            // Find the sale where the buyer matches the wallet address
+            const walletLower = walletAddress.toLowerCase();
+            const matchingSale = saleEvents.find(sale =>
+              sale.buyerAddress?.toLowerCase() === walletLower
+            );
+
+            if (matchingSale && matchingSale.priceGUN > 0) {
+              marketplacePriceGun = matchingSale.priceGUN;
+              marketplacePurchaseDate = matchingSale.eventTimestamp ? new Date(matchingSale.eventTimestamp) : undefined;
+              console.log(`[NFT Enrichment] OpenSea sale found for ${tokenId}: ${marketplacePriceGun} GUN`);
+            } else {
+              console.log(`[NFT Enrichment] No matching OpenSea sale for ${tokenId} (buyer: ${walletLower})`);
+            }
+          } else {
+            console.log(`[NFT Enrichment] No OpenSea sale events for token ${tokenId}`);
+          }
+        } catch (openSeaError) {
+          console.warn(`[NFT Enrichment] OpenSea sale lookup failed for ${nft.tokenId}:`, openSeaError);
         }
       }
 
@@ -320,12 +361,19 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     marketplaceService: GameMarketplaceService | null,
     updateCallback: (enrichedNFTs: NFT[]) => void
   ) => {
+    console.log(`[NFT Enrichment] START - ${nfts.length} NFTs to process, marketplace: ${marketplaceService ? 'configured' : 'null'}`);
+    try {
     // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
     const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
-    if (!nftContractAddress || nfts.length === 0) return;
+    console.log(`[NFT Enrichment] Contract: ${nftContractAddress}`);
+    if (!nftContractAddress || nfts.length === 0) {
+      console.log(`[NFT Enrichment] SKIP - contract: ${nftContractAddress}, nfts: ${nfts.length}`);
+      return;
+    }
 
     setEnrichingNFTs(true);
     enrichmentCancelledRef.current = false;
+    console.log(`[NFT Enrichment] Step 1: Checking cache for ${nfts.length} NFTs`);
 
     // Start with cached data applied immediately (even incomplete cache has quantity)
     const nftsWithCache = nfts.map(nft => {
@@ -347,7 +395,9 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     });
 
     // Update immediately with cached data
+    console.log(`[NFT Enrichment] Step 2: Cache mapped, calling updateCallback`);
     updateCallback(nftsWithCache);
+    console.log(`[NFT Enrichment] Step 3: Filtering NFTs that need enrichment`);
 
     // Find NFTs that need enrichment:
     // - No cache at all
@@ -384,6 +434,7 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
       if (enrichmentCancelledRef.current) break;
 
       const batch = nftsNeedingEnrichment.slice(i, i + ENRICHMENT_BATCH_SIZE);
+      console.log(`[NFT Enrichment] Processing batch ${i / ENRICHMENT_BATCH_SIZE + 1}: ${batch.map(n => n.tokenId).join(', ')}`);
 
       const batchResults = await Promise.all(
         batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService))
@@ -409,6 +460,10 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
     const withPrice = Array.from(enrichedResults.values()).filter(n => n.purchasePriceGun !== undefined).length;
     console.log(`[NFT Enrichment] Complete: ${withPrice}/${nfts.length} NFTs have price data`);
     setEnrichingNFTs(false);
+    } catch (enrichmentError) {
+      console.error(`[NFT Enrichment] FATAL ERROR:`, enrichmentError);
+      setEnrichingNFTs(false);
+    }
   }, []);
 
   // Load more NFTs (pagination)
@@ -829,7 +884,6 @@ function HomeInner({ debugMode }: { debugMode: boolean }) {
               walletType={walletType}
               totalOwnedCount={nftPagination.totalOwnedCount}
               portfolioResult={portfolioResult}
-              isPortfolioInitializing={isPortfolioInitializing}
             />
 
             <MarketplaceStats data={marketplaceData} />

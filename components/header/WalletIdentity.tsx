@@ -17,6 +17,10 @@ interface WalletIdentityProps {
   gunValueUsd?: number;
   /** Current GUN price in USD */
   gunPrice?: number;
+  /** 24h price change in USD */
+  gunPriceChange24h?: number;
+  /** 24h price change percentage */
+  gunPriceChangePercent24h?: number;
 }
 
 interface PopoverPosition {
@@ -34,6 +38,8 @@ export default function WalletIdentity({
   gunBalance,
   gunValueUsd,
   gunPrice,
+  gunPriceChange24h = 0,
+  gunPriceChangePercent24h = 0,
 }: WalletIdentityProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -433,11 +439,19 @@ export default function WalletIdentity({
             </div>
           </div>
 
-          {/* Unit price as subtle info */}
+          {/* GUN price with 24h change */}
           {gunPrice !== undefined && gunPrice > 0 && (
-            <p className="text-[11px] text-white/40 mt-2">
-              @ ${gunPrice.toFixed(6)} per GUN
-            </p>
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-white/40">
+                @ ${gunPrice.toFixed(6)} per GUN
+              </span>
+              {gunPriceChangePercent24h !== 0 && (
+                <span className={`text-[11px] font-medium ${gunPriceChangePercent24h >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
+                  {gunPriceChangePercent24h >= 0 ? '+' : ''}{gunPriceChangePercent24h.toFixed(2)}%
+                  <span className="text-white/40 ml-1">(24h)</span>
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}

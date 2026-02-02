@@ -16,6 +16,13 @@ interface CompositionChartProps {
   showLegend?: boolean;
   className?: string;
   isLoading?: boolean;
+  // Cost basis & P/L
+  gunCostBasis?: number | null;
+  nftCostBasis?: number | null;
+  gunPnl?: number | null;
+  nftPnl?: number | null;
+  // Total GUN spent on NFTs
+  totalGunSpent?: number;
 }
 
 interface TooltipState {
@@ -54,6 +61,11 @@ export default function WaffleChart({
   showLegend = false,
   className = '',
   isLoading = false,
+  gunCostBasis,
+  nftCostBasis,
+  gunPnl,
+  nftPnl,
+  totalGunSpent,
 }: CompositionChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
@@ -305,19 +317,54 @@ export default function WaffleChart({
 
       {/* Legend */}
       {showLegend && (
-        <div data-testid="waffle-legend" className="mt-3 space-y-1.5">
+        <div data-testid="waffle-legend" className="mt-3 space-y-2">
           {gunCells > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: GUN_COLOR }} />
-              <span className="text-[11px] text-white/70">GUN</span>
-              <span className="text-[10px] text-white/40 ml-auto">{gunPercent.toFixed(0)}%</span>
+            <div className="flex items-start gap-2">
+              <div className="w-3 h-3 rounded-sm flex-shrink-0 mt-0.5" style={{ backgroundColor: GUN_COLOR }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-white/70">GUN</span>
+                  <span className="text-[10px] text-white/40">{gunPercent.toFixed(0)}%</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {gunValueUsd > 0 && (
+                    <span className="text-[10px] text-white/60">${gunValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  )}
+                  {gunPnl !== undefined && gunPnl !== null && (
+                    <span className={`text-[9px] ${gunPnl >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
+                      ({gunPnl >= 0 ? '+' : ''}${Math.abs(gunPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
           {nftCells > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: NFT_COLOR }} />
-              <span className="text-[11px] text-white/70">NFTs</span>
-              <span className="text-[10px] text-white/40 ml-auto">{nftPercent.toFixed(0)}%</span>
+            <div className="flex items-start gap-2">
+              <div className="w-3 h-3 rounded-sm flex-shrink-0 mt-0.5" style={{ backgroundColor: NFT_COLOR }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-white/70">
+                    NFTs{nftCount !== undefined && nftCount > 0 && <span className="text-white/50 ml-1">({nftCount})</span>}
+                  </span>
+                  <span className="text-[10px] text-white/40">{nftPercent.toFixed(0)}%</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {nftValueUsd > 0 && (
+                    <span className="text-[10px] text-white/60">${nftValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  )}
+                  {nftPnl !== undefined && nftPnl !== null && (
+                    <span className={`text-[9px] ${nftPnl >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
+                      ({nftPnl >= 0 ? '+' : ''}${Math.abs(nftPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </span>
+                  )}
+                </div>
+                {totalGunSpent !== undefined && totalGunSpent > 0 && (
+                  <div className="text-[9px] text-white/50 mt-0.5">
+                    Spent {totalGunSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
