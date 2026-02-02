@@ -1,11 +1,81 @@
 'use client';
 
 interface LogoProps {
-  size?: number;
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'icon' | 'wordmark' | 'full';
+  showIcon?: boolean;
   className?: string;
 }
 
-export default function Logo({ size = 64, className = '' }: LogoProps) {
+const sizeClasses = {
+  sm: { text: 'text-lg', icon: 24 },
+  md: { text: 'text-2xl', icon: 28 },
+  lg: { text: 'text-3xl', icon: 32 },
+};
+
+export default function Logo({
+  size = 'md',
+  variant = 'full',
+  showIcon = true,
+  className = ''
+}: LogoProps) {
+  const { text: textClass, icon: iconSize } = sizeClasses[size];
+
+  // Icon only
+  if (variant === 'icon') {
+    return (
+      <div
+        className={`flex items-center justify-center border-2 border-[var(--gs-lime)] rounded ${className}`}
+        style={{ width: iconSize, height: iconSize }}
+      >
+        <svg
+          viewBox="0 0 12 12"
+          className="w-2 h-2"
+          fill="var(--gs-lime)"
+        >
+          <path d="M2 1 L10 6 L2 11 Z" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Wordmark only
+  if (variant === 'wordmark') {
+    return (
+      <span className={`font-display font-bold tracking-[2px] uppercase ${textClass} ${className}`}>
+        <span className="text-[var(--gs-white)]">GUNZ</span>
+        <span className="text-[var(--gs-purple)]">scope</span>
+      </span>
+    );
+  }
+
+  // Full logo (icon + wordmark)
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      {showIcon && (
+        <div
+          className="flex items-center justify-center border-2 border-[var(--gs-lime)] rounded"
+          style={{ width: iconSize, height: iconSize }}
+        >
+          <svg
+            viewBox="0 0 12 12"
+            className="w-2 h-2"
+            fill="var(--gs-lime)"
+          >
+            <path d="M2 1 L10 6 L2 11 Z" />
+          </svg>
+        </div>
+      )}
+      <span className={`font-display font-bold tracking-[2px] uppercase ${textClass}`}>
+        <span className="text-[var(--gs-white)]">GUNZ</span>
+        <span className="text-[var(--gs-purple)]">scope</span>
+      </span>
+    </div>
+  );
+}
+
+// Legacy SVG icon for backwards compatibility
+export function LogoIcon({ size = 64, className = '' }: { size?: number; className?: string }) {
   return (
     <svg
       width={size}
@@ -17,18 +87,18 @@ export default function Logo({ size = 64, className = '' }: LogoProps) {
     >
       <defs>
         <linearGradient id="paint0_linear_logo" x1="513.801" y1="65" x2="513.801" y2="407.5" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#64ffff"/>
-          <stop offset="1" stopColor="#96aaff"/>
+          <stop stopColor="#A6F700"/>
+          <stop offset="1" stopColor="#6D5BFF"/>
         </linearGradient>
         <linearGradient id="paint1_linear_logo" x1="475.503" y1="500.385" x2="476" y2="1094" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#beffd2"/>
-          <stop offset="0.5" stopColor="#96aaff"/>
+          <stop stopColor="#00FF88"/>
+          <stop offset="0.5" stopColor="#6D5BFF"/>
           <stop offset="1" stopColor="#141414"/>
         </linearGradient>
         <linearGradient id="paint2_scope" x1="122" y1="70" x2="900" y2="783" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#64ffff"/>
-          <stop offset="0.5" stopColor="#96aaff"/>
-          <stop offset="1" stopColor="#beffd2"/>
+          <stop stopColor="#A6F700"/>
+          <stop offset="0.5" stopColor="#6D5BFF"/>
+          <stop offset="1" stopColor="#8577FF"/>
         </linearGradient>
       </defs>
 
@@ -36,13 +106,13 @@ export default function Logo({ size = 64, className = '' }: LogoProps) {
       <path d="M472.197 387.5C483.347 392.534 489.176 397.294 499.197 407.5V376H528.197V407.5C553.205 391.036 571.197 381.5 587.697 365C604.197 348.5 612.6 323.829 610.197 289C605.148 257.339 596.494 240.966 573.697 213.5C577.757 238.717 576.45 250.083 567.197 265C558.368 252.034 556.686 242.962 554.197 226.5C550.717 200.329 548.662 186.105 544.697 162C535.602 115.632 523.802 91.4892 502.197 65C503.867 118.794 505.697 140 491.197 167C476.697 194 464.429 206.925 451.197 239.5C446.725 256.881 445.904 266.512 447.197 283.5C440.545 277.323 438.686 269.469 437.697 250C412.697 276 415.647 324.5 419.697 333.5C428.197 356.5 445.29 374.668 472.197 387.5Z" fill="url(#paint0_linear_logo)"/>
 
       {/* Center dot */}
-      <circle cx="513.5" cy="455.5" r="22.5" fill="#64ffff"/>
+      <circle cx="513.5" cy="455.5" r="22.5" fill="#A6F700"/>
 
       {/* Crosshairs */}
-      <rect x="300" y="441" width="128" height="30" fill="#64ffff"/>
-      <rect x="599" y="442" width="128" height="30" fill="#96aaff"/>
-      <rect x="790" y="441" width="128" height="30" fill="#beffd2"/>
-      <rect x="108" y="442" width="129" height="30" fill="#64ffff"/>
+      <rect x="300" y="441" width="128" height="30" fill="#A6F700"/>
+      <rect x="599" y="442" width="128" height="30" fill="#6D5BFF"/>
+      <rect x="790" y="441" width="128" height="30" fill="#8577FF"/>
+      <rect x="108" y="442" width="129" height="30" fill="#A6F700"/>
 
       {/* Scope circle */}
       <path d="M899.923 496C887.528 616.285 820.537 720.376 724.145 783.076L706.897 756.117C794.407 699.12 855.487 604.949 867.737 496H899.923ZM155.266 496C165.236 584.68 207.556 663.57 270.149 720.591L248.17 743.854C179.381 680.999 133.16 593.859 123.076 496H155.266ZM452.962 101.756C295.242 127.659 172.181 256.496 155.044 417H122.875C140.178 240.191 275.4 97.9631 448.864 69.9961L452.962 101.756ZM571.502 69.582C746.23 96.5272 882.734 239.297 900.125 417H867.955C850.672 255.133 725.659 125.475 566.011 101.12L571.502 69.582Z" fill="url(#paint2_scope)"/>

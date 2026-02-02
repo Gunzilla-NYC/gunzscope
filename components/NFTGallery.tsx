@@ -449,27 +449,27 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
   if (nfts.length === 0) {
     return (
-      <div className="bg-[#181818] p-6 rounded-lg border border-[#64ffff]/20">
-        <h3 className="text-lg font-semibold mb-2 text-white">
+      <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
+        <h3 className="font-display text-lg font-semibold mb-2 text-[var(--gs-white)]">
           Off The Grid Game Assets
         </h3>
-        <p className="text-gray-400">No game assets found</p>
+        <p className="font-body text-[var(--gs-gray-4)]">No game assets found</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#181818] p-6 rounded-lg border border-[#64ffff]/20">
+    <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
       {/* Header with Title */}
       <div className="flex flex-col gap-4 mb-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">
+          <h3 className="font-display text-lg font-semibold text-[var(--gs-white)]">
             Off The Grid Game Assets
           </h3>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="text-xs text-[#64ffff] hover:text-[#96aaff] transition"
+              className="font-mono text-xs text-[var(--gs-lime)] hover:text-[var(--gs-purple)] transition"
             >
               Clear all
             </button>
@@ -478,7 +478,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
         {/* Always-visible Search Bar */}
         <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -486,12 +486,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, mint #, traits (weapon, pants, legendary)..."
-            className="w-full pl-10 pr-4 py-3 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#64ffff] focus:ring-1 focus:ring-[#64ffff] transition"
+            className="font-body w-full pl-10 pr-4 py-3 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-[var(--gs-white)] placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)] focus:ring-1 focus:ring-[var(--gs-lime)] transition"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -505,11 +505,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           {/* Collections Filter (Item Class) */}
           {itemClasses.length > 0 && (
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400">Collections:</label>
+              <label className="font-mono text-xs text-[var(--gs-gray-4)]">Collections:</label>
               <select
                 value={selectedItemClass}
                 onChange={(e) => setSelectedItemClass(e.target.value)}
-                className="select-dropdown pl-3 pr-8 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
+                className="select-dropdown font-body pl-3 pr-8 py-1.5 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-[var(--gs-white)] focus:outline-none focus:border-[var(--gs-lime)] transition cursor-pointer"
               >
                 <option value="all">All ({nfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0)})</option>
                 {itemClasses.map(itemClass => {
@@ -528,11 +528,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
           {/* Sort Dropdown */}
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">Sort:</label>
+            <label className="font-mono text-xs text-[var(--gs-gray-4)]">Sort:</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="select-dropdown pl-3 pr-8 py-1.5 text-sm bg-black/50 border border-[#64ffff]/30 rounded-lg text-white focus:outline-none focus:border-[#64ffff] transition cursor-pointer"
+              className="select-dropdown font-body pl-3 pr-8 py-1.5 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-[var(--gs-white)] focus:outline-none focus:border-[var(--gs-lime)] transition cursor-pointer"
             >
               <option value="mint-asc">Mint # (Low-High)</option>
               <option value="mint-desc">Mint # (High-Low)</option>
@@ -546,14 +546,14 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
           {/* View Toggle */}
           <div className="flex items-center gap-1 ml-auto">
-            <label className="text-xs text-gray-400 mr-1">View:</label>
+            <label className="font-mono text-xs text-[var(--gs-gray-4)] mr-1">View:</label>
             {/* Small Grid */}
             <button
               onClick={() => setViewMode('small')}
               className={`p-1.5 rounded transition ${
                 viewMode === 'small'
-                  ? 'bg-[#64ffff]/20 text-[#64ffff] border border-[#64ffff]/50'
-                  : 'text-gray-400 hover:text-white hover:bg-white/10 border border-transparent'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
+                  : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
               title="Small grid"
             >
@@ -566,8 +566,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               onClick={() => setViewMode('medium')}
               className={`p-1.5 rounded transition ${
                 viewMode === 'medium'
-                  ? 'bg-[#64ffff]/20 text-[#64ffff] border border-[#64ffff]/50'
-                  : 'text-gray-400 hover:text-white hover:bg-white/10 border border-transparent'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
+                  : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
               title="Medium grid"
             >
@@ -580,8 +580,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded transition ${
                 viewMode === 'list'
-                  ? 'bg-[#64ffff]/20 text-[#64ffff] border border-[#64ffff]/50'
-                  : 'text-gray-400 hover:text-white hover:bg-white/10 border border-transparent'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
+                  : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
               title="List view"
             >
@@ -593,9 +593,9 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
           {/* Active Filter Tags */}
           {searchQuery && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#64ffff]/20 text-[#64ffff] text-xs rounded-full border border-[#64ffff]/30">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] text-xs rounded-full border border-[var(--gs-lime)]/30 font-mono">
               &quot;{searchQuery.length > 15 ? searchQuery.slice(0, 15) + '...' : searchQuery}&quot;
-              <button onClick={() => setSearchQuery('')} className="hover:text-white ml-1">
+              <button onClick={() => setSearchQuery('')} className="hover:text-[var(--gs-white)] ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -603,9 +603,9 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             </span>
           )}
           {selectedItemClass !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#96aaff]/20 text-[#96aaff] text-xs rounded-full border border-[#96aaff]/30">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] text-xs rounded-full border border-[var(--gs-purple)]/30 font-mono">
               {getItemClassDisplayName(selectedItemClass)}
-              <button onClick={() => setSelectedItemClass('all')} className="hover:text-white ml-1">
+              <button onClick={() => setSelectedItemClass('all')} className="hover:text-[var(--gs-white)] ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -615,7 +615,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           {Array.from(activeRarities).map(rarity => (
             <span
               key={rarity}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border"
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border font-mono"
               style={{
                 backgroundColor: `${getRarityColorByName(rarity)}20`,
                 color: getRarityColorByName(rarity),
@@ -623,7 +623,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               }}
             >
               {rarity}
-              <button onClick={() => toggleRarity(rarity)} className="hover:text-white ml-1">
+              <button onClick={() => toggleRarity(rarity)} className="hover:text-[var(--gs-white)] ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -633,16 +633,16 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
         </div>
 
         {/* Rarity Filter Pills (multi-select) */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-gray-500">Rarity:</span>
+        <div className="flex flex-wrap items-center gap-2 text-[9px] font-mono uppercase tracking-wide">
+          <span className="text-[var(--gs-gray-3)] normal-case tracking-normal">Rarity:</span>
           {/* All pill - active when no rarities selected */}
           <button
             onClick={clearRarities}
             aria-pressed={activeRarities.size === 0}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
+            className={`px-2 py-1 rounded-sm border transition-all ${
               activeRarities.size === 0
-                ? 'bg-white/15 border-white/40 text-white'
-                : 'bg-transparent border-white/20 text-gray-400 hover:border-white/30 hover:text-gray-300'
+                ? 'bg-white/15 border-white/30 text-[var(--gs-white)]'
+                : 'bg-transparent border-white/10 text-[var(--gs-gray-4)] hover:border-white/20'
             }`}
           >
             All
@@ -651,14 +651,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <button
               onClick={() => toggleRarity('Mythic')}
               aria-pressed={activeRarities.has('Mythic')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                activeRarities.has('Mythic')
-                  ? 'border-[#ff44ff]/60 bg-[#ff44ff]/20'
-                  : 'border-[#ff44ff]/30 bg-transparent hover:border-[#ff44ff]/50 hover:bg-[#ff44ff]/10'
-              }`}
-              style={{ color: '#ff44ff' }}
+              className="px-2 py-1 rounded-sm border transition-all"
+              style={{
+                backgroundColor: activeRarities.has('Mythic') ? 'rgba(255,68,255,0.2)' : 'rgba(255,68,255,0.08)',
+                borderColor: activeRarities.has('Mythic') ? 'rgba(255,68,255,0.5)' : 'rgba(255,68,255,0.25)',
+                color: '#ff44ff',
+              }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ff44ff' }}></span>
               Mythic: {rarityCounts.Mythic}
             </button>
           )}
@@ -666,14 +665,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <button
               onClick={() => toggleRarity('Legendary')}
               aria-pressed={activeRarities.has('Legendary')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                activeRarities.has('Legendary')
-                  ? 'border-[#ff8800]/60 bg-[#ff8800]/20'
-                  : 'border-[#ff8800]/30 bg-transparent hover:border-[#ff8800]/50 hover:bg-[#ff8800]/10'
-              }`}
-              style={{ color: '#ff8800' }}
+              className="px-2 py-1 rounded-sm border transition-all"
+              style={{
+                backgroundColor: activeRarities.has('Legendary') ? 'rgba(255,136,0,0.2)' : 'rgba(255,136,0,0.08)',
+                borderColor: activeRarities.has('Legendary') ? 'rgba(255,136,0,0.5)' : 'rgba(255,136,0,0.25)',
+                color: '#ff8800',
+              }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ff8800' }}></span>
               Legendary: {rarityCounts.Legendary}
             </button>
           )}
@@ -681,14 +679,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <button
               onClick={() => toggleRarity('Epic')}
               aria-pressed={activeRarities.has('Epic')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                activeRarities.has('Epic')
-                  ? 'border-[#cc44ff]/60 bg-[#cc44ff]/20'
-                  : 'border-[#cc44ff]/30 bg-transparent hover:border-[#cc44ff]/50 hover:bg-[#cc44ff]/10'
-              }`}
-              style={{ color: '#cc44ff' }}
+              className="px-2 py-1 rounded-sm border transition-all"
+              style={{
+                backgroundColor: activeRarities.has('Epic') ? 'rgba(204,68,255,0.2)' : 'rgba(204,68,255,0.08)',
+                borderColor: activeRarities.has('Epic') ? 'rgba(204,68,255,0.5)' : 'rgba(204,68,255,0.25)',
+                color: '#cc44ff',
+              }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#cc44ff' }}></span>
               Epic: {rarityCounts.Epic}
             </button>
           )}
@@ -696,14 +693,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <button
               onClick={() => toggleRarity('Rare')}
               aria-pressed={activeRarities.has('Rare')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                activeRarities.has('Rare')
-                  ? 'border-[#4488ff]/60 bg-[#4488ff]/20'
-                  : 'border-[#4488ff]/30 bg-transparent hover:border-[#4488ff]/50 hover:bg-[#4488ff]/10'
-              }`}
-              style={{ color: '#4488ff' }}
+              className="px-2 py-1 rounded-sm border transition-all"
+              style={{
+                backgroundColor: activeRarities.has('Rare') ? 'rgba(68,136,255,0.2)' : 'rgba(68,136,255,0.08)',
+                borderColor: activeRarities.has('Rare') ? 'rgba(68,136,255,0.5)' : 'rgba(68,136,255,0.25)',
+                color: '#4488ff',
+              }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#4488ff' }}></span>
               Rare: {rarityCounts.Rare}
             </button>
           )}
@@ -711,14 +707,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <button
               onClick={() => toggleRarity('Uncommon')}
               aria-pressed={activeRarities.has('Uncommon')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                activeRarities.has('Uncommon')
-                  ? 'border-[#44ff44]/60 bg-[#44ff44]/20'
-                  : 'border-[#44ff44]/30 bg-transparent hover:border-[#44ff44]/50 hover:bg-[#44ff44]/10'
-              }`}
-              style={{ color: '#44ff44' }}
+              className="px-2 py-1 rounded-sm border transition-all"
+              style={{
+                backgroundColor: activeRarities.has('Uncommon') ? 'rgba(68,255,68,0.2)' : 'rgba(68,255,68,0.08)',
+                borderColor: activeRarities.has('Uncommon') ? 'rgba(68,255,68,0.5)' : 'rgba(68,255,68,0.25)',
+                color: '#44ff44',
+              }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#44ff44' }}></span>
               Uncommon: {rarityCounts.Uncommon}
             </button>
           )}
@@ -726,14 +721,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <button
               onClick={() => toggleRarity('Common')}
               aria-pressed={activeRarities.has('Common')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-                activeRarities.has('Common')
-                  ? 'border-[#888888]/60 bg-[#888888]/20'
-                  : 'border-[#888888]/30 bg-transparent hover:border-[#888888]/50 hover:bg-[#888888]/10'
-              }`}
-              style={{ color: '#888888' }}
+              className="px-2 py-1 rounded-sm border transition-all"
+              style={{
+                backgroundColor: activeRarities.has('Common') ? 'rgba(136,136,136,0.2)' : 'rgba(136,136,136,0.08)',
+                borderColor: activeRarities.has('Common') ? 'rgba(136,136,136,0.5)' : 'rgba(136,136,136,0.25)',
+                color: '#888888',
+              }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#888888' }}></span>
               Common: {rarityCounts.Common}
             </button>
           )}
@@ -742,15 +736,15 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
       {/* No Results Message */}
       {filteredAndSortedNFTs.length === 0 && nfts.length > 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="text-center py-12 text-[var(--gs-gray-4)]">
+          <svg className="w-16 h-16 mx-auto mb-4 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <p className="text-lg mb-2">No NFTs match your search</p>
-          <p className="text-sm text-gray-500 mb-4">Try adjusting your filters or search terms</p>
+          <p className="font-display text-lg mb-2">No NFTs match your search</p>
+          <p className="font-body text-sm text-[var(--gs-gray-3)] mb-4">Try adjusting your filters or search terms</p>
           <button
             onClick={clearFilters}
-            className="px-4 py-2 text-sm bg-[#64ffff]/20 text-[#64ffff] rounded-lg hover:bg-[#64ffff]/30 transition border border-[#64ffff]/30"
+            className="px-4 py-2 text-sm bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] rounded-lg hover:bg-[var(--gs-lime)]/30 transition border border-[var(--gs-lime)]/30 font-body"
           >
             Clear all filters
           </button>
@@ -761,187 +755,252 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
       {viewMode !== 'list' && (
         <div className={`grid gap-4 ${
           viewMode === 'small'
-            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
             : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
         }`}>
-          {filteredAndSortedNFTs.map((nft) => (
-            <div
-              key={`${nft.chain}-${nft.tokenId}`}
-              className="bg-black/30 border border-[#64ffff]/20 rounded-lg overflow-hidden hover:border-[#64ffff]/50 hover:shadow-lg hover:shadow-[#64ffff]/10 transition-all cursor-pointer transform hover:scale-[1.02]"
-              onClick={() => handleNFTClick(nft)}
-            >
-              <div className="aspect-square relative bg-black/50">
-                {nft.image ? (
-                  <Image
-                    src={nft.image}
-                    alt={nft.name}
-                    fill
-                    className="object-cover"
-                    loading="lazy"
-                    sizes={viewMode === 'small' ? '(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 12.5vw' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
+          {filteredAndSortedNFTs.map((nft) => {
+            const rarityName = getRarityName(nft);
+            const rarityColor = getRarityColor(nft);
+            const itemClass = getItemClass(nft);
+            const { display: mintDisplay } = formatMintNumbers(nft);
+            const nameInitials = nft.name.split(' ').map(w => w[0]).join('').slice(0, 2);
+
+            // Calculate P&L
+            const hasPnL = nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0 && nft.floorPrice !== undefined;
+            const pnlPct = hasPnL ? ((nft.floorPrice! - nft.purchasePriceGun!) / nft.purchasePriceGun!) * 100 : null;
+            const isProfit = pnlPct !== null && pnlPct > 1;
+            const isLoss = pnlPct !== null && pnlPct < -1;
+
+            // Price display
+            const priceGun = nft.floorPrice ?? nft.purchasePriceGun;
+            const priceDisplay = priceGun !== undefined ? `${priceGun.toLocaleString()} GUN` : '— GUN';
+
+            // P&L display
+            let pnlDisplay = '';
+            if (pnlPct !== null) {
+              pnlDisplay = `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`;
+            } else if (nft.purchasePriceGun === undefined && nft.floorPrice === undefined) {
+              pnlDisplay = '—';
+            }
+
+            return (
+              <div
+                key={`${nft.chain}-${nft.tokenId}`}
+                className="group bg-[var(--gs-dark-3)] border border-white/[0.06] p-3 transition-all duration-300 cursor-pointer hover:border-[var(--gs-lime)]/30 hover:-translate-y-0.5"
+                onClick={() => handleNFTClick(nft)}
+              >
+                {/* Image Container */}
+                <div className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden">
+                  {/* Rarity Badge - Top Left */}
+                  <span
+                    className="absolute top-1.5 left-1.5 z-10 font-mono text-[8px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm border"
+                    style={{
+                      backgroundColor: `${rarityColor}15`,
+                      color: rarityColor,
+                      borderColor: `${rarityColor}30`,
                     }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-600">
-                    <svg className={`${viewMode === 'small' ? 'w-8 h-8' : 'w-12 h-12'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                )}
+                  >
+                    {rarityName === 'Unknown' ? 'N/A' : rarityName}
+                  </span>
 
-                {/* Quantity Badge */}
-                {nft.quantity && nft.quantity > 1 && (
-                  <div className={`absolute top-1 right-1 bg-[#96aaff] text-black rounded-full font-bold shadow-lg ${
-                    viewMode === 'small' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'
-                  }`}>
-                    ×{nft.quantity}
-                  </div>
-                )}
+                  {/* Quantity Badge - Top Right */}
+                  {nft.quantity && nft.quantity > 1 && (
+                    <span className="absolute top-1.5 right-1.5 z-10 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
+                      ×{nft.quantity}
+                    </span>
+                  )}
 
-                {/* P&L Badge */}
-                {nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0 && nft.floorPrice !== undefined && (
-                  (() => {
-                    const pnlPct = ((nft.floorPrice - nft.purchasePriceGun) / nft.purchasePriceGun) * 100;
-                    const isPositive = pnlPct > 1;
-                    const isNegative = pnlPct < -1;
-                    const color = isPositive ? 'text-[#beffd2]' : isNegative ? 'text-[#ff6b6b]' : 'text-gray-400';
-                    const arrow = isPositive ? '▲' : isNegative ? '▼' : '';
-                    const displayPct = Math.abs(pnlPct) < 1 ? '0%' : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(0)}%`;
-                    return (
-                      <div className={`absolute bottom-1 left-1 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 font-medium ${color} ${
-                        viewMode === 'small' ? 'text-[10px]' : 'text-xs'
-                      }`}>
-                        {arrow}{displayPct}
-                      </div>
-                    );
-                  })()
-                )}
-              </div>
+                  {/* Image or Placeholder */}
+                  {nft.image ? (
+                    <Image
+                      src={nft.image}
+                      alt={nft.name}
+                      fill
+                      className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                      loading="lazy"
+                      sizes={viewMode === 'small' ? '(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="font-display text-3xl font-bold text-[var(--gs-gray-1)] group-hover:text-[var(--gs-gray-2)] transition-colors">
+                        {nameInitials}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-              <div className={viewMode === 'small' ? 'p-2' : 'p-3'}>
-                <p className={`font-semibold text-white truncate ${viewMode === 'small' ? 'text-xs' : 'text-sm'}`} title={nft.name}>
+                {/* Name */}
+                <p
+                  className={`font-display font-semibold uppercase tracking-wide text-[var(--gs-white)] truncate mb-0.5 ${
+                    viewMode === 'small' ? 'text-[11px]' : 'text-xs'
+                  }`}
+                  title={nft.name}
+                >
                   {nft.name}
                 </p>
-                {viewMode === 'medium' && (
-                  <p className="text-xs text-gray-400 truncate" title={nft.collection}>
-                    {nft.collection}
-                  </p>
-                )}
 
-                {/* Mint Number - always show with rarity color */}
-                {(() => {
-                  const { display, hasMore } = formatMintNumbers(nft);
-                  const rarityColor = getRarityColor(nft);
-                  return (
-                    <p
-                      className={`truncate ${viewMode === 'small' ? 'text-[10px] mt-0.5' : 'text-xs mt-1'}`}
-                      style={{ color: rarityColor }}
-                    >
-                      {display}{hasMore && <span className="text-gray-500">, more...</span>}
-                    </p>
-                  );
-                })()}
+                {/* Item Type */}
+                <p className={`font-mono uppercase tracking-wide text-[var(--gs-gray-3)] truncate ${
+                  viewMode === 'small' ? 'text-[8px]' : 'text-[9px]'
+                }`}>
+                  {itemClass !== 'Unknown' ? itemClass : nft.collection}
+                </p>
 
-                {/* Floor Price - only in medium view */}
-                {viewMode === 'medium' && nft.floorPrice !== undefined && (
-                  <p className="text-xs text-[#beffd2] mt-1">
-                    Floor: {nft.floorPrice} GUN
-                  </p>
-                )}
+                {/* Footer with Price & P&L */}
+                <div className={`flex justify-between items-baseline border-t border-white/[0.06] ${
+                  viewMode === 'small' ? 'pt-2 mt-2' : 'pt-2.5 mt-2.5'
+                }`}>
+                  <span className={`font-mono text-[var(--gs-white)] ${
+                    viewMode === 'small' ? 'text-[10px]' : 'text-[11px]'
+                  }`}>
+                    {priceDisplay}
+                  </span>
+                  <span className={`font-mono ${
+                    viewMode === 'small' ? 'text-[9px]' : 'text-[10px]'
+                  } ${
+                    isProfit ? 'text-[var(--gs-profit)]' :
+                    isLoss ? 'text-[var(--gs-loss)]' :
+                    'text-[var(--gs-gray-3)]'
+                  }`}>
+                    {pnlDisplay}
+                  </span>
+                </div>
+
+                {/* Mint Number - Bottom subtle */}
+                <p
+                  className={`font-mono truncate mt-1 ${
+                    viewMode === 'small' ? 'text-[8px]' : 'text-[9px]'
+                  }`}
+                  style={{ color: `${rarityColor}99` }}
+                  title={mintDisplay}
+                >
+                  {mintDisplay}
+                </p>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* List View */}
       {viewMode === 'list' && (
         <div className="flex flex-col gap-2">
-          {filteredAndSortedNFTs.map((nft) => (
-            <div
-              key={`${nft.chain}-${nft.tokenId}`}
-              className="bg-black/30 border border-[#64ffff]/20 rounded-lg overflow-hidden hover:border-[#64ffff]/50 hover:shadow-lg hover:shadow-[#64ffff]/10 transition-all cursor-pointer flex items-center gap-4 p-3"
-              onClick={() => handleNFTClick(nft)}
-            >
-              {/* Thumbnail */}
-              <div className="w-16 h-16 flex-shrink-0 relative bg-black/50 rounded-lg overflow-hidden">
-                {nft.image ? (
-                  <Image
-                    src={nft.image}
-                    alt={nft.name}
-                    fill
-                    className="object-cover"
-                    loading="lazy"
-                    sizes="64px"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
+          {filteredAndSortedNFTs.map((nft) => {
+            const rarityName = getRarityName(nft);
+            const rarityColor = getRarityColor(nft);
+            const itemClass = getItemClass(nft);
+            const { display: mintDisplay } = formatMintNumbers(nft);
+            const nameInitials = nft.name.split(' ').map(w => w[0]).join('').slice(0, 2);
+
+            // Calculate P&L
+            const hasPnL = nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0 && nft.floorPrice !== undefined;
+            const pnlPct = hasPnL ? ((nft.floorPrice! - nft.purchasePriceGun!) / nft.purchasePriceGun!) * 100 : null;
+            const isProfit = pnlPct !== null && pnlPct > 1;
+            const isLoss = pnlPct !== null && pnlPct < -1;
+            const priceGun = nft.floorPrice ?? nft.purchasePriceGun;
+
+            return (
+              <div
+                key={`${nft.chain}-${nft.tokenId}`}
+                className="group bg-[var(--gs-dark-3)] border border-white/[0.06] overflow-hidden hover:border-[var(--gs-lime)]/30 transition-all duration-300 cursor-pointer flex items-center gap-4 p-3"
+                onClick={() => handleNFTClick(nft)}
+              >
+                {/* Thumbnail */}
+                <div className="w-14 h-14 flex-shrink-0 relative bg-[var(--gs-dark-4)] overflow-hidden">
+                  {/* Rarity Badge */}
+                  <span
+                    className="absolute top-0.5 left-0.5 z-10 font-mono text-[6px] tracking-wide uppercase px-1 py-0.5 rounded-sm"
+                    style={{
+                      backgroundColor: `${rarityColor}20`,
+                      color: rarityColor,
                     }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-600">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+                  >
+                    {rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4)}
+                  </span>
+
+                  {nft.image ? (
+                    <Image
+                      src={nft.image}
+                      alt={nft.name}
+                      fill
+                      className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                      loading="lazy"
+                      sizes="56px"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="font-display text-lg font-bold text-[var(--gs-gray-1)]">
+                        {nameInitials}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-grow min-w-0">
+                  <p className="font-display font-semibold text-xs uppercase tracking-wide text-[var(--gs-white)] truncate" title={nft.name}>
+                    {nft.name}
+                  </p>
+                  <p className="font-mono text-[9px] uppercase tracking-wide text-[var(--gs-gray-3)] truncate">
+                    {itemClass !== 'Unknown' ? itemClass : nft.collection}
+                  </p>
+                </div>
+
+                {/* Mint Number */}
+                <div className="flex-shrink-0 text-right hidden sm:block">
+                  <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Mint</p>
+                  <p className="font-mono text-[10px] font-medium" style={{ color: rarityColor }}>
+                    {mintDisplay}
+                  </p>
+                </div>
+
+                {/* Quantity */}
+                {nft.quantity && nft.quantity > 1 && (
+                  <div className="flex-shrink-0 text-right hidden md:block">
+                    <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Qty</p>
+                    <p className="font-mono text-[10px] text-[var(--gs-purple)] font-bold">
+                      ×{nft.quantity}
+                    </p>
                   </div>
                 )}
-              </div>
 
-              {/* Info */}
-              <div className="flex-grow min-w-0">
-                <p className="font-semibold text-sm text-white truncate" title={nft.name}>
-                  {nft.name}
-                </p>
-                <p className="text-xs text-gray-400 truncate" title={nft.collection}>
-                  {nft.collection}
-                </p>
-              </div>
-
-              {/* Mint Number with rarity color */}
-              <div className="flex-shrink-0 text-right hidden sm:block">
-                <p className="text-xs text-gray-500">Mint</p>
-                {(() => {
-                  const { display, hasMore } = formatMintNumbers(nft);
-                  const rarityColor = getRarityColor(nft);
-                  return (
-                    <p className="text-sm font-medium" style={{ color: rarityColor }}>
-                      {display}{hasMore && <span className="text-gray-500 text-xs">, more...</span>}
-                    </p>
-                  );
-                })()}
-              </div>
-
-              {/* Quantity */}
-              {nft.quantity && nft.quantity > 1 && (
-                <div className="flex-shrink-0 text-right hidden md:block">
-                  <p className="text-xs text-gray-500">Qty</p>
-                  <p className="text-sm text-[#96aaff] font-semibold">
-                    ×{nft.quantity}
+                {/* Price */}
+                <div className="flex-shrink-0 text-right hidden lg:block min-w-[80px]">
+                  <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Price</p>
+                  <p className="font-mono text-[10px] text-[var(--gs-white)] font-medium">
+                    {priceGun !== undefined ? `${priceGun.toLocaleString()} GUN` : '—'}
                   </p>
                 </div>
-              )}
 
-              {/* Floor Price */}
-              {nft.floorPrice !== undefined && (
-                <div className="flex-shrink-0 text-right hidden lg:block">
-                  <p className="text-xs text-gray-500">Floor</p>
-                  <p className="text-sm text-[#beffd2] font-medium">
-                    {nft.floorPrice} GUN
+                {/* P&L */}
+                <div className="flex-shrink-0 text-right min-w-[50px]">
+                  <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">P&L</p>
+                  <p className={`font-mono text-[10px] font-medium ${
+                    isProfit ? 'text-[var(--gs-profit)]' :
+                    isLoss ? 'text-[var(--gs-loss)]' :
+                    'text-[var(--gs-gray-3)]'
+                  }`}>
+                    {pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—'}
                   </p>
                 </div>
-              )}
 
-              {/* Arrow */}
-              <div className="flex-shrink-0 text-gray-500">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                {/* Arrow */}
+                <div className="flex-shrink-0 text-[var(--gs-gray-3)] group-hover:text-[var(--gs-lime)] transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -949,22 +1008,22 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
       {paginationInfo && (
         <div className="mt-6 flex flex-col items-center gap-3">
           {/* Pagination Debug Info */}
-          <div className="text-xs text-gray-500 flex flex-wrap justify-center gap-x-4 gap-y-1">
+          <div className="font-mono text-xs text-[var(--gs-gray-3)] flex flex-wrap justify-center gap-x-4 gap-y-1">
             <span>
-              <span className="text-gray-600">totalOwnedCount:</span>{' '}
-              <span className="text-[#64ffff]">{paginationInfo.totalOwnedCount}</span>
+              <span className="text-[var(--gs-gray-4)]">totalOwnedCount:</span>{' '}
+              <span className="text-[var(--gs-lime)]">{paginationInfo.totalOwnedCount}</span>
             </span>
             <span>
-              <span className="text-gray-600">fetchedCount:</span>{' '}
-              <span className="text-[#beffd2]">{paginationInfo.fetchedCount}</span>
+              <span className="text-[var(--gs-gray-4)]">fetchedCount:</span>{' '}
+              <span className="text-[var(--gs-lime)]">{paginationInfo.fetchedCount}</span>
             </span>
             <span>
-              <span className="text-gray-600">pageSize:</span>{' '}
-              <span className="text-gray-400">{paginationInfo.pageSize}</span>
+              <span className="text-[var(--gs-gray-4)]">pageSize:</span>{' '}
+              <span className="text-[var(--gs-gray-4)]">{paginationInfo.pageSize}</span>
             </span>
             <span>
-              <span className="text-gray-600">pagesLoaded:</span>{' '}
-              <span className="text-gray-400">{paginationInfo.pagesLoaded}</span>
+              <span className="text-[var(--gs-gray-4)]">pagesLoaded:</span>{' '}
+              <span className="text-[var(--gs-gray-4)]">{paginationInfo.pagesLoaded}</span>
             </span>
           </div>
 
@@ -973,17 +1032,17 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             <button
               onClick={onLoadMore}
               disabled={paginationInfo.isLoadingMore}
-              className="px-6 py-3 bg-gradient-to-r from-[#64ffff]/20 to-[#96aaff]/20 text-[#64ffff] font-medium rounded-lg border border-[#64ffff]/30 hover:border-[#64ffff]/60 hover:from-[#64ffff]/30 hover:to-[#96aaff]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="font-body px-6 py-3 bg-gradient-to-r from-[var(--gs-lime)]/20 to-[var(--gs-purple)]/20 text-[var(--gs-lime)] font-medium rounded-lg border border-[var(--gs-lime)]/30 hover:border-[var(--gs-lime)]/60 hover:from-[var(--gs-lime)]/30 hover:to-[var(--gs-purple)]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {paginationInfo.isLoadingMore ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-[#64ffff]/30 border-t-[#64ffff] rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin"></div>
                   Loading...
                 </>
               ) : (
                 <>
                   Load More NFTs
-                  <span className="text-xs text-[#64ffff]/70">
+                  <span className="font-mono text-xs text-[var(--gs-lime)]/70">
                     ({paginationInfo.totalOwnedCount - paginationInfo.fetchedCount} remaining)
                   </span>
                 </>
@@ -993,7 +1052,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
           {/* All Loaded Message */}
           {!paginationInfo.hasMore && paginationInfo.totalOwnedCount > 0 && (
-            <p className="text-xs text-gray-500">
+            <p className="font-mono text-xs text-[var(--gs-gray-3)]">
               All {paginationInfo.totalOwnedCount} NFTs loaded
             </p>
           )}

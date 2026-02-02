@@ -1,916 +1,549 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { PortfolioHeader } from '@/components/header';
-import NFTGallery from '@/components/NFTGallery';
-import MarketplaceStats from '@/components/MarketplaceStats';
-import DebugPanel from '@/components/DebugPanel';
-import { WalletData, MarketplaceData, NFTPaginationInfo } from '@/lib/types';
-import { AvalancheService } from '@/lib/blockchain/avalanche';
-import { SolanaService } from '@/lib/blockchain/solana';
-import { CoinGeckoService } from '@/lib/api/coingecko';
-import { GameMarketplaceService } from '@/lib/api/marketplace';
-import { OpenSeaService } from '@/lib/api/opensea';
-import { NFT } from '@/lib/types';
-import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
-import { groupNFTsByMetadata } from '@/lib/utils/nftGrouping';
-import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey } from '@/lib/utils/nftCache';
-import Navbar from '@/components/Navbar';
-import AccountPanel from '@/components/AccountPanel';
-import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
+import { useEffect, useRef } from 'react';
+import Link from 'next/link';
+import Logo from '@/components/Logo';
+import Footer from '@/components/Footer';
 
-// Wrapper component to provide Suspense boundary for useSearchParams
-function HomeContent() {
-  const searchParams = useSearchParams();
-  const debugMode = searchParams.get('debug') === '1';
+// Color swatches data
+const colorSwatches = [
+  { name: 'GS Lime', hex: '#A6F700', color: '#A6F700' },
+  { name: 'GS Indigo', hex: '#6D5BFF', color: '#6D5BFF' },
+  { name: 'GS Black', hex: '#0A0A0A', color: '#0A0A0A', border: true },
+  { name: 'GS White', hex: '#F0F0F0', color: '#F0F0F0' },
+  { name: 'Profit', hex: '#00FF88', color: '#00FF88' },
+  { name: 'Loss', hex: '#FF4444', color: '#FF4444' },
+  { name: 'Dark Surface', hex: '#161616', color: '#161616', border: true },
+  { name: 'Card Surface', hex: '#242424', color: '#242424', border: true },
+];
 
-  return <HomeInner debugMode={debugMode} />;
-}
+// Features data
+const features = [
+  {
+    icon: '📊',
+    title: 'Portfolio Analytics',
+    desc: 'Real-time portfolio valuation with GUN token price tracking, unrealized P&L calculations, and cost basis analysis across all your OTG assets.',
+  },
+  {
+    icon: '🔗',
+    title: 'Cross-Chain',
+    desc: 'Unified view of your NFT holdings across GunzChain (Avalanche L1) and Solana. One wallet, one dashboard, complete visibility.',
+  },
+  {
+    icon: '🔍',
+    title: 'Acquisition Intel',
+    desc: 'Automatic detection of how each NFT was acquired — HEX decode, marketplace purchase, or transfer — with original GUN cost basis.',
+  },
+  {
+    icon: '🔫',
+    title: 'Weapon Lab',
+    desc: 'Smart matching of compatible weapon modifications, skins, and attachments based on model codes, not just name matching.',
+  },
+  {
+    icon: '🏷️',
+    title: 'Rarity Tiers',
+    desc: 'Dual rarity system showing both display rarity and functional tier. Classified items flagged as locked special editions.',
+  },
+  {
+    icon: '⚡',
+    title: 'Live Pricing',
+    desc: 'GUN token price via CoinGecko, with historical price tracking for accurate cost basis calculations at time of acquisition.',
+  },
+];
 
-// Main export wrapped in Suspense
-export default function Home() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-black" />}>
-      <HomeContent />
-    </Suspense>
-  );
-}
+// Mock NFT data for dashboard preview
+const mockNFTs = [
+  { name: 'Vulture', type: 'Assault Rifle', rarity: 'Epic', price: '1,200 GUN', pnl: '+23.4%', profit: true },
+  { name: 'Kestrel', type: 'Sniper Rifle', rarity: 'Legendary', price: '3,400 GUN', pnl: '+8.7%', profit: true },
+  { name: 'Vulture Solana', type: 'Special Edition', rarity: 'Classified', price: '— GUN', pnl: 'Locked', locked: true },
+  { name: 'Reflex Sight', type: 'Weapon Attachment', rarity: 'Rare', price: '400 GUN', pnl: '-5.2%', profit: false },
+];
 
-// Batch size for parallel NFT enrichment
-// Increased from 5 to 10 now that RPC timeout is 45s and OpenSea uses API routes
-const ENRICHMENT_BATCH_SIZE = 10;
+export default function HomePage() {
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-function HomeInner({ debugMode }: { debugMode: boolean }) {
-  const [walletData, setWalletData] = useState<WalletData | null>(null);
-  const [marketplaceData, setMarketplaceData] = useState<MarketplaceData | null>(null);
-  const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
-  const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
-  const [searchAddress, setSearchAddress] = useState('');
-  const [enrichingNFTs, setEnrichingNFTs] = useState(false);
-  const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
-
-  // NFT Pagination state
-  const [nftPagination, setNftPagination] = useState<NFTPaginationInfo>({
-    totalOwnedCount: 0,
-    fetchedCount: 0,
-    pageSize: 50,
-    pagesLoaded: 0,
-    hasMore: false,
-    isLoadingMore: false,
-  });
-
-  // Ref to track if enrichment should be cancelled
-  const enrichmentCancelledRef = useRef(false);
-
-  // Track if initial portfolio data has loaded (for "Calculating..." state)
-  // Once set to false, stays false until new wallet search
-  const [isPortfolioInitializing, setIsPortfolioInitializing] = useState(true);
-
-  // Single source of truth for portfolio calculations
-  const portfolioResult: PortfolioCalcResult | null = useMemo(() => {
-    if (!walletData) return null;
-    return calcPortfolio({
-      walletData,
-      gunPrice,
-      totalOwnedNftCount: nftPagination.totalOwnedCount,
-    });
-  }, [walletData, gunPrice, nftPagination.totalOwnedCount]);
-
-  // Transition out of initializing state when we have valid NFT price data OR after timeout
-  // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
+  // Setup intersection observer for scroll animations
   useEffect(() => {
-    if (!isPortfolioInitializing) return;
-    if (!portfolioResult || !gunPrice || gunPrice <= 0) return;
-
-    // If we have NFT price data, transition immediately
-    if (portfolioResult.nftsWithPrice > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarded one-time transition
-      setIsPortfolioInitializing(false);
-      return;
-    }
-
-    // If no NFTs, transition immediately (nothing to calculate)
-    if (portfolioResult.nftCount === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarded one-time transition
-      setIsPortfolioInitializing(false);
-      return;
-    }
-
-    // Otherwise, wait for enrichment with a timeout (max 10 seconds)
-    const timeoutId = setTimeout(() => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Timeout-based transition
-      setIsPortfolioInitializing(false);
-    }, 10000);
-
-    return () => clearTimeout(timeoutId);
-  }, [isPortfolioInitializing, portfolioResult, gunPrice]);
-
-  // Helper to add timeout to promises
-  const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
-    return Promise.race([
-      promise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))
-    ]);
-  };
-
-  // Process NFTs in batches for better performance
-  const processBatch = async <T, R>(
-    items: T[],
-    batchSize: number,
-    processor: (item: T) => Promise<R>
-  ): Promise<R[]> => {
-    const results: R[] = [];
-
-    for (let i = 0; i < items.length; i += batchSize) {
-      // Check if cancelled
-      if (enrichmentCancelledRef.current) break;
-
-      const batch = items.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map(processor));
-      results.push(...batchResults);
-    }
-
-    return results;
-  };
-
-  // Enrich a single NFT with caching
-  // IMPORTANT: Only caches when acquisition data is meaningful to prevent blocking future enrichment
-  const enrichSingleNFT = async (
-    nft: NFT,
-    walletAddress: string,
-    nftContractAddress: string,
-    avalancheService: AvalancheService,
-    marketplaceService: GameMarketplaceService | null
-  ): Promise<NFT> => {
-    const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
-
-    // Check cache - but only use it if acquisition is complete
-    const cached = getCachedNFT(walletAddress, primaryTokenId);
-    if (cached && cached.hasAcquisition === true) {
-      // Complete cache entry - use it
-      return {
-        ...nft,
-        quantity: cached.quantity ?? nft.quantity ?? 1,
-        purchasePriceGun: cached.purchasePriceGun,
-        purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
-        transferredFrom: cached.transferredFrom,
-        isFreeTransfer: cached.isFreeTransfer,
-        acquisitionVenue: cached.acquisitionVenue,
-        acquisitionTxHash: cached.acquisitionTxHash,
-      };
-    }
-
-    // If cache exists but is incomplete, we still have quantity - use it as baseline
-    const cachedQuantity = cached?.quantity;
-
-    try {
-      // Fetch quantity and acquisition details in parallel
-      const [quantity, acquisition] = await Promise.all([
-        // For non-grouped NFTs, fetch quantity (ERC-1155 check)
-        // Skip if we already have cached quantity
-        cachedQuantity !== undefined
-          ? Promise.resolve(cachedQuantity)
-          : nft.tokenIds && nft.tokenIds.length > 1
-            ? Promise.resolve(nft.quantity || nft.tokenIds.length)
-            : withTimeout(
-                avalancheService.detectNFTQuantity(nftContractAddress, nft.tokenId, walletAddress),
-                3000
-              ),
-        // Fetch acquisition details (current holding)
-        // Timeout increased to 45s because blockchain RPC scans 13M+ blocks and can be very slow
-        withTimeout(
-          avalancheService.getNFTHoldingAcquisition(nftContractAddress, primaryTokenId, walletAddress),
-          45000
-        ),
-      ]);
-
-      // =========================================================================
-      // MARKETPLACE PRICE LOOKUP
-      // If acquisition shows a marketplace venue, query for the purchase price
-      // =========================================================================
-      let marketplacePriceGun: number | undefined;
-      let marketplacePurchaseDate: Date | undefined;
-
-      const isMarketplaceVenue = acquisition?.venue && [
-        'opensea',
-        'in_game_marketplace',
-        'otg_marketplace',
-      ].includes(acquisition.venue);
-
-      if (marketplaceService && isMarketplaceVenue && acquisition?.acquiredAtIso) {
-        try {
-          const acquiredAt = new Date(acquisition.acquiredAtIso);
-          // Query purchases within ±24 hours of blockchain acquisition
-          const purchases = await withTimeout(
-            marketplaceService.getPurchasesForWallet(walletAddress, {
-              fromDate: new Date(acquiredAt.getTime() - 24 * 60 * 60 * 1000),
-              toDate: new Date(acquiredAt.getTime() + 24 * 60 * 60 * 1000),
-              limit: 20,
-            }),
-            5000 // 5 second timeout
-          );
-
-          if (purchases && purchases.length > 0) {
-            // Find purchase matching this NFT's tokenId
-            const tokenId = nft.tokenIds?.[0] || nft.tokenId;
-            const matchingPurchases = purchases.filter(p => {
-              // tokenKey format: chain:contract:tokenId
-              const parts = p.tokenKey.split(':');
-              return parts[2] === tokenId;
-            });
-
-            if (matchingPurchases.length > 0) {
-              // Find closest timestamp match
-              const matchedPurchase = matchingPurchases.reduce((closest, p) => {
-                const closestDiff = Math.abs(new Date(closest.purchaseDateIso).getTime() - acquiredAt.getTime());
-                const pDiff = Math.abs(new Date(p.purchaseDateIso).getTime() - acquiredAt.getTime());
-                return pDiff < closestDiff ? p : closest;
-              });
-
-              marketplacePriceGun = matchedPurchase.priceGun;
-              marketplacePurchaseDate = new Date(matchedPurchase.purchaseDateIso);
-
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`[NFT Enrichment] Marketplace match for ${tokenId}: ${marketplacePriceGun} GUN`);
-              }
-            }
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
           }
-        } catch (marketplaceError) {
-          // Non-blocking - continue with blockchain data only
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(`[NFT Enrichment] Marketplace lookup failed for ${nft.tokenId}:`, marketplaceError);
-          }
-        }
-      }
-
-      // =========================================================================
-      // OPENSEA FALLBACK: If venue is OpenSea and we don't have a price yet,
-      // query OpenSea's sale events API directly
-      // =========================================================================
-      if (acquisition?.venue === 'opensea' && marketplacePriceGun === undefined) {
-        try {
-          const openSeaService = new OpenSeaService();
-          const tokenId = nft.tokenIds?.[0] || nft.tokenId;
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[NFT Enrichment] OpenSea fallback for token ${tokenId} (venue: opensea, no marketplace price)`);
-          }
-
-          const saleEvents = await withTimeout(
-            openSeaService.getSaleEvents(nftContractAddress, tokenId, 'avalanche'),
-            8000 // 8 second timeout for OpenSea API
-          );
-
-          if (saleEvents && saleEvents.length > 0) {
-            // Find the sale where the buyer matches the wallet address
-            const walletLower = walletAddress.toLowerCase();
-            const matchingSale = saleEvents.find(sale =>
-              sale.buyerAddress?.toLowerCase() === walletLower
-            );
-
-            if (matchingSale && matchingSale.priceGUN > 0) {
-              marketplacePriceGun = matchingSale.priceGUN;
-              marketplacePurchaseDate = matchingSale.eventTimestamp ? new Date(matchingSale.eventTimestamp) : undefined;
-              console.log(`[NFT Enrichment] OpenSea sale found for ${tokenId}: ${marketplacePriceGun} GUN`);
-            } else {
-              console.log(`[NFT Enrichment] No matching OpenSea sale for ${tokenId} (buyer: ${walletLower})`);
-            }
-          } else {
-            console.log(`[NFT Enrichment] No OpenSea sale events for token ${tokenId}`);
-          }
-        } catch (openSeaError) {
-          console.warn(`[NFT Enrichment] OpenSea sale lookup failed for ${nft.tokenId}:`, openSeaError);
-        }
-      }
-
-      // Determine if acquisition data is meaningful (not null/timeout result)
-      const hasAcquisitionData = acquisition !== null && (
-        acquisition.txHash !== undefined ||
-        (typeof acquisition.costGun === 'number' && Number.isFinite(acquisition.costGun)) ||
-        acquisition.acquiredAtIso !== undefined
-      );
-
-      // Map acquisition data to NFT fields
-      // Prefer marketplace price over blockchain cost (blockchain only has mint costs)
-      const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint;
-      const enrichedData = {
-        quantity: quantity ?? 1,
-        purchasePriceGun: marketplacePriceGun ?? acquisition?.costGun,
-        purchaseDate: marketplacePurchaseDate ?? (acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined),
-        transferredFrom: isFreeTransfer ? acquisition?.fromAddress : undefined,
-        isFreeTransfer,
-        acquisitionVenue: acquisition?.venue,
-        acquisitionTxHash: acquisition?.txHash ?? undefined,
-      };
-
-      // Only cache if acquisition is meaningful OR we're caching quantity-only for ERC-1155
-      if (hasAcquisitionData) {
-        // Full cache with acquisition data
-        const priceSource = marketplacePriceGun !== undefined ? 'marketplace' : (acquisition?.costGun !== undefined ? 'blockchain' : undefined);
-        setCachedNFT(walletAddress, primaryTokenId, {
-          quantity: enrichedData.quantity,
-          purchasePriceGun: enrichedData.purchasePriceGun,
-          purchaseDate: enrichedData.purchaseDate?.toISOString(),
-          transferredFrom: enrichedData.transferredFrom,
-          isFreeTransfer: enrichedData.isFreeTransfer,
-          acquisitionVenue: enrichedData.acquisitionVenue,
-          acquisitionTxHash: enrichedData.acquisitionTxHash,
-          hasAcquisition: true,
-          hasMarketplacePrice: marketplacePriceGun !== undefined,
-          priceSource,
-          cachedAtIso: new Date().toISOString(),
         });
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[NFT Cache] Cached complete: ${primaryTokenId} (txHash: ${acquisition?.txHash?.slice(0, 10)}...)`);
-        }
-      } else if (quantity !== null && quantity !== undefined) {
-        // Quantity-only cache (incomplete) - allows retry for acquisition
-        setCachedNFT(walletAddress, primaryTokenId, {
-          quantity: enrichedData.quantity,
-          hasAcquisition: false,
-          cachedAtIso: new Date().toISOString(),
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[NFT Cache] Skipped acquisition cache (incomplete): ${primaryTokenId} - acquisition was ${acquisition === null ? 'null/timeout' : 'missing data'}`);
-        }
-      } else {
-        // Nothing meaningful to cache
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[NFT Cache] Skipped cache entirely: ${primaryTokenId} - no acquisition or quantity`);
-        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px',
       }
+    );
 
-      return {
-        ...nft,
-        ...enrichedData,
-      };
-    } catch (error) {
-      console.error(`Error enriching NFT ${nft.tokenId}:`, error);
-      return nft;
-    }
-  };
-
-  // Background enrichment function - updates NFTs progressively
-  const enrichNFTsInBackground = useCallback(async (
-    nfts: NFT[],
-    walletAddress: string,
-    avalancheService: AvalancheService,
-    marketplaceService: GameMarketplaceService | null,
-    updateCallback: (enrichedNFTs: NFT[]) => void
-  ) => {
-    console.log(`[NFT Enrichment] START - ${nfts.length} NFTs to process, marketplace: ${marketplaceService ? 'configured' : 'null'}`);
-    try {
-    // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
-    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
-    console.log(`[NFT Enrichment] Contract: ${nftContractAddress}`);
-    if (!nftContractAddress || nfts.length === 0) {
-      console.log(`[NFT Enrichment] SKIP - contract: ${nftContractAddress}, nfts: ${nfts.length}`);
-      return;
-    }
-
-    setEnrichingNFTs(true);
-    enrichmentCancelledRef.current = false;
-    console.log(`[NFT Enrichment] Step 1: Checking cache for ${nfts.length} NFTs`);
-
-    // Start with cached data applied immediately (even incomplete cache has quantity)
-    const nftsWithCache = nfts.map(nft => {
-      const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
-      const cached = getCachedNFT(walletAddress, primaryTokenId);
-      if (cached) {
-        return {
-          ...nft,
-          quantity: cached.quantity ?? nft.quantity ?? 1,
-          purchasePriceGun: cached.purchasePriceGun,
-          purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
-          transferredFrom: cached.transferredFrom,
-          isFreeTransfer: cached.isFreeTransfer,
-          acquisitionVenue: cached.acquisitionVenue,
-          acquisitionTxHash: cached.acquisitionTxHash,
-        };
-      }
-      return nft;
+    document.querySelectorAll('.observe').forEach((el) => {
+      observerRef.current?.observe(el);
     });
 
-    // Update immediately with cached data
-    console.log(`[NFT Enrichment] Step 2: Cache mapped, calling updateCallback`);
-    updateCallback(nftsWithCache);
-    console.log(`[NFT Enrichment] Step 3: Filtering NFTs that need enrichment`);
-
-    // Find NFTs that need enrichment:
-    // - No cache at all
-    // - Cache exists but hasAcquisition is false/undefined (incomplete)
-    // - Cache is incomplete AND older than INCOMPLETE_CACHE_STALE_MS
-    const nftsNeedingEnrichment = nftsWithCache.filter(nft => {
-      const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
-      const tokenKey = buildTokenKey('avalanche', nftContractAddress, primaryTokenId);
-      const { needsRetry, reason } = needsReEnrichment(walletAddress, tokenKey);
-
-      if (needsRetry && process.env.NODE_ENV === 'development' && reason !== 'no_cache') {
-        console.log(`[NFT Enrichment] Retrying ${primaryTokenId}: ${reason}`);
-      }
-
-      return needsRetry;
-    });
-
-    if (nftsNeedingEnrichment.length === 0) {
-      console.log(`[NFT Enrichment] All ${nfts.length} NFTs loaded from cache`);
-      setEnrichingNFTs(false);
-      return;
-    }
-
-    console.log(`[NFT Enrichment] ${nftsNeedingEnrichment.length}/${nfts.length} NFTs need enrichment`);
-
-    // Process in batches and update progressively
-    const enrichedResults = new Map<string, NFT>();
-    nftsWithCache.forEach(nft => {
-      const key = nft.tokenIds?.[0] || nft.tokenId;
-      enrichedResults.set(key, nft);
-    });
-
-    for (let i = 0; i < nftsNeedingEnrichment.length; i += ENRICHMENT_BATCH_SIZE) {
-      if (enrichmentCancelledRef.current) break;
-
-      const batch = nftsNeedingEnrichment.slice(i, i + ENRICHMENT_BATCH_SIZE);
-      console.log(`[NFT Enrichment] Processing batch ${i / ENRICHMENT_BATCH_SIZE + 1}: ${batch.map(n => n.tokenId).join(', ')}`);
-
-      const batchResults = await Promise.all(
-        batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService))
-      );
-
-      // Update results map and log enrichment results
-      batchResults.forEach(enrichedNFT => {
-        const key = enrichedNFT.tokenIds?.[0] || enrichedNFT.tokenId;
-        enrichedResults.set(key, enrichedNFT);
-        console.log(`[NFT Enrichment] ${key}: purchasePriceGun=${enrichedNFT.purchasePriceGun ?? 'undefined'}`);
-      });
-
-      // Reconstruct array in original order and update UI
-      if (!enrichmentCancelledRef.current) {
-        const updatedNFTs = nfts.map(nft => {
-          const key = nft.tokenIds?.[0] || nft.tokenId;
-          return enrichedResults.get(key) || nft;
-        });
-        updateCallback(updatedNFTs);
-      }
-    }
-
-    const withPrice = Array.from(enrichedResults.values()).filter(n => n.purchasePriceGun !== undefined).length;
-    console.log(`[NFT Enrichment] Complete: ${withPrice}/${nfts.length} NFTs have price data`);
-    setEnrichingNFTs(false);
-    } catch (enrichmentError) {
-      console.error(`[NFT Enrichment] FATAL ERROR:`, enrichmentError);
-      setEnrichingNFTs(false);
-    }
-  }, []);
-
-  // Load more NFTs (pagination)
-  const handleLoadMoreNFTs = useCallback(async () => {
-    if (!walletData || nftPagination.isLoadingMore || !nftPagination.hasMore) return;
-
-    setNftPagination(prev => ({ ...prev, isLoadingMore: true }));
-
-    try {
-      const avalancheService = new AvalancheService();
-      const startIndex = nftPagination.fetchedCount;
-
-      const result = await avalancheService.getNFTsPaginated(
-        walletData.address,
-        startIndex,
-        nftPagination.pageSize
-      );
-
-      if (result.nfts.length > 0) {
-        // Group new NFTs
-        const groupedNewNFTs = groupNFTsByMetadata(result.nfts);
-
-        // Merge with existing NFTs (avoid duplicates by tokenId)
-        const existingTokenIds = new Set(
-          walletData.avalanche.nfts.flatMap(nft => nft.tokenIds || [nft.tokenId])
-        );
-        const uniqueNewNFTs = groupedNewNFTs.filter(nft => {
-          const tokenIds = nft.tokenIds || [nft.tokenId];
-          return !tokenIds.some(id => existingTokenIds.has(id));
-        });
-
-        const mergedNFTs = [...walletData.avalanche.nfts, ...uniqueNewNFTs];
-
-        // Update wallet data with merged NFTs
-        setWalletData(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            avalanche: {
-              ...prev.avalanche,
-              nfts: mergedNFTs,
-            },
-          };
-        });
-
-        // Update pagination state
-        setNftPagination(prev => ({
-          ...prev,
-          fetchedCount: prev.fetchedCount + result.nfts.length,
-          pagesLoaded: prev.pagesLoaded + 1,
-          hasMore: result.hasMore,
-          isLoadingMore: false,
-        }));
-
-        // Start background enrichment for new NFTs
-        const paginationMarketplaceService = new GameMarketplaceService();
-        const paginationMarketplaceConfigured = paginationMarketplaceService.isConfigured();
-
-        enrichNFTsInBackground(
-          uniqueNewNFTs,
-          walletData.address,
-          avalancheService,
-          paginationMarketplaceConfigured ? paginationMarketplaceService : null,
-          (enrichedNFTs: NFT[]) => {
-            setWalletData(prev => {
-              if (!prev) return prev;
-              // Merge enriched NFTs back
-              const existingNFTs = prev.avalanche.nfts;
-              const enrichedMap = new Map(
-                enrichedNFTs.map(nft => [nft.tokenIds?.[0] || nft.tokenId, nft])
-              );
-              const updatedNFTs = existingNFTs.map(nft => {
-                const key = nft.tokenIds?.[0] || nft.tokenId;
-                return enrichedMap.get(key) || nft;
-              });
-              return {
-                ...prev,
-                avalanche: {
-                  ...prev.avalanche,
-                  nfts: updatedNFTs,
-                },
-              };
-            });
-          }
-        );
-      } else {
-        setNftPagination(prev => ({
-          ...prev,
-          hasMore: false,
-          isLoadingMore: false,
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading more NFTs:', error);
-      setNftPagination(prev => ({ ...prev, isLoadingMore: false }));
-    }
-  }, [walletData, nftPagination, enrichNFTsInBackground]);
-
-  const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
-    // Cancel any ongoing enrichment
-    enrichmentCancelledRef.current = true;
-
-    // Reset portfolio states for new search
-    setIsPortfolioInitializing(true);
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const avalancheService = new AvalancheService();
-      const solanaService = new SolanaService();
-      const coinGeckoService = new CoinGeckoService();
-      const marketplaceService = new GameMarketplaceService();
-
-      // Detect network and wallet type
-      // Note: RPC URL is server-side only, client uses hardcoded fallback
-      const rpcUrl = 'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
-      const networkDetector = new NetworkDetector(rpcUrl);
-
-      // Fetch basic data in parallel (using paginated NFT fetch)
-      const [
-        avalancheToken,
-        avalancheNFTsResult,
-        solanaToken,
-        solanaNFTs,
-        priceData,
-        marketplace,
-        detectedNetworkInfo,
-        detectedWalletType,
-      ] = await Promise.all([
-        avalancheService.getGunTokenBalance(address),
-        avalancheService.getNFTsPaginated(address, 0, 50), // First page
-        solanaService.getGunTokenBalance(address),
-        solanaService.getNFTs(address),
-        coinGeckoService.getGunTokenPrice(),
-        marketplaceService.getMarketplaceData(),
-        networkDetector.getNetworkInfo(),
-        networkDetector.detectWalletType(address),
-      ]);
-
-      // Group NFTs by metadata to consolidate duplicates
-      const groupedAvalancheNFTs = groupNFTsByMetadata(avalancheNFTsResult.nfts);
-      const groupedSolanaNFTs = groupNFTsByMetadata(solanaNFTs);
-
-      // Update pagination state
-      setNftPagination({
-        totalOwnedCount: avalancheNFTsResult.totalCount,
-        fetchedCount: avalancheNFTsResult.nfts.length,
-        pageSize: 50,
-        pagesLoaded: 1,
-        hasMore: avalancheNFTsResult.hasMore,
-        isLoadingMore: false,
-      });
-
-      const price = priceData?.gunTokenPrice;
-      if (price) {
-        setGunPrice(price);
-      }
-
-      // Set network info and wallet type
-      setNetworkInfo(detectedNetworkInfo);
-      setWalletType(detectedWalletType);
-
-      // totalValue is derived from calcPortfolio (portfolioResult.totalUsd)
-      // No ad-hoc arithmetic here - this value is just a placeholder for the WalletData type
-      const initialData: WalletData = {
-        address,
-        avalanche: {
-          gunToken: avalancheToken,
-          nfts: groupedAvalancheNFTs,
-        },
-        solana: {
-          gunToken: solanaToken,
-          nfts: groupedSolanaNFTs,
-        },
-        totalValue: 0, // Calculated via calcPortfolio
-        lastUpdated: new Date(),
-      };
-
-      setWalletData(initialData);
-      setMarketplaceData(marketplace);
-      setLoading(false);
-
-      // Start background enrichment for Avalanche NFTs
-      // Reuse existing marketplace service (will gracefully handle unconfigured state)
-      const marketplaceConfigured = marketplaceService.isConfigured();
-
-      enrichNFTsInBackground(
-        groupedAvalancheNFTs,
-        address,
-        avalancheService,
-        marketplaceConfigured ? marketplaceService : null,
-        (enrichedNFTs) => {
-          setWalletData(prev => {
-            if (!prev || prev.address !== address) return prev;
-            return {
-              ...prev,
-              avalanche: {
-                ...prev.avalanche,
-                nfts: enrichedNFTs,
-              },
-            };
-          });
-        }
-      );
-
-      // Fetch collection floor price in background and apply to all NFTs
-      // This enables Value/P&L sorting in the gallery
-      const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
-      if (nftContractAddress) {
-        const openSeaService = new OpenSeaService();
-        openSeaService.getNFTFloorPrice(nftContractAddress, 'avalanche')
-          .then(floorPrice => {
-            if (floorPrice !== null && floorPrice > 0) {
-              setWalletData(prev => {
-                if (!prev || prev.address !== address) return prev;
-                // Apply collection floor price to all NFTs that don't already have one
-                const nftsWithFloor = prev.avalanche.nfts.map(nft => ({
-                  ...nft,
-                  floorPrice: nft.floorPrice ?? floorPrice,
-                }));
-                return {
-                  ...prev,
-                  avalanche: {
-                    ...prev.avalanche,
-                    nfts: nftsWithFloor,
-                  },
-                };
-              });
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`[Floor Price] Applied collection floor: ${floorPrice} GUN`);
-              }
-            }
-          })
-          .catch(err => {
-            // Non-critical - portfolio still works without floor price
-            console.warn('[Floor Price] Failed to fetch from OpenSea:', err);
-          });
-      }
-
-    } catch (err) {
-      console.error('Error fetching wallet data:', err);
-      setError('Failed to fetch wallet data. Please check the address and try again.');
-      setLoading(false);
-    }
-  };
-
-  // Handle wallet search
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchAddress.trim()) {
-      handleWalletSubmit(searchAddress.trim(), 'avalanche');
-    }
-  };
-
-  // Handle wallet connection from Dynamic
-  const handleWalletConnect = (address: string) => {
-    // Auto-load wallet data when user connects via Dynamic
-    handleWalletSubmit(address, 'avalanche');
-  };
-
-  // Handle wallet disconnect
-  const handleWalletDisconnect = () => {
-    enrichmentCancelledRef.current = true;
-    setWalletData(null);
-    setMarketplaceData(null);
-    setNetworkInfo(null);
-    setWalletType('unknown');
-    setGunPrice(undefined);
-    setError(null);
-    setSearchAddress('');
-    // Reset pagination
-    setNftPagination({
-      totalOwnedCount: 0,
-      fetchedCount: 0,
-      pageSize: 50,
-      pagesLoaded: 0,
-      hasMore: false,
-      isLoadingMore: false,
-    });
-  };
-
-  // Handle selecting a tracked address from account panel
-  const handleTrackedAddressSelect = useCallback((address: string) => {
-    setSearchAddress(address);
-    handleWalletSubmit(address, 'avalanche');
+    return () => observerRef.current?.disconnect();
   }, []);
 
   return (
-    <div className="min-h-screen bg-black">
-      <Navbar
-        onWalletConnect={handleWalletConnect}
-        onWalletDisconnect={handleWalletDisconnect}
-        onAccountClick={() => setIsAccountPanelOpen(true)}
-      />
+    <div className="min-h-screen bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">
+      {/* Background Effects */}
+      <div className="grid-bg" />
+      <div className="scanlines" />
 
-      {/* Account Panel */}
-      <AccountPanel
-        isOpen={isAccountPanelOpen}
-        onClose={() => setIsAccountPanelOpen(false)}
-        onAddressSelect={handleTrackedAddressSelect}
-      />
-      <div className="max-w-7xl mx-auto py-8 px-4">
-        <header className="text-center mb-8">
-          <p className="text-lg text-gray-400">
-            Track your GUN tokens and NFTs across GunzChain and Solana
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 lg:px-10 h-16 flex items-center justify-between glass-effect border-b border-white/[0.06]">
+        <Link href="/" className="flex items-center gap-2">
+          <Logo size="md" variant="icon" />
+          <span className="font-display font-bold text-lg tracking-wider uppercase">
+            GUNZ<span className="text-[var(--gs-purple)]">scope</span>
+          </span>
+        </Link>
+
+        <div className="hidden md:flex items-center gap-6">
+          <a href="#brand" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-lime)] relative after:absolute after:bottom-[-4px] after:left-0 after:right-0 after:h-[1px] after:bg-[var(--gs-lime)]">
+            Brand
+          </a>
+          <a href="#features" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
+            Features
+          </a>
+          <a href="#preview" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
+            Dashboard
+          </a>
+          <a href="#components" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
+            Components
+          </a>
+          <Link
+            href="/portfolio"
+            className="font-display font-semibold text-xs tracking-wider uppercase px-5 py-2 border border-[var(--gs-lime)] text-[var(--gs-lime)] hover:bg-[var(--gs-lime)] hover:text-[var(--gs-black)] transition-all clip-corner-sm"
+          >
+            Launch App
+          </Link>
+        </div>
+
+        {/* Mobile menu button */}
+        <Link
+          href="/portfolio"
+          className="md:hidden font-display font-semibold text-xs tracking-wider uppercase px-4 py-2 border border-[var(--gs-lime)] text-[var(--gs-lime)] clip-corner-sm"
+        >
+          Launch App
+        </Link>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex flex-col justify-center pt-32 pb-24 px-6 lg:px-10 overflow-hidden">
+        {/* Background glows */}
+        <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-[radial-gradient(circle,rgba(166,247,0,0.06)_0%,transparent_60%)] pointer-events-none" />
+        <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(109,91,255,0.05)_0%,transparent_60%)] pointer-events-none" />
+
+        {/* Crosshairs */}
+        <div className="crosshair absolute top-[20%] right-[15%]" />
+        <div className="crosshair absolute bottom-[25%] right-[30%]" />
+        <div className="crosshair crosshair-purple absolute top-[35%] right-[8%]" />
+
+        <div className="relative z-10 max-w-[900px]">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/5 mb-10 clip-corner-sm animate-fade-in-up">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse-dot" />
+            <span className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-lime)]">
+              Powered by GUNZ Protocol
+            </span>
+          </div>
+
+          {/* Title */}
+          <h1 className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-tight uppercase mb-6 animate-fade-in-up delay-100">
+            <span className="block text-[var(--gs-white)]">Your NFT</span>
+            <span className="block text-[var(--gs-purple-bright)]">Arsenal</span>
+            <span className="block text-[var(--gs-lime)] relative hero-underline">Intelligence</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-[560px] mb-10 animate-fade-in-up delay-200">
+            Track, analyze, and dominate your <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> NFT portfolio.
+            Real-time P&L, acquisition tracking, and weapon intelligence across{' '}
+            <strong className="text-[var(--gs-white)] font-medium">GunzChain</strong> and{' '}
+            <strong className="text-[var(--gs-white)] font-medium">Solana</strong>.
           </p>
-        </header>
 
-        {/* Search Bar - always visible when no wallet data */}
-        {!walletData && !loading && (
-          <div className="max-w-2xl mx-auto">
-            <form onSubmit={handleSearch} className="relative">
-              <div className="relative">
-                <svg
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  id="wallet-search-input"
-                  type="text"
-                  value={searchAddress}
-                  onChange={(e) => setSearchAddress(e.target.value)}
-                  placeholder="Search any wallet address..."
-                  className="w-full pl-12 pr-32 py-4 text-base bg-[#1a1a1a] border border-[#64ffff]/30 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#64ffff] focus:ring-1 focus:ring-[#64ffff] transition"
-                />
-                <button
-                  type="submit"
-                  disabled={!searchAddress.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2 bg-gradient-to-r from-[#64ffff] to-[#96aaff] text-black font-semibold text-sm rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Search
-                </button>
-              </div>
-            </form>
-            <p className="text-center text-gray-500 text-sm mt-3">
-              Enter a GUNZ Chain or Solana wallet address to view portfolio
-            </p>
+          {/* CTA Buttons */}
+          <div className="flex gap-4 animate-fade-in-up delay-300">
+            <Link
+              href="/portfolio"
+              className="font-display font-semibold text-sm tracking-wider uppercase px-8 py-3.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] hover:shadow-[0_8px_30px_rgba(166,247,0,0.2)] hover:-translate-y-0.5 transition-all clip-corner"
+            >
+              Connect Wallet
+            </Link>
+            <a
+              href="#preview"
+              className="font-display font-semibold text-sm tracking-wider uppercase px-8 py-3.5 bg-transparent text-[var(--gs-white-dim)] border border-[var(--gs-gray-1)] hover:border-[var(--gs-lime)] hover:text-[var(--gs-lime)] transition-all clip-corner"
+            >
+              View Demo
+            </a>
           </div>
-        )}
+        </div>
 
-        {error && (
-          <div className="max-w-2xl mx-auto mb-6 p-4 bg-[#181818] border border-[#ff003a] rounded-lg">
-            <p className="text-[#ff003a]">{error}</p>
+        {/* Hero Stats Bar */}
+        <div className="absolute bottom-0 left-0 right-0 flex flex-wrap border-t border-white/[0.06] glass-effect z-10">
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">GUN Price</span>
+            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">$<span className="text-[var(--gs-purple-bright)]">0.0847</span></span>
           </div>
-        )}
-
-        {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#64ffff]"></div>
-            <p className="mt-4 text-gray-400">Loading wallet data...</p>
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Portfolio Value</span>
+            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">$2,847.32</span>
           </div>
-        )}
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Unrealized P&L</span>
+            <span className="font-display text-2xl font-bold text-[var(--gs-profit)]">+$412.50</span>
+          </div>
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">NFTs Tracked</span>
+            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">154</span>
+          </div>
+        </div>
+      </section>
 
-        {walletData && !loading && (
-          <div className="space-y-6">
-            {/* Search another wallet - inline search bar */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => {
-                  enrichmentCancelledRef.current = true;
-                  setWalletData(null);
-                  setMarketplaceData(null);
-                  setNetworkInfo(null);
-                  setWalletType('unknown');
-                  setError(null);
-                  setSearchAddress('');
-                }}
-                className="text-[#64ffff] hover:text-[#96aaff] font-medium transition-colors text-sm flex items-center gap-1"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                New Search
-              </button>
-              <form onSubmit={handleSearch} className="flex-1 max-w-md">
-                <div className="relative">
-                  <svg
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    type="text"
-                    value={searchAddress}
-                    onChange={(e) => setSearchAddress(e.target.value)}
-                    placeholder="Search another wallet..."
-                    className="w-full pl-9 pr-20 py-2 text-sm bg-[#1a1a1a] border border-[#64ffff]/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#64ffff] transition"
+      {/* Brand System Section */}
+      <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="brand">
+        <div className="flex items-baseline gap-4 mb-10 observe">
+          <span className="section-number">01</span>
+          <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Brand System</h2>
+          <div className="section-line" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-16">
+          {/* Color Palette */}
+          <div className="relative p-10 bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden observe brand-card">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="w-2 h-[1px] bg-[var(--gs-purple)]" />
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Color Palette</span>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              {colorSwatches.map((swatch) => (
+                <div key={swatch.hex} className="flex flex-col gap-2">
+                  <div
+                    className="w-full h-16 rounded transition-transform hover:scale-105"
+                    style={{
+                      backgroundColor: swatch.color,
+                      border: swatch.border ? '1px solid rgba(255,255,255,0.1)' : undefined,
+                    }}
                   />
-                  <button
-                    type="submit"
-                    disabled={!searchAddress.trim()}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 bg-[#64ffff]/20 text-[#64ffff] text-xs font-medium rounded hover:bg-[#64ffff]/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Go
-                  </button>
+                  <span className="font-mono text-[10px] text-[var(--gs-gray-4)]">{swatch.name}</span>
+                  <span className="font-mono text-[10px] text-[var(--gs-gray-2)]">{swatch.hex}</span>
                 </div>
-              </form>
-              {enrichingNFTs && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <div className="w-3 h-3 border-2 border-[#64ffff]/30 border-t-[#64ffff] rounded-full animate-spin"></div>
-                  <span>Loading details...</span>
-                </div>
-              )}
+              ))}
+            </div>
+          </div>
+
+          {/* Typography */}
+          <div className="relative p-10 bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden observe brand-card">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="w-2 h-[1px] bg-[var(--gs-purple)]" />
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Typography Stack</span>
             </div>
 
-            <PortfolioHeader
-              walletData={walletData}
-              gunPrice={gunPrice}
-              networkInfo={networkInfo}
-              walletType={walletType}
-              totalOwnedCount={nftPagination.totalOwnedCount}
-              portfolioResult={portfolioResult}
-            />
+            <div className="mb-6">
+              <span className="font-mono text-[10px] tracking-wide uppercase text-[var(--gs-gray-3)] block mb-2">Display — Chakra Petch</span>
+              <span className="font-display font-bold text-4xl uppercase tracking-wide gradient-text-brand">GUNZscope</span>
+            </div>
 
-            <MarketplaceStats data={marketplaceData} />
+            <div className="mb-6">
+              <span className="font-mono text-[10px] tracking-wide uppercase text-[var(--gs-gray-3)] block mb-2">Body — Outfit</span>
+              <p className="font-body text-base font-light leading-relaxed text-[var(--gs-gray-4)] max-w-[500px]">
+                Track your Off The Grid NFT portfolio with real-time profit & loss calculations, acquisition intelligence, and cross-chain analytics.
+              </p>
+            </div>
 
-            <NFTGallery
-              nfts={walletData.avalanche.nfts}
-              chain="avalanche"
-              walletAddress={walletData.address}
-              paginationInfo={nftPagination}
-              onLoadMore={handleLoadMoreNFTs}
-            />
+            <div>
+              <span className="font-mono text-[10px] tracking-wide uppercase text-[var(--gs-gray-3)] block mb-2">Mono — JetBrains Mono</span>
+              <div className="font-mono text-sm text-[var(--gs-lime)] p-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded">
+                0xe4839c...ba4ae · 154 NFTs · +$412.50 (14.5%)
+              </div>
+            </div>
           </div>
-        )}
 
-        <footer className="mt-16 text-center text-gray-600 text-sm border-t border-[#64ffff]/10 pt-8">
-          <p className="uppercase tracking-wider text-xs">ZillaScope.xyz - Built for the GUNZILLA community</p>
-          <p className="mt-2 text-gray-700">Real-time blockchain portfolio tracking</p>
-        </footer>
-      </div>
+          {/* Rarity Badges */}
+          <div className="relative p-10 bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden observe brand-card">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="w-2 h-[1px] bg-[var(--gs-purple)]" />
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Rarity Badges</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(138,138,138,0.15)] text-[var(--gs-rarity-common)] border border-[rgba(138,138,138,0.2)]">Common</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(74,158,173,0.15)] text-[var(--gs-rarity-uncommon)] border border-[rgba(74,158,173,0.2)]">Uncommon</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(74,122,255,0.15)] text-[var(--gs-rarity-rare)] border border-[rgba(74,122,255,0.2)]">Rare</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(180,74,255,0.15)] text-[var(--gs-rarity-epic)] border border-[rgba(180,74,255,0.2)]">Epic</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(255,140,0,0.15)] text-[var(--gs-rarity-legendary)] border border-[rgba(255,140,0,0.2)]">Legendary</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(255,68,102,0.15)] text-[var(--gs-rarity-mythic)] border border-[rgba(255,68,102,0.2)]">Mythic</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(231,76,60,0.15)] text-[var(--gs-rarity-classified)] border border-[rgba(231,76,60,0.2)]">🔒 Classified</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(0,255,136,0.1)] text-[var(--gs-profit)] border border-[rgba(0,255,136,0.2)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)]" />
+                Profit
+              </span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(255,68,68,0.1)] text-[var(--gs-loss)] border border-[rgba(255,68,68,0.2)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-loss)]" />
+                Loss
+              </span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(255,170,0,0.1)] text-[var(--gs-warning)] border border-[rgba(255,170,0,0.2)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-warning)]" />
+                Pending
+              </span>
+            </div>
+          </div>
 
-      {/* Debug Panel - visible when ?debug=1 */}
-      <DebugPanel
-        portfolioResult={portfolioResult}
-        walletAddress={walletData?.address ?? null}
-        gunPrice={gunPrice}
-        isVisible={debugMode}
-      />
+          {/* Corner Cut System */}
+          <div className="relative p-10 bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden observe brand-card">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="w-2 h-[1px] bg-[var(--gs-purple)]" />
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Design Signature — Corner Cut</span>
+            </div>
+            <p className="text-sm text-[var(--gs-gray-4)] leading-relaxed mb-6">
+              The angled corner cut (clip-path) is GUNZscope&apos;s signature shape language,
+              inspired by the game&apos;s HEX loot boxes and cyberpunk aesthetics. Applied to
+              buttons, cards, badges, and containers at 6–10px cuts.
+            </p>
+            <div className="flex gap-4 items-center">
+              <div className="w-20 h-20 bg-[var(--gs-lime-glow)] border border-[var(--gs-lime)]/30 clip-corner-lg flex items-center justify-center">
+                <span className="font-mono text-[9px] text-[var(--gs-lime)]">12px</span>
+              </div>
+              <div className="w-[60px] h-[60px] bg-[var(--gs-lime-glow)] border border-[var(--gs-lime)]/30 clip-corner flex items-center justify-center">
+                <span className="font-mono text-[9px] text-[var(--gs-lime)]">8px</span>
+              </div>
+              <div className="w-10 h-10 bg-[var(--gs-lime-glow)] border border-[var(--gs-lime)]/30 clip-corner-sm flex items-center justify-center">
+                <span className="font-mono text-[8px] text-[var(--gs-lime)]">6px</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="features">
+        <div className="flex items-baseline gap-4 mb-10 observe">
+          <span className="section-number">02</span>
+          <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Core Features</h2>
+          <div className="section-line" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.04] border border-white/[0.06] observe">
+          {features.map((feature, index) => (
+            <div
+              key={index}
+              className="feature-card relative p-10 bg-[var(--gs-dark-1)] transition-all hover:bg-[var(--gs-dark-2)] group overflow-hidden"
+            >
+              <div className="w-10 h-10 border border-[var(--gs-gray-1)] flex items-center justify-center font-mono text-base text-[var(--gs-gray-3)] mb-6 transition-all group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm">
+                {feature.icon}
+              </div>
+              <h3 className="font-display font-semibold text-base uppercase tracking-wide text-[var(--gs-white)] mb-2">{feature.title}</h3>
+              <p className="font-body text-sm font-light leading-relaxed text-[var(--gs-gray-3)]">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Dashboard Preview Section */}
+      <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="preview">
+        <div className="flex items-baseline gap-4 mb-10 observe">
+          <span className="section-number">03</span>
+          <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Dashboard Preview</h2>
+          <div className="section-line" />
+        </div>
+
+        <div className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden observe preview-frame">
+          {/* Browser toolbar */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-black/30">
+            <div className="flex gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
+            </div>
+            <div className="font-mono text-[11px] text-[var(--gs-gray-3)] px-4 py-1 bg-[var(--gs-dark-3)] rounded border border-white/[0.06]">
+              gunzscope.xyz/portfolio
+            </div>
+            <div />
+          </div>
+
+          {/* Dashboard content */}
+          <div className="p-10">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-10">
+              <div>
+                <div className="font-display text-sm font-semibold uppercase tracking-wider text-[var(--gs-gray-3)] mb-1">Total Portfolio Value</div>
+                <div className="font-display text-4xl font-bold text-[var(--gs-white)]">$2,847<span className="text-xl text-[var(--gs-gray-4)]">.32</span></div>
+              </div>
+              <div className="font-mono text-sm text-[var(--gs-profit)] px-2.5 py-1 bg-[rgba(0,255,136,0.08)] border border-[rgba(0,255,136,0.15)] rounded">
+                ▲ +14.5%
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-[1px] bg-white/[0.04] border border-white/[0.06] mb-10">
+              <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">GUN Holdings</div>
+                <div className="font-display text-lg font-bold text-[var(--gs-lime)]">12,450</div>
+              </div>
+              <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">GUN Value</div>
+                <div className="font-display text-lg font-bold text-[var(--gs-white)]">$1,054.50</div>
+              </div>
+              <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">NFT Value</div>
+                <div className="font-display text-lg font-bold text-[var(--gs-purple)]">$1,792.82</div>
+              </div>
+              <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">Unrealized P&L</div>
+                <div className="font-display text-lg font-bold text-[var(--gs-profit)]">+$412.50</div>
+              </div>
+            </div>
+
+            {/* NFT Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {mockNFTs.map((nft, index) => (
+                <div
+                  key={index}
+                  className="bg-[var(--gs-dark-3)] border border-white/[0.06] p-4 transition-all hover:border-[var(--gs-lime)]/30 hover:-translate-y-0.5 group"
+                >
+                  <div className="w-full aspect-square bg-[var(--gs-dark-4)] mb-3 relative flex items-center justify-center opacity-70 group-hover:opacity-90 transition-opacity overflow-hidden">
+                    <span
+                      className={`absolute top-1.5 left-1.5 font-mono text-[8px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm ${
+                        nft.rarity === 'Epic' ? 'bg-[rgba(180,74,255,0.15)] text-[var(--gs-rarity-epic)] border border-[rgba(180,74,255,0.2)]' :
+                        nft.rarity === 'Legendary' ? 'bg-[rgba(255,140,0,0.15)] text-[var(--gs-rarity-legendary)] border border-[rgba(255,140,0,0.2)]' :
+                        nft.rarity === 'Classified' ? 'bg-[rgba(231,76,60,0.15)] text-[var(--gs-rarity-classified)] border border-[rgba(231,76,60,0.2)]' :
+                        'bg-[rgba(74,122,255,0.15)] text-[var(--gs-rarity-rare)] border border-[rgba(74,122,255,0.2)]'
+                      }`}
+                    >
+                      {nft.rarity === 'Classified' ? '🔒 Classified' : nft.rarity}
+                    </span>
+                    <span className="font-display text-3xl font-bold text-[var(--gs-gray-1)]">
+                      {nft.name.split(' ').map(w => w[0]).join('')}
+                    </span>
+                  </div>
+                  <div className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--gs-white)] mb-0.5 truncate">{nft.name}</div>
+                  <div className="font-mono text-[9px] uppercase tracking-wide text-[var(--gs-gray-3)] mb-3">{nft.type}</div>
+                  <div className="flex justify-between items-baseline pt-3 border-t border-white/[0.06]">
+                    <span className="font-mono text-[11px] text-[var(--gs-white)]">{nft.price}</span>
+                    <span className={`font-mono text-[10px] ${nft.locked ? 'text-[var(--gs-gray-3)]' : nft.profit ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
+                      {nft.pnl}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Components Section */}
+      <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="components">
+        <div className="flex items-baseline gap-4 mb-10 observe">
+          <span className="section-number">04</span>
+          <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Component Library</h2>
+          <div className="section-line" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* Buttons */}
+          <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-10 observe">
+            <div className="flex items-center gap-2 mb-6 component-label">
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Button Variants</span>
+            </div>
+            <div className="flex flex-wrap gap-4 items-center">
+              <button className="font-display font-semibold text-sm tracking-wider uppercase px-6 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] transition-all clip-corner">
+                Primary
+              </button>
+              <button className="font-display font-semibold text-sm tracking-wider uppercase px-6 py-3 bg-transparent text-[var(--gs-white-dim)] border border-[var(--gs-gray-1)] hover:border-[var(--gs-lime)] hover:text-[var(--gs-lime)] transition-all clip-corner">
+                Secondary
+              </button>
+              <button className="font-mono text-[11px] tracking-wide uppercase px-4 py-2 bg-transparent text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-all">
+                Ghost
+              </button>
+              <button className="font-display font-semibold text-xs tracking-wide uppercase px-5 py-2.5 bg-[rgba(255,68,68,0.1)] text-[var(--gs-loss)] border border-[rgba(255,68,68,0.3)] hover:bg-[rgba(255,68,68,0.2)] transition-all clip-corner">
+                Danger
+              </button>
+            </div>
+          </div>
+
+          {/* Status Badges */}
+          <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-10 observe">
+            <div className="flex items-center gap-2 mb-6 component-label">
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Status Badges</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(0,255,136,0.1)] text-[var(--gs-profit)] border border-[rgba(0,255,136,0.2)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)]" />
+                +14.5%
+              </span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(255,68,68,0.1)] text-[var(--gs-loss)] border border-[rgba(255,68,68,0.2)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-loss)]" />
+                -3.2%
+              </span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(255,170,0,0.1)] text-[var(--gs-warning)] border border-[rgba(255,170,0,0.2)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-warning)]" />
+                Syncing
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(166,247,0,0.1)] text-[var(--gs-lime)] border border-[rgba(166,247,0,0.2)]">GunzChain</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(153,69,255,0.1)] text-[#9945FF] border border-[rgba(153,69,255,0.2)]">Solana</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(109,91,255,0.1)] text-[var(--gs-purple)] border border-[rgba(109,91,255,0.2)]">Weapon</span>
+              <span className="font-mono text-[9px] tracking-wide uppercase px-2.5 py-1 rounded-sm bg-[rgba(255,140,0,0.1)] text-[#FF8C00] border border-[rgba(255,140,0,0.2)]">Skin</span>
+            </div>
+          </div>
+
+          {/* Stat Cards */}
+          <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-10 observe">
+            <div className="flex items-center gap-2 mb-6 component-label">
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Stat Cards</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 border-l-[var(--gs-gray-1)] hover:border-l-[var(--gs-lime)] transition-all">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">GUN Price</div>
+                <div className="font-display text-xl font-bold text-[var(--gs-lime)]">$0.0847</div>
+              </div>
+              <div className="p-4 bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 border-l-[var(--gs-gray-1)] hover:border-l-[var(--gs-lime)] transition-all">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">24h Volume</div>
+                <div className="font-display text-xl font-bold text-[var(--gs-purple)]">$1.2M</div>
+              </div>
+              <div className="p-4 bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 border-l-[var(--gs-gray-1)] hover:border-l-[var(--gs-lime)] transition-all">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Total NFTs</div>
+                <div className="font-display text-xl font-bold text-[var(--gs-white)]">154</div>
+              </div>
+              <div className="p-4 bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 border-l-[var(--gs-gray-1)] hover:border-l-[var(--gs-lime)] transition-all">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Unrealized</div>
+                <div className="font-display text-xl font-bold text-[var(--gs-profit)]">+$412</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Loading States */}
+          <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-10 observe">
+            <div className="flex items-center gap-2 mb-6 component-label">
+              <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">Loading States</span>
+            </div>
+            <div className="flex gap-10 items-center">
+              {/* Progress bar */}
+              <div className="w-[200px] h-[3px] bg-[var(--gs-dark-4)] rounded-sm overflow-hidden">
+                <div className="h-full gradient-action rounded-sm animate-loader-pulse" />
+              </div>
+
+              {/* Spinner */}
+              <div className="w-8 h-8 border-2 border-[var(--gs-gray-1)] border-t-[var(--gs-lime)] rounded-full animate-spin" />
+
+              {/* Dots */}
+              <div className="flex gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-dot-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-dot-bounce" style={{ animationDelay: '0.2s' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-dot-bounce" style={{ animationDelay: '0.4s' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
