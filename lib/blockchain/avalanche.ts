@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { TokenBalance, NFT, NFTPageResult, AcquisitionVenue, MetadataSource, NFTMetadataDebug } from '../types';
+import { TokenBalance, NFT, NFTPageResult, AcquisitionVenue, MetadataSource, NFTMetadataDebug, NFTTypeSpec } from '../types';
 import { getCachedMetadata, setCachedMetadata } from '../utils/nftCache';
 
 // =============================================================================
@@ -138,6 +138,7 @@ interface ResolvedMetadata {
   source: MetadataSource;
   tokenURI?: string; // Raw tokenURI for debug
   error?: string; // Error message if resolution failed
+  typeSpec?: NFTTypeSpec; // Raw type_spec from metadata for functional tier detection
 }
 
 /**
@@ -191,10 +192,14 @@ function normalizeMetadataResponse(raw: Record<string, unknown>): {
   description?: string;
   image?: string;
   attributes?: Array<{ trait_type: string; value: string | number }>;
+  typeSpec?: NFTTypeSpec;
 } {
   // If `attributes` exists at top level, it's already standard format
   if (Array.isArray(raw.attributes)) {
-    return raw as any;
+    return {
+      ...(raw as any),
+      typeSpec: raw.type_spec as NFTTypeSpec | undefined,
+    };
   }
 
   // Check for nested `metadata` wrapper (metadata.gunzchain.io / Blockscout format)
@@ -206,15 +211,23 @@ function normalizeMetadataResponse(raw: Record<string, unknown>): {
       description: (meta.description as string) || (raw.description as string),
       image: (meta.image as string) || (raw.image_url as string) || (raw.image as string),
       attributes: Array.isArray(meta.attributes) ? meta.attributes : undefined,
+      typeSpec: (meta.type_spec || raw.type_spec) as NFTTypeSpec | undefined,
     };
   }
 
   // Fallback: use top-level image_url if image is missing
   if (!raw.image && raw.image_url) {
-    return { ...raw, image: raw.image_url } as any;
+    return {
+      ...(raw as any),
+      image: raw.image_url,
+      typeSpec: raw.type_spec as NFTTypeSpec | undefined,
+    } as any;
   }
 
-  return raw as any;
+  return {
+    ...(raw as any),
+    typeSpec: raw.type_spec as NFTTypeSpec | undefined,
+  };
 }
 
 /**
@@ -657,6 +670,7 @@ export class AvalancheService {
             chain: 'avalanche',
             traits,
             metadataDebug,
+            typeSpec: resolvedMeta.typeSpec,
           });
         } catch (error) {
           console.error(`Error fetching NFT at index ${i}:`, error);
