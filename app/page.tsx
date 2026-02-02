@@ -98,6 +98,9 @@ export default function HomePage() {
           <span className="font-display font-bold text-lg tracking-wider uppercase">
             GUNZ<span className="text-[var(--gs-purple)]">scope</span>
           </span>
+          <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] border border-[var(--gs-purple)]/30">
+            Alpha
+          </span>
         </Link>
 
         <div className="hidden md:flex items-center gap-6">

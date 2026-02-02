@@ -128,11 +128,13 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="relative">
-                <Logo size={36} className="transition-transform duration-300 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-[#64ffff]/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative transition-transform duration-300 group-hover:scale-105">
+                <Logo size="md" variant="full" />
+                <div className="absolute inset-0 bg-[var(--gs-lime)]/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
-              <span className="text-xl font-bold gradient-text hidden sm:block">ZILLASCOPE</span>
+              <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] border border-[var(--gs-purple)]/30">
+                Alpha
+              </span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -140,7 +142,7 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
               <div className="relative flex items-center bg-[#1a1a1a] rounded-full p-1 border border-white/10">
                 {/* Animated pill indicator */}
                 <div
-                  className="absolute h-[calc(100%-8px)] bg-[#2a2a2a] rounded-full pointer-events-none border border-[#64ffff]/30"
+                  className="absolute h-[calc(100%-8px)] bg-[#2a2a2a] rounded-full pointer-events-none border border-[var(--gs-lime)]/30"
                   style={{
                     left: `${indicatorStyle.left}px`,
                     width: `${indicatorStyle.width}px`,
@@ -169,7 +171,7 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
                         ref={(el) => { itemRefs.current[index] = el; }}
                         className={`relative px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 flex items-center gap-1 ${
                           activeDropdown === index
-                            ? 'text-[#64ffff]'
+                            ? 'text-[var(--gs-lime)]'
                             : 'text-gray-300 hover:text-white'
                         }`}
                       >
@@ -332,7 +334,7 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
                           <Link
                             key={subItem.label}
                             href={subItem.href}
-                            className="block px-4 py-2.5 text-sm text-gray-400 hover:text-[#64ffff] rounded-lg hover:bg-white/5 transition-colors"
+                            className="block px-4 py-2.5 text-sm text-gray-400 hover:text-[var(--gs-lime)] rounded-lg hover:bg-white/5 transition-colors"
                             onClick={() => {
                               setIsMobileMenuOpen(false);
                               setMobileExpandedItem(null);
