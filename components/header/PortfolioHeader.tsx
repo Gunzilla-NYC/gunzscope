@@ -7,6 +7,7 @@ import WalletIdentity from './WalletIdentity';
 import PortfolioGlanceCard from './PortfolioGlanceCard';
 import { addPortfolioSnapshot } from '@/lib/utils/portfolioHistory';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
+import { usePortfolioPnL } from '@/lib/hooks/usePortfolioPnL';
 
 interface PortfolioHeaderProps {
   walletData: WalletData;
@@ -90,6 +91,11 @@ export default function PortfolioHeader({
     };
   }, [walletData, gunPrice, totalOwnedCount, portfolioResult]);
 
+  // Fetch P&L data (runs in background, doesn't block initial render)
+  const { costBasis, coverage: pnlCoverage } = usePortfolioPnL(walletData.address, {
+    enabled: !!walletData.address && totalTokenValue > 0,
+  });
+
   // Add portfolio snapshot for history tracking
   useEffect(() => {
     if (walletData.address && totalTokenValue > 0) {
@@ -122,6 +128,7 @@ export default function PortfolioHeader({
             address={walletData.address}
             totalValue={totalTokenValue}
             breakdown={breakdown}
+            costBasis={costBasis ?? undefined}
           />
         </div>
       </div>
