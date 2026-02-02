@@ -4,106 +4,72 @@ import { useState, useEffect } from 'react';
 
 interface PnLLoadingIndicatorProps {
   isLoading: boolean;
-  className?: string;
 }
 
-/**
- * P&L calculation stages - shown sequentially to give users
- * feedback about what's happening during the slow calculation
- */
-const LOADING_STAGES = [
-  { message: 'Fetching acquisition data...', duration: 5000 },
-  { message: 'Querying historical prices...', duration: 8000 },
-  { message: 'Calculating cost basis...', duration: 5000 },
-  { message: 'Computing P&L...', duration: 3000 },
+const STAGES = [
+  'Fetching acquisition data...',
+  'Querying historical prices...',
+  'Calculating cost basis...',
+  'Computing P&L...',
 ];
 
 /**
- * Animated loading indicator for P&L calculation
- *
- * Shows staged progress messages to give users feedback
- * during the potentially long P&L calculation process.
+ * Animated loading indicator for P&L calculation.
+ * Shows staged progress messages during the slow calculation.
  */
-export default function PnLLoadingIndicator({
-  isLoading,
-  className = '',
-}: PnLLoadingIndicatorProps) {
+export default function PnLLoadingIndicator({ isLoading }: PnLLoadingIndicatorProps) {
   const [stageIndex, setStageIndex] = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
+  const [seconds, setSeconds] = useState(0);
 
-  // Reset and show when loading starts
+  // Reset on loading change
   useEffect(() => {
     if (isLoading) {
       setStageIndex(0);
-      setElapsedSeconds(0);
-      // Delay visibility slightly for smoother appearance
-      const showTimer = setTimeout(() => setIsVisible(true), 100);
-      return () => clearTimeout(showTimer);
-    } else {
-      setIsVisible(false);
+      setSeconds(0);
     }
   }, [isLoading]);
 
-  // Progress through stages
+  // Cycle through stages
   useEffect(() => {
-    if (!isLoading || !isVisible) return;
+    if (!isLoading) return;
 
-    const stage = LOADING_STAGES[stageIndex];
-    if (!stage) return;
+    const timer = setInterval(() => {
+      setStageIndex(prev => (prev < STAGES.length - 1 ? prev + 1 : prev));
+    }, 5000);
 
-    const timer = setTimeout(() => {
-      // Move to next stage, or loop back to last stage
-      setStageIndex((prev) =>
-        prev < LOADING_STAGES.length - 1 ? prev + 1 : prev
-      );
-    }, stage.duration);
+    return () => clearInterval(timer);
+  }, [isLoading]);
 
-    return () => clearTimeout(timer);
-  }, [isLoading, isVisible, stageIndex]);
-
-  // Track elapsed time
+  // Count seconds
   useEffect(() => {
-    if (!isLoading || !isVisible) return;
+    if (!isLoading) return;
 
-    const interval = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
+    const timer = setInterval(() => {
+      setSeconds(prev => prev + 1);
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [isLoading, isVisible]);
+    return () => clearInterval(timer);
+  }, [isLoading]);
 
-  if (!isLoading || !isVisible) return null;
-
-  const currentStage = LOADING_STAGES[stageIndex] || LOADING_STAGES[LOADING_STAGES.length - 1];
+  if (!isLoading) return null;
 
   return (
-    <div
-      className={`flex items-center justify-center gap-2 mt-2 ${className}`}
-      role="status"
-      aria-live="polite"
-    >
-      {/* Animated pulsing dot */}
+    <div className="flex items-center justify-center gap-2 mt-2">
+      {/* Pulsing dot */}
       <span className="relative flex h-2 w-2">
-        <span
-          className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#64ffff]/60"
-          style={{ animationDuration: '1.5s' }}
-        />
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#64ffff]/50" />
         <span className="relative inline-flex rounded-full h-2 w-2 bg-[#64ffff]" />
       </span>
 
-      {/* Stage message with fade transition */}
-      <span
-        className="text-[9px] text-white/50 transition-opacity duration-300"
-        key={stageIndex}
-      >
-        {currentStage.message}
+      {/* Stage message */}
+      <span className="text-[9px] text-white/50">
+        {STAGES[stageIndex]}
       </span>
 
-      {/* Elapsed time (show after 10 seconds) */}
-      {elapsedSeconds >= 10 && (
-        <span className="text-[9px] text-white/30 tabular-nums">
-          ({elapsedSeconds}s)
+      {/* Elapsed time after 10s */}
+      {seconds >= 10 && (
+        <span className="text-[9px] text-white/30">
+          ({seconds}s)
         </span>
       )}
     </div>
