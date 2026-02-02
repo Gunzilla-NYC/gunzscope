@@ -130,6 +130,7 @@ export default function PortfolioHeader({
             breakdown={breakdown}
             costBasis={costBasis ?? undefined}
             pnlLoading={pnlLoading}
+            pnlCoverage={pnlCoverage}
           />
         </div>
       </div>
