@@ -92,7 +92,7 @@ export default function PortfolioHeader({
   }, [walletData, gunPrice, totalOwnedCount, portfolioResult]);
 
   // Fetch P&L data (runs in background, doesn't block initial render)
-  const { costBasis, coverage: pnlCoverage } = usePortfolioPnL(walletData.address, {
+  const { costBasis, isLoading: pnlLoading, coverage: pnlCoverage } = usePortfolioPnL(walletData.address, {
     enabled: !!walletData.address && totalTokenValue > 0,
   });
 
@@ -129,6 +129,7 @@ export default function PortfolioHeader({
             totalValue={totalTokenValue}
             breakdown={breakdown}
             costBasis={costBasis ?? undefined}
+            pnlLoading={pnlLoading}
           />
         </div>
       </div>
