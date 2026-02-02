@@ -29,6 +29,16 @@ export interface NFTMetadataDebug {
   error?: string;              // Error message if resolution failed
 }
 
+// Raw metadata type_spec from GUNZ chain (used for functional tier detection)
+export interface NFTTypeSpec {
+  Item?: {
+    item_type?: string;    // e.g., "AssaultRifle", "None"
+    name?: string;         // e.g., "Vulture Legacy"
+    part?: string | null;
+    rarity?: string;       // Functional tier: "Standard", "Refined", "Elite", "Premium", "Classified"
+  };
+}
+
 export interface NFT {
   tokenId: string; // Primary token ID (first one if grouped)
   tokenIds?: string[]; // All token IDs if this represents multiple copies
@@ -54,6 +64,8 @@ export interface NFT {
   currentLowestListing?: number;
   currentHighestListing?: number;
   metadataDebug?: NFTMetadataDebug; // Debug info for metadata resolution
+  /** Raw type_spec from metadata - contains functional tier (rarity field differs from display rarity) */
+  typeSpec?: NFTTypeSpec;
 }
 
 export interface WalletData {
