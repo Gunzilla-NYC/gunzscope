@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Sparkline from '@/components/ui/Sparkline';
 import WaffleChart from '@/components/ui/WaffleChart';
+import PnLLoadingIndicator from '@/components/ui/PnLLoadingIndicator';
 import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
 
 interface PortfolioBreakdown {
@@ -213,11 +214,7 @@ export default function PortfolioGlanceCard({
           />
         </div>
         {/* P&L Status */}
-        {pnlLoading && (
-          <div className="text-[9px] text-white/40 italic mt-2 text-center">
-            Calculating P&L...
-          </div>
-        )}
+        <PnLLoadingIndicator isLoading={pnlLoading} />
         {!pnlLoading && pnlCoverage !== undefined && pnlCoverage < 0.5 && pnlCoverage > 0 && (
           <div className="text-[9px] text-[#ff6b6b]/70 mt-2 text-center">
             P&L partial ({Math.round(pnlCoverage * 100)}% coverage)
