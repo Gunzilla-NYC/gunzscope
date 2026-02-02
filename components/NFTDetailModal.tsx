@@ -50,6 +50,9 @@ import {
   type ResolvedAcquisitionData,
   type MetadataDebugData,
 } from '@/components/nft-detail';
+import { WeaponLabDrawer, LockedWeaponIndicator } from '@/components/weapon';
+import { isWeaponLocked, isWeapon as isWeaponLib, getFunctionalTier } from '@/lib/weapon';
+import TierBadge from '@/components/ui/TierBadge';
 
 // Rarity order from highest to lowest
 const RARITY_ORDER: Record<string, number> = {
@@ -522,8 +525,10 @@ function mergeAcquisitionIfBetter(
     };
   }
 
-  // Only update if incoming has better or equal score
-  if (incoming.qualityScore >= current.qualityScore) {
+  // Only update if incoming has STRICTLY better score
+  // This prevents overwriting good data with equal-score but potentially worse data
+  // (e.g., cache has PURCHASE with price, refresh returns equal score but different fields)
+  if (incoming.qualityScore > current.qualityScore) {
     return {
       result: incoming,
       wasUpdated: true,
@@ -589,6 +594,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const noCacheMode = searchParams.get('noCache') === '1';
   const [debugExpanded, setDebugExpanded] = useState(false);
   const [debugCopied, setDebugCopied] = useState(false);
+  const [isWeaponLabOpen, setIsWeaponLabOpen] = useState(false);
 
   // Ref to track fetch state and prevent duplicate fetches
   const fetchStateRef = useRef<{
@@ -2317,6 +2323,18 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     return findRelatedItems(nft, allNfts);
   }, [nft, allNfts]);
 
+  // Determine if this weapon can show the Weapon Lab
+  const weaponLabEligible = useMemo(() => {
+    if (!nft) return false;
+    if (!isWeaponLib(nft)) return false;
+    return !isWeaponLocked(nft);
+  }, [nft]);
+
+  const isLockedWeapon = useMemo(() => {
+    if (!nft) return false;
+    return isWeaponLib(nft) && isWeaponLocked(nft);
+  }, [nft]);
+
   // Check if this NFT is a weapon with related items
   const hasRelatedItems = nft && isWeapon(nft) && relatedItems.length > 0;
 
@@ -2544,6 +2562,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   <p className="text-[11px] text-white/60 mt-1">
                     Mint #{activeItem?.mintNumber} · Chain: {getChainDisplayName(nft.chain)}
                   </p>
+                  {nft.typeSpec?.Item?.rarity && (
+                    <TierBadge tier={getFunctionalTier(nft)} className="mt-2" />
+                  )}
                 </div>
               </div>
 
@@ -2853,6 +2874,30 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                         {/* ===== Traits Card ===== */}
                         <NFTDetailTraitsSection filteredTraits={filteredTraits} />
+
+                        {/* Armory Tab - only for modifiable weapons */}
+                        {weaponLabEligible && (
+                          <button
+                            onClick={() => setIsWeaponLabOpen(true)}
+                            className="mt-4 w-full px-4 py-3 rounded-lg
+                              bg-[#64ffff]/10 border border-[#64ffff]/30
+                              text-sm font-medium text-[#64ffff]
+                              hover:bg-[#64ffff]/20 transition-colors
+                              flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            </svg>
+                            Open Weapon Lab
+                          </button>
+                        )}
+
+                        {/* Locked Weapon Indicator */}
+                        {isLockedWeapon && (
+                          <div className="mt-4">
+                            <LockedWeaponIndicator />
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -3073,6 +3118,16 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           )}
         </div>
       </div>
+
+      {/* Weapon Lab Drawer */}
+      {nft && weaponLabEligible && (
+        <WeaponLabDrawer
+          isOpen={isWeaponLabOpen}
+          onClose={() => setIsWeaponLabOpen(false)}
+          weapon={nft}
+          inventory={allNfts || []}
+        />
+      )}
     </>
   );
 }
