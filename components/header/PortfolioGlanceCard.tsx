@@ -24,6 +24,7 @@ interface PortfolioGlanceCardProps {
   totalValue: number;
   breakdown: PortfolioBreakdown;
   costBasis?: CostBasis;
+  pnlLoading?: boolean;
   className?: string;
 }
 
@@ -67,6 +68,7 @@ export default function PortfolioGlanceCard({
   totalValue,
   breakdown,
   costBasis,
+  pnlLoading = false,
   className = '',
 }: PortfolioGlanceCardProps) {
   const [showPerformanceTooltip, setShowPerformanceTooltip] = useState(false);
@@ -208,6 +210,12 @@ export default function PortfolioGlanceCard({
             totalGunSpent={breakdown.totalGunSpent}
           />
         </div>
+        {/* P&L Status */}
+        {pnlLoading && (
+          <div className="text-[9px] text-white/40 italic mt-2 text-center">
+            Calculating P&L...
+          </div>
+        )}
       </div>
 
       {/* Status line - tertiary helper text */}
