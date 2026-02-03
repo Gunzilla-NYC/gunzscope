@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
@@ -49,6 +49,23 @@ const mockNFTs = [
 
 export default function HomePage() {
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const [gunPrice, setGunPrice] = useState<number | null>(null);
+
+  // Fetch GUN price on mount
+  useEffect(() => {
+    async function fetchPrice() {
+      try {
+        const res = await fetch('/api/price/gun');
+        if (res.ok) {
+          const data = await res.json();
+          setGunPrice(data.gunTokenPrice);
+        }
+      } catch (err) {
+        console.error('Failed to fetch GUN price:', err);
+      }
+    }
+    fetchPrice();
+  }, []);
 
   // Setup intersection observer for scroll animations
   useEffect(() => {
@@ -165,7 +182,13 @@ export default function HomePage() {
         <div className="absolute bottom-0 left-0 right-0 flex flex-wrap border-t border-white/[0.06] glass-effect z-10">
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
             <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">GUN Price</span>
-            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">$<span className="text-[var(--gs-purple-bright)]">0.0847</span></span>
+            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
+              {gunPrice !== null ? (
+                <>$<span className="text-[var(--gs-purple-bright)]">{gunPrice.toFixed(4)}</span></>
+              ) : (
+                <span className="text-[var(--gs-gray-3)]">—</span>
+              )}
+            </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
             <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Portfolio Value</span>
