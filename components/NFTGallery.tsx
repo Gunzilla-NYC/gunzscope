@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { buildTokenKey } from '@/lib/utils/nftCache';
-import { getSpecificItemType, isClassified } from '@/lib/nft/itemTypeUtils';
+import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 
 // Dynamic import for NFTDetailModal - only loaded when user clicks an NFT
 // This reduces initial bundle size as the modal has heavy dependencies
@@ -784,16 +784,6 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     {rarityName === 'Unknown' ? 'N/A' : rarityName}
                   </span>
 
-                  {/* Classified Badge - Below Rarity */}
-                  {isClassified(nft) && (
-                    <span className="absolute top-7 left-1.5 z-10 font-mono text-[7px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm border inline-flex items-center gap-0.5 bg-red-500/15 border-red-500/50 text-red-400">
-                      <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                      Classified
-                    </span>
-                  )}
-
                   {/* Quantity Badge - Top Right */}
                   {nft.quantity && nft.quantity > 1 && (
                     <span className="absolute top-1.5 right-1.5 z-10 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
@@ -851,18 +841,17 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     {priceDisplay}
                   </span>
                   {/* P&L: Show shimmer if enriching and no data yet */}
-                  {isEnriching && pnlPct === null && !isClassified(nft) ? (
+                  {isEnriching && pnlPct === null ? (
                     <span className={`skeleton-stat ${viewMode === 'small' ? 'w-8 h-3' : 'w-10 h-3.5'}`} />
                   ) : (
                     <span className={`font-mono ${
                       viewMode === 'small' ? 'text-[9px]' : 'text-[10px]'
                     } ${
-                      isClassified(nft) ? 'text-red-400' :
                       isProfit ? 'text-[var(--gs-profit)]' :
                       isLoss ? 'text-[var(--gs-loss)]' :
                       'text-[var(--gs-gray-3)]'
                     }`}>
-                      {isClassified(nft) ? 'Locked' : pnlDisplay}
+                      {pnlDisplay}
                     </span>
                   )}
                 </div>
@@ -928,15 +917,6 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     {rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4)}
                   </span>
 
-                  {/* Classified Lock Indicator */}
-                  {isClassified(nft) && (
-                    <span className="absolute bottom-0.5 left-0.5 z-10">
-                      <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </span>
-                  )}
-
                   {nft.image ? (
                     <Image
                       src={nft.image}
@@ -998,16 +978,15 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 {/* P&L */}
                 <div className="flex-shrink-0 text-right min-w-[50px]">
                   <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">P&L</p>
-                  {isEnriching && pnlPct === null && !isClassified(nft) ? (
+                  {isEnriching && pnlPct === null ? (
                     <span className="skeleton-stat w-10 h-3.5 mt-0.5" />
                   ) : (
                     <p className={`font-mono text-[10px] font-medium ${
-                      isClassified(nft) ? 'text-red-400' :
                       isProfit ? 'text-[var(--gs-profit)]' :
                       isLoss ? 'text-[var(--gs-loss)]' :
                       'text-[var(--gs-gray-3)]'
                     }`}>
-                      {isClassified(nft) ? 'Locked' : (pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—')}
+                      {pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—'}
                     </p>
                   )}
                 </div>
