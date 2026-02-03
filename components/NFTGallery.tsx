@@ -842,7 +842,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                   </span>
                   {/* P&L: Show shimmer if enriching and no data yet */}
                   {isEnriching && pnlPct === null ? (
-                    <span className={`skeleton-stat ${viewMode === 'small' ? 'w-8 h-3' : 'w-10 h-3.5'}`} />
+                    <span className={`skeleton-stat inline-block ${viewMode === 'small' ? 'w-8 h-3' : 'w-10 h-3.5'}`} />
                   ) : (
                     <span className={`font-mono ${
                       viewMode === 'small' ? 'text-[9px]' : 'text-[10px]'
@@ -979,7 +979,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 <div className="flex-shrink-0 text-right min-w-[50px]">
                   <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">P&L</p>
                   {isEnriching && pnlPct === null ? (
-                    <span className="skeleton-stat w-10 h-3.5 mt-0.5" />
+                    <span className="skeleton-stat inline-block w-10 h-3.5 mt-0.5" />
                   ) : (
                     <p className={`font-mono text-[10px] font-medium ${
                       isProfit ? 'text-[var(--gs-profit)]' :
