@@ -748,13 +748,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             const priceGun = nft.floorPrice ?? nft.purchasePriceGun;
             const priceDisplay = priceGun !== undefined ? `${priceGun.toLocaleString()} GUN` : '— GUN';
 
-            // P&L display
-            let pnlDisplay = '';
-            if (pnlPct !== null) {
-              pnlDisplay = `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`;
-            } else if (nft.purchasePriceGun === undefined && nft.floorPrice === undefined) {
-              pnlDisplay = '—';
-            }
+            // P&L display - show percentage if calculable, otherwise "—"
+            const pnlDisplay = pnlPct !== null
+              ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`
+              : '—';
 
             return (
               <div
