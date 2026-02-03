@@ -241,11 +241,15 @@ export default function WalletIdentity({
             </code>
             <button
               onClick={handleCopyAddress}
-              className="p-2 text-white/40 hover:text-[#64ffff] hover:bg-white/5 rounded-lg transition flex-shrink-0"
-              title="Copy address"
+              className={`p-2 rounded-lg transition-all duration-200 flex-shrink-0 ${
+                copied
+                  ? 'bg-[var(--gs-profit)]/20 text-[var(--gs-profit)]'
+                  : 'text-white/40 hover:text-[#64ffff] hover:bg-white/5'
+              }`}
+              aria-label={copied ? 'Copied!' : 'Copy wallet address'}
             >
               {copied ? (
-                <svg className="w-4 h-4 text-[#beffd2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               ) : (
@@ -341,11 +345,15 @@ export default function WalletIdentity({
           </span>
           <button
             onClick={handleCopyAddress}
-            className="p-1 text-white/40 hover:text-[#64ffff] hover:bg-white/5 rounded transition"
-            title="Copy address"
+            className={`p-1.5 rounded transition-all duration-200 ${
+              copied
+                ? 'bg-[var(--gs-profit)]/20 text-[var(--gs-profit)]'
+                : 'text-white/40 hover:text-[#64ffff] hover:bg-white/5'
+            }`}
+            aria-label={copied ? 'Copied!' : 'Copy wallet address'}
           >
             {copied ? (
-              <svg className="w-4 h-4 text-[#beffd2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             ) : (
