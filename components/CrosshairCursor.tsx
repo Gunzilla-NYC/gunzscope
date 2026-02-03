@@ -63,11 +63,13 @@ export default function CrosshairCursor() {
 
   return (
     <div
-      className="crosshair crosshair-interactive pointer-events-none fixed z-[9999] transition-opacity duration-300"
+      className="crosshair crosshair-interactive pointer-events-none transition-opacity duration-300"
       style={{
+        position: 'fixed',
         left: smoothPosition.x - 12,
         top: smoothPosition.y - 12,
         opacity: 0.3,
+        zIndex: 9999,
       }}
       aria-hidden="true"
     />
