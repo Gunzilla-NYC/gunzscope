@@ -60,21 +60,7 @@ export default function PortfolioSummaryBar({
   const totalValue = portfolioResult?.totalUsd ?? 0;
   const gunHoldings = portfolioResult?.totalGunBalance ?? 0;
   const gunValue = portfolioResult?.tokensUsd ?? 0;
-
-  // NFT value from floor prices (not purchase prices)
-  const nftFloorValue = useMemo(() => {
-    let total = 0;
-    for (const nft of nfts) {
-      const quantity = nft.quantity || 1;
-      if (nft.floorPrice !== undefined && nft.floorPrice > 0) {
-        total += nft.floorPrice * quantity;
-      }
-    }
-    return gunPrice ? total * gunPrice : 0;
-  }, [nfts, gunPrice]);
-
-  // Recalculate total with floor-based NFT value
-  const adjustedTotalValue = gunValue + nftFloorValue;
+  const nftValue = portfolioResult?.nftsUsd ?? 0;
 
   const isProfit = totalPnLPct !== null && totalPnLPct > 1;
   const isLoss = totalPnLPct !== null && totalPnLPct < -1;
@@ -102,7 +88,7 @@ export default function PortfolioSummaryBar({
             </div>
           ) : (
             <p className="font-display text-4xl font-bold text-[var(--gs-white)]">
-              ${formatUsd(adjustedTotalValue > 0 ? adjustedTotalValue : totalValue)}
+              ${formatUsd(totalValue)}
             </p>
           )}
         </div>
@@ -163,7 +149,7 @@ export default function PortfolioSummaryBar({
             NFT Value
           </p>
           <p className="font-mono text-lg font-semibold text-[var(--gs-white)]">
-            {nftFloorValue > 0 ? `$${formatUsd(nftFloorValue)}` : '—'}
+            {nftValue > 0 ? `$${formatUsd(nftValue)}` : '—'}
           </p>
         </div>
 
