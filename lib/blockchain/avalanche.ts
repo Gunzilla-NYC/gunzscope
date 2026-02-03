@@ -491,7 +491,9 @@ export class AvalancheService {
   private provider: ethers.JsonRpcProvider;
 
   constructor() {
-    const rpcUrl = process.env.NEXT_PUBLIC_AVALANCHE_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc';
+    // GunzChain Mainnet RPC (Chain ID: 43419)
+    const rpcUrl = process.env.NEXT_PUBLIC_AVALANCHE_RPC_URL ||
+      'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
   }
 
