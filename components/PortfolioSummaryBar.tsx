@@ -80,7 +80,7 @@ export default function PortfolioSummaryBar({
     <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden">
       {/* Top Section - Total Value */}
       <div className="p-6 pb-4 flex justify-between items-start">
-        <div>
+        <div aria-live="polite" aria-busy={isInitializing}>
           <p className="font-mono text-[10px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
             Total Portfolio Value
           </p>
@@ -89,7 +89,7 @@ export default function PortfolioSummaryBar({
               <span className="font-display text-4xl font-bold text-[var(--gs-gray-3)]">
                 Calculating
               </span>
-              <span className="flex gap-0.5">
+              <span className="flex gap-0.5" aria-hidden="true">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-bounce" style={{ animationDelay: '0ms', animationDuration: '600ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-bounce" style={{ animationDelay: '150ms', animationDuration: '600ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-bounce" style={{ animationDelay: '300ms', animationDuration: '600ms' }} />
