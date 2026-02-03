@@ -1034,25 +1034,27 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
       {/* Load More Button and Pagination Info */}
       {paginationInfo && (
         <div className="mt-6 flex flex-col items-center gap-3">
-          {/* Pagination Debug Info */}
-          <div className="font-mono text-xs text-[var(--gs-gray-3)] flex flex-wrap justify-center gap-x-4 gap-y-1">
-            <span>
-              <span className="text-[var(--gs-gray-4)]">totalOwnedCount:</span>{' '}
-              <span className="text-[var(--gs-lime)]">{paginationInfo.totalOwnedCount}</span>
-            </span>
-            <span>
-              <span className="text-[var(--gs-gray-4)]">fetchedCount:</span>{' '}
-              <span className="text-[var(--gs-lime)]">{paginationInfo.fetchedCount}</span>
-            </span>
-            <span>
-              <span className="text-[var(--gs-gray-4)]">pageSize:</span>{' '}
-              <span className="text-[var(--gs-gray-4)]">{paginationInfo.pageSize}</span>
-            </span>
-            <span>
-              <span className="text-[var(--gs-gray-4)]">pagesLoaded:</span>{' '}
-              <span className="text-[var(--gs-gray-4)]">{paginationInfo.pagesLoaded}</span>
-            </span>
-          </div>
+          {/* Pagination Debug Info - only visible in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="font-mono text-xs text-[var(--gs-gray-3)] flex flex-wrap justify-center gap-x-4 gap-y-1">
+              <span>
+                <span className="text-[var(--gs-gray-4)]">totalOwnedCount:</span>{' '}
+                <span className="text-[var(--gs-lime)]">{paginationInfo.totalOwnedCount}</span>
+              </span>
+              <span>
+                <span className="text-[var(--gs-gray-4)]">fetchedCount:</span>{' '}
+                <span className="text-[var(--gs-lime)]">{paginationInfo.fetchedCount}</span>
+              </span>
+              <span>
+                <span className="text-[var(--gs-gray-4)]">pageSize:</span>{' '}
+                <span className="text-[var(--gs-gray-4)]">{paginationInfo.pageSize}</span>
+              </span>
+              <span>
+                <span className="text-[var(--gs-gray-4)]">pagesLoaded:</span>{' '}
+                <span className="text-[var(--gs-gray-4)]">{paginationInfo.pagesLoaded}</span>
+              </span>
+            </div>
+          )}
 
           {/* Load More Button */}
           {paginationInfo.hasMore && onLoadMore && (
