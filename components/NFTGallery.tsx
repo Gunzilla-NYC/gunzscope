@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { buildTokenKey } from '@/lib/utils/nftCache';
+import { getSpecificItemType, isClassified } from '@/lib/nft/itemTypeUtils';
 
 // Dynamic import for NFTDetailModal - only loaded when user clicks an NFT
 // This reduces initial bundle size as the modal has heavy dependencies
@@ -15,7 +16,7 @@ const NFTDetailModal = dynamic(() => import('./NFTDetailModal'), {
 
 type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc' | 'value-desc' | 'pnl-desc';
 type ViewMode = 'small' | 'medium' | 'list';
-type Rarity = 'Mythic' | 'Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common';
+type Rarity = 'Epic' | 'Rare' | 'Uncommon' | 'Common';
 
 interface NFTGalleryProps {
   nfts: NFT[];
@@ -25,10 +26,8 @@ interface NFTGalleryProps {
   onLoadMore?: () => void;
 }
 
-// Rarity color mapping
+// Rarity color mapping (only actual in-game rarities)
 const RARITY_COLORS: Record<string, string> = {
-  Mythic: '#ff44ff',    // Bright magenta
-  Legendary: '#ff8800', // Orange
   Epic: '#cc44ff',      // Purple
   Rare: '#4488ff',      // Blue
   Uncommon: '#44ff44',  // Green
@@ -36,8 +35,7 @@ const RARITY_COLORS: Record<string, string> = {
 };
 
 // Rarity display order when filters are active (Epic → Rare → Uncommon → Common)
-// Note: Mythic and Legendary are higher rarities but grouped with Epic if present
-const RARITY_ORDER: Rarity[] = ['Mythic', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
+const RARITY_ORDER: Rarity[] = ['Epic', 'Rare', 'Uncommon', 'Common'];
 
 // Rarity color from NFT traits (matches NFTDetailModal colors)
 function getRarityColor(nft: NFT): string {
@@ -54,20 +52,16 @@ function getRarityColorByName(rarity: string): string {
 function getRarityRank(nft: NFT): number {
   const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '';
   switch (rarity) {
-    case 'Mythic':
-      return 1;
-    case 'Legendary':
-      return 2;
     case 'Epic':
-      return 3;
+      return 1;
     case 'Rare':
-      return 4;
+      return 2;
     case 'Uncommon':
-      return 5;
+      return 3;
     case 'Common':
-      return 6;
+      return 4;
     default:
-      return 7; // Unknown rarity goes last
+      return 5; // Unknown rarity goes last
   }
 }
 
@@ -305,8 +299,6 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   // Calculate rarity counts from pre-rarity-filtered NFTs (so counts are always visible)
   const rarityCounts = useMemo(() => {
     const counts = {
-      Mythic: 0,
-      Legendary: 0,
       Epic: 0,
       Rare: 0,
       Uncommon: 0,
@@ -656,34 +648,6 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           >
             All
           </button>
-          {rarityCounts.Mythic > 0 && (
-            <button
-              onClick={() => toggleRarity('Mythic')}
-              aria-pressed={activeRarities.has('Mythic')}
-              className="px-2 py-1 rounded-sm border transition-all"
-              style={{
-                backgroundColor: activeRarities.has('Mythic') ? 'rgba(255,68,255,0.2)' : 'rgba(255,68,255,0.08)',
-                borderColor: activeRarities.has('Mythic') ? 'rgba(255,68,255,0.5)' : 'rgba(255,68,255,0.25)',
-                color: '#ff44ff',
-              }}
-            >
-              Mythic: {rarityCounts.Mythic}
-            </button>
-          )}
-          {rarityCounts.Legendary > 0 && (
-            <button
-              onClick={() => toggleRarity('Legendary')}
-              aria-pressed={activeRarities.has('Legendary')}
-              className="px-2 py-1 rounded-sm border transition-all"
-              style={{
-                backgroundColor: activeRarities.has('Legendary') ? 'rgba(255,136,0,0.2)' : 'rgba(255,136,0,0.08)',
-                borderColor: activeRarities.has('Legendary') ? 'rgba(255,136,0,0.5)' : 'rgba(255,136,0,0.25)',
-                color: '#ff8800',
-              }}
-            >
-              Legendary: {rarityCounts.Legendary}
-            </button>
-          )}
           {rarityCounts.Epic > 0 && (
             <button
               onClick={() => toggleRarity('Epic')}
@@ -821,6 +785,16 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     {rarityName === 'Unknown' ? 'N/A' : rarityName}
                   </span>
 
+                  {/* Classified Badge - Below Rarity */}
+                  {isClassified(nft) && (
+                    <span className="absolute top-7 left-1.5 z-10 font-mono text-[7px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm border inline-flex items-center gap-0.5 bg-red-500/15 border-red-500/50 text-red-400">
+                      <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Classified
+                    </span>
+                  )}
+
                   {/* Quantity Badge - Top Right */}
                   {nft.quantity && nft.quantity > 1 && (
                     <span className="absolute top-1.5 right-1.5 z-10 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
@@ -861,11 +835,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                   {nft.name}
                 </p>
 
-                {/* Item Type */}
+                {/* Item Type - Uses specific weapon type from typeSpec */}
                 <p className={`font-mono uppercase tracking-wide text-[var(--gs-gray-3)] truncate ${
                   viewMode === 'small' ? 'text-[8px]' : 'text-[9px]'
                 }`}>
-                  {itemClass !== 'Unknown' ? itemClass : nft.collection}
+                  {getSpecificItemType(nft) || nft.collection}
                 </p>
 
                 {/* Footer with Price & P&L */}
@@ -880,11 +854,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                   <span className={`font-mono ${
                     viewMode === 'small' ? 'text-[9px]' : 'text-[10px]'
                   } ${
+                    isClassified(nft) ? 'text-red-400' :
                     isProfit ? 'text-[var(--gs-profit)]' :
                     isLoss ? 'text-[var(--gs-loss)]' :
                     'text-[var(--gs-gray-3)]'
                   }`}>
-                    {pnlDisplay}
+                    {isClassified(nft) ? 'Locked' : pnlDisplay}
                   </span>
                 </div>
 
@@ -949,6 +924,15 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     {rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4)}
                   </span>
 
+                  {/* Classified Lock Indicator */}
+                  {isClassified(nft) && (
+                    <span className="absolute bottom-0.5 left-0.5 z-10">
+                      <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </span>
+                  )}
+
                   {nft.image ? (
                     <Image
                       src={nft.image}
@@ -977,7 +961,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                     {nft.name}
                   </p>
                   <p className="font-mono text-[9px] uppercase tracking-wide text-[var(--gs-gray-3)] truncate">
-                    {itemClass !== 'Unknown' ? itemClass : nft.collection}
+                    {getSpecificItemType(nft) || nft.collection}
                   </p>
                 </div>
 
@@ -1011,11 +995,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 <div className="flex-shrink-0 text-right min-w-[50px]">
                   <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">P&L</p>
                   <p className={`font-mono text-[10px] font-medium ${
+                    isClassified(nft) ? 'text-red-400' :
                     isProfit ? 'text-[var(--gs-profit)]' :
                     isLoss ? 'text-[var(--gs-loss)]' :
                     'text-[var(--gs-gray-3)]'
                   }`}>
-                    {pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—'}
+                    {isClassified(nft) ? 'Locked' : (pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—')}
                   </p>
                 </div>
 
