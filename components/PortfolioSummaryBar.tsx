@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { NFT } from '@/lib/types';
 import { PortfolioCalcResult, formatUsd } from '@/lib/portfolio/calcPortfolio';
+import useCountUp from '@/hooks/useCountUp';
 
 interface PortfolioSummaryBarProps {
   portfolioResult: PortfolioCalcResult | null;
@@ -62,6 +63,14 @@ export default function PortfolioSummaryBar({
   const gunValue = portfolioResult?.tokensUsd ?? 0;
   const nftValue = portfolioResult?.nftsUsd ?? 0;
 
+  // Animated count-up for total value
+  const { displayValue: animatedTotal } = useCountUp({
+    end: totalValue,
+    duration: 1500,
+    decimals: 2,
+    startOnMount: true,
+  });
+
   const isProfit = totalPnLPct !== null && totalPnLPct > 1;
   const isLoss = totalPnLPct !== null && totalPnLPct < -1;
 
@@ -88,7 +97,7 @@ export default function PortfolioSummaryBar({
             </div>
           ) : (
             <p className="font-display text-4xl font-bold text-[var(--gs-white)]">
-              ${formatUsd(totalValue)}
+              ${animatedTotal}
             </p>
           )}
         </div>
