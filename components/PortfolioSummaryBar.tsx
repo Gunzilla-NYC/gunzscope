@@ -90,9 +90,9 @@ export default function PortfolioSummaryBar({
                 Calculating
               </span>
               <span className="flex gap-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-dot-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-dot-bounce" style={{ animationDelay: '160ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-dot-bounce" style={{ animationDelay: '320ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-bounce" style={{ animationDelay: '0ms', animationDuration: '600ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-bounce" style={{ animationDelay: '150ms', animationDuration: '600ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-bounce" style={{ animationDelay: '300ms', animationDuration: '600ms' }} />
               </span>
             </div>
           ) : (
@@ -131,59 +131,73 @@ export default function PortfolioSummaryBar({
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-white/[0.06]">
-        {/* GUN Holdings */}
-        <div className="p-4 border-r border-white/[0.06]">
-          <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
-            GUN Holdings
-          </p>
-          <p className="font-mono text-lg font-semibold text-[var(--gs-lime)]">
-            {gunHoldings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-        </div>
-
-        {/* GUN Value */}
-        <div className="p-4 border-r border-white/[0.06] lg:border-r">
-          <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
-            GUN Value
-          </p>
-          <p className="font-mono text-lg font-semibold text-[var(--gs-white)]">
-            ${formatUsd(gunValue)}
-          </p>
-        </div>
-
-        {/* NFT Value */}
-        <div className="p-4 border-r border-white/[0.06] border-t lg:border-t-0">
-          <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
-            NFT Value
-          </p>
-          <p className="font-mono text-lg font-semibold text-[var(--gs-white)]">
-            {nftValue > 0 ? `$${formatUsd(nftValue)}` : '—'}
-          </p>
-        </div>
-
-        {/* Unrealized P&L */}
-        <div className="p-4 border-t lg:border-t-0">
-          <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
-            Unrealized P&L
-          </p>
-          {nftPnL.unrealizedUsd !== null ? (
-            <p
-              className={`font-mono text-lg font-semibold ${
-                nftPnL.unrealizedUsd > 0
-                  ? 'text-[var(--gs-profit)]'
-                  : nftPnL.unrealizedUsd < 0
-                  ? 'text-[var(--gs-loss)]'
-                  : 'text-[var(--gs-white)]'
-              }`}
+      {isInitializing ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-white/[0.06]">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className={`p-4 ${i < 4 ? 'border-r border-white/[0.06]' : ''} ${i > 2 ? 'border-t lg:border-t-0' : ''}`}
             >
-              {nftPnL.unrealizedUsd >= 0 ? '+' : ''}${formatUsd(Math.abs(nftPnL.unrealizedUsd))}
-            </p>
-          ) : (
-            <p className="font-mono text-lg font-semibold text-[var(--gs-gray-3)]">—</p>
-          )}
+              <div className="h-3 w-16 bg-white/5 rounded animate-pulse mb-2" />
+              <div className="h-6 w-24 bg-white/10 rounded animate-pulse" />
+            </div>
+          ))}
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-white/[0.06]">
+          {/* GUN Holdings */}
+          <div className="p-4 border-r border-white/[0.06]">
+            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
+              GUN Holdings
+            </p>
+            <p className="font-mono text-lg font-semibold text-[var(--gs-lime)]">
+              {gunHoldings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+
+          {/* GUN Value */}
+          <div className="p-4 border-r border-white/[0.06] lg:border-r">
+            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
+              GUN Value
+            </p>
+            <p className="font-mono text-lg font-semibold text-[var(--gs-white)]">
+              ${formatUsd(gunValue)}
+            </p>
+          </div>
+
+          {/* NFT Value */}
+          <div className="p-4 border-r border-white/[0.06] border-t lg:border-t-0">
+            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
+              NFT Value
+            </p>
+            <p className="font-mono text-lg font-semibold text-[var(--gs-white)]">
+              {nftValue > 0 ? `$${formatUsd(nftValue)}` : '—'}
+            </p>
+          </div>
+
+          {/* Unrealized P&L */}
+          <div className="p-4 border-t lg:border-t-0">
+            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
+              Unrealized P&L
+            </p>
+            {nftPnL.unrealizedUsd !== null ? (
+              <p
+                className={`font-mono text-lg font-semibold ${
+                  nftPnL.unrealizedUsd > 0
+                    ? 'text-[var(--gs-profit)]'
+                    : nftPnL.unrealizedUsd < 0
+                    ? 'text-[var(--gs-loss)]'
+                    : 'text-[var(--gs-white)]'
+                }`}
+              >
+                {nftPnL.unrealizedUsd >= 0 ? '+' : ''}${formatUsd(Math.abs(nftPnL.unrealizedUsd))}
+              </p>
+            ) : (
+              <p className="font-mono text-lg font-semibold text-[var(--gs-gray-3)]">—</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
