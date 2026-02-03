@@ -598,6 +598,30 @@ body {
   opacity: 0.5;
 }
 
+/* Hero intelligence glow effect */
+.hero-glow-lime {
+  text-shadow:
+    0 0 20px rgba(166, 247, 0, 0.4),
+    0 0 40px rgba(166, 247, 0, 0.2),
+    0 0 60px rgba(166, 247, 0, 0.1);
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 20px rgba(166, 247, 0, 0.4),
+      0 0 40px rgba(166, 247, 0, 0.2),
+      0 0 60px rgba(166, 247, 0, 0.1);
+  }
+  50% {
+    text-shadow:
+      0 0 30px rgba(166, 247, 0, 0.6),
+      0 0 60px rgba(166, 247, 0, 0.3),
+      0 0 90px rgba(166, 247, 0, 0.15);
+  }
+}
+
 /* Crosshair decorative elements */
 .crosshair {
   position: absolute;
@@ -628,6 +652,26 @@ body {
 .crosshair-purple::before,
 .crosshair-purple::after {
   background: var(--gs-purple);
+}
+
+.crosshair-interactive {
+  width: 24px;
+  height: 24px;
+}
+
+.crosshair-interactive::before,
+.crosshair-interactive::after {
+  background: linear-gradient(135deg, var(--gs-lime), var(--gs-purple));
+}
+
+.crosshair-interactive::before {
+  width: 2px;
+  box-shadow: 0 0 10px rgba(166, 247, 0, 0.5);
+}
+
+.crosshair-interactive::after {
+  height: 2px;
+  box-shadow: 0 0 10px rgba(166, 247, 0, 0.5);
 }
 
 /* Section number styling */

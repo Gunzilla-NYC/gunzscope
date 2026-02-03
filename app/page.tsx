@@ -4,36 +4,39 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
+import { useCountUp } from '@/hooks/useCountUp';
+import { useMousePosition } from '@/hooks/useMousePosition';
+import { FeatureIcon } from '@/components/ui/FeatureIcon';
 
 // Features data
-const features = [
+const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing'; title: string; desc: string }[] = [
   {
-    icon: '📊',
+    icon: 'analytics',
     title: 'Portfolio Analytics',
     desc: 'Real-time portfolio valuation with GUN token price tracking, unrealized P&L calculations, and cost basis analysis across all your OTG assets.',
   },
   {
-    icon: '🔗',
+    icon: 'chain',
     title: 'Cross-Chain',
     desc: 'Unified view of your NFT holdings across GunzChain (Avalanche L1) and Solana. One wallet, one dashboard, complete visibility.',
   },
   {
-    icon: '🔍',
+    icon: 'intel',
     title: 'Acquisition Intel',
     desc: 'Automatic detection of how each NFT was acquired — HEX decode, marketplace purchase, or transfer — with original GUN cost basis.',
   },
   {
-    icon: '🔫',
+    icon: 'weapon',
     title: 'Weapon Lab',
     desc: 'Smart matching of compatible weapon modifications, skins, and attachments based on model codes, not just name matching.',
   },
   {
-    icon: '🏷️',
+    icon: 'rarity',
     title: 'Rarity Tiers',
     desc: 'Dual rarity system showing both display rarity and functional tier. Classified items flagged as locked special editions.',
   },
   {
-    icon: '⚡',
+    icon: 'pricing',
     title: 'Live Pricing',
     desc: 'GUN token price via CoinGecko, with historical price tracking for accurate cost basis calculations at time of acquisition.',
   },
@@ -56,8 +59,49 @@ interface SiteStats {
 
 export default function HomePage() {
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const heroRef = useRef<HTMLElement>(null);
   const [gunPrice, setGunPrice] = useState<number | null>(null);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
+  const { smoothPosition } = useMousePosition({ containerRef: heroRef, smoothing: 0.08 });
+
+  // Count-up animations for stats
+  const gunPriceCountUp = useCountUp({
+    end: gunPrice ?? 0,
+    duration: 1500,
+    decimals: 4,
+    startOnMount: false
+  });
+  const portfolioValueCountUp = useCountUp({
+    end: siteStats?.portfolioValueUsd ?? 0,
+    duration: 2000,
+    decimals: 2,
+    startOnMount: false
+  });
+  const pnlCountUp = useCountUp({
+    end: Math.abs(siteStats?.unrealizedPnlUsd ?? 0),
+    duration: 2000,
+    decimals: 2,
+    startOnMount: false
+  });
+  const nftsCountUp = useCountUp({
+    end: siteStats?.nftsTracked ?? 0,
+    duration: 1800,
+    decimals: 0,
+    startOnMount: false
+  });
+
+  // Trigger animations when data loads
+  useEffect(() => {
+    if (gunPrice !== null) gunPriceCountUp.startAnimation();
+  }, [gunPrice]);
+
+  useEffect(() => {
+    if (siteStats) {
+      portfolioValueCountUp.startAnimation();
+      pnlCountUp.startAnimation();
+      nftsCountUp.startAnimation();
+    }
+  }, [siteStats]);
 
   // Fetch GUN price and site stats on mount
   useEffect(() => {
@@ -160,7 +204,7 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col justify-center pt-32 pb-24 px-6 lg:px-10 overflow-hidden">
+      <section ref={heroRef} className="relative min-h-screen flex flex-col justify-center pt-32 pb-24 px-6 lg:px-10 overflow-hidden">
         {/* Background glows */}
         <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-[radial-gradient(circle,rgba(166,247,0,0.06)_0%,transparent_60%)] pointer-events-none" />
         <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(109,91,255,0.05)_0%,transparent_60%)] pointer-events-none" />
@@ -169,6 +213,18 @@ export default function HomePage() {
         <div className="crosshair absolute top-[20%] right-[15%]" />
         <div className="crosshair absolute bottom-[25%] right-[30%]" />
         <div className="crosshair crosshair-purple absolute top-[35%] right-[8%]" />
+
+        {/* Mouse-follow crosshair */}
+        {smoothPosition.isInside && (
+          <div
+            className="crosshair crosshair-interactive pointer-events-none absolute z-20 transition-opacity duration-300"
+            style={{
+              left: smoothPosition.x - 12,
+              top: smoothPosition.y - 12,
+              opacity: 0.4,
+            }}
+          />
+        )}
 
         <div className="relative z-10 max-w-[900px]">
           {/* Badge */}
@@ -183,7 +239,7 @@ export default function HomePage() {
           <h1 className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-tight uppercase mb-6 animate-fade-in-up delay-100">
             <span className="block text-[var(--gs-white)]">Your NFT</span>
             <span className="block text-[var(--gs-purple-bright)]">Arsenal</span>
-            <span className="block text-[var(--gs-lime)] relative hero-underline">Intelligence</span>
+            <span className="block text-[var(--gs-lime)] relative hero-underline hero-glow-lime">Intelligence</span>
           </h1>
 
           {/* Subtitle */}
@@ -207,11 +263,11 @@ export default function HomePage() {
 
         {/* Hero Stats Bar */}
         <div className="absolute bottom-0 left-0 right-0 flex flex-wrap border-t border-white/[0.06] glass-effect z-10">
-          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">GUN Price</span>
-            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0 bg-[var(--gs-lime)]/[0.03]">
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-lime)] block mb-1">GUN Price</span>
+            <span className="font-display text-3xl font-bold text-[var(--gs-white)]">
               {gunPrice !== null ? (
-                <>$<span className="text-[var(--gs-purple-bright)]">{gunPrice.toFixed(4)}</span></>
+                <>$<span className="text-[var(--gs-lime)]">{gunPriceCountUp.displayValue}</span></>
               ) : (
                 <span className="text-[var(--gs-gray-3)]">—</span>
               )}
@@ -221,7 +277,7 @@ export default function HomePage() {
             <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked Value</span>
             <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
               {siteStats?.portfolioValueUsd != null ? (
-                `$${siteStats.portfolioValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                `$${portfolioValueCountUp.displayValue}`
               ) : (
                 <span className="text-[var(--gs-gray-3)]">—</span>
               )}
@@ -237,7 +293,7 @@ export default function HomePage() {
                 : 'text-[var(--gs-gray-3)]'
             }`}>
               {siteStats?.unrealizedPnlUsd != null ? (
-                `${siteStats.unrealizedPnlUsd >= 0 ? '+' : '-'}$${Math.abs(siteStats.unrealizedPnlUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                `${siteStats.unrealizedPnlUsd >= 0 ? '+' : '-'}$${pnlCountUp.displayValue}`
               ) : (
                 '—'
               )}
@@ -246,7 +302,7 @@ export default function HomePage() {
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
             <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total NFTs Tracked</span>
             <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
-              {siteStats?.nftsTracked ?? '—'}
+              {siteStats?.nftsTracked != null ? nftsCountUp.displayValue : '—'}
             </span>
           </div>
         </div>
@@ -266,8 +322,8 @@ export default function HomePage() {
               key={index}
               className="feature-card relative p-10 bg-[var(--gs-dark-1)] transition-all hover:bg-[var(--gs-dark-2)] group overflow-hidden"
             >
-              <div className="w-10 h-10 border border-[var(--gs-gray-1)] flex items-center justify-center font-mono text-base text-[var(--gs-gray-3)] mb-6 transition-all group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm">
-                {feature.icon}
+              <div className="w-10 h-10 border border-[var(--gs-gray-1)] flex items-center justify-center text-[var(--gs-gray-3)] mb-6 transition-all group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm">
+                <FeatureIcon name={feature.icon} />
               </div>
               <h3 className="font-display font-semibold text-base uppercase tracking-wide text-[var(--gs-white)] mb-2">{feature.title}</h3>
               <p className="font-body text-sm font-light leading-relaxed text-[var(--gs-gray-3)]">{feature.desc}</p>
@@ -276,10 +332,60 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Social Proof Section */}
+      <section className="relative z-10 py-16 px-6 lg:px-10 border-t border-white/[0.06]">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center observe">
+            <div className="group">
+              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-lime)] mb-2 transition-transform group-hover:scale-105">
+                {siteStats?.walletsTracked ?? '—'}
+              </div>
+              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+                Wallets Connected
+              </div>
+            </div>
+            <div className="group">
+              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-purple-bright)] mb-2 transition-transform group-hover:scale-105">
+                {siteStats?.nftsTracked ?? '—'}
+              </div>
+              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+                NFTs Analyzed
+              </div>
+            </div>
+            <div className="group">
+              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-white)] mb-2 transition-transform group-hover:scale-105">
+                2
+              </div>
+              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+                Chains Supported
+              </div>
+            </div>
+            <div className="group">
+              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-profit)] mb-2 transition-transform group-hover:scale-105">
+                24/7
+              </div>
+              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+                Live Tracking
+              </div>
+            </div>
+          </div>
+
+          {/* Community quote */}
+          <div className="mt-12 text-center observe">
+            <blockquote className="font-body text-lg italic text-[var(--gs-gray-4)] max-w-2xl mx-auto">
+              "Finally, a portfolio tracker that actually understands OTG weapons and acquisition costs."
+            </blockquote>
+            <cite className="block mt-4 font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+              — OTG Community Member
+            </cite>
+          </div>
+        </div>
+      </section>
+
       {/* Dashboard Preview Section */}
       <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="preview">
         <div className="flex items-baseline gap-4 mb-10 observe">
-          <span className="section-number">02</span>
+          <span className="section-number">03</span>
           <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Dashboard Preview</h2>
           <div className="section-line" />
         </div>
