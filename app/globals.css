@@ -109,6 +109,8 @@
   --color-gs-profit: var(--gs-profit);
   --color-gs-loss: var(--gs-loss);
   --color-gs-warning: var(--gs-warning);
+  --color-gs-info: var(--gs-info);
+  --color-gs-lime-bright: var(--gs-lime-bright);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
