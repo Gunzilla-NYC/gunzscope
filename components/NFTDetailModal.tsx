@@ -2385,7 +2385,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         <div className="flex items-stretch gap-0 pointer-events-auto">
           {/* Main Modal */}
           <div
-            className={`relative w-full min-w-[432px] max-w-[440px] max-h-[85vh] bg-[#0d0d0d] rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 ${
+            className={`relative w-full min-w-[432px] max-w-[440px] max-h-[85vh] bg-[var(--gs-dark-1)] rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 ${
               isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
             } ${hasRelatedItems && relatedItemsExpanded ? 'rounded-r-none' : ''}`}
             style={{
@@ -2393,7 +2393,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             }}
           >
           {/* ===== 1) ModalHeader ===== */}
-          <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.12]">
+          <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.06]">
             <h2 className="text-base font-semibold text-white">NFT Details</h2>
             <button
               type="button"
@@ -2431,7 +2431,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           }}
                         >
                           {loadingDetails && isActive ? (
-                            <div className="w-full h-full bg-[#1a1a1a] animate-pulse" />
+                            <div className="w-full h-full bg-[var(--gs-dark-2)] animate-pulse" />
                           ) : nft.image ? (
                             <Image
                               src={nft.image}
@@ -2444,7 +2444,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                               }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-[#1a1a1a] text-gray-600 text-xs">
+                            <div className="w-full h-full flex items-center justify-center bg-[var(--gs-dark-2)] text-gray-600 text-xs">
                               No Image
                             </div>
                           )}
@@ -2470,7 +2470,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       }}
                     >
                       {loadingDetails ? (
-                        <div className="w-full h-full bg-[#1a1a1a] animate-pulse" />
+                        <div className="w-full h-full bg-[var(--gs-dark-2)] animate-pulse" />
                       ) : nft.image ? (
                         <Image
                           src={nft.image}
@@ -2483,7 +2483,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           }}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-[#1a1a1a] text-gray-600">
+                        <div className="w-full h-full flex items-center justify-center bg-[var(--gs-dark-2)] text-gray-600">
                           No Image
                         </div>
                       )}
@@ -2544,10 +2544,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 const acquisitionType = currentResolvedAcquisition?.acquisitionType;
                 const getStatusPill = () => {
                   if (acquisitionType === 'MINT') {
-                    return { text: 'Decoded', style: 'bg-emerald-500/20 text-emerald-300' };
+                    return { text: 'Decoded', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
                   }
                   if (acquisitionType === 'PURCHASE') {
-                    return { text: 'Acquired', style: 'bg-emerald-500/20 text-emerald-300' };
+                    return { text: 'Acquired', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
                   }
                   if (acquisitionType === 'TRANSFER') {
                     return { text: 'Transferred', style: 'bg-white/10 text-white/50' };
@@ -2560,8 +2560,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 // Unrealized line color
                 const getUnrealizedColor = () => {
                   if (unrealizedUsd === null) return 'text-white/60';
-                  if (unrealizedUsd > 0.01) return 'text-emerald-300';
-                  if (unrealizedUsd < -0.01) return 'text-rose-300';
+                  if (unrealizedUsd > 0.01) return 'text-[var(--gs-lime)]';
+                  if (unrealizedUsd < -0.01) return 'text-[var(--gs-loss)]';
                   return 'text-white/60';
                 };
 
@@ -2577,7 +2577,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 return (
                   <div
                     className="rounded-xl p-4"
-                    style={{ backgroundColor: 'rgba(0, 255, 200, 0.06)' }}
+                    style={{ backgroundColor: 'rgba(166, 247, 0, 0.06)' }}
                   >
                     {/* Header row: YOUR POSITION + Status pill */}
                     <div className="flex items-center justify-between mb-2">
@@ -2651,9 +2651,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 const getPositionPillStyles = () => {
                   switch (positionLabel.state) {
                     case 'UP':
-                      return 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20';
+                      return 'bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20';
                     case 'DOWN':
-                      return 'bg-rose-500/10 text-rose-300 border border-rose-500/20';
+                      return 'bg-[var(--gs-loss)]/10 text-[var(--gs-loss)] border border-[var(--gs-loss)]/20';
                     case 'FLAT':
                       return 'bg-white/5 text-white/70 border border-white/10';
                     default:
@@ -2704,7 +2704,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 return (
                   <div
                     className="rounded-xl p-4"
-                    style={{ backgroundColor: 'rgba(0, 255, 200, 0.06)' }}
+                    style={{ backgroundColor: 'rgba(166, 247, 0, 0.06)' }}
                   >
                     {/* Header row: Market Reference + Position pill */}
                     <div className="flex items-center justify-between mb-2">
@@ -2739,8 +2739,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         {/* Unrealized P/L percent line */}
                         {positionLabel.pnlPct !== null && (
                           <p className={`text-xs ${
-                            positionLabel.state === 'UP' ? 'text-emerald-300' :
-                            positionLabel.state === 'DOWN' ? 'text-rose-300' :
+                            positionLabel.state === 'UP' ? 'text-[var(--gs-lime)]' :
+                            positionLabel.state === 'DOWN' ? 'text-[var(--gs-loss)]' :
                             'text-white/70'
                           }`}>
                             Unrealized: {positionLabel.pnlPct >= 0 ? '+' : ''}{(positionLabel.pnlPct * 100).toFixed(1)}%
@@ -2786,7 +2786,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
               {/* ===== 5) DetailsAccordion ===== */}
               {hasDetails && (
-                <div className="border-t border-white/[0.12] pt-3">
+                <div className="border-t border-white/[0.06] pt-3">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -2897,7 +2897,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           </div>
 
           {/* ===== 6) ModalFooter ===== */}
-          <div className="h-14 flex-shrink-0 flex items-center justify-center px-4 border-t border-white/[0.12]">
+          <div className="h-14 flex-shrink-0 flex items-center justify-center px-4 border-t border-white/[0.06]">
             <button
               type="button"
               onClick={onClose}
@@ -2944,7 +2944,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           {/* ===== Weapon Lab Panel ===== */}
           {hasRelatedItems && (
             <div
-              className={`relative max-h-[85vh] bg-[#0d0d0d] rounded-r-2xl overflow-hidden flex flex-col transform transition-all duration-300 origin-left ${
+              className={`relative max-h-[85vh] bg-[var(--gs-dark-1)] rounded-r-2xl overflow-hidden flex flex-col transform transition-all duration-300 origin-left ${
                 relatedItemsExpanded
                   ? 'w-[320px] opacity-100 scale-x-100'
                   : 'w-0 opacity-0 scale-x-0'
@@ -2954,7 +2954,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               }}
             >
               {/* Panel Header */}
-              <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.12]">
+              <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.06]">
                 <h3 className="text-sm font-semibold text-white">
                   Weapon Lab
                 </h3>
@@ -3056,7 +3056,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               </div>
 
               {/* Panel Footer with summary */}
-              <div className="flex-shrink-0 px-4 py-2 border-t border-white/[0.12] text-xs text-gray-500">
+              <div className="flex-shrink-0 px-4 py-2 border-t border-white/[0.06] text-xs text-gray-500">
                 {(() => {
                   const skins = relatedItems.filter(i => (i.traits?.['CLASS'] || i.traits?.['Class']) === 'Weapon Skin');
                   const accessories = relatedItems.filter(i => (i.traits?.['CLASS'] || i.traits?.['Class']) === 'Accessory');

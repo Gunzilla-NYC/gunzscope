@@ -108,7 +108,9 @@ export default function PortfolioHeader({
       {/* Main Header Grid: 2 zones */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Zone A: Wallet Identity with GUN balance (left) */}
-        <div className="lg:col-span-5 bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-4">
+        <div className="lg:col-span-5 relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 overflow-hidden">
+          {/* Top accent line */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
           <WalletIdentity
             address={walletData.address}
             networkInfo={networkInfo}

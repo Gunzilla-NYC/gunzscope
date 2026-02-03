@@ -57,18 +57,18 @@ export default function PnLLoadingIndicator({ isLoading }: PnLLoadingIndicatorPr
     <div className="flex items-center justify-center gap-2 mt-2">
       {/* Pulsing dot */}
       <span className="relative flex h-2 w-2">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#64ffff]/50" />
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#64ffff]" />
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--gs-lime)]/50" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--gs-lime)]" />
       </span>
 
       {/* Stage message */}
-      <span className="text-[9px] text-white/50">
+      <span className="text-[9px] text-[var(--gs-gray-3)] font-mono">
         {STAGES[stageIndex]}
       </span>
 
       {/* Elapsed time after 10s */}
       {seconds >= 10 && (
-        <span className="text-[9px] text-white/30">
+        <span className="text-[9px] text-[var(--gs-gray-2)] font-mono">
           ({seconds}s)
         </span>
       )}
