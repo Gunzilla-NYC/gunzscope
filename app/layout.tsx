@@ -3,6 +3,7 @@ import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import { PaletteProvider } from "@/lib/contexts/PaletteContext";
+import { PaletteToggle } from "@/components/ui/PaletteToggle";
 
 // GUNZscope Brand Fonts
 const chakraPetch = Chakra_Petch({
@@ -51,6 +52,7 @@ export default function RootLayout({
               {children}
             </div>
           </DynamicProvider>
+          <PaletteToggle />
         </PaletteProvider>
       </body>
     </html>
