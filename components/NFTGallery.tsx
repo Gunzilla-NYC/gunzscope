@@ -550,9 +550,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             {/* Small Grid */}
             <button
               onClick={() => setViewMode('small')}
-              className={`p-1.5 rounded transition ${
+              aria-pressed={viewMode === 'small'}
+              aria-label="Small grid view"
+              className={`p-1.5 rounded transition-all duration-150 ${
                 viewMode === 'small'
-                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50 scale-105'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
               title="Small grid"
@@ -564,9 +566,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             {/* Medium Grid */}
             <button
               onClick={() => setViewMode('medium')}
-              className={`p-1.5 rounded transition ${
+              aria-pressed={viewMode === 'medium'}
+              aria-label="Medium grid view"
+              className={`p-1.5 rounded transition-all duration-150 ${
                 viewMode === 'medium'
-                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50 scale-105'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
               title="Medium grid"
@@ -578,9 +582,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             {/* List View */}
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded transition ${
+              aria-pressed={viewMode === 'list'}
+              aria-label="List view"
+              className={`p-1.5 rounded transition-all duration-150 ${
                 viewMode === 'list'
-                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50 scale-105'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
               title="List view"
