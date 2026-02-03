@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useMousePosition } from '@/hooks/useMousePosition';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
+import { useGlitchTypewriter } from '@/hooks/useGlitchTypewriter';
 
 // Features data
 const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing'; title: string; desc: string }[] = [
@@ -64,6 +65,14 @@ export default function HomePage() {
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
   const { smoothPosition } = useMousePosition({ containerRef: heroRef, smoothing: 0.08 });
 
+  // Glitched typewriter for hero text
+  const heroTypewriter = useGlitchTypewriter({
+    words: ['Intelligence', 'Dominance', 'Advantage', 'Edge'],
+    typingSpeed: 60,
+    pauseDuration: 2500,
+    glitchDuration: 300,
+  });
+
   // Count-up animations for stats
   const gunPriceCountUp = useCountUp({
     end: gunPrice ?? 0,
@@ -90,6 +99,45 @@ export default function HomePage() {
     startOnMount: false
   });
 
+  // Social proof count-ups
+  const walletsCountUp = useCountUp({
+    end: siteStats?.walletsTracked ?? 0,
+    duration: 1500,
+    decimals: 0,
+    startOnMount: false
+  });
+  const socialNftsCountUp = useCountUp({
+    end: siteStats?.nftsTracked ?? 0,
+    duration: 1500,
+    decimals: 0,
+    startOnMount: false
+  });
+
+  // Social proof visibility state
+  const socialProofRef = useRef<HTMLDivElement>(null);
+  const [socialProofVisible, setSocialProofVisible] = useState(false);
+
+  // Observe social proof section for count-up trigger
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !socialProofVisible) {
+          setSocialProofVisible(true);
+          // Stagger the social proof animations
+          walletsCountUp.startAnimation();
+          setTimeout(() => socialNftsCountUp.startAnimation(), 100);
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    if (socialProofRef.current) {
+      observer.observe(socialProofRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [socialProofVisible, siteStats]);
+
   // Trigger animations when data loads
   useEffect(() => {
     if (gunPrice !== null) gunPriceCountUp.startAnimation();
@@ -97,9 +145,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (siteStats) {
-      portfolioValueCountUp.startAnimation();
-      pnlCountUp.startAnimation();
-      nftsCountUp.startAnimation();
+      // Stagger the stats: 200ms, 400ms, 600ms after siteStats loads
+      setTimeout(() => portfolioValueCountUp.startAnimation(), 200);
+      setTimeout(() => pnlCountUp.startAnimation(), 400);
+      setTimeout(() => nftsCountUp.startAnimation(), 600);
     }
   }, [siteStats]);
 
@@ -221,7 +270,7 @@ export default function HomePage() {
             style={{
               left: smoothPosition.x - 12,
               top: smoothPosition.y - 12,
-              opacity: 0.4,
+              opacity: 0.3,
             }}
           />
         )}
@@ -239,7 +288,14 @@ export default function HomePage() {
           <h1 className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-tight uppercase mb-6 animate-fade-in-up delay-100">
             <span className="block text-[var(--gs-white)]">Your NFT</span>
             <span className="block text-[var(--gs-purple-bright)]">Arsenal</span>
-            <span className="block text-[var(--gs-lime)] relative hero-underline hero-glow-lime">Intelligence</span>
+            <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px]">
+              {heroTypewriter.displayText}
+              <span
+                className={`inline-block w-[3px] h-[0.9em] bg-[var(--gs-lime)] ml-1 align-middle transition-opacity duration-100 ${
+                  heroTypewriter.cursorVisible && !heroTypewriter.isComplete ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+            </span>
           </h1>
 
           {/* Subtitle */}
@@ -254,7 +310,7 @@ export default function HomePage() {
           <div className="animate-fade-in-up delay-300">
             <Link
               href="/portfolio"
-              className="font-display font-semibold text-sm tracking-wider uppercase px-8 py-3.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] hover:shadow-[0_8px_30px_rgba(166,247,0,0.2)] hover:-translate-y-0.5 transition-all clip-corner"
+              className="cta-button font-display font-semibold text-sm tracking-wider uppercase px-8 py-3.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] hover:shadow-[0_8px_30px_rgba(166,247,0,0.2)] hover:-translate-y-0.5 transition-all clip-corner"
             >
               Connect Wallet
             </Link>
@@ -269,7 +325,7 @@ export default function HomePage() {
               {gunPrice !== null ? (
                 <>$<span className="text-[var(--gs-lime)]">{gunPriceCountUp.displayValue}</span></>
               ) : (
-                <span className="text-[var(--gs-gray-3)]">—</span>
+                <span className="skeleton-stat inline-block w-24 h-8" />
               )}
             </span>
           </div>
@@ -279,7 +335,7 @@ export default function HomePage() {
               {siteStats?.portfolioValueUsd != null ? (
                 `$${portfolioValueCountUp.displayValue}`
               ) : (
-                <span className="text-[var(--gs-gray-3)]">—</span>
+                <span className="skeleton-stat inline-block w-28 h-7" />
               )}
             </span>
           </div>
@@ -290,19 +346,21 @@ export default function HomePage() {
                 ? siteStats.unrealizedPnlUsd >= 0
                   ? 'text-[var(--gs-profit)]'
                   : 'text-[var(--gs-loss)]'
-                : 'text-[var(--gs-gray-3)]'
+                : ''
             }`}>
               {siteStats?.unrealizedPnlUsd != null ? (
                 `${siteStats.unrealizedPnlUsd >= 0 ? '+' : '-'}$${pnlCountUp.displayValue}`
               ) : (
-                '—'
+                <span className="skeleton-stat inline-block w-24 h-7" />
               )}
             </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
             <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total NFTs Tracked</span>
             <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
-              {siteStats?.nftsTracked != null ? nftsCountUp.displayValue : '—'}
+              {siteStats?.nftsTracked != null ? nftsCountUp.displayValue : (
+                <span className="skeleton-stat inline-block w-16 h-7" />
+              )}
             </span>
           </div>
         </div>
@@ -320,9 +378,12 @@ export default function HomePage() {
           {features.map((feature, index) => (
             <div
               key={index}
-              className="feature-card relative p-10 bg-[var(--gs-dark-1)] transition-all hover:bg-[var(--gs-dark-2)] group overflow-hidden"
+              className="feature-card relative p-10 bg-[var(--gs-dark-1)] hover:bg-[var(--gs-dark-2)] group overflow-hidden"
+              style={{
+                transitionDelay: `${index * 100}ms`,
+              }}
             >
-              <div className="w-10 h-10 border border-[var(--gs-gray-1)] flex items-center justify-center text-[var(--gs-gray-3)] mb-6 transition-all group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm">
+              <div className="icon-container w-10 h-10 border border-[var(--gs-gray-1)] flex items-center justify-center text-[var(--gs-gray-3)] mb-6 group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm">
                 <FeatureIcon name={feature.icon} />
               </div>
               <h3 className="font-display font-semibold text-base uppercase tracking-wide text-[var(--gs-white)] mb-2">{feature.title}</h3>
@@ -335,24 +396,24 @@ export default function HomePage() {
       {/* Social Proof Section */}
       <section className="relative z-10 py-16 px-6 lg:px-10 border-t border-white/[0.06]">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center observe">
-            <div className="group">
+          <div ref={socialProofRef} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center observe">
+            <div className="group" style={{ transitionDelay: '0ms' }}>
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-lime)] mb-2 transition-transform group-hover:scale-105">
-                {siteStats?.walletsTracked ?? '—'}
+                {socialProofVisible && siteStats?.walletsTracked != null ? walletsCountUp.displayValue : (siteStats?.walletsTracked ?? '—')}
               </div>
               <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
                 Wallets Connected
               </div>
             </div>
-            <div className="group">
+            <div className="group" style={{ transitionDelay: '100ms' }}>
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-purple-bright)] mb-2 transition-transform group-hover:scale-105">
-                {siteStats?.nftsTracked ?? '—'}
+                {socialProofVisible && siteStats?.nftsTracked != null ? socialNftsCountUp.displayValue : (siteStats?.nftsTracked ?? '—')}
               </div>
               <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
                 NFTs Analyzed
               </div>
             </div>
-            <div className="group">
+            <div className="group" style={{ transitionDelay: '200ms' }}>
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-white)] mb-2 transition-transform group-hover:scale-105">
                 2
               </div>
@@ -360,7 +421,7 @@ export default function HomePage() {
                 Chains Supported
               </div>
             </div>
-            <div className="group">
+            <div className="group" style={{ transitionDelay: '300ms' }}>
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-profit)] mb-2 transition-transform group-hover:scale-105">
                 24/7
               </div>
@@ -371,7 +432,7 @@ export default function HomePage() {
           </div>
 
           {/* Community quote */}
-          <div className="mt-12 text-center observe">
+          <div className="mt-12 text-center observe" style={{ transitionDelay: '400ms' }}>
             <blockquote className="font-body text-lg italic text-[var(--gs-gray-4)] max-w-2xl mx-auto">
               "Finally, a portfolio tracker that actually understands OTG weapons and acquisition costs."
             </blockquote>

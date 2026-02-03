@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
-import { PaletteProvider } from "@/lib/contexts/PaletteContext";
-import { PaletteToggle } from "@/components/ui/PaletteToggle";
 
 // GUNZscope Brand Fonts
 const chakraPetch = Chakra_Petch({
@@ -46,14 +44,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${chakraPetch.variable} ${outfit.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased font-body bg-gunzscope">
-        <PaletteProvider>
-          <DynamicProvider>
-            <div className="relative z-10">
-              {children}
-            </div>
-          </DynamicProvider>
-          <PaletteToggle />
-        </PaletteProvider>
+        <DynamicProvider>
+          <div className="relative z-10">
+            {children}
+          </div>
+        </DynamicProvider>
       </body>
     </html>
   );

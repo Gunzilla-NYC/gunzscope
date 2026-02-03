@@ -24,17 +24,17 @@
   --gs-dark-4: #242424;
   --gs-gray-1: #333333;
   --gs-gray-2: #555555;
-  --gs-gray-3: #888888;
+  --gs-gray-3: #999999;
   --gs-gray-4: #AAAAAA;
   --gs-white: #F0F0F0;
   --gs-white-dim: #CCCCCC;
 
-  /* ── Status ── */
+  /* ── Status (V2 palette with improved contrast) ── */
   --gs-profit: #00FF88;
-  --gs-loss: #FF4444;
+  --gs-loss: #FF5555;
   --gs-warning: #FFAA00;
-  --gs-info: #5AC8FA;        /* Info (v2 only, but define for fallback) */
-  --gs-lime-bright: #BFFF33; /* Bright lime (v2 only, but define for fallback) */
+  --gs-info: #5AC8FA;
+  --gs-lime-bright: #BFFF33;
 
   /* ── Rarity ── */
   --gs-rarity-common: #8A8A8A;
@@ -68,23 +68,6 @@
   --accent-green: var(--gs-profit);
   --accent-red: var(--gs-loss);
   --border-color: rgba(166, 247, 0, 0.2);
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   Palette v2 — Accessibility Improvements (2026-02-02)
-   Apply by adding .palette-v2 class to <html>
-   ══════════════════════════════════════════════════════════════════════════ */
-
-.palette-v2 {
-  /* ── Status (improved contrast) ── */
-  --gs-loss: #FF5555;
-
-  /* ── Neutrals (improved contrast) ── */
-  --gs-gray-3: #999999;
-
-  /* ── New additions ── */
-  --gs-lime-bright: #BFFF33;
-  --gs-info: #5AC8FA;
 }
 
 @theme inline {
@@ -574,6 +557,28 @@ body {
   animation: loader-pulse 2s ease-in-out infinite;
 }
 
+/* Skeleton loading animation */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-stat {
+  background: linear-gradient(
+    90deg,
+    var(--gs-dark-3) 0%,
+    var(--gs-dark-4) 50%,
+    var(--gs-dark-3) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
 /* Scroll-triggered reveal animation */
 .observe {
   opacity: 0;
@@ -586,6 +591,19 @@ body {
   transform: translateY(0);
 }
 
+/* Staggered children animation */
+.observe.visible .feature-card {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.observe .feature-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Hero title underline gradient */
 .hero-underline::after {
   content: '';
@@ -596,30 +614,6 @@ body {
   height: 2px;
   background: linear-gradient(90deg, var(--gs-lime), var(--gs-purple), transparent);
   opacity: 0.5;
-}
-
-/* Hero intelligence glow effect */
-.hero-glow-lime {
-  text-shadow:
-    0 0 20px rgba(166, 247, 0, 0.4),
-    0 0 40px rgba(166, 247, 0, 0.2),
-    0 0 60px rgba(166, 247, 0, 0.1);
-  animation: glow-pulse 3s ease-in-out infinite;
-}
-
-@keyframes glow-pulse {
-  0%, 100% {
-    text-shadow:
-      0 0 20px rgba(166, 247, 0, 0.4),
-      0 0 40px rgba(166, 247, 0, 0.2),
-      0 0 60px rgba(166, 247, 0, 0.1);
-  }
-  50% {
-    text-shadow:
-      0 0 30px rgba(166, 247, 0, 0.6),
-      0 0 60px rgba(166, 247, 0, 0.3),
-      0 0 90px rgba(166, 247, 0, 0.15);
-  }
 }
 
 /* Crosshair decorative elements */
@@ -657,6 +651,12 @@ body {
 .crosshair-interactive {
   width: 24px;
   height: 24px;
+  animation: crosshair-pulse 2s ease-in-out infinite;
+}
+
+@keyframes crosshair-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 
 .crosshair-interactive::before,
@@ -688,6 +688,29 @@ body {
   height: 1px;
   background: linear-gradient(90deg, var(--gs-purple-dim), transparent);
   opacity: 0.4;
+}
+
+/* Feature card enhanced hover */
+.feature-card {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Icon hover animation */
+.feature-card .icon-container {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 0.3s ease,
+              color 0.3s ease;
+}
+
+.feature-card:hover .icon-container {
+  transform: rotate(-5deg) scale(1.05);
 }
 
 /* Feature card hover effect */
@@ -741,4 +764,18 @@ body {
 ::selection {
   background: var(--gs-lime);
   color: var(--gs-black);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CTA Button Press Feedback
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.cta-button {
+  transition: transform 0.1s ease-out,
+              background-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+.cta-button:active {
+  transform: scale(0.98) translateY(1px);
 }
