@@ -15,7 +15,45 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Get the specific item type from typeSpec, with fallback to CLASS trait.
+ * Maps model code prefixes (from image URLs) to weapon types.
+ * Model codes like AR05, SMG01, SR03 appear in image URLs.
+ */
+const MODEL_PREFIX_TO_TYPE: Record<string, string> = {
+  AR: 'Assault Rifle',
+  SR: 'Sniper Rifle',
+  SMG: 'SMG',
+  LMG: 'LMG',
+  SG: 'Shotgun',
+  PT: 'Pistol',
+  ML: 'Melee',
+};
+
+// Regex to extract model code from image URLs (e.g., AR05 from Weapon_Weapon_AR05_S03_Epic_hd.png)
+const WEAPON_MODEL_PATTERN = /Weapon_Weapon_([A-Z]+)\d+/;
+
+/**
+ * Extract weapon type from image URL model code.
+ * @example
+ * extractWeaponTypeFromImage('...Weapon_Weapon_AR05_S03_Epic_hd.png') // "Assault Rifle"
+ */
+function extractWeaponTypeFromImage(imageUrl: string | undefined): string | null {
+  if (!imageUrl) return null;
+
+  const match = imageUrl.match(WEAPON_MODEL_PATTERN);
+  if (match && match[1]) {
+    const prefix = match[1];
+    return MODEL_PREFIX_TO_TYPE[prefix] || null;
+  }
+  return null;
+}
+
+/**
+ * Get the specific item type from typeSpec, image URL, or CLASS trait.
+ *
+ * Priority:
+ * 1. typeSpec.Item.item_type (if available from metadata)
+ * 2. Image URL model code (AR05 → "Assault Rifle")
+ * 3. CLASS trait fallback ("Weapon", "Weapon Skin", etc.)
  *
  * @example
  * getSpecificItemType(nft) // "Assault Rifle" or "Weapon Skin" or "Weapon"
@@ -27,8 +65,16 @@ export function getSpecificItemType(nft: NFT): string {
     return ITEM_TYPE_LABELS[itemType];
   }
 
-  // Fallback to CLASS trait (existing behavior)
+  // Second: try to extract from image URL model code
   const classValue = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
+  if (classValue === 'Weapon') {
+    const weaponType = extractWeaponTypeFromImage(nft.image);
+    if (weaponType) {
+      return weaponType;
+    }
+  }
+
+  // Fallback to CLASS trait (existing behavior)
   return classValue || 'Unknown';
 }
 
