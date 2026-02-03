@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
+import CrosshairCursor from "@/components/CrosshairCursor";
 
 // GUNZscope Brand Fonts
 const chakraPetch = Chakra_Petch({
@@ -45,6 +46,7 @@ export default function RootLayout({
     <html lang="en" className={`${chakraPetch.variable} ${outfit.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased font-body bg-gunzscope">
         <DynamicProvider>
+          <CrosshairCursor />
           <div className="relative z-10">
             {children}
           </div>
