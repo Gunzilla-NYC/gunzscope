@@ -117,6 +117,49 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     return () => clearTimeout(timeoutId);
   }, [isPortfolioInitializing, portfolioResult, gunPrice]);
 
+  // Track last snapshotted address to avoid duplicate API calls
+  const lastSnapshotAddressRef = useRef<string | null>(null);
+
+  // Record portfolio snapshot for site-wide NFT tracking
+  // Fires once per wallet address when portfolio data is stable
+  useEffect(() => {
+    if (!walletData || !portfolioResult) return;
+    if (loading || enrichingNFTs) return; // Wait for data to stabilize
+    if (lastSnapshotAddressRef.current === walletData.address) return; // Already recorded
+
+    // Only record if we have some NFTs to track
+    if (portfolioResult.nftCount === 0) return;
+
+    lastSnapshotAddressRef.current = walletData.address;
+
+    // Calculate current NFT value based on floor prices
+    const allNFTs = [...walletData.avalanche.nfts, ...walletData.solana.nfts];
+    const nftValueGun = allNFTs.reduce((sum, nft) => {
+      const quantity = nft.quantity ?? 1;
+      const floorPrice = nft.floorPrice ?? 0;
+      return sum + (floorPrice * quantity);
+    }, 0);
+
+    // Fire and forget - don't block UI
+    fetch('/api/portfolio/snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: walletData.address,
+        chain: 'avalanche', // Primary chain for this portfolio
+        nftCount: portfolioResult.nftCount,
+        nftsWithPrice: portfolioResult.nftsWithPrice,
+        gunBalance: portfolioResult.totalGunBalance,
+        totalGunSpent: portfolioResult.totalGunSpent,
+        gunPriceUsd: gunPrice || 0,
+        nftValueGun,
+      }),
+    }).catch((err) => {
+      // Non-critical - just log
+      console.warn('[Snapshot] Failed to record portfolio snapshot:', err);
+    });
+  }, [walletData, portfolioResult, loading, enrichingNFTs, gunPrice]);
+
   // Helper to add timeout to promises
   const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
     return Promise.race([

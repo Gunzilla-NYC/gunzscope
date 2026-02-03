@@ -92,3 +92,25 @@ model UserSettings {
 
   @@map("user_settings")
 }
+
+// =============================================================================
+// Portfolio Snapshot - Historical tracking of portfolio state
+// =============================================================================
+model PortfolioSnapshot {
+  id            String   @id @default(cuid())
+  address       String   // Wallet address (normalized to lowercase)
+  chain         String   // "avalanche", "solana", etc.
+  timestamp     DateTime @default(now())
+
+  // Portfolio metrics at time of snapshot
+  nftCount      Int      // Total NFTs owned
+  nftsWithPrice Int      @default(0) // NFTs with known acquisition cost
+  gunBalance    Float    @default(0) // GUN token balance
+  totalGunSpent Float    @default(0) // Sum of NFT acquisition costs in GUN
+  nftValueGun   Float    @default(0) // Current NFT value in GUN (floor price × quantity)
+  gunPriceUsd   Float    @default(0) // GUN/USD price at snapshot time
+
+  @@index([address, chain])
+  @@index([timestamp])
+  @@map("portfolio_snapshots")
+}

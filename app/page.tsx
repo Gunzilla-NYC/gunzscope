@@ -47,11 +47,19 @@ const mockNFTs = [
   { name: 'Reflex Sight', type: 'Weapon Attachment', rarity: 'Rare', price: '400 GUN', pnl: '-5.2%', profit: false },
 ];
 
+interface SiteStats {
+  nftsTracked: number;
+  walletsTracked: number;
+  portfolioValueUsd: number;
+  unrealizedPnlUsd: number;
+}
+
 export default function HomePage() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [gunPrice, setGunPrice] = useState<number | null>(null);
+  const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
 
-  // Fetch GUN price on mount
+  // Fetch GUN price and site stats on mount
   useEffect(() => {
     async function fetchPrice() {
       try {
@@ -64,7 +72,26 @@ export default function HomePage() {
         console.error('Failed to fetch GUN price:', err);
       }
     }
+
+    async function fetchSiteStats() {
+      try {
+        const res = await fetch('/api/stats/site');
+        if (res.ok) {
+          const data = await res.json();
+          setSiteStats({
+            nftsTracked: data.nftsTracked,
+            walletsTracked: data.walletsTracked,
+            portfolioValueUsd: data.portfolioValueUsd,
+            unrealizedPnlUsd: data.unrealizedPnlUsd,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch site stats:', err);
+      }
+    }
+
     fetchPrice();
+    fetchSiteStats();
   }, []);
 
   // Setup intersection observer for scroll animations
@@ -191,16 +218,36 @@ export default function HomePage() {
             </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Portfolio Value</span>
-            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">$2,847.32</span>
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked Value</span>
+            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
+              {siteStats?.portfolioValueUsd != null ? (
+                `$${siteStats.portfolioValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              ) : (
+                <span className="text-[var(--gs-gray-3)]">—</span>
+              )}
+            </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Unrealized P&L</span>
-            <span className="font-display text-2xl font-bold text-[var(--gs-profit)]">+$412.50</span>
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked P&L</span>
+            <span className={`font-display text-2xl font-bold ${
+              siteStats?.unrealizedPnlUsd != null
+                ? siteStats.unrealizedPnlUsd >= 0
+                  ? 'text-[var(--gs-profit)]'
+                  : 'text-[var(--gs-loss)]'
+                : 'text-[var(--gs-gray-3)]'
+            }`}>
+              {siteStats?.unrealizedPnlUsd != null ? (
+                `${siteStats.unrealizedPnlUsd >= 0 ? '+' : '-'}$${Math.abs(siteStats.unrealizedPnlUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              ) : (
+                '—'
+              )}
+            </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">NFTs Tracked</span>
-            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">154</span>
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total NFTs Tracked</span>
+            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
+              {siteStats?.nftsTracked ?? '—'}
+            </span>
           </div>
         </div>
       </section>
