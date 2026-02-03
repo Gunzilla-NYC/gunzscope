@@ -44,8 +44,8 @@ interface TooltipState {
 
 const GRID_SIZE = 10;
 const TOTAL_CELLS = GRID_SIZE * GRID_SIZE; // 100 cells = 100%
-const GUN_COLOR = '#64ffff';
-const NFT_COLOR = '#96aaff';
+const GUN_COLOR = '#A6F700'; // var(--gs-lime)
+const NFT_COLOR = '#6D5BFF'; // var(--gs-purple)
 
 // =============================================================================
 // Component
@@ -163,8 +163,8 @@ export default function WaffleChart({
             className="w-full h-full bg-white/5 animate-pulse flex items-center justify-center"
           >
             <div className="flex flex-col items-center gap-2">
-              <div className="w-8 h-8 border-2 border-white/20 border-t-[#64ffff] rounded-full animate-spin" />
-              <span className="text-[10px] text-white/40">Loading...</span>
+              <div className="w-8 h-8 border-2 border-white/20 border-t-[var(--gs-lime)] rounded-full animate-spin" />
+              <span className="text-[10px] text-white/40 font-mono">Loading...</span>
             </div>
           </div>
         </div>
@@ -272,6 +272,8 @@ export default function WaffleChart({
                 backgroundColor: isGun ? GUN_COLOR : isNft ? NFT_COLOR : 'rgba(255,255,255,0.05)',
                 borderRadius: borderRadius,
                 margin: cellMargin,
+                opacity: 0,
+                animation: `nft-card-fade-in 300ms ease-out ${idx * 10}ms forwards`,
               }}
               onMouseEnter={(e) => {
                 if (!isEmpty) handleBlockHover(e, cellType as 'gun' | 'nft');
@@ -331,7 +333,7 @@ export default function WaffleChart({
                     <span className="text-[10px] text-white/60">${gunValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   )}
                   {gunPnl !== undefined && gunPnl !== null && (
-                    <span className={`text-[9px] ${gunPnl >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
+                    <span className={`text-[9px] ${gunPnl >= 0 ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
                       ({gunPnl >= 0 ? '+' : ''}${Math.abs(gunPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                     </span>
                   )}
@@ -354,7 +356,7 @@ export default function WaffleChart({
                     <span className="text-[10px] text-white/60">${nftValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   )}
                   {nftPnl !== undefined && nftPnl !== null && (
-                    <span className={`text-[9px] ${nftPnl >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
+                    <span className={`text-[9px] ${nftPnl >= 0 ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
                       ({nftPnl >= 0 ? '+' : ''}${Math.abs(nftPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                     </span>
                   )}
