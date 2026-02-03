@@ -171,7 +171,14 @@ export default function PortfolioSummaryBar({
               NFT Value
             </p>
             <p className="font-mono text-lg font-semibold text-[var(--gs-white)]">
-              {nftValue > 0 ? `$${formatUsd(nftValue)}` : '—'}
+              {nftValue > 0 ? (
+                `$${formatUsd(nftValue)}`
+              ) : (
+                <span className="flex items-center gap-1 text-[var(--gs-gray-3)]">
+                  <span>—</span>
+                  <span className="text-[8px] text-[var(--gs-gray-2)]">(no data)</span>
+                </span>
+              )}
             </p>
           </div>
 
@@ -193,7 +200,10 @@ export default function PortfolioSummaryBar({
                 {nftPnL.unrealizedUsd >= 0 ? '+' : ''}${formatUsd(Math.abs(nftPnL.unrealizedUsd))}
               </p>
             ) : (
-              <p className="font-mono text-lg font-semibold text-[var(--gs-gray-3)]">—</p>
+              <p className="font-mono text-lg font-semibold text-[var(--gs-gray-3)] flex items-center gap-1">
+                <span>—</span>
+                <span className="text-[8px] text-[var(--gs-gray-2)]">(pending)</span>
+              </p>
             )}
           </div>
         </div>
