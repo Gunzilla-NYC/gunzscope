@@ -1,16 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
+import { PaletteProvider } from "@/lib/contexts/PaletteContext";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// GUNZscope Brand Fonts
+const chakraPetch = Chakra_Petch({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -20,7 +33,7 @@ export const metadata: Metadata = {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/logo.svg',
+    apple: '/gs-icon.svg',
   },
 };
 
@@ -30,13 +43,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <DynamicProvider>
-          {children}
-        </DynamicProvider>
+    <html lang="en" className={`${chakraPetch.variable} ${outfit.variable} ${jetbrainsMono.variable}`}>
+      <body className="antialiased font-body bg-gunzscope">
+        <PaletteProvider>
+          <DynamicProvider>
+            <div className="relative z-10">
+              {children}
+            </div>
+          </DynamicProvider>
+        </PaletteProvider>
       </body>
     </html>
   );
