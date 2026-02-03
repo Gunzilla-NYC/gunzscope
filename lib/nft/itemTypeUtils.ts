@@ -78,12 +78,35 @@ export function getSpecificItemType(nft: NFT): string {
   return classValue || 'Unknown';
 }
 
+// Asset path patterns that indicate special/locked editions
+const LOCKED_ASSET_PATTERNS = [
+  /_RANK_/,       // Ranked reward: AR04_RANK_04_SN_01
+  /_V_\d+[A-Z]/,  // Variant: AR05_V_60A (Solana editions, etc.)
+];
+
 /**
  * Check if NFT is a classified (locked) item.
  * Classified items cannot have their attachments or skins changed.
+ *
+ * Detection methods:
+ * 1. typeSpec.Item.rarity === 'Classified' (primary)
+ * 2. Image URL contains locked patterns like _RANK_ or _V_60A (fallback)
  */
 export function isClassified(nft: NFT): boolean {
-  return nft.typeSpec?.Item?.rarity === 'Classified';
+  // Primary: Check typeSpec functional tier
+  if (nft.typeSpec?.Item?.rarity === 'Classified') {
+    return true;
+  }
+
+  // Fallback: Check image URL for locked edition patterns
+  const imageUrl = nft.image || '';
+  for (const pattern of LOCKED_ASSET_PATTERNS) {
+    if (pattern.test(imageUrl)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
