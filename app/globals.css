@@ -99,6 +99,17 @@
   --font-mono: var(--font-mono);
 }
 
+/* NFT Card Rarity Glow Animation */
+@keyframes rarity-glow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--glow-color); }
+  50% { box-shadow: 0 0 20px 2px var(--glow-color); }
+}
+
+@keyframes nft-card-fade-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 body {
   background: var(--gs-black);
   color: var(--gs-white);

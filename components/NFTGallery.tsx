@@ -786,8 +786,17 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             return (
               <div
                 key={`${nft.chain}-${nft.tokenId}`}
-                className="group bg-[var(--gs-dark-3)] border border-white/[0.06] p-3 transition-all duration-300 cursor-pointer hover:border-[var(--gs-lime)]/30 hover:-translate-y-0.5"
+                className="group bg-[var(--gs-dark-3)] border p-3 transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg"
+                style={{ borderColor: `${rarityColor}20` }}
                 onClick={() => handleNFTClick(nft)}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}60`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${rarityColor}20`;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}20`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                }}
               >
                 {/* Image Container */}
                 <div className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden">
@@ -906,8 +915,17 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             return (
               <div
                 key={`${nft.chain}-${nft.tokenId}`}
-                className="group bg-[var(--gs-dark-3)] border border-white/[0.06] overflow-hidden hover:border-[var(--gs-lime)]/30 transition-all duration-300 cursor-pointer flex items-center gap-4 p-3"
+                className="group bg-[var(--gs-dark-3)] border overflow-hidden transition-all duration-200 cursor-pointer flex items-center gap-4 p-3 hover:-translate-y-0.5 hover:shadow-lg"
+                style={{ borderColor: `${rarityColor}20` }}
                 onClick={() => handleNFTClick(nft)}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}60`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${rarityColor}15`;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}20`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                }}
               >
                 {/* Thumbnail */}
                 <div className="w-14 h-14 flex-shrink-0 relative bg-[var(--gs-dark-4)] overflow-hidden">
