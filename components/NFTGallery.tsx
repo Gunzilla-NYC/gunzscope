@@ -24,6 +24,8 @@ interface NFTGalleryProps {
   walletAddress?: string;
   paginationInfo?: NFTPaginationInfo;
   onLoadMore?: () => void;
+  /** True when background enrichment is fetching P&L data */
+  isEnriching?: boolean;
 }
 
 // Rarity color mapping (only actual in-game rarities)
@@ -150,7 +152,7 @@ function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean } {
 //   return collection;
 // }
 
-export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore }: NFTGalleryProps) {
+export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false }: NFTGalleryProps) {
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [selectedTokenKeyString, setSelectedTokenKeyString] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -848,16 +850,21 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                   }`}>
                     {priceDisplay}
                   </span>
-                  <span className={`font-mono ${
-                    viewMode === 'small' ? 'text-[9px]' : 'text-[10px]'
-                  } ${
-                    isClassified(nft) ? 'text-red-400' :
-                    isProfit ? 'text-[var(--gs-profit)]' :
-                    isLoss ? 'text-[var(--gs-loss)]' :
-                    'text-[var(--gs-gray-3)]'
-                  }`}>
-                    {isClassified(nft) ? 'Locked' : pnlDisplay}
-                  </span>
+                  {/* P&L: Show shimmer if enriching and no data yet */}
+                  {isEnriching && pnlPct === null && !isClassified(nft) ? (
+                    <span className={`skeleton-stat ${viewMode === 'small' ? 'w-8 h-3' : 'w-10 h-3.5'}`} />
+                  ) : (
+                    <span className={`font-mono ${
+                      viewMode === 'small' ? 'text-[9px]' : 'text-[10px]'
+                    } ${
+                      isClassified(nft) ? 'text-red-400' :
+                      isProfit ? 'text-[var(--gs-profit)]' :
+                      isLoss ? 'text-[var(--gs-loss)]' :
+                      'text-[var(--gs-gray-3)]'
+                    }`}>
+                      {isClassified(nft) ? 'Locked' : pnlDisplay}
+                    </span>
+                  )}
                 </div>
 
                 {/* Mint Number - Bottom subtle */}
@@ -991,14 +998,18 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 {/* P&L */}
                 <div className="flex-shrink-0 text-right min-w-[50px]">
                   <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">P&L</p>
-                  <p className={`font-mono text-[10px] font-medium ${
-                    isClassified(nft) ? 'text-red-400' :
-                    isProfit ? 'text-[var(--gs-profit)]' :
-                    isLoss ? 'text-[var(--gs-loss)]' :
-                    'text-[var(--gs-gray-3)]'
-                  }`}>
-                    {isClassified(nft) ? 'Locked' : (pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—')}
-                  </p>
+                  {isEnriching && pnlPct === null && !isClassified(nft) ? (
+                    <span className="skeleton-stat w-10 h-3.5 mt-0.5" />
+                  ) : (
+                    <p className={`font-mono text-[10px] font-medium ${
+                      isClassified(nft) ? 'text-red-400' :
+                      isProfit ? 'text-[var(--gs-profit)]' :
+                      isLoss ? 'text-[var(--gs-loss)]' :
+                      'text-[var(--gs-gray-3)]'
+                    }`}>
+                      {isClassified(nft) ? 'Locked' : (pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—')}
+                    </p>
+                  )}
                 </div>
 
                 {/* Arrow */}

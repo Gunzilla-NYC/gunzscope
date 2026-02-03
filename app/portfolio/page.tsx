@@ -960,6 +960,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
               walletAddress={walletData.address}
               paginationInfo={nftPagination}
               onLoadMore={handleLoadMoreNFTs}
+              isEnriching={enrichingNFTs}
             />
           </div>
 
