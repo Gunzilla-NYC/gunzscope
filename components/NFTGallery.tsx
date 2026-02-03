@@ -772,7 +772,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               >
                 {/* Image Container */}
                 <div className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden">
-                  {/* Rarity Badge - Top Left */}
+                  {/* Rarity Badge - Top Left (abbreviated to prevent overlap) */}
                   <span
                     className="absolute top-1.5 left-1.5 z-10 font-mono text-[8px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm border"
                     style={{
@@ -781,7 +781,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                       borderColor: `${rarityColor}30`,
                     }}
                   >
-                    {rarityName === 'Unknown' ? 'N/A' : rarityName}
+                    {rarityName === 'Unknown' ? 'N/A' : rarityName.slice(0, 4)}
                   </span>
 
                   {/* Quantity Badge - Top Right */}
