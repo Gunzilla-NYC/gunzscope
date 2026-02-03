@@ -49,6 +49,19 @@ export function PaletteProvider({ children }: { children: ReactNode }) {
     setPalette(palette === 'v1' ? 'v2' : 'v1');
   }, [palette, setPalette]);
 
+  // Keyboard shortcut: Ctrl+Shift+P to toggle palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        togglePalette();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePalette]);
+
   return (
     <PaletteContext.Provider
       value={{

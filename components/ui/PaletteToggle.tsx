@@ -22,7 +22,7 @@ export function PaletteToggle({ className = '' }: PaletteToggleProps) {
         hover:border-gs-lime/30 hover:bg-gs-dark-4
         ${className}
       `}
-      title={`Current: Palette ${palette.toUpperCase()}. Click to switch.`}
+      title={`Palette ${palette.toUpperCase()} (Ctrl+Shift+P to toggle)`}
     >
       {/* Color indicator dots */}
       <div className="flex gap-1">
