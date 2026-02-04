@@ -816,6 +816,20 @@ body {
   }
 }
 
+/* Shimmer animation for loading skeletons */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
 /* Reduced motion support for inline animations */
 @media (prefers-reduced-motion: reduce) {
   [class*="animate-[fade-in-up"] {
@@ -826,5 +840,8 @@ body {
   [class*="animate-[scale-in"] {
     animation: none !important;
     opacity: 1 !important;
+  }
+  .animate-shimmer {
+    animation: none !important;
   }
 }

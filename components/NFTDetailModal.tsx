@@ -2627,12 +2627,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     </div>
 
                     {loadingDetails ? (
-                      // Loading skeleton
+                      // Loading skeleton - brand shimmer
                       <div className="space-y-2">
-                        <div className="h-8 w-28 bg-white/10 rounded animate-pulse" />
-                        <div className="h-4 w-36 bg-white/10 rounded animate-pulse" />
-                        <div className="h-4 w-32 bg-white/10 rounded animate-pulse" />
-                        <div className="h-4 w-40 bg-white/10 rounded animate-pulse" />
+                        <div className="h-8 w-28 bg-gradient-to-r from-white/5 via-white/10 to-white/5 bg-[length:200%_100%] rounded animate-shimmer" />
+                        <div className="h-4 w-36 bg-gradient-to-r from-white/5 via-white/10 to-white/5 bg-[length:200%_100%] rounded animate-shimmer [animation-delay:0.1s]" />
+                        <div className="h-4 w-32 bg-gradient-to-r from-white/5 via-white/10 to-white/5 bg-[length:200%_100%] rounded animate-shimmer [animation-delay:0.2s]" />
                       </div>
                     ) : (
                       <div className="space-y-1">
