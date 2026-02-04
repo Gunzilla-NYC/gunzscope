@@ -36,6 +36,8 @@ interface WalletSearchDropdownProps {
   isAddingWatchlist?: boolean;
   /** Loading state for portfolio add action */
   isAddingPortfolio?: boolean;
+  /** Whether the user has reached the portfolio address limit (5) */
+  isAtPortfolioLimit?: boolean;
 }
 
 export default function WalletSearchDropdown({
@@ -47,6 +49,7 @@ export default function WalletSearchDropdown({
   isInPortfolio = false,
   isAddingWatchlist = false,
   isAddingPortfolio = false,
+  isAtPortfolioLimit = false,
 }: WalletSearchDropdownProps) {
   // Only show dropdown for valid EVM addresses
   const isValid = isValidEVMAddress(searchValue);
@@ -124,32 +127,38 @@ export default function WalletSearchDropdown({
           </button>
 
           {/* Portfolio button */}
-          <button
-            onClick={handlePortfolioClick}
-            disabled={isInPortfolio || isAddingPortfolio}
-            className={`
-              font-mono text-[11px] tracking-wide uppercase px-3 py-1.5
-              bg-transparent border transition-all
-              flex items-center gap-1.5
-              ${isInPortfolio
-                ? 'text-[var(--gs-purple)] border-[var(--gs-purple)]/50 cursor-default'
-                : isAddingPortfolio
-                  ? 'text-[var(--gs-gray-3)] border-[var(--gs-gray-1)] cursor-wait'
-                  : 'text-[var(--gs-gray-3)] border-[var(--gs-gray-1)] hover:border-[var(--gs-purple)] hover:text-[var(--gs-purple)]'
-              }
-            `}
-          >
-            {isAddingPortfolio ? (
-              <>
-                <LoadingSpinner size="sm" className="w-3 h-3" />
-                <span>Adding...</span>
-              </>
-            ) : isInPortfolio ? (
-              '✓ Added'
-            ) : (
-              '+ Portfolio'
-            )}
-          </button>
+          {isAtPortfolioLimit && !isInPortfolio ? (
+            <span className="font-mono text-[11px] tracking-wide uppercase px-3 py-1.5 text-[var(--gs-gray-2)]">
+              Limit (5)
+            </span>
+          ) : (
+            <button
+              onClick={handlePortfolioClick}
+              disabled={isInPortfolio || isAddingPortfolio}
+              className={`
+                font-mono text-[11px] tracking-wide uppercase px-3 py-1.5
+                bg-transparent border transition-all
+                flex items-center gap-1.5
+                ${isInPortfolio
+                  ? 'text-[var(--gs-purple)] border-[var(--gs-purple)]/50 cursor-default'
+                  : isAddingPortfolio
+                    ? 'text-[var(--gs-gray-3)] border-[var(--gs-gray-1)] cursor-wait'
+                    : 'text-[var(--gs-gray-3)] border-[var(--gs-gray-1)] hover:border-[var(--gs-purple)] hover:text-[var(--gs-purple)]'
+                }
+              `}
+            >
+              {isAddingPortfolio ? (
+                <>
+                  <LoadingSpinner size="sm" className="w-3 h-3" />
+                  <span>Adding...</span>
+                </>
+              ) : isInPortfolio ? (
+                '✓ Added'
+              ) : (
+                '+ Portfolio'
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

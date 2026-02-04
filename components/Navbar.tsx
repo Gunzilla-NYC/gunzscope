@@ -37,6 +37,9 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
   // Check if address is in portfolio
   const addressInPortfolio = isInPortfolio(searchValue);
 
+  // Check if user has reached the portfolio address limit (5)
+  const isAtPortfolioLimit = (profile?.portfolioAddresses?.length ?? 0) >= 5;
+
   // Handlers
   const handleNavigate = (address: string) => {
     router.push(`/portfolio?address=${address}`);
@@ -129,6 +132,7 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
                 isInPortfolio={addressInPortfolio}
                 isAddingWatchlist={isAddingWatchlist}
                 isAddingPortfolio={isAddingPortfolio}
+                isAtPortfolioLimit={isAtPortfolioLimit}
               />
             </div>
 
