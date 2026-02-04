@@ -45,6 +45,12 @@ export interface UserProfileWithRelations {
     settings: unknown;
     updatedAt: Date;
   } | null;
+  portfolioAddresses: {
+    id: string;
+    address: string;
+    label: string | null;
+    addedAt: Date;
+  }[];
 }
 
 export interface AddTrackedAddressInput {
@@ -128,6 +134,9 @@ export async function getFullProfile(profileId: string): Promise<UserProfileWith
         orderBy: { createdAt: 'desc' },
       },
       settings: true,
+      portfolioAddresses: {
+        orderBy: { addedAt: 'desc' },
+      },
     },
   });
 
@@ -163,6 +172,9 @@ export async function getProfileByDynamicId(dynamicUserId: string): Promise<User
         orderBy: { createdAt: 'desc' },
       },
       settings: true,
+      portfolioAddresses: {
+        orderBy: { addedAt: 'desc' },
+      },
     },
   });
 
