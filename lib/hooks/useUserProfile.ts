@@ -30,6 +30,13 @@ export interface TrackedAddress {
   createdAt: string;
 }
 
+export interface PortfolioAddress {
+  id: string;
+  address: string;
+  label: string | null;
+  addedAt: string;
+}
+
 export interface FavoriteItem {
   id: string;
   type: 'weapon' | 'nft' | 'attachment' | 'skin' | 'collection';
@@ -55,6 +62,7 @@ export interface UserProfile {
   updatedAt: string;
   wallets: Wallet[];
   trackedAddresses: TrackedAddress[];
+  portfolioAddresses: PortfolioAddress[];
   favorites: FavoriteItem[];
   settings: UserSettings | null;
 }
@@ -73,6 +81,11 @@ interface UseUserProfileReturn {
   // Tracked addresses
   addTrackedAddress: (address: string, label?: string, chain?: string) => Promise<TrackedAddress | null>;
   removeTrackedAddress: (id: string) => Promise<boolean>;
+
+  // Portfolio addresses
+  addPortfolioAddress: (address: string, label?: string) => Promise<PortfolioAddress | null>;
+  removePortfolioAddress: (id: string) => Promise<boolean>;
+  isInPortfolio: (address: string) => boolean;
 
   // Favorites
   addFavorite: (
@@ -286,6 +299,76 @@ export function useUserProfile(): UseUserProfileReturn {
     return false;
   }, []);
 
+  // Add portfolio address
+  const addPortfolioAddress = useCallback(
+    async (address: string, label?: string): Promise<PortfolioAddress | null> => {
+      const token = getAuthToken();
+      if (!token) return null;
+
+      const result = await fetchWithAuth<{ portfolioAddress: PortfolioAddress }>(
+        '/api/portfolio-addresses',
+        {
+          method: 'POST',
+          body: JSON.stringify({ address, label }),
+        },
+        token
+      );
+
+      if (result.success && result.data) {
+        const portfolioAddr = result.data.portfolioAddress;
+        setProfile((prev) => {
+          if (!prev) return null;
+          // Remove if already exists (upsert behavior)
+          const filtered = prev.portfolioAddresses.filter(
+            (p) => p.address.toLowerCase() !== address.toLowerCase()
+          );
+          return {
+            ...prev,
+            portfolioAddresses: [portfolioAddr, ...filtered],
+          };
+        });
+        return portfolioAddr;
+      }
+      return null;
+    },
+    []
+  );
+
+  // Remove portfolio address
+  const removePortfolioAddress = useCallback(async (id: string): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth(
+      `/api/portfolio-addresses/${id}`,
+      { method: 'DELETE' },
+      token
+    );
+
+    if (result.success) {
+      setProfile((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          portfolioAddresses: prev.portfolioAddresses.filter((p) => p.id !== id),
+        };
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Check if address is in portfolio
+  const isInPortfolio = useCallback(
+    (address: string): boolean => {
+      if (!profile) return false;
+      return profile.portfolioAddresses.some(
+        (p) => p.address.toLowerCase() === address.toLowerCase()
+      );
+    },
+    [profile]
+  );
+
   // Add favorite
   const addFavorite = useCallback(
     async (
@@ -395,6 +478,9 @@ export function useUserProfile(): UseUserProfileReturn {
     updateEmail,
     addTrackedAddress,
     removeTrackedAddress,
+    addPortfolioAddress,
+    removePortfolioAddress,
+    isInPortfolio,
     addFavorite,
     removeFavorite,
     isFavorited,
