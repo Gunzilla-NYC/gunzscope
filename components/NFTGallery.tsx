@@ -26,6 +26,8 @@ interface NFTGalleryProps {
   onLoadMore?: () => void;
   /** True when background enrichment is fetching P&L data */
   isEnriching?: boolean;
+  /** Offset in pixels from top of viewport for sticky controls (accounts for navbar + sticky header) */
+  stickyOffset?: number;
 }
 
 // Rarity color mapping (only actual in-game rarities)
@@ -173,7 +175,7 @@ function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean; mints
 //   return collection;
 // }
 
-export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false }: NFTGalleryProps) {
+export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset }: NFTGalleryProps) {
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [selectedTokenKeyString, setSelectedTokenKeyString] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -494,12 +496,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
   return (
     <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
-      {/* Header with Title - Sticky Controls (top-16 accounts for fixed navbar height) */}
+      {/* Header with Title - Sticky Controls (offset accounts for navbar + sticky header) */}
       <div
         ref={controlsRef}
-        className={`sticky top-16 z-20 flex flex-col gap-4 mb-4 pb-4 -mx-6 px-6 pt-4 -mt-4 bg-[var(--gs-dark-3)] transition-shadow duration-200 ${
+        className={`sticky z-20 flex flex-col gap-4 mb-4 pb-4 -mx-6 px-6 pt-4 -mt-4 bg-[var(--gs-dark-3)] transition-shadow duration-200 ${
           isSticky ? 'shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-b border-white/[0.06]' : ''
         }`}
+        style={{ top: stickyOffset ? `${stickyOffset}px` : '64px' }}
       >
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-[var(--gs-white)]">
@@ -803,15 +806,21 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             return (
               <div
                 key={`${nft.chain}-${nft.tokenId}`}
-                className="group bg-[var(--gs-dark-3)] border p-3 transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg"
-                style={{ borderColor: `${rarityColor}20` }}
+                className="group bg-[var(--gs-dark-3)] border p-3 transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg relative overflow-hidden"
+                style={{
+                  borderColor: `${rarityColor}35`,
+                  borderLeftWidth: '3px',
+                  borderLeftColor: rarityColor,
+                }}
                 onClick={() => handleNFTClick(nft)}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}60`;
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${rarityColor}20`;
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}70`;
+                  (e.currentTarget as HTMLElement).style.borderLeftColor = rarityColor;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${rarityColor}25, inset 0 0 20px ${rarityColor}08`;
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}20`;
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}35`;
+                  (e.currentTarget as HTMLElement).style.borderLeftColor = rarityColor;
                   (e.currentTarget as HTMLElement).style.boxShadow = 'none';
                 }}
               >
