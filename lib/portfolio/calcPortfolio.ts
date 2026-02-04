@@ -16,6 +16,11 @@ export interface BreakdownItem {
   pct: number;
 }
 
+export interface ConfidenceScore {
+  level: 'high' | 'medium' | 'low' | 'none';
+  percentage: number;
+}
+
 export interface PortfolioInvariants {
   sumSectionsUsd: number;
   pctSum: number;
@@ -40,6 +45,8 @@ export interface PortfolioCalcResult {
   nftsWithoutPrice: number;
   // Total GUN spent on NFTs (sum of purchasePriceGun)
   totalGunSpent: number;
+  // Data confidence score based on NFT price coverage
+  confidence: ConfidenceScore;
 }
 
 export interface CalcPortfolioInput {
@@ -196,7 +203,22 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   }
 
   // ==========================================================================
-  // 5. Return result
+  // 5. Calculate confidence score
+  // ==========================================================================
+  const confidencePercentage = totalNftQuantity > 0
+    ? Math.round((nftsWithPrice / totalNftQuantity) * 100)
+    : 0;
+
+  const confidence: ConfidenceScore = {
+    level: confidencePercentage >= 80 ? 'high'
+         : confidencePercentage >= 50 ? 'medium'
+         : confidencePercentage > 0 ? 'low'
+         : 'none',
+    percentage: confidencePercentage,
+  };
+
+  // ==========================================================================
+  // 6. Return result
   // ==========================================================================
   return {
     totalUsd,
@@ -219,6 +241,7 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
     nftsWithPrice,
     nftsWithoutPrice,
     totalGunSpent,
+    confidence,
   };
 }
 
