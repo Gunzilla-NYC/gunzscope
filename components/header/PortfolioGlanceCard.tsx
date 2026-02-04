@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Sparkline from '@/components/ui/Sparkline';
 import WaffleChart from '@/components/ui/WaffleChart';
 import PnLLoadingIndicator from '@/components/ui/PnLLoadingIndicator';
+import CoverageBadge from '@/components/ui/CoverageBadge';
 import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
 import { EnrichmentProgress } from '@/lib/types';
 
@@ -207,9 +208,9 @@ export default function PortfolioGlanceCard({
         </div>
         {/* P&L Status */}
         <PnLLoadingIndicator isLoading={pnlLoading} progress={enrichmentProgress} />
-        {!pnlLoading && pnlCoverage !== undefined && pnlCoverage < 0.5 && pnlCoverage > 0 && (
-          <div className="text-[9px] text-[#ff6b6b]/70 mt-2 text-center">
-            P&L partial ({Math.round(pnlCoverage * 100)}% coverage)
+        {!pnlLoading && pnlCoverage !== undefined && pnlCoverage > 0 && (
+          <div className="flex justify-center mt-2">
+            <CoverageBadge coverage={pnlCoverage} />
           </div>
         )}
       </div>
