@@ -61,6 +61,7 @@ const WeaponLabDrawer = dynamic(() => import('@/components/weapon/WeaponLabDrawe
 import { isWeaponLocked, isWeapon as isWeaponLib, getFunctionalTier } from '@/lib/weapon';
 import TierBadge from '@/components/ui/TierBadge';
 import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
+import { gunzExplorerTxUrl } from '@/lib/explorer';
 
 const getDefaultRarityColors = () => DEFAULT_RARITY_COLORS;
 
@@ -2633,6 +2634,50 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         <p className="text-[11px] text-white/60 mt-2 leading-relaxed">
                           Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
                         </p>
+
+                        {/* Acquisition Summary - inline, not hidden */}
+                        {(currentPurchaseData?.acquisitionVenue || currentPurchaseData?.purchaseDate) && (
+                          <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
+                            {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] uppercase tracking-wider text-white/60">Source</span>
+                                <span className={`text-[13px] font-medium ${
+                                  currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
+                                  currentPurchaseData.acquisitionVenue === 'otg_marketplace' ? 'text-[var(--gs-purple)]' :
+                                  currentPurchaseData.acquisitionVenue === 'decode' || currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-[var(--gs-lime)]' :
+                                  'text-white/90'
+                                }`}>
+                                  {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0)}
+                                </span>
+                              </div>
+                            )}
+                            {currentPurchaseData?.purchaseDate && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] uppercase tracking-wider text-white/60">Acquired</span>
+                                <span className="text-[13px] font-medium text-white/90 tabular-nums">
+                                  {formatDate(currentPurchaseData.purchaseDate)}
+                                </span>
+                              </div>
+                            )}
+                            {/* Transaction link */}
+                            {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] uppercase tracking-wider text-white/60">Transaction</span>
+                                <a
+                                  href={gunzExplorerTxUrl(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash || '')}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[13px] font-medium text-[var(--gs-lime)] hover:text-[var(--gs-purple)] transition inline-flex items-center gap-1"
+                                >
+                                  View
+                                  <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2801,7 +2846,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     aria-controls="nft-details-content"
                     className="w-full flex items-center justify-between py-2 text-xs text-white/60 hover:text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gs-lime)]/50 rounded"
                   >
-                    <span>{detailsExpanded ? 'Hide details' : 'View details'}</span>
+                    <span>{detailsExpanded ? 'Hide details' : 'More details'}</span>
                     <svg
                       className={`w-3.5 h-3.5 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`}
                       fill="none"
