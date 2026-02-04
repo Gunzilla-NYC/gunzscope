@@ -28,6 +28,7 @@ export { NFTDetailTraitsSection } from './NFTDetailTraitsSection';
 export { NFTDetailAcquisitionCard } from './NFTDetailAcquisitionCard';
 export { NFTDetailObservedMarketRange } from './NFTDetailObservedMarketRange';
 export { NFTDetailDebugPanel } from './NFTDetailDebugPanel';
+export { NFTDetailQuickStats } from './NFTDetailQuickStats';
 
 // View model types (for parent use)
 export type {

@@ -47,6 +47,7 @@ import {
   NFTDetailAcquisitionCard,
   NFTDetailObservedMarketRange,
   NFTDetailDebugPanel,
+  NFTDetailQuickStats,
   type HoldingAcquisitionData,
   type ResolvedAcquisitionData,
   type MetadataDebugData,
@@ -2521,6 +2522,29 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   )}
                 </div>
               </div>
+
+              {/* ===== 2.25) Quick Stats Row ===== */}
+              {walletAddress && costBasisGun !== null && (
+                <NFTDetailQuickStats
+                  costBasisGun={costBasisGun}
+                  costBasisUsd={currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null}
+                  marketValueGun={marketInputs.ref}
+                  marketValueUsd={marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null}
+                  unrealizedUsd={(() => {
+                    const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
+                    const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
+                    if (costUsd === null || marketUsd === null) return null;
+                    return marketUsd - costUsd;
+                  })()}
+                  unrealizedPct={(() => {
+                    const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
+                    const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
+                    if (costUsd === null || marketUsd === null || costUsd <= 0) return null;
+                    return ((marketUsd - costUsd) / costUsd) * 100;
+                  })()}
+                  isLoading={loadingDetails}
+                />
+              )}
 
               {/* ===== 2.5) YOUR POSITION Section ===== */}
               {walletAddress && costBasisGun !== null && (() => {
