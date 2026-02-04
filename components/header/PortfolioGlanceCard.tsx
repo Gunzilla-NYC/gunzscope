@@ -5,8 +5,10 @@ import Sparkline from '@/components/ui/Sparkline';
 import WaffleChart from '@/components/ui/WaffleChart';
 import PnLLoadingIndicator from '@/components/ui/PnLLoadingIndicator';
 import CoverageBadge from '@/components/ui/CoverageBadge';
+import InsightsPanel from '@/components/ui/InsightsPanel';
 import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
-import { EnrichmentProgress } from '@/lib/types';
+import { generateInsights } from '@/lib/portfolio/portfolioInsights';
+import { EnrichmentProgress, NFT } from '@/lib/types';
 
 interface PortfolioBreakdown {
   gunValue: number;
@@ -30,6 +32,8 @@ interface PortfolioGlanceCardProps {
   pnlLoading?: boolean;
   pnlCoverage?: number;  // 0-1, fraction of NFTs with cost basis
   enrichmentProgress?: EnrichmentProgress | null;
+  nfts?: NFT[];          // NFTs for generating insights
+  gunPrice?: number;     // GUN price for insights calculations
   className?: string;
 }
 
@@ -76,6 +80,8 @@ export default function PortfolioGlanceCard({
   pnlLoading = false,
   pnlCoverage,
   enrichmentProgress,
+  nfts = [],
+  gunPrice,
   className = '',
 }: PortfolioGlanceCardProps) {
   const [showPerformanceTooltip, setShowPerformanceTooltip] = useState(false);
@@ -108,6 +114,13 @@ export default function PortfolioGlanceCard({
     const nftPercent = (breakdown.nftValue / total) * 100;
     return { gunPercent, nftPercent };
   }, [totalValue, breakdown]);
+
+  // Generate portfolio insights
+  const insights = useMemo(() => {
+    // Only generate insights if we have enough P&L coverage
+    if (pnlCoverage !== undefined && pnlCoverage < 0.3) return [];
+    return generateInsights(nfts, gunPrice);
+  }, [nfts, gunPrice, pnlCoverage]);
 
   // Format changes
   const change24h = formatChange(changes.change24h);
@@ -214,6 +227,13 @@ export default function PortfolioGlanceCard({
           </div>
         )}
       </div>
+
+      {/* Insights section */}
+      {insights.length > 0 && (
+        <div className="border-t border-white/[0.06] pt-3 mt-3">
+          <InsightsPanel insights={insights} />
+        </div>
+      )}
 
       {/* Status line - tertiary helper text */}
       {!changes.hasEnoughData && (

@@ -144,6 +144,8 @@ export default function PortfolioHeader({
             pnlLoading={pnlLoading}
             pnlCoverage={pnlCoverage}
             enrichmentProgress={enrichmentProgress}
+            nfts={[...walletData.avalanche.nfts, ...walletData.solana.nfts]}
+            gunPrice={gunPrice}
           />
         </div>
       </div>
