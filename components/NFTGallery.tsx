@@ -494,10 +494,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
   return (
     <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
-      {/* Header with Title - Sticky Controls */}
+      {/* Header with Title - Sticky Controls (top-16 accounts for fixed navbar height) */}
       <div
         ref={controlsRef}
-        className={`sticky top-0 z-20 flex flex-col gap-4 mb-4 pb-4 -mx-6 px-6 bg-[var(--gs-dark-3)] transition-shadow duration-200 ${
+        className={`sticky top-16 z-20 flex flex-col gap-4 mb-4 pb-4 -mx-6 px-6 pt-4 -mt-4 bg-[var(--gs-dark-3)] transition-shadow duration-200 ${
           isSticky ? 'shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-b border-white/[0.06]' : ''
         }`}
       >
