@@ -2,7 +2,7 @@
 
 import { NFT, NFTPaginationInfo } from '@/lib/types';
 import Image from 'next/image';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { buildTokenKey } from '@/lib/utils/nftCache';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
@@ -183,6 +183,25 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   const [activeRarities, setActiveRarities] = useState<Set<Rarity>>(() => new Set());
   // Default view: small grid if >16 NFTs, medium grid if <=16
   const [viewMode, setViewMode] = useState<ViewMode>(() => nfts.length > 16 ? 'small' : 'medium');
+  const [isSticky, setIsSticky] = useState(false);
+  const controlsRef = useRef<HTMLDivElement>(null);
+
+  // Detect when controls become sticky using IntersectionObserver
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // When the top of controls intersects viewport boundary, toggle sticky state
+        setIsSticky(!entry.isIntersecting);
+      },
+      { threshold: 1, rootMargin: '-1px 0px 0px 0px' }
+    );
+
+    observer.observe(controls);
+    return () => observer.disconnect();
+  }, []);
 
   // Toggle a rarity on/off (multi-select)
   const toggleRarity = useCallback((rarity: Rarity) => {
@@ -476,7 +495,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   return (
     <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
       {/* Header with Title - Sticky Controls */}
-      <div className="sticky top-0 z-20 flex flex-col gap-4 mb-4 pb-4 -mx-6 px-6 bg-[var(--gs-dark-3)]">
+      <div
+        ref={controlsRef}
+        className={`sticky top-0 z-20 flex flex-col gap-4 mb-4 pb-4 -mx-6 px-6 bg-[var(--gs-dark-3)] transition-shadow duration-200 ${
+          isSticky ? 'shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-b border-white/[0.06]' : ''
+        }`}
+      >
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-[var(--gs-white)]">
             Off The Grid Game Assets
