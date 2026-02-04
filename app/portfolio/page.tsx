@@ -1182,6 +1182,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
             walletType={walletType}
             totalOwnedCount={nftPagination.totalOwnedCount}
             portfolioResult={portfolioResult}
+            enrichmentProgress={enrichmentProgress}
           />
 
           <div className="space-y-6 mt-4">

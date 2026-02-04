@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { WalletData } from '@/lib/types';
+import { WalletData, EnrichmentProgress } from '@/lib/types';
 import { NetworkInfo } from '@/lib/utils/networkDetector';
 import WalletIdentity from './WalletIdentity';
 import PortfolioGlanceCard from './PortfolioGlanceCard';
@@ -18,6 +18,7 @@ interface PortfolioHeaderProps {
   walletType?: 'in-game' | 'external' | 'unknown';
   totalOwnedCount?: number;
   portfolioResult?: PortfolioCalcResult | null;
+  enrichmentProgress?: EnrichmentProgress | null;
 }
 
 export default function PortfolioHeader({
@@ -29,6 +30,7 @@ export default function PortfolioHeader({
   walletType = 'unknown',
   totalOwnedCount,
   portfolioResult,
+  enrichmentProgress,
 }: PortfolioHeaderProps) {
   // Derive display values from portfolioResult (single source of truth)
   // Falls back to legacy calculation if portfolioResult not provided
@@ -108,7 +110,10 @@ export default function PortfolioHeader({
       {/* Main Header Grid: 2 zones */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Zone A: Wallet Identity with GUN balance (left) */}
-        <div className="lg:col-span-5 relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 overflow-hidden">
+        <div
+          className="lg:col-span-5 relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 overflow-hidden"
+          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+        >
           {/* Top accent line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
           <WalletIdentity
@@ -125,7 +130,10 @@ export default function PortfolioHeader({
         </div>
 
         {/* Zone B: Portfolio Glance (right) */}
-        <div className="lg:col-span-7 relative bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
+        <div
+          className="lg:col-span-7 relative bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden"
+          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+        >
           {/* Top accent line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
           <PortfolioGlanceCard
@@ -135,6 +143,7 @@ export default function PortfolioHeader({
             costBasis={costBasis ?? undefined}
             pnlLoading={pnlLoading}
             pnlCoverage={pnlCoverage}
+            enrichmentProgress={enrichmentProgress}
           />
         </div>
       </div>

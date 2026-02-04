@@ -5,6 +5,7 @@ import Sparkline from '@/components/ui/Sparkline';
 import WaffleChart from '@/components/ui/WaffleChart';
 import PnLLoadingIndicator from '@/components/ui/PnLLoadingIndicator';
 import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
+import { EnrichmentProgress } from '@/lib/types';
 
 interface PortfolioBreakdown {
   gunValue: number;
@@ -27,6 +28,7 @@ interface PortfolioGlanceCardProps {
   costBasis?: CostBasis;
   pnlLoading?: boolean;
   pnlCoverage?: number;  // 0-1, fraction of NFTs with cost basis
+  enrichmentProgress?: EnrichmentProgress | null;
   className?: string;
 }
 
@@ -72,6 +74,7 @@ export default function PortfolioGlanceCard({
   costBasis,
   pnlLoading = false,
   pnlCoverage,
+  enrichmentProgress,
   className = '',
 }: PortfolioGlanceCardProps) {
   const [showPerformanceTooltip, setShowPerformanceTooltip] = useState(false);
@@ -203,7 +206,7 @@ export default function PortfolioGlanceCard({
           />
         </div>
         {/* P&L Status */}
-        <PnLLoadingIndicator isLoading={pnlLoading} />
+        <PnLLoadingIndicator isLoading={pnlLoading} progress={enrichmentProgress} />
         {!pnlLoading && pnlCoverage !== undefined && pnlCoverage < 0.5 && pnlCoverage > 0 && (
           <div className="text-[9px] text-[#ff6b6b]/70 mt-2 text-center">
             P&L partial ({Math.round(pnlCoverage * 100)}% coverage)
