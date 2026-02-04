@@ -146,7 +146,7 @@ export default function PortfolioSummaryBar({
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-white/[0.06]">
           {/* GUN Holdings */}
-          <div className="p-4 border-r border-white/[0.06]">
+          <div className="p-4 border-r border-white/[0.06] stat-cell-animate">
             <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
               GUN Holdings
             </p>
@@ -156,7 +156,7 @@ export default function PortfolioSummaryBar({
           </div>
 
           {/* GUN Value */}
-          <div className="p-4 border-r border-white/[0.06] lg:border-r">
+          <div className="p-4 border-r border-white/[0.06] lg:border-r stat-cell-animate">
             <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
               GUN Value
             </p>
@@ -166,7 +166,7 @@ export default function PortfolioSummaryBar({
           </div>
 
           {/* NFT Value */}
-          <div className="p-4 border-r border-white/[0.06] border-t lg:border-t-0">
+          <div className="p-4 border-r border-white/[0.06] border-t lg:border-t-0 stat-cell-animate">
             <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
               NFT Value
             </p>
@@ -183,7 +183,7 @@ export default function PortfolioSummaryBar({
           </div>
 
           {/* Unrealized P&L */}
-          <div className="p-4 border-t lg:border-t-0">
+          <div className="p-4 border-t lg:border-t-0 stat-cell-animate">
             <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
               Unrealized P&L
             </p>
