@@ -68,9 +68,9 @@ export default function HomePage() {
   // Glitched typewriter for hero text
   const heroTypewriter = useGlitchTypewriter({
     words: ['Intelligence', 'Dominance', 'Advantage', 'Edge'],
-    typingSpeed: 60,
-    pauseDuration: 2500,
-    glitchDuration: 300,
+    typingSpeed: 35,
+    pauseDuration: 1800,
+    glitchDuration: 200,
   });
 
   // Count-up animations for stats
