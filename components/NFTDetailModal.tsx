@@ -48,6 +48,7 @@ import {
   NFTDetailObservedMarketRange,
   NFTDetailDebugPanel,
   NFTDetailQuickStats,
+  NFTDetailTraitPills,
   type HoldingAcquisitionData,
   type ResolvedAcquisitionData,
   type MetadataDebugData,
@@ -2520,6 +2521,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   {nft.typeSpec?.Item?.rarity && (
                     <TierBadge tier={getFunctionalTier(nft)} className="mt-2" />
                   )}
+                  {/* Inline trait pills */}
+                  <NFTDetailTraitPills
+                    mintNumber={activeItem?.mintNumber}
+                    rarity={filteredTraits['Rarity']}
+                    itemClass={filteredTraits['Class']}
+                    platform={filteredTraits['Platform']}
+                  />
                 </div>
               </div>
 
