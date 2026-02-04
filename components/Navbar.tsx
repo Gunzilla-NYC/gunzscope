@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import Logo from './Logo';
 import WalletButton from './WalletButton';
-import WalletSearchDropdown from './WalletSearchDropdown';
-import { useUserProfile } from '@/lib/hooks/useUserProfile';
 
 interface NavbarProps {
   onWalletConnect?: (address: string) => void;
@@ -16,73 +12,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountClick }: NavbarProps) {
-  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
-  const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
-
-  const {
-    profile,
-    addTrackedAddress,
-    addPortfolioAddress,
-    isInPortfolio,
-  } = useUserProfile();
-
-  // Check if address is in watchlist
-  const isInWatchlist = profile?.trackedAddresses.some(
-    t => t.address.toLowerCase() === searchValue.toLowerCase()
-  ) ?? false;
-
-  // Check if address is in portfolio
-  const addressInPortfolio = isInPortfolio(searchValue);
-
-  // Check if user has reached the portfolio address limit (5)
-  const isAtPortfolioLimit = (profile?.portfolioAddresses?.length ?? 0) >= 5;
-
-  // Handlers
-  const handleNavigate = (address: string) => {
-    router.push(`/portfolio?address=${address}`);
-    setSearchValue(''); // Clear search after navigation
-  };
-
-  const handleAddToWatchlist = async (address: string) => {
-    setIsAddingWatchlist(true);
-    try {
-      const result = await addTrackedAddress(address);
-      if (result) {
-        toast.success('Added to watchlist');
-        return true;
-      } else {
-        toast.error('Failed to add to watchlist');
-        return false;
-      }
-    } catch {
-      toast.error('Failed to add to watchlist');
-      return false;
-    } finally {
-      setIsAddingWatchlist(false);
-    }
-  };
-
-  const handleAddToPortfolio = async (address: string) => {
-    setIsAddingPortfolio(true);
-    try {
-      const result = await addPortfolioAddress(address);
-      if (result) {
-        toast.success('Added to portfolio');
-        return true;
-      } else {
-        toast.error('Failed to add to portfolio');
-        return false;
-      }
-    } catch {
-      toast.error('Failed to add to portfolio');
-      return false;
-    } finally {
-      setIsAddingPortfolio(false);
-    }
-  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -113,28 +43,6 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
                 Alpha
               </span>
             </Link>
-
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md mx-4">
-              <input
-                type="text"
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                placeholder="Search wallet address..."
-                className="w-full px-4 py-2 bg-[var(--gs-dark-2)] border border-white/[0.1] rounded-lg text-sm font-mono placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
-              />
-              <WalletSearchDropdown
-                searchValue={searchValue}
-                onNavigate={handleNavigate}
-                onAddToWatchlist={handleAddToWatchlist}
-                onAddToPortfolio={handleAddToPortfolio}
-                isInWatchlist={isInWatchlist}
-                isInPortfolio={addressInPortfolio}
-                isAddingWatchlist={isAddingWatchlist}
-                isAddingPortfolio={isAddingPortfolio}
-                isAtPortfolioLimit={isAtPortfolioLimit}
-              />
-            </div>
 
             {/* Wallet Button */}
             <WalletButton
