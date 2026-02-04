@@ -43,7 +43,6 @@ import {
 // Import extracted presentational subcomponents
 // =============================================================================
 import {
-  NFTDetailTraitsSection,
   NFTDetailAcquisitionCard,
   NFTDetailObservedMarketRange,
   NFTDetailDebugPanel,
@@ -2885,8 +2884,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                   {detailsExpanded && (
                     <div id="nft-details-content" className="pt-3 pb-1">
-                      {/* Two-column card layout: Acquisition + Traits */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                      {/* Acquisition card - traits already shown in pills above */}
+                      <div className="space-y-4">
                         {/* ===== Acquisition Card ===== */}
                         {hasAcquisitionData && (
                           <NFTDetailAcquisitionCard
@@ -2899,9 +2898,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                             getVenueDisplayLabel={getVenueDisplayLabel}
                           />
                         )}
-
-                        {/* ===== Traits Card ===== */}
-                        <NFTDetailTraitsSection filteredTraits={filteredTraits} />
 
                         {/* Armory Tab - only for modifiable weapons */}
                         {weaponLabEligible && (
