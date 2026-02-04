@@ -2398,7 +2398,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-white transition p-1.5 -mr-1.5 rounded-lg hover:bg-white/5"
+              aria-label="Close modal"
+              className="text-gray-400 hover:text-white transition p-1.5 -mr-1.5 rounded-lg hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gs-lime)]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--gs-dark-1)]"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2550,7 +2551,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     return { text: 'Acquired', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
                   }
                   if (acquisitionType === 'TRANSFER') {
-                    return { text: 'Transferred', style: 'bg-white/10 text-white/50' };
+                    return { text: 'Transferred', style: 'bg-white/10 text-white/60' };
                   }
                   return null;
                 };
@@ -2616,7 +2617,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                         {/* USD at acquisition */}
                         {costBasisUsdAtAcquisition !== null && (
-                          <p className="text-[13px] text-white/50">
+                          <p className="text-[13px] text-white/60">
                             At acquisition: ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         )}
@@ -2629,7 +2630,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         )}
 
                         {/* Explanation text */}
-                        <p className="text-[11px] text-white/40 mt-2 leading-relaxed">
+                        <p className="text-[11px] text-white/60 mt-2 leading-relaxed">
                           Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
                         </p>
                       </div>
@@ -2713,6 +2714,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       </p>
                       {/* Position pill */}
                       <div
+                        role="status"
+                        aria-label={`Position: ${getPositionPillText()}`}
                         className={`h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 cursor-help ${getPositionPillStyles()}`}
                         title={getTooltipText()}
                       >
@@ -2754,7 +2757,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           >
                             Data Quality:{' '}
                             <span className="capitalize">{positionLabel.dataQuality}</span>
-                            <svg className="w-3 h-3 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </p>
@@ -2764,7 +2767,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       // No market data state
                       <div className="space-y-1">
                         <p className="text-base font-medium text-white/85">No active listings found</p>
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-white/60">
                           This is an illiquid market; reference values may be unavailable.
                         </p>
                       </div>
@@ -2794,7 +2797,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       e.stopPropagation();
                       setDetailsExpanded(v => !v);
                     }}
-                    className="w-full flex items-center justify-between py-2 text-xs text-white/50 hover:text-white/70 transition"
+                    aria-expanded={detailsExpanded}
+                    aria-controls="nft-details-content"
+                    className="w-full flex items-center justify-between py-2 text-xs text-white/60 hover:text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gs-lime)]/50 rounded"
                   >
                     <span>{detailsExpanded ? 'Hide details' : 'View details'}</span>
                     <svg
@@ -2808,7 +2813,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   </button>
 
                   {detailsExpanded && (
-                    <div className="pt-3 pb-1">
+                    <div id="nft-details-content" className="pt-3 pb-1">
                       {/* Two-column card layout: Acquisition + Traits */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                         {/* ===== Acquisition Card ===== */}
@@ -2901,7 +2906,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             <button
               type="button"
               onClick={onClose}
-              className="w-full h-10 bg-white/10 hover:bg-white/15 text-white font-medium rounded-lg transition"
+              aria-label="Close modal"
+              className="w-full h-10 bg-white/10 hover:bg-white/15 text-white font-medium rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gs-lime)]/50"
             >
               Close
             </button>
