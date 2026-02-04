@@ -4,9 +4,8 @@ import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from 'rea
 import { useSearchParams } from 'next/navigation';
 import { PortfolioHeader } from '@/components/header';
 import NFTGallery from '@/components/NFTGallery';
-import MarketplaceStats from '@/components/MarketplaceStats';
 import DebugPanel from '@/components/DebugPanel';
-import { WalletData, MarketplaceData, NFTPaginationInfo } from '@/lib/types';
+import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { SolanaService } from '@/lib/blockchain/solana';
 import { CoinGeckoService } from '@/lib/api/coingecko';
@@ -109,7 +108,6 @@ const mergeWalletData = (wallets: WalletData[]): WalletData => {
 
 function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
-  const [marketplaceData, setMarketplaceData] = useState<MarketplaceData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,24 +147,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
   // Ref to track if enrichment should be cancelled
   const enrichmentCancelledRef = useRef(false);
-
-  // Ref and state for sticky portfolio header height measurement
-  const portfolioHeaderRef = useRef<HTMLDivElement>(null);
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
-
-  // Measure portfolio header height for NFT gallery sticky offset
-  useEffect(() => {
-    const measureHeader = () => {
-      if (portfolioHeaderRef.current) {
-        setStickyHeaderHeight(portfolioHeaderRef.current.offsetHeight);
-      }
-    };
-
-    measureHeader();
-    // Re-measure on resize
-    window.addEventListener('resize', measureHeader);
-    return () => window.removeEventListener('resize', measureHeader);
-  }, [walletData]); // Re-measure when wallet data changes
 
   // Track if initial portfolio data has loaded (for "Calculating..." state)
   // Once set to false, stays false until new wallet search
@@ -788,16 +768,14 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
         console.log(`[Portfolio Aggregation] Fetching ${addressesToFetch.length} wallets:`, addressesToFetch);
       }
 
-      // Fetch shared data (prices, marketplace, network) plus all wallet data in parallel
+      // Fetch shared data (prices, network) plus all wallet data in parallel
       const [
         priceData,
-        marketplace,
         detectedNetworkInfo,
         detectedWalletType,
         ...walletResults
       ] = await Promise.all([
         coinGeckoService.getGunTokenPrice(),
-        marketplaceService.getMarketplaceData(),
         networkDetector.getNetworkInfo(),
         networkDetector.detectWalletType(address),
         ...addressesToFetch.map(addr => fetchSingleWallet(addr, avalancheService, solanaService)),
@@ -845,8 +823,11 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       setWalletType(detectedWalletType);
 
       setWalletData(mergedData);
-      setMarketplaceData(marketplace);
       setLoading(false);
+
+      // Clear search input after successful load
+      // This prevents the search bar from showing the wallet address and triggering the dropdown
+      setSearchAddress('');
 
       // Start background enrichment for all Avalanche NFTs
       // Reuse existing marketplace service (will gracefully handle unconfigured state)
@@ -931,7 +912,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const handleWalletDisconnect = () => {
     enrichmentCancelledRef.current = true;
     setWalletData(null);
-    setMarketplaceData(null);
     setNetworkInfo(null);
     setWalletType('unknown');
     setGunPrice(undefined);
@@ -1091,7 +1071,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
               onClick={() => {
                 enrichmentCancelledRef.current = true;
                 setWalletData(null);
-                setMarketplaceData(null);
                 setNetworkInfo(null);
                 setWalletType('unknown');
                 setError(null);
@@ -1159,24 +1138,17 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
             )}
           </div>
 
-          {/* Sticky Portfolio Header */}
-          <div
-            ref={portfolioHeaderRef}
-            className="sticky top-16 z-30 -mx-4 px-4 pt-4 pb-2 bg-gunzscope"
-          >
-            <PortfolioHeader
-              walletData={walletData}
-              gunPrice={gunPrice}
-              networkInfo={networkInfo}
-              walletType={walletType}
-              totalOwnedCount={nftPagination.totalOwnedCount}
-              portfolioResult={portfolioResult}
-            />
-          </div>
+          {/* Portfolio Header - scrolls normally */}
+          <PortfolioHeader
+            walletData={walletData}
+            gunPrice={gunPrice}
+            networkInfo={networkInfo}
+            walletType={walletType}
+            totalOwnedCount={nftPagination.totalOwnedCount}
+            portfolioResult={portfolioResult}
+          />
 
           <div className="space-y-6 mt-4">
-            <MarketplaceStats data={marketplaceData} />
-
             {/* Portfolio Summary Bar */}
             <PortfolioSummaryBar
               portfolioResult={portfolioResult}
@@ -1192,7 +1164,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
               paginationInfo={nftPagination}
               onLoadMore={handleLoadMoreNFTs}
               isEnriching={enrichingNFTs}
-              stickyOffset={stickyHeaderHeight + 64} // 64px navbar + header height
+              stickyOffset={64} // 64px navbar height
             />
           </div>
 
