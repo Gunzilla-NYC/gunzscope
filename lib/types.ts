@@ -44,6 +44,7 @@ export interface NFT {
   tokenIds?: string[]; // All token IDs if this represents multiple copies
   mintNumber?: string; // Display mint number (from traits)
   mintNumbers?: string[]; // All mint numbers if grouped
+  groupedRarities?: string[]; // Rarities of each item in group (parallel to mintNumbers)
   name: string;
   description?: string; // NFT description from metadata
   image: string;
@@ -125,6 +126,13 @@ export interface NFTPaginationInfo {
   pagesLoaded: number;         // Number of pages loaded
   hasMore: boolean;            // True if more NFTs available
   isLoadingMore: boolean;      // True if currently loading more
+}
+
+// Enrichment progress tracking for UI feedback
+export interface EnrichmentProgress {
+  completed: number;           // Number of NFTs enriched so far
+  total: number;               // Total NFTs needing enrichment
+  phase: 'cache' | 'enriching' | 'complete';  // Current enrichment phase
 }
 
 // =============================================================================
