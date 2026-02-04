@@ -2415,7 +2415,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             <div className="p-4 space-y-4">
 
               {/* ===== 2) IdentitySection ===== */}
-              <div className="space-y-3">
+              <div className="space-y-3 animate-[fade-in-up_0.4s_ease-out]">
                 {/* NFT Image */}
                 {sortedItems.length > 1 ? (
                   // Multiple items - grid view
@@ -2610,7 +2610,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                 return (
                   <div
-                    className="rounded-xl p-4"
+                    className="rounded-xl p-4 animate-[fade-in-up_0.4s_ease-out_0.1s_both]"
                     style={{ backgroundColor: 'rgba(166, 247, 0, 0.06)' }}
                   >
                     {/* Header row: YOUR POSITION + Status pill */}
@@ -2781,7 +2781,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                 return (
                   <div
-                    className="rounded-xl p-4"
+                    className="rounded-xl p-4 animate-[fade-in-up_0.4s_ease-out_0.15s_both]"
                     style={{ backgroundColor: 'rgba(166, 247, 0, 0.06)' }}
                   >
                     {/* Header row: Market Reference + Position pill */}
@@ -2854,15 +2854,17 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               })()}
 
               {/* ===== 4) MarketReferenceSection (Observed Range Visualization) ===== */}
-              <NFTDetailObservedMarketRange
-                show={!!walletAddress}
-                loading={loadingDetails}
-                marketInputs={marketInputs}
-                costBasisGun={costBasisGun}
-                getPositionOnRange={getPositionOnRange}
-                listingsStatus={listingsStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
-                listingsError={listingsErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
-              />
+              <div className="animate-[fade-in-up_0.4s_ease-out_0.2s_both]">
+                <NFTDetailObservedMarketRange
+                  show={!!walletAddress}
+                  loading={loadingDetails}
+                  marketInputs={marketInputs}
+                  costBasisGun={costBasisGun}
+                  getPositionOnRange={getPositionOnRange}
+                  listingsStatus={listingsStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
+                  listingsError={listingsErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
+                />
+              </div>
 
               {/* ===== 5) DetailsAccordion ===== */}
               {hasDetails && (
