@@ -48,6 +48,8 @@ export default function PortfolioPage() {
 const ENRICHMENT_BATCH_SIZE = 3;
 // Delay between batches in ms to avoid rate limiting
 const ENRICHMENT_BATCH_DELAY_MS = 1500;
+// Number of NFTs to prioritize for above-the-fold display
+const PRIORITY_ABOVE_FOLD_COUNT = 12;
 
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -470,7 +472,8 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     avalancheService: AvalancheService,
     marketplaceService: GameMarketplaceService | null,
     updateCallback: (enrichedNFTs: NFT[]) => void,
-    onProgress?: (progress: EnrichmentProgress) => void
+    onProgress?: (progress: EnrichmentProgress) => void,
+    priorityTokenIds?: string[]
   ) => {
     console.log(`[NFT Enrichment] START - ${nfts.length} NFTs to process, marketplace: ${marketplaceService ? 'configured' : 'null'}`);
     try {
@@ -537,8 +540,26 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
     console.log(`[NFT Enrichment] ${nftsNeedingEnrichment.length}/${nfts.length} NFTs need enrichment`);
 
+    // Sort by priority: above-the-fold NFTs first for faster perceived load
+    let orderedNftsToEnrich = nftsNeedingEnrichment;
+    if (priorityTokenIds && priorityTokenIds.length > 0) {
+      const prioritySet = new Set(priorityTokenIds);
+      const priorityNfts = nftsNeedingEnrichment.filter(nft => {
+        const tokenId = nft.tokenIds?.[0] || nft.tokenId;
+        return prioritySet.has(tokenId);
+      });
+      const remainingNfts = nftsNeedingEnrichment.filter(nft => {
+        const tokenId = nft.tokenIds?.[0] || nft.tokenId;
+        return !prioritySet.has(tokenId);
+      });
+      orderedNftsToEnrich = [...priorityNfts, ...remainingNfts];
+      if (priorityNfts.length > 0) {
+        console.log(`[NFT Enrichment] Prioritizing ${priorityNfts.length} above-fold NFTs`);
+      }
+    }
+
     // Report initial progress
-    onProgress?.({ completed: 0, total: nftsNeedingEnrichment.length, phase: 'enriching' });
+    onProgress?.({ completed: 0, total: orderedNftsToEnrich.length, phase: 'enriching' });
 
     // Process in batches and update progressively
     const enrichedResults = new Map<string, NFT>();
@@ -547,10 +568,10 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       enrichedResults.set(key, nft);
     });
 
-    for (let i = 0; i < nftsNeedingEnrichment.length; i += ENRICHMENT_BATCH_SIZE) {
+    for (let i = 0; i < orderedNftsToEnrich.length; i += ENRICHMENT_BATCH_SIZE) {
       if (enrichmentCancelledRef.current) break;
 
-      const batch = nftsNeedingEnrichment.slice(i, i + ENRICHMENT_BATCH_SIZE);
+      const batch = orderedNftsToEnrich.slice(i, i + ENRICHMENT_BATCH_SIZE);
       console.log(`[NFT Enrichment] Processing batch ${i / ENRICHMENT_BATCH_SIZE + 1}: ${batch.map(n => n.tokenId).join(', ')}`);
 
       const batchResults = await Promise.all(
@@ -573,19 +594,19 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
         updateCallback(updatedNFTs);
 
         // Report progress after each batch
-        const completedCount = Math.min(i + ENRICHMENT_BATCH_SIZE, nftsNeedingEnrichment.length);
-        onProgress?.({ completed: completedCount, total: nftsNeedingEnrichment.length, phase: 'enriching' });
+        const completedCount = Math.min(i + ENRICHMENT_BATCH_SIZE, orderedNftsToEnrich.length);
+        onProgress?.({ completed: completedCount, total: orderedNftsToEnrich.length, phase: 'enriching' });
       }
 
       // Add delay between batches to avoid RPC rate limiting (429 errors)
-      if (i + ENRICHMENT_BATCH_SIZE < nftsNeedingEnrichment.length && !enrichmentCancelledRef.current) {
+      if (i + ENRICHMENT_BATCH_SIZE < orderedNftsToEnrich.length && !enrichmentCancelledRef.current) {
         await delay(ENRICHMENT_BATCH_DELAY_MS);
       }
     }
 
     const withPrice = Array.from(enrichedResults.values()).filter(n => n.purchasePriceGun !== undefined).length;
     console.log(`[NFT Enrichment] Complete: ${withPrice}/${nfts.length} NFTs have price data`);
-    onProgress?.({ completed: nftsNeedingEnrichment.length, total: nftsNeedingEnrichment.length, phase: 'complete' });
+    onProgress?.({ completed: orderedNftsToEnrich.length, total: orderedNftsToEnrich.length, phase: 'complete' });
     setEnrichingNFTs(false);
     } catch (enrichmentError) {
       console.error(`[NFT Enrichment] FATAL ERROR:`, enrichmentError);
@@ -851,6 +872,11 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       // Reuse existing marketplace service (will gracefully handle unconfigured state)
       const marketplaceConfigured = marketplaceService.isConfigured();
 
+      // Extract priority tokens (above-the-fold NFTs) for faster perceived load
+      const priorityTokenIds = mergedData.avalanche.nfts
+        .slice(0, PRIORITY_ABOVE_FOLD_COUNT)
+        .map(nft => nft.tokenIds?.[0] || nft.tokenId);
+
       // For merged data, enrich all NFTs but update the merged state
       enrichNFTsInBackground(
         mergedData.avalanche.nfts,
@@ -886,7 +912,8 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
             };
           });
         },
-        setEnrichmentProgress
+        setEnrichmentProgress,
+        priorityTokenIds
       );
 
       // Fetch collection floor price in background and apply to all NFTs
