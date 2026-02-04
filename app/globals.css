@@ -391,6 +391,14 @@ body {
   position: relative;
   background: var(--gs-black);
   min-height: 100vh;
+  caret-color: transparent; /* Hide cursor outside inputs */
+}
+
+/* Restore caret for actual input elements */
+.bg-gunzscope input,
+.bg-gunzscope textarea,
+.bg-gunzscope [contenteditable="true"] {
+  caret-color: auto;
 }
 
 .bg-gunzscope::before {
