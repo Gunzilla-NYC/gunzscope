@@ -284,7 +284,7 @@ export default function HomePage() {
           </div>
 
           {/* Title */}
-          <h1 className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-tight uppercase mb-6 animate-fade-in-up delay-100">
+          <h1 className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-wide uppercase mb-6 animate-fade-in-up delay-100">
             <span className="block text-[var(--gs-white)]">Your OTG</span>
             <span className="block text-[var(--gs-purple-bright)]">Arsenal</span>
             <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px]">
