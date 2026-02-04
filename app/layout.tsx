@@ -3,6 +3,7 @@ import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import CrosshairCursor from "@/components/CrosshairCursor";
+import { Toaster } from "sonner";
 
 // GUNZscope Brand Fonts
 const chakraPetch = Chakra_Petch({
@@ -50,6 +51,21 @@ export default function RootLayout({
           <div className="relative z-10">
             {children}
           </div>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: 'var(--gs-dark-2)',
+                color: 'var(--gs-white)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                fontFamily: 'var(--font-body)',
+              },
+              classNames: {
+                success: 'text-[var(--gs-profit)]',
+                error: 'text-[var(--gs-loss)]',
+              },
+            }}
+          />
         </DynamicProvider>
       </body>
     </html>

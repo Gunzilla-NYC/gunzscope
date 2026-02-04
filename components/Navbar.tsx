@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import Logo from './Logo';
 import WalletButton from './WalletButton';
 import WalletSearchDropdown from './WalletSearchDropdown';
@@ -46,7 +47,16 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
     setIsAddingWatchlist(true);
     try {
       const result = await addTrackedAddress(address);
-      return !!result;
+      if (result) {
+        toast.success('Added to watchlist');
+        return true;
+      } else {
+        toast.error('Failed to add to watchlist');
+        return false;
+      }
+    } catch {
+      toast.error('Failed to add to watchlist');
+      return false;
     } finally {
       setIsAddingWatchlist(false);
     }
@@ -56,7 +66,16 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
     setIsAddingPortfolio(true);
     try {
       const result = await addPortfolioAddress(address);
-      return !!result;
+      if (result) {
+        toast.success('Added to portfolio');
+        return true;
+      } else {
+        toast.error('Failed to add to portfolio');
+        return false;
+      }
+    } catch {
+      toast.error('Failed to add to portfolio');
+      return false;
     } finally {
       setIsAddingPortfolio(false);
     }
