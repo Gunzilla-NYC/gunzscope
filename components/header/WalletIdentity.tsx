@@ -213,13 +213,13 @@ export default function WalletIdentity({
       tabIndex={-1}
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-        <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium">
+      <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+        <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
           Wallet Details
         </span>
         <button
           onClick={() => setShowDetails(false)}
-          className="p-1 text-white/40 hover:text-white/80 hover:bg-white/5 rounded transition"
+          className="p-1 text-[var(--gs-gray-2)] hover:text-white/80 hover:bg-white/5 rounded transition"
           aria-label="Close"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,11 +232,11 @@ export default function WalletIdentity({
       <div className="p-4 space-y-4">
         {/* Full address */}
         <div>
-          <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1.5">
+          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1.5">
             Full Address
           </span>
           <div className="flex items-start gap-2">
-            <code className="flex-1 text-[12px] font-mono text-white/85 bg-white/[0.03] px-3 py-2 rounded-lg border border-white/5 break-all leading-relaxed">
+            <code className="flex-1 text-[12px] font-mono text-white/85 bg-white/[0.03] px-3 py-2 rounded-lg border border-white/[0.06] break-all leading-relaxed">
               {address}
             </code>
             <button
@@ -244,7 +244,7 @@ export default function WalletIdentity({
               className={`p-2 rounded-lg transition-all duration-200 flex-shrink-0 ${
                 copied
                   ? 'bg-[var(--gs-profit)]/20 text-[var(--gs-profit)]'
-                  : 'text-white/40 hover:text-[#64ffff] hover:bg-white/5'
+                  : 'text-[var(--gs-gray-2)] hover:text-[#64ffff] hover:bg-white/5'
               }`}
               aria-label={copied ? 'Copied!' : 'Copy wallet address'}
             >
@@ -264,7 +264,7 @@ export default function WalletIdentity({
         {/* Chain ID */}
         {networkInfo?.chainId && (
           <div>
-            <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
+            <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">
               Chain ID
             </span>
             <span className="text-[13px] font-medium text-white/85 font-mono">
@@ -275,7 +275,7 @@ export default function WalletIdentity({
 
         {/* Network */}
         <div>
-          <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
+          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">
             Network
           </span>
           <div className="flex items-center gap-2">
@@ -291,7 +291,7 @@ export default function WalletIdentity({
 
         {/* Wallet Type */}
         <div>
-          <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
+          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">
             Wallet Type
           </span>
           <span className="text-[13px] font-medium text-white/85">
@@ -302,7 +302,7 @@ export default function WalletIdentity({
         {/* Exact timestamp */}
         {lastUpdated && (
           <div>
-            <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
+            <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">
               Last Updated
             </span>
             <span className="text-[13px] font-medium text-white/85">
@@ -313,8 +313,8 @@ export default function WalletIdentity({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2.5 bg-white/[0.02] border-t border-white/5">
-        <p className="text-[11px] text-white/40">
+      <div className="px-4 py-2.5 bg-white/[0.02] border-t border-white/[0.06]">
+        <p className="text-[11px] text-[var(--gs-gray-2)]">
           Data from GunzChain RPC
         </p>
       </div>
@@ -325,7 +325,7 @@ export default function WalletIdentity({
     <div className={`w-full ${className}`}>
       {/* Row 1: Header with eyebrow + status */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium">
+        <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
           Wallet
         </span>
         <div className="flex items-center gap-1.5">
@@ -333,7 +333,7 @@ export default function WalletIdentity({
             className="w-1.5 h-1.5 rounded-full"
             style={{ backgroundColor: status.color }}
           />
-          <span className="text-[11px] text-white/50">{status.label}</span>
+          <span className="text-[11px] text-[var(--gs-gray-3)]">{status.label}</span>
         </div>
       </div>
 
@@ -348,7 +348,7 @@ export default function WalletIdentity({
             className={`p-1.5 rounded transition-all duration-200 ${
               copied
                 ? 'bg-[var(--gs-profit)]/20 text-[var(--gs-profit)]'
-                : 'text-white/40 hover:text-[#64ffff] hover:bg-white/5'
+                : 'text-[var(--gs-gray-2)] hover:text-[#64ffff] hover:bg-white/5'
             }`}
             aria-label={copied ? 'Copied!' : 'Copy wallet address'}
           >
@@ -395,80 +395,17 @@ export default function WalletIdentity({
 
         {/* Last updated as subtle inline text */}
         {lastUpdated && (
-          <span className="text-[11px] text-white/40">
+          <span className="text-[11px] text-[var(--gs-gray-2)]">
             · {formatLastUpdated(lastUpdated)}
           </span>
         )}
       </div>
 
-      {/* Row 4: GUN Balance + USD Value */}
-      {(gunBalance !== undefined || gunValueUsd !== undefined) && (
-        <div className="mb-4 pt-3 border-t border-white/5">
-          <div className="flex items-baseline justify-between gap-4">
-            {/* Balance */}
-            <div>
-              <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
-                Balance
-              </span>
-              <span className="text-[18px] font-semibold text-white tabular-nums">
-                {gunBalance !== undefined ? (
-                  <>
-                    {gunBalance.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                    <span className="text-[13px] text-white/60 ml-1.5">GUN</span>
-                  </>
-                ) : (
-                  <span className="text-white/40">—</span>
-                )}
-              </span>
-            </div>
-
-            {/* USD Value */}
-            <div className="text-right">
-              <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block mb-1">
-                Value
-              </span>
-              <span className="text-[18px] font-semibold text-[#beffd2] tabular-nums">
-                {gunValueUsd !== undefined && gunValueUsd > 0 ? (
-                  <>
-                    ${gunValueUsd.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </>
-                ) : gunBalance !== undefined && gunBalance > 0 && !gunPrice ? (
-                  <span className="text-white/40 text-[14px]">Price unavailable</span>
-                ) : (
-                  <span className="text-white/40">—</span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* GUN price with 24h change */}
-          {gunPrice !== undefined && gunPrice > 0 && (
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-white/40">
-                @ ${gunPrice.toFixed(6)} per GUN
-              </span>
-              {gunPriceChangePercent24h !== 0 && (
-                <span className={`text-[11px] font-medium ${gunPriceChangePercent24h >= 0 ? 'text-[#beffd2]' : 'text-[#ff6b6b]'}`}>
-                  {gunPriceChangePercent24h >= 0 ? '+' : ''}{gunPriceChangePercent24h.toFixed(2)}%
-                  <span className="text-white/40 ml-1">(24h)</span>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Row 5: Details affordance */}
+      {/* Row 4: Details affordance */}
       <button
         ref={triggerRef}
         onClick={toggleDetails}
-        className="flex items-center gap-1.5 text-[12px] text-white/50 hover:text-white/80 hover:bg-white/5 px-2 py-1.5 -ml-2 rounded transition"
+        className="flex items-center gap-1.5 text-[12px] text-[var(--gs-gray-3)] hover:text-white/80 hover:bg-white/5 px-2 py-1.5 -ml-2 rounded transition"
         aria-expanded={showDetails}
         aria-controls={popoverId}
         aria-haspopup="dialog"
