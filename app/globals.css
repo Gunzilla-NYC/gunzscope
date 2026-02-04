@@ -590,13 +590,30 @@ body {
   display: inline-block;
   background: linear-gradient(
     90deg,
-    var(--gs-dark-3) 0%,
-    var(--gs-dark-4) 50%,
-    var(--gs-dark-3) 100%
+    rgba(100, 255, 255, 0.08) 0%,
+    rgba(100, 255, 255, 0.20) 50%,
+    rgba(100, 255, 255, 0.08) 100%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
+  border-radius: 2px;
+}
+
+/* Loading bar animation for portfolio calculating state */
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(150%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.5s ease-in-out infinite;
 }
 
 /* Scroll-triggered reveal animation */

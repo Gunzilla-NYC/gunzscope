@@ -530,7 +530,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, mint #, traits (weapon, pants, legendary)..."
-            className="font-body w-full pl-10 pr-4 py-3 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-[var(--gs-white)] placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)] focus:ring-1 focus:ring-[var(--gs-lime)] transition"
+            className="font-body w-full pl-10 pr-4 py-3 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-[var(--gs-white)] placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)] focus:ring-0 focus:shadow-[0_0_12px_rgba(166,247,0,0.25)] transition-all duration-200"
           />
           {searchQuery && (
             <button
@@ -597,11 +597,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               onClick={() => setViewMode('small')}
               aria-pressed={viewMode === 'small'}
               aria-label="Small grid view"
-              className={`p-1.5 rounded transition-all duration-150 ${
+              className={`p-1.5 transition-all duration-150 hover:-translate-y-0.5 ${
                 viewMode === 'small'
-                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50 scale-105'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
+              style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
               title="Small grid"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -613,11 +614,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               onClick={() => setViewMode('medium')}
               aria-pressed={viewMode === 'medium'}
               aria-label="Medium grid view"
-              className={`p-1.5 rounded transition-all duration-150 ${
+              className={`p-1.5 transition-all duration-150 hover:-translate-y-0.5 ${
                 viewMode === 'medium'
-                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50 scale-105'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
+              style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
               title="Medium grid"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -629,11 +631,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               onClick={() => setViewMode('list')}
               aria-pressed={viewMode === 'list'}
               aria-label="List view"
-              className={`p-1.5 rounded transition-all duration-150 ${
+              className={`p-1.5 transition-all duration-150 hover:-translate-y-0.5 ${
                 viewMode === 'list'
-                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50 scale-105'
+                  ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
               }`}
+              style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
               title="List view"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -644,7 +647,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
           {/* Active Filter Tags */}
           {searchQuery && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] text-xs rounded-full border border-[var(--gs-lime)]/30 font-mono">
+            <span
+              className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] text-xs border border-[var(--gs-lime)]/30 font-mono"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+            >
               &quot;{searchQuery.length > 15 ? searchQuery.slice(0, 15) + '...' : searchQuery}&quot;
               <button onClick={() => setSearchQuery('')} className="hover:text-[var(--gs-white)] ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -654,7 +660,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             </span>
           )}
           {selectedItemClass !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] text-xs rounded-full border border-[var(--gs-purple)]/30 font-mono">
+            <span
+              className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] text-xs border border-[var(--gs-purple)]/30 font-mono"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+            >
               {getItemClassDisplayName(selectedItemClass)}
               <button onClick={() => setSelectedItemClass('all')} className="hover:text-[var(--gs-white)] ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -806,42 +815,47 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             return (
               <div
                 key={`${nft.chain}-${nft.tokenId}`}
-                className="group bg-[var(--gs-dark-3)] border p-3 transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg relative overflow-hidden"
+                className="group bg-[var(--gs-dark-3)] border border-white/[0.06] p-3 transition-all duration-200 cursor-pointer hover:-translate-y-1 relative overflow-hidden"
                 style={{
-                  borderColor: `${rarityColor}35`,
-                  borderLeftWidth: '3px',
-                  borderLeftColor: rarityColor,
+                  clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
                 }}
                 onClick={() => handleNFTClick(nft)}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}70`;
-                  (e.currentTarget as HTMLElement).style.borderLeftColor = rarityColor;
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${rarityColor}25, inset 0 0 20px ${rarityColor}08`;
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}40`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 20px ${rarityColor}15`;
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}35`;
-                  (e.currentTarget as HTMLElement).style.borderLeftColor = rarityColor;
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)';
                   (e.currentTarget as HTMLElement).style.boxShadow = 'none';
                 }}
               >
+                {/* Bottom accent line - reveals rarity color on hover */}
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ background: `linear-gradient(90deg, ${rarityColor}, transparent)` }}
+                />
                 {/* Image Container */}
                 <div className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden">
-                  {/* Quality Badge - Top Left */}
+                  {/* Quality Badge - Top Left with corner cut */}
                   {/* Shows full quality name for single items, "MULTIPLE" for grouped items with potentially different qualities */}
                   <span
-                    className="absolute top-1.5 left-1.5 z-10 font-mono text-[8px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm border"
+                    className="absolute top-1.5 left-1.5 z-10 font-mono text-[8px] tracking-wide uppercase px-1.5 py-0.5 border"
                     style={{
                       backgroundColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.15)' : `${rarityColor}15`,
                       color: nft.quantity && nft.quantity > 1 ? 'var(--gs-purple)' : rarityColor,
                       borderColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.30)' : `${rarityColor}30`,
+                      clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
                     }}
                   >
                     {nft.quantity && nft.quantity > 1 ? 'MULTIPLE' : (rarityName === 'Unknown' ? 'N/A' : rarityName)}
                   </span>
 
-                  {/* Quantity Badge - Bottom Right (moved to prevent overlap with quality badge) */}
+                  {/* Quantity Badge - Bottom Right with corner cut */}
                   {nft.quantity && nft.quantity > 1 && (
-                    <span className="absolute bottom-1.5 right-1.5 z-10 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
+                    <span
+                      className="absolute bottom-1.5 right-1.5 z-10 font-mono text-[9px] font-bold px-1.5 py-0.5 bg-[var(--gs-purple)] text-black"
+                      style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+                    >
                       ×{nft.quantity}
                     </span>
                   )}
@@ -890,11 +904,16 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 <div className={`flex justify-between items-baseline border-t border-white/[0.06] ${
                   viewMode === 'small' ? 'pt-2 mt-2' : 'pt-2.5 mt-2.5'
                 }`}>
-                  <span className={`font-mono text-[var(--gs-white)] ${
-                    viewMode === 'small' ? 'text-[10px]' : 'text-[11px]'
-                  }`}>
-                    {priceDisplay}
-                  </span>
+                  {/* Price: Show shimmer if enriching and no price yet */}
+                  {isEnriching && priceGun === undefined ? (
+                    <span className={`skeleton-stat inline-block ${viewMode === 'small' ? 'w-12 h-3' : 'w-14 h-3.5'}`} />
+                  ) : (
+                    <span className={`font-mono text-[var(--gs-white)] ${
+                      viewMode === 'small' ? 'text-[10px]' : 'text-[11px]'
+                    }`}>
+                      {priceDisplay}
+                    </span>
+                  )}
                   {/* P&L: Show shimmer if enriching and no data yet */}
                   {isEnriching && pnlPct === null ? (
                     <span className={`skeleton-stat inline-block ${viewMode === 'small' ? 'w-8 h-3' : 'w-10 h-3.5'}`} />
@@ -957,18 +976,22 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             return (
               <div
                 key={`${nft.chain}-${nft.tokenId}`}
-                className="group bg-[var(--gs-dark-3)] border overflow-hidden transition-all duration-200 cursor-pointer flex items-center gap-4 p-3 hover:-translate-y-0.5 hover:shadow-lg"
-                style={{ borderColor: `${rarityColor}20` }}
+                className="group bg-[var(--gs-dark-3)] border border-white/[0.06] overflow-hidden transition-all duration-200 cursor-pointer flex items-center gap-4 p-3 hover:-translate-y-0.5 relative"
                 onClick={() => handleNFTClick(nft)}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}60`;
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${rarityColor}15`;
+                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}40`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${rarityColor}10`;
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}20`;
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)';
                   (e.currentTarget as HTMLElement).style.boxShadow = 'none';
                 }}
               >
+                {/* Left accent line - reveals rarity color on hover */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ background: `linear-gradient(180deg, ${rarityColor}, transparent)` }}
+                />
                 {/* Thumbnail */}
                 <div className="w-14 h-14 flex-shrink-0 relative bg-[var(--gs-dark-4)] overflow-hidden">
                   {/* Quality Badge - shows abbreviated for space, "MLT" for grouped items */}
@@ -1050,9 +1073,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 {/* Price */}
                 <div className="flex-shrink-0 text-right hidden lg:block min-w-[80px]">
                   <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Price</p>
-                  <p className="font-mono text-[10px] text-[var(--gs-white)] font-medium">
-                    {priceGun !== undefined ? `${priceGun.toLocaleString()} GUN` : '—'}
-                  </p>
+                  {isEnriching && priceGun === undefined ? (
+                    <span className="skeleton-stat inline-block w-14 h-3.5 mt-0.5" />
+                  ) : (
+                    <p className="font-mono text-[10px] text-[var(--gs-white)] font-medium">
+                      {priceGun !== undefined ? `${priceGun.toLocaleString()} GUN` : '—'}
+                    </p>
+                  )}
                 </div>
 
                 {/* P&L */}

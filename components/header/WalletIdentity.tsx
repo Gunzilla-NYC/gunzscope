@@ -201,17 +201,21 @@ export default function WalletIdentity({
   const popoverContent = (
     <div
       ref={popoverRef}
-      className="fixed w-[320px] bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl shadow-black/80 overflow-hidden"
+      className="fixed w-[320px] bg-[#0a0a0a] border border-white/[0.06] shadow-2xl shadow-black/80 overflow-hidden relative"
       style={{
         top: popoverPosition.top,
         left: popoverPosition.left,
         zIndex: 9999,
+        clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
       }}
       role="dialog"
       aria-label="Wallet details"
       aria-modal="true"
       tabIndex={-1}
     >
+      {/* Top accent gradient line */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-50" aria-hidden="true" />
+
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
         <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
