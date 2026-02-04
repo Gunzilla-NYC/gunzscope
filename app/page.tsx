@@ -7,7 +7,7 @@ import Footer from '@/components/Footer';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useMousePosition } from '@/hooks/useMousePosition';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
-import { useGlitchTypewriter } from '@/hooks/useGlitchTypewriter';
+import { useTextScramble } from '@/hooks/useTextScramble';
 
 // Features data
 const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing'; title: string; desc: string }[] = [
@@ -65,12 +65,11 @@ export default function HomePage() {
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
   const { smoothPosition } = useMousePosition({ containerRef: heroRef, smoothing: 0.08 });
 
-  // Glitched typewriter for hero text
-  const heroTypewriter = useGlitchTypewriter({
+  // Text scramble effect for hero text (LayerZero style)
+  const heroScramble = useTextScramble({
     words: ['Intelligence', 'Dominance', 'Advantage', 'Edge'],
-    typingSpeed: 35,
-    pauseDuration: 1800,
-    glitchDuration: 200,
+    scrambleDuration: 600,
+    pauseDuration: 2000,
   });
 
   // Count-up animations for stats
@@ -288,13 +287,8 @@ export default function HomePage() {
           <h1 className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-tight uppercase mb-6 animate-fade-in-up delay-100">
             <span className="block text-[var(--gs-white)]">Your NFT</span>
             <span className="block text-[var(--gs-purple-bright)]">Arsenal</span>
-            <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px]">
-              {heroTypewriter.displayText}
-              <span
-                className={`inline-block w-[3px] h-[0.9em] bg-[var(--gs-lime)] ml-1 align-middle transition-opacity duration-100 ${
-                  heroTypewriter.cursorVisible && !heroTypewriter.isComplete ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
+            <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px] font-mono">
+              {heroScramble.displayText}
             </span>
           </h1>
 
