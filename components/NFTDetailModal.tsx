@@ -2491,13 +2491,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           No Image
                         </div>
                       )}
-                      {/* Mint badge */}
-                      <div
-                        className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-semibold text-white"
-                        style={{ backgroundColor: activeItem?.colors.primary }}
-                      >
-                        #{activeItem?.mintNumber}
-                      </div>
                     </div>
                   </div>
                 )}
@@ -2516,7 +2509,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     );
                   })()}
                   <p className="text-[11px] text-white/60 mt-1">
-                    Mint #{activeItem?.mintNumber} · Chain: {getChainDisplayName(nft.chain)}
+                    Chain: {getChainDisplayName(nft.chain)}
                   </p>
                   {nft.typeSpec?.Item?.rarity && (
                     <TierBadge tier={getFunctionalTier(nft)} className="mt-2" />
