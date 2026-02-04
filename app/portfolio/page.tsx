@@ -23,6 +23,8 @@ import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import WalletSearchDropdown from '@/components/WalletSearchDropdown';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 
 // Wrapper component to provide Suspense boundary for useSearchParams
@@ -120,9 +122,20 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   // Portfolio aggregation state
   const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
 
+  // Wallet search dropdown state
+  const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
+  const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
+
   // Get user profile for portfolio addresses (authenticated users only)
-  const { profile, isConnected } = useUserProfile();
+  const { profile, isConnected, addTrackedAddress, addPortfolioAddress, isInPortfolio } = useUserProfile();
   const portfolioAddresses = profile?.portfolioAddresses ?? [];
+
+  // Computed values for dropdown
+  const isInWatchlist = profile?.trackedAddresses.some(
+    t => t.address.toLowerCase() === searchAddress.toLowerCase()
+  ) ?? false;
+  const addressInPortfolio = isInPortfolio(searchAddress);
+  const isAtPortfolioLimit = (profile?.portfolioAddresses?.length ?? 0) >= 5;
 
   // NFT Pagination state
   const [nftPagination, setNftPagination] = useState<NFTPaginationInfo>({
@@ -942,6 +955,49 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     handleWalletSubmit(address, 'avalanche');
   }, []);
 
+  // Wallet search dropdown handlers
+  const handleAddToWatchlist = async (address: string) => {
+    setIsAddingWatchlist(true);
+    try {
+      const result = await addTrackedAddress(address);
+      if (result) {
+        toast.success('Added to watchlist');
+        return true;
+      } else {
+        toast.error('Failed to add to watchlist');
+        return false;
+      }
+    } catch {
+      toast.error('Failed to add to watchlist');
+      return false;
+    } finally {
+      setIsAddingWatchlist(false);
+    }
+  };
+
+  const handleAddToPortfolio = async (address: string) => {
+    setIsAddingPortfolio(true);
+    try {
+      const result = await addPortfolioAddress(address);
+      if (result) {
+        toast.success('Added to portfolio');
+        return true;
+      } else {
+        toast.error('Failed to add to portfolio');
+        return false;
+      }
+    } catch {
+      toast.error('Failed to add to portfolio');
+      return false;
+    } finally {
+      setIsAddingPortfolio(false);
+    }
+  };
+
+  const handleDropdownNavigate = (address: string) => {
+    handleWalletSubmit(address, 'avalanche');
+  };
+
   return (
     <div className="min-h-screen bg-gunzscope">
       <Navbar
@@ -1072,6 +1128,18 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
                 >
                   Go
                 </button>
+                {/* Wallet Search Dropdown */}
+                <WalletSearchDropdown
+                  searchValue={searchAddress}
+                  onNavigate={handleDropdownNavigate}
+                  onAddToWatchlist={handleAddToWatchlist}
+                  onAddToPortfolio={handleAddToPortfolio}
+                  isInWatchlist={isInWatchlist}
+                  isInPortfolio={addressInPortfolio}
+                  isAddingWatchlist={isAddingWatchlist}
+                  isAddingPortfolio={isAddingPortfolio}
+                  isAtPortfolioLimit={isAtPortfolioLimit}
+                />
               </div>
             </form>
             {enrichingNFTs && (
