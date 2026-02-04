@@ -200,10 +200,22 @@ export default function PortfolioSummaryBar({
                 {nftPnL.unrealizedUsd >= 0 ? '+' : ''}${formatUsd(Math.abs(nftPnL.unrealizedUsd))}
               </p>
             ) : (
-              <p className="font-mono text-lg font-semibold text-[var(--gs-gray-3)] flex items-center gap-1">
-                <span>—</span>
-                <span className="text-[8px] text-[var(--gs-gray-2)]">(pending)</span>
+              <div className="space-y-1.5">
+              {/* Animated progress bar */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)] rounded-full animate-pulse"
+                    style={{ width: '60%' }}
+                  />
+                </div>
+              </div>
+              {/* Status text */}
+              <p className="font-mono text-[11px] text-[var(--gs-gray-3)] flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse" />
+                Analyzing...
               </p>
+            </div>
             )}
           </div>
         </div>
