@@ -21,7 +21,9 @@ import AccountPanel from '@/components/AccountPanel';
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
+import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
+import { useUserProfile } from '@/lib/hooks/useUserProfile';
 
 // Wrapper component to provide Suspense boundary for useSearchParams
 function PortfolioContent() {
@@ -49,6 +51,60 @@ const ENRICHMENT_BATCH_DELAY_MS = 1500;
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Merge multiple WalletData objects into a single aggregated view.
+ * Used when user has portfolio addresses configured.
+ *
+ * - GUN Balance: Sum all gunBalance values across wallets
+ * - NFT List: Concatenate all NFT arrays from all wallets
+ * - Address: Uses the primary (first) address for display
+ */
+const mergeWalletData = (wallets: WalletData[]): WalletData => {
+  if (wallets.length === 0) {
+    throw new Error('No wallet data to merge');
+  }
+  if (wallets.length === 1) {
+    return wallets[0];
+  }
+
+  // Sum GUN balances across chains
+  const avalancheGunBalance = wallets.reduce((sum, w) => {
+    return sum + (w.avalanche.gunToken?.balance ?? 0);
+  }, 0);
+
+  const solanaGunBalance = wallets.reduce((sum, w) => {
+    return sum + (w.solana.gunToken?.balance ?? 0);
+  }, 0);
+
+  // Concatenate all NFTs (no deduplication - each wallet may have different NFTs)
+  const allAvalancheNFTs = wallets.flatMap(w => w.avalanche.nfts);
+  const allSolanaNFTs = wallets.flatMap(w => w.solana.nfts);
+
+  // Use first wallet's token metadata as template
+  const firstAvalancheToken = wallets.find(w => w.avalanche.gunToken)?.avalanche.gunToken;
+  const firstSolanaToken = wallets.find(w => w.solana.gunToken)?.solana.gunToken;
+
+  return {
+    address: wallets[0].address, // Primary address for display
+    avalanche: {
+      gunToken: firstAvalancheToken ? {
+        ...firstAvalancheToken,
+        balance: avalancheGunBalance,
+      } : null,
+      nfts: allAvalancheNFTs,
+    },
+    solana: {
+      gunToken: firstSolanaToken ? {
+        ...firstSolanaToken,
+        balance: solanaGunBalance,
+      } : null,
+      nfts: allSolanaNFTs,
+    },
+    totalValue: 0, // Calculated via calcPortfolio
+    lastUpdated: new Date(),
+  };
+};
+
 function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [marketplaceData, setMarketplaceData] = useState<MarketplaceData | null>(null);
@@ -60,6 +116,13 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const [searchAddress, setSearchAddress] = useState('');
   const [enrichingNFTs, setEnrichingNFTs] = useState(false);
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
+
+  // Portfolio aggregation state
+  const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
+
+  // Get user profile for portfolio addresses (authenticated users only)
+  const { profile, isConnected } = useUserProfile();
+  const portfolioAddresses = profile?.portfolioAddresses ?? [];
 
   // NFT Pagination state
   const [nftPagination, setNftPagination] = useState<NFTPaginationInfo>({
@@ -73,6 +136,24 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
   // Ref to track if enrichment should be cancelled
   const enrichmentCancelledRef = useRef(false);
+
+  // Ref and state for sticky portfolio header height measurement
+  const portfolioHeaderRef = useRef<HTMLDivElement>(null);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
+
+  // Measure portfolio header height for NFT gallery sticky offset
+  useEffect(() => {
+    const measureHeader = () => {
+      if (portfolioHeaderRef.current) {
+        setStickyHeaderHeight(portfolioHeaderRef.current.offsetHeight);
+      }
+    };
+
+    measureHeader();
+    // Re-measure on resize
+    window.addEventListener('resize', measureHeader);
+    return () => window.removeEventListener('resize', measureHeader);
+  }, [walletData]); // Re-measure when wallet data changes
 
   // Track if initial portfolio data has loaded (for "Calculating..." state)
   // Once set to false, stays false until new wallet search
@@ -604,6 +685,58 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     }
   }, [walletData, nftPagination, enrichNFTsInBackground]);
 
+  /**
+   * Fetch wallet data for a single address.
+   * Returns WalletData or null if fetch fails.
+   */
+  const fetchSingleWallet = async (
+    address: string,
+    avalancheService: AvalancheService,
+    solanaService: SolanaService
+  ): Promise<{ walletData: WalletData; nftResult: { totalCount: number; hasMore: boolean; fetchedCount: number } } | null> => {
+    try {
+      const [
+        avalancheToken,
+        avalancheNFTsResult,
+        solanaToken,
+        solanaNFTs,
+      ] = await Promise.all([
+        avalancheService.getGunTokenBalance(address),
+        avalancheService.getNFTsPaginated(address, 0, 50),
+        solanaService.getGunTokenBalance(address),
+        solanaService.getNFTs(address),
+      ]);
+
+      // Group NFTs by metadata to consolidate duplicates
+      const groupedAvalancheNFTs = groupNFTsByMetadata(avalancheNFTsResult.nfts);
+      const groupedSolanaNFTs = groupNFTsByMetadata(solanaNFTs);
+
+      return {
+        walletData: {
+          address,
+          avalanche: {
+            gunToken: avalancheToken,
+            nfts: groupedAvalancheNFTs,
+          },
+          solana: {
+            gunToken: solanaToken,
+            nfts: groupedSolanaNFTs,
+          },
+          totalValue: 0,
+          lastUpdated: new Date(),
+        },
+        nftResult: {
+          totalCount: avalancheNFTsResult.totalCount,
+          hasMore: avalancheNFTsResult.hasMore,
+          fetchedCount: avalancheNFTsResult.nfts.length,
+        },
+      };
+    } catch (err) {
+      console.error(`Error fetching wallet data for ${address}:`, err);
+      return null;
+    }
+  };
+
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Cancel any ongoing enrichment
     enrichmentCancelledRef.current = true;
@@ -625,38 +758,67 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       const rpcUrl = 'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
       const networkDetector = new NetworkDetector(rpcUrl);
 
-      // Fetch basic data in parallel (using paginated NFT fetch)
+      // Determine all addresses to fetch
+      // Primary address is always included, plus any portfolio addresses if user is authenticated
+      const addressesToFetch = [address];
+      if (isConnected && portfolioAddresses.length > 0) {
+        // Add portfolio addresses, avoiding duplicates
+        const primaryLower = address.toLowerCase();
+        const additionalAddresses = portfolioAddresses
+          .map(p => p.address)
+          .filter(a => a.toLowerCase() !== primaryLower);
+        addressesToFetch.push(...additionalAddresses);
+      }
+
+      // Log aggregation mode
+      if (addressesToFetch.length > 1) {
+        console.log(`[Portfolio Aggregation] Fetching ${addressesToFetch.length} wallets:`, addressesToFetch);
+      }
+
+      // Fetch shared data (prices, marketplace, network) plus all wallet data in parallel
       const [
-        avalancheToken,
-        avalancheNFTsResult,
-        solanaToken,
-        solanaNFTs,
         priceData,
         marketplace,
         detectedNetworkInfo,
         detectedWalletType,
+        ...walletResults
       ] = await Promise.all([
-        avalancheService.getGunTokenBalance(address),
-        avalancheService.getNFTsPaginated(address, 0, 50), // First page
-        solanaService.getGunTokenBalance(address),
-        solanaService.getNFTs(address),
         coinGeckoService.getGunTokenPrice(),
         marketplaceService.getMarketplaceData(),
         networkDetector.getNetworkInfo(),
         networkDetector.detectWalletType(address),
+        ...addressesToFetch.map(addr => fetchSingleWallet(addr, avalancheService, solanaService)),
       ]);
 
-      // Group NFTs by metadata to consolidate duplicates
-      const groupedAvalancheNFTs = groupNFTsByMetadata(avalancheNFTsResult.nfts);
-      const groupedSolanaNFTs = groupNFTsByMetadata(solanaNFTs);
+      // Filter out failed fetches
+      const successfulResults = walletResults.filter(
+        (r): r is NonNullable<typeof r> => r !== null
+      );
 
-      // Update pagination state
+      if (successfulResults.length === 0) {
+        throw new Error('Failed to fetch any wallet data');
+      }
+
+      // Merge wallet data if multiple addresses
+      const walletDataArray = successfulResults.map(r => r.walletData);
+      const mergedData = mergeWalletData(walletDataArray);
+
+      // Track which addresses were aggregated
+      setAggregatedAddresses(successfulResults.map(r => r.walletData.address));
+
+      // Calculate aggregated pagination info
+      // For merged portfolios, sum up totals across all wallets
+      const aggregatedTotalCount = successfulResults.reduce((sum, r) => sum + r.nftResult.totalCount, 0);
+      const aggregatedFetchedCount = successfulResults.reduce((sum, r) => sum + r.nftResult.fetchedCount, 0);
+      const anyHasMore = successfulResults.some(r => r.nftResult.hasMore);
+
+      // Update pagination state with aggregated counts
       setNftPagination({
-        totalOwnedCount: avalancheNFTsResult.totalCount,
-        fetchedCount: avalancheNFTsResult.nfts.length,
+        totalOwnedCount: aggregatedTotalCount,
+        fetchedCount: aggregatedFetchedCount,
         pageSize: 50,
         pagesLoaded: 1,
-        hasMore: avalancheNFTsResult.hasMore,
+        hasMore: anyHasMore,
         isLoadingMore: false,
       });
 
@@ -665,37 +827,22 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
         setGunPrice(price);
       }
 
-      // Set network info and wallet type
+      // Set network info and wallet type (from primary address)
       setNetworkInfo(detectedNetworkInfo);
       setWalletType(detectedWalletType);
 
-      // totalValue is derived from calcPortfolio (portfolioResult.totalUsd)
-      // No ad-hoc arithmetic here - this value is just a placeholder for the WalletData type
-      const initialData: WalletData = {
-        address,
-        avalanche: {
-          gunToken: avalancheToken,
-          nfts: groupedAvalancheNFTs,
-        },
-        solana: {
-          gunToken: solanaToken,
-          nfts: groupedSolanaNFTs,
-        },
-        totalValue: 0, // Calculated via calcPortfolio
-        lastUpdated: new Date(),
-      };
-
-      setWalletData(initialData);
+      setWalletData(mergedData);
       setMarketplaceData(marketplace);
       setLoading(false);
 
-      // Start background enrichment for Avalanche NFTs
+      // Start background enrichment for all Avalanche NFTs
       // Reuse existing marketplace service (will gracefully handle unconfigured state)
       const marketplaceConfigured = marketplaceService.isConfigured();
 
+      // For merged data, enrich all NFTs but update the merged state
       enrichNFTsInBackground(
-        groupedAvalancheNFTs,
-        address,
+        mergedData.avalanche.nfts,
+        address, // Use primary address for cache keys
         avalancheService,
         marketplaceConfigured ? marketplaceService : null,
         (enrichedNFTs) => {
@@ -777,6 +924,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     setGunPrice(undefined);
     setError(null);
     setSearchAddress('');
+    setAggregatedAddresses([]);
     // Reset pagination
     setNftPagination({
       totalOwnedCount: 0,
@@ -932,9 +1080,22 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
                 <span>Loading details...</span>
               </div>
             )}
+            {/* Aggregation indicator */}
+            {aggregatedAddresses.length > 1 && (
+              <div className="flex items-center gap-2 text-xs text-[var(--gs-purple)]">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span>{aggregatedAddresses.length} wallets combined</span>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-6">
+          {/* Sticky Portfolio Header */}
+          <div
+            ref={portfolioHeaderRef}
+            className="sticky top-16 z-30 -mx-4 px-4 pt-4 pb-2 bg-gunzscope"
+          >
             <PortfolioHeader
               walletData={walletData}
               gunPrice={gunPrice}
@@ -943,7 +1104,9 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
               totalOwnedCount={nftPagination.totalOwnedCount}
               portfolioResult={portfolioResult}
             />
+          </div>
 
+          <div className="space-y-6 mt-4">
             <MarketplaceStats data={marketplaceData} />
 
             {/* Portfolio Summary Bar */}
@@ -961,11 +1124,15 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
               paginationInfo={nftPagination}
               onLoadMore={handleLoadMoreNFTs}
               isEnriching={enrichingNFTs}
+              stickyOffset={stickyHeaderHeight + 64} // 64px navbar + header height
             />
           </div>
 
           {/* Portfolio Footer */}
           <Footer />
+
+          {/* Scroll to Top Button */}
+          <ScrollToTopButton threshold={500} />
         </div>
       )}
 
