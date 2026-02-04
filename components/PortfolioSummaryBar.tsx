@@ -62,6 +62,7 @@ export default function PortfolioSummaryBar({
   const gunHoldings = portfolioResult?.totalGunBalance ?? 0;
   const gunValue = portfolioResult?.tokensUsd ?? 0;
   const nftValue = portfolioResult?.nftsUsd ?? 0;
+  const totalGunSpent = portfolioResult?.totalGunSpent ?? 0;
 
   // Animated count-up for total value
   const { displayValue: animatedTotal } = useCountUp({
@@ -174,12 +175,15 @@ export default function PortfolioSummaryBar({
               {nftValue > 0 ? (
                 `$${formatUsd(nftValue)}`
               ) : (
-                <span className="flex items-center gap-1 text-[var(--gs-gray-3)]">
-                  <span>—</span>
-                  <span className="text-[8px] text-[var(--gs-gray-2)]">(no data)</span>
-                </span>
+                <span className="text-[var(--gs-gray-3)]">—</span>
               )}
             </p>
+            {/* Cost basis - secondary line */}
+            {totalGunSpent > 0 && (
+              <p className="font-mono text-[10px] text-[var(--gs-gray-3)] mt-0.5">
+                Cost: {totalGunSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
+              </p>
+            )}
           </div>
 
           {/* Unrealized P&L */}
