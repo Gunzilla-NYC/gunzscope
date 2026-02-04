@@ -125,7 +125,9 @@ export default function PortfolioHeader({
         </div>
 
         {/* Zone B: Portfolio Glance (right) */}
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-7 relative bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
+          {/* Top accent line */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
           <PortfolioGlanceCard
             address={walletData.address}
             totalValue={totalTokenValue}
