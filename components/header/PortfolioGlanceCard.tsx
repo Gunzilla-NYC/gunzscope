@@ -48,7 +48,7 @@ function formatChange(
   isPercent: boolean = false
 ): { text: string; colorClass: string; isCalculating: boolean } {
   if (value === null) {
-    return { text: 'Calculating…', colorClass: 'text-white/40', isCalculating: true };
+    return { text: 'Calculating…', colorClass: 'text-[var(--gs-gray-2)]', isCalculating: true };
   }
 
   const sign = value >= 0 ? '+' : '';
@@ -56,7 +56,7 @@ function formatChange(
     ? `${sign}${value.toFixed(2)}%`
     : `${sign}$${formatUSD(Math.abs(value))}`;
 
-  const colorClass = value > 0 ? 'text-[#beffd2]' : value < 0 ? 'text-[#ff6b6b]' : 'text-white/55';
+  const colorClass = value > 0 ? 'text-[#beffd2]' : value < 0 ? 'text-[#ff6b6b]' : 'text-[var(--gs-gray-3)]';
 
   return {
     text: value >= 0 ? formatted : `-$${formatUSD(Math.abs(value))}`,
@@ -114,63 +114,52 @@ export default function PortfolioGlanceCard({
   const isCalculating = change24h.isCalculating || change7d.isCalculating;
 
   return (
-    <div className={`bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-5 ${className}`}>
-      {/* Top row: Eyebrow + Sparkline aligned */}
-      <div className="flex items-start justify-between gap-4 mb-1">
-        {/* Eyebrow label */}
-        <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium">
-          Portfolio Value
-        </span>
-        {/* Sparkline - muted, aligned to hero baseline */}
-        <div className="flex-shrink-0 opacity-80">
-          <Sparkline
-            values={sparklineValues.length > 0 ? sparklineValues : [totalValue, totalValue]}
-            width={90}
-            height={36}
-            strokeWidth={1.25}
-            showFill={true}
-            showCurrentDot={true}
-          />
-        </div>
-      </div>
-
-      {/* Hero number */}
-      <div className="text-[40px] leading-[1.05] font-semibold text-white tracking-tight mb-4 md:text-[40px] max-md:text-[34px]">
-        ${formatUSD(totalValue)}
-      </div>
-
-      {/* Performance section */}
-      <div className="border-t border-white/10 pt-3 mt-3">
-        {/* Performance eyebrow with tooltip */}
-        <div className="flex items-center gap-1.5 mb-2 relative">
-          <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium">
-            Performance
-          </span>
-          {isCalculating && (
-            <button
-              className="relative"
-              onMouseEnter={() => setShowPerformanceTooltip(true)}
-              onMouseLeave={() => setShowPerformanceTooltip(false)}
-              aria-label="Performance info"
-            >
-              <svg className="w-3 h-3 text-white/30 hover:text-white/50 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {showPerformanceTooltip && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-48 bg-black/95 border border-white/20 rounded-lg px-3 py-2 text-[11px] text-white/70 shadow-xl">
-                  Change metrics appear after enough history is collected.
-                </div>
-              )}
-            </button>
-          )}
+    <div className={`p-5 ${className}`}>
+      {/* Performance section - now at top */}
+      <div>
+        {/* Performance eyebrow with sparkline and tooltip */}
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <div className="flex items-center gap-1.5 relative">
+            <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
+              Performance
+            </span>
+            {isCalculating && (
+              <button
+                className="relative"
+                onMouseEnter={() => setShowPerformanceTooltip(true)}
+                onMouseLeave={() => setShowPerformanceTooltip(false)}
+                aria-label="Performance info"
+              >
+                <svg className="w-3 h-3 text-white/30 hover:text-white/50 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {showPerformanceTooltip && (
+                  <div className="absolute left-0 top-full mt-1 z-50 w-48 bg-black/95 border border-white/20 rounded-lg px-3 py-2 text-[11px] text-white/70 shadow-xl">
+                    Change metrics appear after enough history is collected.
+                  </div>
+                )}
+              </button>
+            )}
+          </div>
+          {/* Sparkline aligned to the right */}
+          <div className="flex-shrink-0 opacity-80">
+            <Sparkline
+              values={sparklineValues.length > 0 ? sparklineValues : [totalValue, totalValue]}
+              width={90}
+              height={36}
+              strokeWidth={1.25}
+              showFill={true}
+              showCurrentDot={true}
+            />
+          </div>
         </div>
 
         {/* Performance metrics - two columns */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[12px] text-white/55">24h:</span>
+            <span className="text-[12px] text-[var(--gs-gray-3)]">24h:</span>
             {change24h.isCalculating ? (
-              <span className="text-[13px] font-medium text-white/40 italic">{change24h.text}</span>
+              <span className="text-[13px] font-medium text-[var(--gs-gray-2)] italic">{change24h.text}</span>
             ) : (
               <>
                 <span className={`text-[13px] font-medium ${change24h.colorClass}`}>{change24h.text}</span>
@@ -179,9 +168,9 @@ export default function PortfolioGlanceCard({
             )}
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[12px] text-white/55">7d:</span>
+            <span className="text-[12px] text-[var(--gs-gray-3)]">7d:</span>
             {change7d.isCalculating ? (
-              <span className="text-[13px] font-medium text-white/40 italic">{change7d.text}</span>
+              <span className="text-[13px] font-medium text-[var(--gs-gray-2)] italic">{change7d.text}</span>
             ) : (
               <>
                 <span className={`text-[13px] font-medium ${change7d.colorClass}`}>{change7d.text}</span>
@@ -193,8 +182,8 @@ export default function PortfolioGlanceCard({
       </div>
 
       {/* Composition section - Waffle Chart */}
-      <div className="border-t border-white/10 pt-3 mt-3">
-        <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium mb-3 block">
+      <div className="border-t border-white/[0.06] pt-3 mt-3">
+        <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium mb-3 block">
           Composition
         </span>
         <div className="flex justify-center">
@@ -224,7 +213,7 @@ export default function PortfolioGlanceCard({
 
       {/* Status line - tertiary helper text */}
       {!changes.hasEnoughData && (
-        <div className="mt-2 text-[12px] text-white/40 flex items-center gap-1.5">
+        <div className="mt-2 text-[12px] text-[var(--gs-gray-2)] flex items-center gap-1.5">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
