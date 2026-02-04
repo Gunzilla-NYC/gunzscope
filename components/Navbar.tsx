@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import Logo from './Logo';
 import WalletButton from './WalletButton';
 
@@ -12,6 +13,8 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountClick }: NavbarProps) {
+  const pathname = usePathname();
+  const isHomePage = pathname === '/';
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -44,12 +47,14 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
               </span>
             </Link>
 
-            {/* Wallet Button */}
-            <WalletButton
-              onWalletConnect={onWalletConnect}
-              onWalletDisconnect={onWalletDisconnect}
-              onAccountClick={onAccountClick}
-            />
+            {/* Wallet Button - only show on home page */}
+            {isHomePage && (
+              <WalletButton
+                onWalletConnect={onWalletConnect}
+                onWalletDisconnect={onWalletDisconnect}
+                onAccountClick={onAccountClick}
+              />
+            )}
           </div>
         </div>
       </nav>
