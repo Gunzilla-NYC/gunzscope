@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { PortfolioHeader } from '@/components/header';
 import NFTGallery from '@/components/NFTGallery';
 import DebugPanel from '@/components/DebugPanel';
-import { WalletData, NFTPaginationInfo } from '@/lib/types';
+import { WalletData, NFTPaginationInfo, EnrichmentProgress } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { SolanaService } from '@/lib/blockchain/solana';
 import { CoinGeckoService } from '@/lib/api/coingecko';
@@ -115,6 +115,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
   const [searchAddress, setSearchAddress] = useState('');
   const [enrichingNFTs, setEnrichingNFTs] = useState(false);
+  const [enrichmentProgress, setEnrichmentProgress] = useState<EnrichmentProgress | null>(null);
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
 
   // Portfolio aggregation state
@@ -468,7 +469,8 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     walletAddress: string,
     avalancheService: AvalancheService,
     marketplaceService: GameMarketplaceService | null,
-    updateCallback: (enrichedNFTs: NFT[]) => void
+    updateCallback: (enrichedNFTs: NFT[]) => void,
+    onProgress?: (progress: EnrichmentProgress) => void
   ) => {
     console.log(`[NFT Enrichment] START - ${nfts.length} NFTs to process, marketplace: ${marketplaceService ? 'configured' : 'null'}`);
     try {
@@ -528,11 +530,15 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
     if (nftsNeedingEnrichment.length === 0) {
       console.log(`[NFT Enrichment] All ${nfts.length} NFTs loaded from cache`);
+      onProgress?.({ completed: 0, total: 0, phase: 'complete' });
       setEnrichingNFTs(false);
       return;
     }
 
     console.log(`[NFT Enrichment] ${nftsNeedingEnrichment.length}/${nfts.length} NFTs need enrichment`);
+
+    // Report initial progress
+    onProgress?.({ completed: 0, total: nftsNeedingEnrichment.length, phase: 'enriching' });
 
     // Process in batches and update progressively
     const enrichedResults = new Map<string, NFT>();
@@ -565,6 +571,10 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
           return enrichedResults.get(key) || nft;
         });
         updateCallback(updatedNFTs);
+
+        // Report progress after each batch
+        const completedCount = Math.min(i + ENRICHMENT_BATCH_SIZE, nftsNeedingEnrichment.length);
+        onProgress?.({ completed: completedCount, total: nftsNeedingEnrichment.length, phase: 'enriching' });
       }
 
       // Add delay between batches to avoid RPC rate limiting (429 errors)
@@ -575,6 +585,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
     const withPrice = Array.from(enrichedResults.values()).filter(n => n.purchasePriceGun !== undefined).length;
     console.log(`[NFT Enrichment] Complete: ${withPrice}/${nfts.length} NFTs have price data`);
+    onProgress?.({ completed: nftsNeedingEnrichment.length, total: nftsNeedingEnrichment.length, phase: 'complete' });
     setEnrichingNFTs(false);
     } catch (enrichmentError) {
       console.error(`[NFT Enrichment] FATAL ERROR:`, enrichmentError);
@@ -646,14 +657,21 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
           (enrichedNFTs: NFT[]) => {
             setWalletData(prev => {
               if (!prev) return prev;
-              // Merge enriched NFTs back
+              // Merge enriched NFTs back, preserving floor prices
               const existingNFTs = prev.avalanche.nfts;
               const enrichedMap = new Map(
                 enrichedNFTs.map(nft => [nft.tokenIds?.[0] || nft.tokenId, nft])
               );
-              const updatedNFTs = existingNFTs.map(nft => {
-                const key = nft.tokenIds?.[0] || nft.tokenId;
-                return enrichedMap.get(key) || nft;
+              const updatedNFTs = existingNFTs.map(existingNft => {
+                const key = existingNft.tokenIds?.[0] || existingNft.tokenId;
+                const enriched = enrichedMap.get(key);
+                if (!enriched) return existingNft;
+                // Spread existing first (preserves floorPrice), then overlay enriched data
+                return {
+                  ...existingNft,
+                  ...enriched,
+                  floorPrice: enriched.floorPrice ?? existingNft.floorPrice,
+                };
               });
               return {
                 ...prev,
@@ -842,15 +860,33 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
         (enrichedNFTs) => {
           setWalletData(prev => {
             if (!prev || prev.address !== address) return prev;
+            // MERGE enriched data with current state to preserve floor prices
+            // (floor price fetch runs concurrently and may complete first)
+            const enrichedMap = new Map(
+              enrichedNFTs.map(nft => [nft.tokenIds?.[0] || nft.tokenId, nft])
+            );
+            const mergedNFTs = prev.avalanche.nfts.map(existingNft => {
+              const key = existingNft.tokenIds?.[0] || existingNft.tokenId;
+              const enriched = enrichedMap.get(key);
+              if (!enriched) return existingNft;
+              // Spread existing first (preserves floorPrice), then overlay enriched data
+              return {
+                ...existingNft,
+                ...enriched,
+                // Preserve floorPrice from existing if enriched doesn't have it
+                floorPrice: enriched.floorPrice ?? existingNft.floorPrice,
+              };
+            });
             return {
               ...prev,
               avalanche: {
                 ...prev.avalanche,
-                nfts: enrichedNFTs,
+                nfts: mergedNFTs,
               },
             };
           });
-        }
+        },
+        setEnrichmentProgress
       );
 
       // Fetch collection floor price in background and apply to all NFTs
