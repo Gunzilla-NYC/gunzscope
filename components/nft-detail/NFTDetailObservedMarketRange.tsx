@@ -126,13 +126,12 @@ function MarketRangeContent({
               const isGoodDeal = costBasisGun < avg;
               return (
                 <div
-                  className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]"
+                  className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d] animate-[scale-in_0.3s_ease-out_0.2s_both]"
                   style={{
                     left: `${acqPos}%`,
-                    transform: 'translate(-50%, -50%)',
-                    backgroundColor: isGoodDeal ? '#4ade80' : '#f87171',
+                    backgroundColor: isGoodDeal ? 'var(--gs-profit)' : 'var(--gs-loss)',
                   }}
-                  title={`Acquisition: ${costBasisGun.toLocaleString()} GUN`}
+                  title={`Your cost: ${costBasisGun.toLocaleString()} GUN`}
                 />
               );
             })()
@@ -186,6 +185,17 @@ function MarketRangeContent({
             <span className="ml-1">· Quality: <span className="capitalize">{marketInputs.dataQuality}</span></span>
           )}
         </p>
+
+        {/* Acquisition comparison callout */}
+        {costBasisGun !== null && Number.isFinite(costBasisGun) && (() => {
+          const isBelow = costBasisGun < avg;
+          const pctDiff = ((avg - costBasisGun) / avg) * 100;
+          return (
+            <p className={`text-[10px] text-center ${isBelow ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
+              Your cost is {Math.abs(pctDiff).toFixed(0)}% {isBelow ? 'below' : 'above'} average
+            </p>
+          );
+        })()}
       </div>
     );
   }

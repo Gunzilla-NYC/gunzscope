@@ -791,3 +791,15 @@ body {
 .cta-button:active {
   transform: scale(0.98) translateY(1px);
 }
+
+/* Scale-in animation for market range acquisition marker */
+@keyframes scale-in {
+  from {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
