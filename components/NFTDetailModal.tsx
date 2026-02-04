@@ -2396,7 +2396,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           >
           {/* ===== 1) ModalHeader ===== */}
           <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.06]">
-            <h2 className="text-base font-semibold text-white">NFT Details</h2>
+            <h2 className="font-display text-base font-semibold uppercase tracking-wide text-white">NFT Details</h2>
             <button
               type="button"
               onClick={onClose}
@@ -2503,7 +2503,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                 {/* Metadata below image */}
                 <div className="text-center">
-                  <h3 className="text-lg font-semibold text-white">{nft.name}</h3>
+                  <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-white">{nft.name}</h3>
                   {/* Subtitle: description if available, otherwise collection name */}
                   {(() => {
                     const descriptionText = (nft?.description ?? '').trim();
@@ -2607,7 +2607,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   >
                     {/* Header row: YOUR POSITION + Status pill */}
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/65">
+                      <p className="font-mono text-[10px] font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
                         Your Position
                       </p>
                       {/* Status pill */}
@@ -2629,7 +2629,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     ) : (
                       <div className="space-y-1">
                         {/* Current USD value */}
-                        <p className="text-[26px] font-bold text-white">
+                        <p className="font-display text-[26px] font-bold text-white tabular-nums">
                           {currentValueUsd !== null
                             ? `$${currentValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : '—'}
@@ -2778,7 +2778,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   >
                     {/* Header row: Market Reference + Position pill */}
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/65">
+                      <p className="font-mono text-[10px] font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
                         Market Reference
                       </p>
                       {/* Position pill */}
@@ -2802,7 +2802,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       </div>
                     ) : marketRef.hasMarketData ? (
                       <div className="space-y-1">
-                        <p className="text-[22px] font-semibold text-white">
+                        <p className="font-display text-[22px] font-semibold text-white tabular-nums">
                           ≈ ${marketRef.usdValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'} USD
                         </p>
                         <p className="text-[13px] font-medium text-white/85">
