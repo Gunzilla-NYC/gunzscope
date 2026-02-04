@@ -22,10 +22,11 @@ model UserProfile {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  wallets          Wallet[]
-  trackedAddresses TrackedAddress[]
-  favorites        FavoriteItem[]
-  settings         UserSettings?
+  wallets            Wallet[]
+  trackedAddresses   TrackedAddress[]
+  portfolioAddresses PortfolioAddress[]
+  favorites          FavoriteItem[]
+  settings           UserSettings?
 
   @@map("user_profiles")
 }
@@ -61,6 +62,21 @@ model TrackedAddress {
 
   @@unique([userProfileId, address]) // One tracked entry per address per user
   @@map("tracked_addresses")
+}
+
+// =============================================================================
+// Portfolio Address - Addresses aggregated into user's portfolio view
+// =============================================================================
+model PortfolioAddress {
+  id            String      @id @default(cuid())
+  userProfileId String
+  address       String      // Wallet address (normalized to lowercase)
+  label         String?     // Optional friendly name
+  addedAt       DateTime    @default(now())
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userProfileId, address]) // One entry per address per user
+  @@map("portfolio_addresses")
 }
 
 // =============================================================================
