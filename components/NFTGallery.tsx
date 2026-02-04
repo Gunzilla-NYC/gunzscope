@@ -132,18 +132,39 @@ function getMintNumericValue(mint: string | undefined): number {
 }
 
 // Format mint numbers for display (up to 3, then "more...")
-function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean } {
+interface MintWithRarity {
+  mint: string;
+  rarity: string;
+}
+
+function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean; mints: MintWithRarity[] } {
   const mintNumbers = nft.mintNumbers || (nft.mintNumber ? [nft.mintNumber] : []);
+  const rarities = nft.groupedRarities || [];
+  const defaultRarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || 'Unknown';
+
   if (mintNumbers.length === 0) {
-    return { display: `#${nft.tokenId.slice(0, 8)}`, hasMore: false };
+    return {
+      display: `#${nft.tokenId.slice(0, 8)}`,
+      hasMore: false,
+      mints: [{ mint: `#${nft.tokenId.slice(0, 8)}`, rarity: defaultRarity }],
+    };
   }
   if (mintNumbers.length === 1) {
-    return { display: `#${stripLeadingZeros(mintNumbers[0])}`, hasMore: false };
+    return {
+      display: `#${stripLeadingZeros(mintNumbers[0])}`,
+      hasMore: false,
+      mints: [{ mint: `#${stripLeadingZeros(mintNumbers[0])}`, rarity: defaultRarity }],
+    };
   }
   // Multiple mints - show up to 3, strip leading zeros from each
   const displayed = mintNumbers.slice(0, 3).map(m => `#${stripLeadingZeros(m)}`).join(', ');
   const hasMore = mintNumbers.length > 3;
-  return { display: displayed, hasMore };
+  // Map mint numbers to their rarities (parallel arrays)
+  const mints = mintNumbers.slice(0, 3).map((m, i) => ({
+    mint: `#${stripLeadingZeros(m)}`,
+    rarity: rarities[i] || defaultRarity,
+  }));
+  return { display: displayed, hasMore, mints };
 }
 
 // Shorten collection names for dropdown display - kept for future use
@@ -454,8 +475,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
   return (
     <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
-      {/* Header with Title */}
-      <div className="flex flex-col gap-4 mb-4">
+      {/* Header with Title - Sticky Controls */}
+      <div className="sticky top-0 z-20 flex flex-col gap-4 mb-4 pb-4 -mx-6 px-6 bg-[var(--gs-dark-3)]">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-[var(--gs-white)]">
             Off The Grid Game Assets
@@ -737,7 +758,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             const rarityName = getRarityName(nft);
             const rarityColor = getRarityColor(nft);
             const itemClass = getItemClass(nft);
-            const { display: mintDisplay } = formatMintNumbers(nft);
+            const { display: mintDisplay, mints: mintData } = formatMintNumbers(nft);
             const nameInitials = nft.name.split(' ').map(w => w[0]).join('').slice(0, 2);
 
             // Calculate P&L
@@ -772,21 +793,22 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               >
                 {/* Image Container */}
                 <div className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden">
-                  {/* Rarity Badge - Top Left (abbreviated to prevent overlap) */}
+                  {/* Quality Badge - Top Left */}
+                  {/* Shows full quality name for single items, "MULTIPLE" for grouped items with potentially different qualities */}
                   <span
                     className="absolute top-1.5 left-1.5 z-10 font-mono text-[8px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm border"
                     style={{
-                      backgroundColor: `${rarityColor}15`,
-                      color: rarityColor,
-                      borderColor: `${rarityColor}30`,
+                      backgroundColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.15)' : `${rarityColor}15`,
+                      color: nft.quantity && nft.quantity > 1 ? 'var(--gs-purple)' : rarityColor,
+                      borderColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.30)' : `${rarityColor}30`,
                     }}
                   >
-                    {rarityName === 'Unknown' ? 'N/A' : rarityName.slice(0, 4)}
+                    {nft.quantity && nft.quantity > 1 ? 'MULTIPLE' : (rarityName === 'Unknown' ? 'N/A' : rarityName)}
                   </span>
 
-                  {/* Quantity Badge - Top Right */}
+                  {/* Quantity Badge - Bottom Right (moved to prevent overlap with quality badge) */}
                   {nft.quantity && nft.quantity > 1 && (
-                    <span className="absolute top-1.5 right-1.5 z-10 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
+                    <span className="absolute bottom-1.5 right-1.5 z-10 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
                       ×{nft.quantity}
                     </span>
                   )}
@@ -856,15 +878,25 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                   )}
                 </div>
 
-                {/* Mint Number - Bottom subtle */}
+                {/* Mint Numbers - Bottom subtle, each colored by its rarity */}
                 <p
                   className={`font-mono truncate mt-1 ${
                     viewMode === 'small' ? 'text-[8px]' : 'text-[9px]'
                   }`}
-                  style={{ color: `${rarityColor}99` }}
                   title={mintDisplay}
                 >
-                  {mintDisplay}
+                  {mintData.length > 1 ? (
+                    // Multiple mints - render each with its own rarity color
+                    mintData.map((m, i) => (
+                      <span key={m.mint}>
+                        <span style={{ color: `${getRarityColorByName(m.rarity)}99` }}>{m.mint}</span>
+                        {i < mintData.length - 1 && <span className="text-[var(--gs-gray-4)]">, </span>}
+                      </span>
+                    ))
+                  ) : (
+                    // Single mint - use the NFT's rarity color
+                    <span style={{ color: `${rarityColor}99` }}>{mintDisplay}</span>
+                  )}
                 </p>
               </div>
             );
@@ -879,7 +911,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             const rarityName = getRarityName(nft);
             const rarityColor = getRarityColor(nft);
             const itemClass = getItemClass(nft);
-            const { display: mintDisplay } = formatMintNumbers(nft);
+            const { display: mintDisplay, mints: mintData } = formatMintNumbers(nft);
             const nameInitials = nft.name.split(' ').map(w => w[0]).join('').slice(0, 2);
 
             // Calculate P&L
@@ -906,16 +938,22 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
               >
                 {/* Thumbnail */}
                 <div className="w-14 h-14 flex-shrink-0 relative bg-[var(--gs-dark-4)] overflow-hidden">
-                  {/* Rarity Badge */}
+                  {/* Quality Badge - shows abbreviated for space, "MLT" for grouped items */}
                   <span
                     className="absolute top-0.5 left-0.5 z-10 font-mono text-[6px] tracking-wide uppercase px-1 py-0.5 rounded-sm"
                     style={{
-                      backgroundColor: `${rarityColor}20`,
-                      color: rarityColor,
+                      backgroundColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.20)' : `${rarityColor}20`,
+                      color: nft.quantity && nft.quantity > 1 ? 'var(--gs-purple)' : rarityColor,
                     }}
                   >
-                    {rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4)}
+                    {nft.quantity && nft.quantity > 1 ? 'MLT' : (rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4))}
                   </span>
+                  {/* Quantity indicator for grouped items */}
+                  {nft.quantity && nft.quantity > 1 && (
+                    <span className="absolute bottom-0.5 right-0.5 z-10 font-mono text-[6px] font-bold px-1 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
+                      ×{nft.quantity}
+                    </span>
+                  )}
 
                   {nft.image ? (
                     <Image
@@ -952,8 +990,17 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
                 {/* Mint Number */}
                 <div className="flex-shrink-0 text-right hidden sm:block">
                   <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Mint</p>
-                  <p className="font-mono text-[10px] font-medium" style={{ color: rarityColor }}>
-                    {mintDisplay}
+                  <p className="font-mono text-[10px] font-medium">
+                    {mintData.length > 1 ? (
+                      mintData.map((m, i) => (
+                        <span key={m.mint}>
+                          <span style={{ color: getRarityColorByName(m.rarity) }}>{m.mint}</span>
+                          {i < mintData.length - 1 && <span className="text-[var(--gs-gray-4)]">, </span>}
+                        </span>
+                      ))
+                    ) : (
+                      <span style={{ color: rarityColor }}>{mintDisplay}</span>
+                    )}
                   </p>
                 </div>
 
