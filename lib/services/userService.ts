@@ -59,6 +59,11 @@ export interface AddFavoriteInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface AddPortfolioAddressInput {
+  address: string;
+  label?: string;
+}
+
 // =============================================================================
 // User Profile Operations
 // =============================================================================
@@ -311,6 +316,68 @@ export async function updateTrackedAddressLabel(
       userProfileId: profileId,
     },
     data: { label },
+  });
+}
+
+// =============================================================================
+// Portfolio Address Operations
+// =============================================================================
+
+/**
+ * Add a portfolio address
+ */
+export async function addPortfolioAddress(
+  profileId: string,
+  input: AddPortfolioAddressInput
+): Promise<{ id: string; address: string; label: string | null; addedAt: Date }> {
+  const normalizedAddress = input.address.toLowerCase();
+
+  const portfolioAddress = await prisma.portfolioAddress.upsert({
+    where: {
+      userProfileId_address: {
+        userProfileId: profileId,
+        address: normalizedAddress,
+      },
+    },
+    update: {
+      label: input.label,
+    },
+    create: {
+      userProfileId: profileId,
+      address: normalizedAddress,
+      label: input.label,
+    },
+  });
+
+  return {
+    id: portfolioAddress.id,
+    address: portfolioAddress.address,
+    label: portfolioAddress.label,
+    addedAt: portfolioAddress.addedAt,
+  };
+}
+
+/**
+ * Remove a portfolio address
+ */
+export async function removePortfolioAddress(profileId: string, portfolioAddressId: string): Promise<boolean> {
+  const result = await prisma.portfolioAddress.deleteMany({
+    where: {
+      id: portfolioAddressId,
+      userProfileId: profileId, // Ensure user owns this record
+    },
+  });
+  return result.count > 0;
+}
+
+/**
+ * Get portfolio address count for limit checking
+ */
+export async function getPortfolioAddressCount(profileId: string): Promise<number> {
+  return prisma.portfolioAddress.count({
+    where: {
+      userProfileId: profileId,
+    },
   });
 }
 
