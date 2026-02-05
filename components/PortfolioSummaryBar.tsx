@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { NFT } from '@/lib/types';
 import { PortfolioCalcResult, formatUsd } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
@@ -77,6 +77,12 @@ export default function PortfolioSummaryBar({
   // Hover states for interactive reveal
   const [gunHovered, setGunHovered] = useState(false);
   const [nftHovered, setNftHovered] = useState(false);
+
+  // Memoized hover handlers to prevent re-creation on each render
+  const handleGunMouseEnter = useCallback(() => setGunHovered(true), []);
+  const handleGunMouseLeave = useCallback(() => setGunHovered(false), []);
+  const handleNftMouseEnter = useCallback(() => setNftHovered(true), []);
+  const handleNftMouseLeave = useCallback(() => setNftHovered(false), []);
 
   // Calculate total USD cost basis from acquisition prices
   const totalCostBasisUsd = useMemo(() => {
@@ -182,8 +188,8 @@ export default function PortfolioSummaryBar({
             className={`p-4 border-r border-white/[0.06] stat-cell-animate cursor-pointer transition-all duration-200 ${
               gunHovered ? 'bg-[var(--gs-lime)]/5' : ''
             }`}
-            onMouseEnter={() => setGunHovered(true)}
-            onMouseLeave={() => setGunHovered(false)}
+            onMouseEnter={handleGunMouseEnter}
+            onMouseLeave={handleGunMouseLeave}
           >
             <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
               GUN Balance Today
@@ -223,8 +229,8 @@ export default function PortfolioSummaryBar({
             className={`p-4 border-r border-white/[0.06] stat-cell-animate cursor-pointer transition-all duration-200 ${
               nftHovered ? 'bg-[var(--gs-purple)]/5' : ''
             }`}
-            onMouseEnter={() => setNftHovered(true)}
-            onMouseLeave={() => setNftHovered(false)}
+            onMouseEnter={handleNftMouseEnter}
+            onMouseLeave={handleNftMouseLeave}
           >
             <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
               NFT Holdings
