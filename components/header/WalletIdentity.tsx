@@ -2,25 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { NetworkInfo } from '@/lib/utils/networkDetector';
+import {
+  usePortfolioWallet,
+} from '@/lib/contexts/PortfolioContext';
 
 interface WalletIdentityProps {
-  address: string;
-  networkInfo?: NetworkInfo | null;
-  walletType?: 'in-game' | 'external' | 'unknown';
-  lastUpdated?: Date;
-  isUpdating?: boolean;
   className?: string;
-  /** GUN token balance (total across chains) */
-  gunBalance?: number;
-  /** GUN value in USD (balance * price) */
-  gunValueUsd?: number;
-  /** Current GUN price in USD */
-  gunPrice?: number;
-  /** 24h price change in USD */
-  gunPriceChange24h?: number;
-  /** 24h price change percentage */
-  gunPriceChangePercent24h?: number;
 }
 
 interface PopoverPosition {
@@ -28,19 +15,11 @@ interface PopoverPosition {
   left: number;
 }
 
-export default function WalletIdentity({
-  address,
-  networkInfo,
-  walletType = 'unknown',
-  lastUpdated,
-  isUpdating = false,
-  className = '',
-  gunBalance,
-  gunValueUsd,
-  gunPrice,
-  gunPriceChange24h = 0,
-  gunPriceChangePercent24h = 0,
-}: WalletIdentityProps) {
+/**
+ * WalletIdentity - Displays wallet address, network, and type information.
+ * Now uses PortfolioContext instead of props for data access.
+ */
+export default function WalletIdentity({ className = '' }: WalletIdentityProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({ top: 0, left: 0 });
@@ -48,6 +27,14 @@ export default function WalletIdentity({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverId = 'wallet-details-popover';
+
+  // Get data from context
+  const { walletData, address, networkInfo, walletType } = usePortfolioWallet();
+
+  // Early return if no wallet data
+  if (!walletData || !address) return null;
+
+  const lastUpdated = walletData.lastUpdated;
 
   // Format address for display
   const shortAddress = address.length > 12
@@ -79,7 +66,6 @@ export default function WalletIdentity({
 
   // Status determination
   const getStatus = () => {
-    if (isUpdating) return { label: 'Updating', color: '#fbbf24' };
     if (!lastUpdated) return { label: 'Synced', color: '#beffd2' };
     const diffMin = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
     if (diffMin > 5) return { label: 'Stale', color: '#ff6b6b' };

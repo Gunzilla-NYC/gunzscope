@@ -17,22 +17,18 @@ import {
  */
 export default function PortfolioHeader() {
   // Get data from context
-  const { walletData, networkInfo, walletType } = usePortfolioWallet();
-  const { gunPrice = 0, gunPriceChange24h = 0, gunPriceChangePercent24h = 0 } = usePortfolioGunPrice();
+  const { walletData } = usePortfolioWallet();
+  const { gunPrice = 0 } = usePortfolioGunPrice();
   const portfolioResult = usePortfolioResult();
   const { allNfts } = usePortfolioNFTs();
 
   // Early return if no wallet data
   if (!walletData) return null;
 
-  // Derive display values for WalletIdentity
-  const { totalTokenValue, totalBalance, gunValue } = useMemo(() => {
+  // Calculate total value for history tracking
+  const totalTokenValue = useMemo(() => {
     if (portfolioResult) {
-      return {
-        totalTokenValue: portfolioResult.totalUsd,
-        totalBalance: portfolioResult.totalGunBalance,
-        gunValue: portfolioResult.tokensUsd,
-      };
+      return portfolioResult.totalUsd;
     }
 
     // Legacy fallback
@@ -49,11 +45,7 @@ export default function PortfolioHeader() {
       }
     });
 
-    return {
-      totalTokenValue: gunVal + nftValue,
-      totalBalance: totalBal,
-      gunValue: gunVal,
-    };
+    return gunVal + nftValue;
   }, [walletData, gunPrice, portfolioResult, allNfts]);
 
   // Add portfolio snapshot for history tracking
@@ -74,17 +66,7 @@ export default function PortfolioHeader() {
         >
           {/* Top accent line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-          <WalletIdentity
-            address={walletData.address}
-            networkInfo={networkInfo}
-            walletType={walletType}
-            lastUpdated={walletData.lastUpdated}
-            gunBalance={totalBalance}
-            gunValueUsd={gunValue}
-            gunPrice={gunPrice}
-            gunPriceChange24h={gunPriceChange24h}
-            gunPriceChangePercent24h={gunPriceChangePercent24h}
-          />
+          <WalletIdentity />
         </div>
 
         {/* Zone B: Portfolio Glance (right) - uses context directly */}
