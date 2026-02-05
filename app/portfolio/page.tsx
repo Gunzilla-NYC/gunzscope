@@ -6,7 +6,6 @@ import { PortfolioHeader } from '@/components/header';
 import NFTGallery from '@/components/NFTGallery';
 import DebugPanel from '@/components/DebugPanel';
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
-import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { NFT } from '@/lib/types';
@@ -197,7 +196,8 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     setNftPagination(prev => ({ ...prev, isLoadingMore: true }));
 
     try {
-      const avalancheService = new AvalancheService();
+      // Get avalanche service from hook (reuses existing instance)
+      const { avalanche: avalancheService } = walletFetcher.getServices();
       const startIndex = nftPagination.fetchedCount;
 
       const result = await avalancheService.getNFTsPaginated(
@@ -291,7 +291,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       console.error('Error loading more NFTs:', error);
       setNftPagination(prev => ({ ...prev, isLoadingMore: false }));
     }
-  }, [walletData, nftPagination, startEnrichment]);
+  }, [walletData, nftPagination, startEnrichment, walletFetcher]);
 
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Cancel any ongoing enrichment
