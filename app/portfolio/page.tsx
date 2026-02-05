@@ -18,6 +18,7 @@ import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey } from '@/
 import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
+import { PortfolioProvider, PortfolioContextValue } from '@/lib/contexts/PortfolioContext';
 import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
@@ -1041,7 +1042,39 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     handleWalletSubmit(address, 'avalanche');
   };
 
+  // Build context value for PortfolioProvider
+  const contextValue: PortfolioContextValue = useMemo(() => ({
+    walletData,
+    address: walletData?.address ?? null,
+    gunPrice,
+    gunPriceChange24h: undefined, // TODO: Add when available
+    gunPriceChangePercent24h: undefined, // TODO: Add when available
+    networkInfo,
+    walletType,
+    portfolioResult,
+    enrichmentProgress,
+    isEnriching: enrichingNFTs,
+    allNfts: walletData
+      ? [...walletData.avalanche.nfts, ...walletData.solana.nfts]
+      : [],
+    isLoading: loading,
+    isInitializing: isPortfolioInitializing,
+    error,
+  }), [
+    walletData,
+    gunPrice,
+    networkInfo,
+    walletType,
+    portfolioResult,
+    enrichmentProgress,
+    enrichingNFTs,
+    loading,
+    isPortfolioInitializing,
+    error,
+  ]);
+
   return (
+    <PortfolioProvider value={contextValue}>
     <div className="min-h-screen bg-gunzscope">
       <Navbar
         onWalletConnect={handleWalletConnect}
@@ -1248,5 +1281,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
         isVisible={debugMode}
       />
     </div>
+    </PortfolioProvider>
   );
 }
