@@ -31,15 +31,12 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
   // Get data from context
   const { walletData, address, networkInfo, walletType } = usePortfolioWallet();
 
-  // Early return if no wallet data
-  if (!walletData || !address) return null;
+  const lastUpdated = walletData?.lastUpdated;
 
-  const lastUpdated = walletData.lastUpdated;
-
-  // Format address for display
-  const shortAddress = address.length > 12
+  // Format address for display (handle null safely)
+  const shortAddress = address && address.length > 12
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
-    : address;
+    : address || '';
 
   // Network info
   const isMainnet = networkInfo?.environment === 'mainnet' || networkInfo?.environment === undefined;
@@ -73,7 +70,7 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
   };
   const status = getStatus();
 
-  // Mount check for portal
+  // Mount check for portal (must be called unconditionally)
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -171,6 +168,9 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
       popoverRef.current.focus();
     }
   }, [showDetails]);
+
+  // Early return if no wallet data (after all hooks to satisfy React rules)
+  if (!walletData || !address) return null;
 
   const handleCopyAddress = async (e?: React.MouseEvent) => {
     e?.stopPropagation();

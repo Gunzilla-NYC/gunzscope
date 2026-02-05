@@ -22,11 +22,11 @@ export default function PortfolioHeader() {
   const portfolioResult = usePortfolioResult();
   const { allNfts } = usePortfolioNFTs();
 
-  // Early return if no wallet data
-  if (!walletData) return null;
-
   // Calculate total value for history tracking
+  // Must be called unconditionally (React hooks rules)
   const totalTokenValue = useMemo(() => {
+    if (!walletData) return 0;
+
     if (portfolioResult) {
       return portfolioResult.totalUsd;
     }
@@ -49,11 +49,15 @@ export default function PortfolioHeader() {
   }, [walletData, gunPrice, portfolioResult, allNfts]);
 
   // Add portfolio snapshot for history tracking
+  // Must be called unconditionally (React hooks rules)
   useEffect(() => {
-    if (walletData.address && totalTokenValue > 0) {
+    if (walletData?.address && totalTokenValue > 0) {
       addPortfolioSnapshot(walletData.address, totalTokenValue);
     }
-  }, [walletData.address, totalTokenValue]);
+  }, [walletData?.address, totalTokenValue]);
+
+  // Early return if no wallet data (after all hooks)
+  if (!walletData) return null;
 
   return (
     <div className="space-y-4">
