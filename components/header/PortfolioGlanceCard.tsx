@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Sparkline from '@/components/ui/Sparkline';
 import WaffleChart from '@/components/ui/WaffleChart';
 import PnLLoadingIndicator from '@/components/ui/PnLLoadingIndicator';
@@ -96,16 +96,45 @@ export default function PortfolioGlanceCard({
     return getSparklineValues(address, 24);
   }, [address]);
 
-  // Calculate PnL if cost basis is available
-  const pnl = useMemo(() => {
-    if (!costBasis) return null;
+  // Optimistic UI: Load cached P&L data for instant display while refreshing
+  const cachedCostBasis = useMemo<CostBasis | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = localStorage.getItem(`pnl_${address}`);
+      if (cached) {
+        return JSON.parse(cached) as CostBasis;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+    return null;
+  }, [address]);
 
-    const tokenPnL = costBasis.tokens !== null ? breakdown.gunValue - costBasis.tokens : null;
-    const nftPnL = costBasis.nfts !== null ? breakdown.nftValue - costBasis.nfts : null;
-    const totalPnL = costBasis.total !== null ? totalValue - costBasis.total : null;
+  // Save cost basis to cache when we receive new data
+  useEffect(() => {
+    if (costBasis && costBasis.total !== null && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`pnl_${address}`, JSON.stringify(costBasis));
+      } catch {
+        // Ignore storage errors (quota exceeded, etc.)
+      }
+    }
+  }, [address, costBasis]);
+
+  // Use cached data while loading (optimistic UI)
+  const displayCostBasis = pnlLoading && !costBasis ? cachedCostBasis : costBasis;
+  const isUsingCachedData = pnlLoading && !costBasis && cachedCostBasis !== null;
+
+  // Calculate PnL if cost basis is available (uses cached data for optimistic UI)
+  const pnl = useMemo(() => {
+    if (!displayCostBasis) return null;
+
+    const tokenPnL = displayCostBasis.tokens !== null ? breakdown.gunValue - displayCostBasis.tokens : null;
+    const nftPnL = displayCostBasis.nfts !== null ? breakdown.nftValue - displayCostBasis.nfts : null;
+    const totalPnL = displayCostBasis.total !== null ? totalValue - displayCostBasis.total : null;
 
     return { tokens: tokenPnL, nfts: nftPnL, total: totalPnL };
-  }, [breakdown, totalValue, costBasis]);
+  }, [breakdown, totalValue, displayCostBasis]);
 
   // Waffle chart percentages
   const waffleData = useMemo(() => {
@@ -200,9 +229,14 @@ export default function PortfolioGlanceCard({
 
       {/* Composition section - Waffle Chart */}
       <div className="border-t border-white/[0.06] pt-3 mt-3">
-        <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium mb-3 block">
-          Composition
-        </span>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
+            Composition
+          </span>
+          {isUsingCachedData && (
+            <span className="text-[9px] text-white/40 italic">(updating...)</span>
+          )}
+        </div>
         <div className="flex justify-center">
           <WaffleChart
             gunPercent={waffleData.gunPercent}
@@ -212,8 +246,8 @@ export default function PortfolioGlanceCard({
             nftCount={breakdown.nftCount}
             size={140}
             showLegend={true}
-            gunCostBasis={costBasis?.tokens}
-            nftCostBasis={costBasis?.nfts}
+            gunCostBasis={displayCostBasis?.tokens}
+            nftCostBasis={displayCostBasis?.nfts}
             gunPnl={pnl?.tokens}
             nftPnl={pnl?.nfts}
             totalGunSpent={breakdown.totalGunSpent}
