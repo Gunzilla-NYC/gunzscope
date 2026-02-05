@@ -26,7 +26,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import WalletSearchDropdown from '@/components/WalletSearchDropdown';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
-import { mergeWalletData } from '@/lib/hooks/useWalletAggregation';
+import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggregation';
 
 // Wrapper component to provide Suspense boundary for useSearchParams
 function PortfolioContent() {
@@ -70,6 +70,17 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
   // Portfolio aggregation state
   const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
+
+  // Separate storage for primary and portfolio wallets (for useWalletAggregation hook)
+  const [primaryWalletData, setPrimaryWalletData] = useState<WalletData | null>(null);
+  const [portfolioWalletsData, setPortfolioWalletsData] = useState<WalletData[]>([]);
+
+  // Compute aggregated wallet using hook (will replace inline mergeWalletData)
+  const aggregatedWalletFromHook = useWalletAggregation(
+    primaryWalletData,
+    portfolioWalletsData,
+    { includePortfolio: portfolioWalletsData.length > 0 }
+  );
 
   // Wallet search dropdown state
   const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
@@ -781,6 +792,12 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       const walletDataArray = successfulResults.map(r => r.walletData);
       const mergedData = mergeWalletData(walletDataArray);
 
+      // Populate separate state for hook-based aggregation
+      // Primary wallet is the first result (the searched address)
+      // Portfolio wallets are the rest
+      setPrimaryWalletData(walletDataArray[0]);
+      setPortfolioWalletsData(walletDataArray.slice(1));
+
       // Track which addresses were aggregated
       setAggregatedAddresses(successfulResults.map(r => r.walletData.address));
 
@@ -990,9 +1007,11 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   };
 
   // Build context value for PortfolioProvider
+  // Use aggregatedWalletFromHook (computed by useWalletAggregation) with fallback to walletData
+  const effectiveWalletData = aggregatedWalletFromHook ?? walletData;
   const contextValue: PortfolioContextValue = useMemo(() => ({
-    walletData,
-    address: walletData?.address ?? null,
+    walletData: effectiveWalletData,
+    address: effectiveWalletData?.address ?? null,
     gunPrice,
     gunPriceChange24h: undefined, // TODO: Add when available
     gunPriceChangePercent24h: undefined, // TODO: Add when available
@@ -1001,14 +1020,14 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     portfolioResult,
     enrichmentProgress,
     isEnriching: enrichingNFTs,
-    allNfts: walletData
-      ? [...walletData.avalanche.nfts, ...walletData.solana.nfts]
+    allNfts: effectiveWalletData
+      ? [...effectiveWalletData.avalanche.nfts, ...effectiveWalletData.solana.nfts]
       : [],
     isLoading: loading,
     isInitializing: isPortfolioInitializing,
     error,
   }), [
-    walletData,
+    effectiveWalletData,
     gunPrice,
     networkInfo,
     walletType,
