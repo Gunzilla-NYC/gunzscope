@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { PortfolioHeader } from '@/components/header';
 import NFTGallery from '@/components/NFTGallery';
 import DebugPanel from '@/components/DebugPanel';
-import { WalletData, NFTPaginationInfo, EnrichmentProgress } from '@/lib/types';
+import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { SolanaService } from '@/lib/blockchain/solana';
 import { CoinGeckoService } from '@/lib/api/coingecko';
@@ -14,7 +14,6 @@ import { OpenSeaService } from '@/lib/api/opensea';
 import { NFT } from '@/lib/types';
 import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata } from '@/lib/utils/nftGrouping';
-import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey } from '@/lib/utils/nftCache';
 import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
@@ -27,6 +26,7 @@ import { toast } from 'sonner';
 import WalletSearchDropdown from '@/components/WalletSearchDropdown';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggregation';
+import { useNFTEnrichmentOrchestrator } from '@/lib/hooks/useNFTEnrichmentOrchestrator';
 
 // Wrapper component to provide Suspense boundary for useSearchParams
 function PortfolioContent() {
@@ -45,17 +45,6 @@ export default function PortfolioPage() {
   );
 }
 
-// Batch size for parallel NFT enrichment
-// Reduced to 3 to avoid RPC rate limiting (429 errors)
-const ENRICHMENT_BATCH_SIZE = 3;
-// Delay between batches in ms to avoid rate limiting
-const ENRICHMENT_BATCH_DELAY_MS = 1500;
-// Number of NFTs to prioritize for above-the-fold display
-const PRIORITY_ABOVE_FOLD_COUNT = 12;
-
-// Helper to delay execution
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
@@ -64,9 +53,15 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
   const [searchAddress, setSearchAddress] = useState('');
-  const [enrichingNFTs, setEnrichingNFTs] = useState(false);
-  const [enrichmentProgress, setEnrichmentProgress] = useState<EnrichmentProgress | null>(null);
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
+
+  // NFT enrichment hook - handles background enrichment with caching and progress
+  const {
+    progress: enrichmentProgress,
+    isEnriching: enrichingNFTs,
+    startEnrichment,
+    cancelEnrichment,
+  } = useNFTEnrichmentOrchestrator();
 
   // Portfolio aggregation state
   const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
@@ -106,9 +101,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     hasMore: false,
     isLoadingMore: false,
   });
-
-  // Ref to track if enrichment should be cancelled
-  const enrichmentCancelledRef = useRef(false);
 
   // Track if initial portfolio data has loaded (for "Calculating..." state)
   // Once set to false, stays false until new wallet search
@@ -196,383 +188,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     });
   }, [walletData, portfolioResult, loading, enrichingNFTs, gunPrice]);
 
-  // Helper to add timeout to promises
-  const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
-    return Promise.race([
-      promise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))
-    ]);
-  };
-
-  // Enrich a single NFT with caching
-  // IMPORTANT: Only caches when acquisition data is meaningful to prevent blocking future enrichment
-  const enrichSingleNFT = async (
-    nft: NFT,
-    walletAddress: string,
-    nftContractAddress: string,
-    avalancheService: AvalancheService,
-    marketplaceService: GameMarketplaceService | null
-  ): Promise<NFT> => {
-    const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
-
-    // Check cache - but only use it if acquisition is complete
-    const cached = getCachedNFT(walletAddress, primaryTokenId);
-    if (cached && cached.hasAcquisition === true) {
-      // Complete cache entry - use it
-      // For grouped NFTs, prefer tokenIds.length over cache if cache has 1 but NFT is grouped
-      const groupedQuantity = nft.tokenIds && nft.tokenIds.length > 1 ? nft.tokenIds.length : undefined;
-      return {
-        ...nft,
-        quantity: groupedQuantity ?? cached.quantity ?? nft.quantity ?? 1,
-        purchasePriceGun: cached.purchasePriceGun,
-        purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
-        transferredFrom: cached.transferredFrom,
-        isFreeTransfer: cached.isFreeTransfer,
-        acquisitionVenue: cached.acquisitionVenue,
-        acquisitionTxHash: cached.acquisitionTxHash,
-      };
-    }
-
-    // If cache exists but is incomplete, we still have quantity - use it as baseline
-    const cachedQuantity = cached?.quantity;
-
-    try {
-      // Fetch quantity and acquisition details in parallel
-      const [quantity, acquisition] = await Promise.all([
-        // For non-grouped NFTs, fetch quantity (ERC-1155 check)
-        // Skip if we already have cached quantity
-        cachedQuantity !== undefined
-          ? Promise.resolve(cachedQuantity)
-          : nft.tokenIds && nft.tokenIds.length > 1
-            ? Promise.resolve(nft.quantity || nft.tokenIds.length)
-            : withTimeout(
-                avalancheService.detectNFTQuantity(nftContractAddress, nft.tokenId, walletAddress),
-                3000
-              ),
-        // Fetch acquisition details (current holding)
-        // Timeout increased to 45s because blockchain RPC scans 13M+ blocks and can be very slow
-        withTimeout(
-          avalancheService.getNFTHoldingAcquisition(nftContractAddress, primaryTokenId, walletAddress),
-          45000
-        ),
-      ]);
-
-      // =========================================================================
-      // MARKETPLACE PRICE LOOKUP
-      // If acquisition shows a marketplace venue, query for the purchase price
-      // =========================================================================
-      let marketplacePriceGun: number | undefined;
-      let marketplacePurchaseDate: Date | undefined;
-
-      const isMarketplaceVenue = acquisition?.venue && [
-        'opensea',
-        'in_game_marketplace',
-        'otg_marketplace',
-      ].includes(acquisition.venue);
-
-      if (marketplaceService && isMarketplaceVenue && acquisition?.acquiredAtIso) {
-        try {
-          const acquiredAt = new Date(acquisition.acquiredAtIso);
-          // Query purchases within ±24 hours of blockchain acquisition
-          const purchases = await withTimeout(
-            marketplaceService.getPurchasesForWallet(walletAddress, {
-              fromDate: new Date(acquiredAt.getTime() - 24 * 60 * 60 * 1000),
-              toDate: new Date(acquiredAt.getTime() + 24 * 60 * 60 * 1000),
-              limit: 20,
-            }),
-            5000 // 5 second timeout
-          );
-
-          if (purchases && purchases.length > 0) {
-            // Find purchase matching this NFT's tokenId
-            const tokenId = nft.tokenIds?.[0] || nft.tokenId;
-            const matchingPurchases = purchases.filter(p => {
-              // tokenKey format: chain:contract:tokenId
-              const parts = p.tokenKey.split(':');
-              return parts[2] === tokenId;
-            });
-
-            if (matchingPurchases.length > 0) {
-              // Find closest timestamp match
-              const matchedPurchase = matchingPurchases.reduce((closest, p) => {
-                const closestDiff = Math.abs(new Date(closest.purchaseDateIso).getTime() - acquiredAt.getTime());
-                const pDiff = Math.abs(new Date(p.purchaseDateIso).getTime() - acquiredAt.getTime());
-                return pDiff < closestDiff ? p : closest;
-              });
-
-              marketplacePriceGun = matchedPurchase.priceGun;
-              marketplacePurchaseDate = new Date(matchedPurchase.purchaseDateIso);
-
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`[NFT Enrichment] Marketplace match for ${tokenId}: ${marketplacePriceGun} GUN`);
-              }
-            }
-          }
-        } catch (marketplaceError) {
-          // Non-blocking - continue with blockchain data only
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(`[NFT Enrichment] Marketplace lookup failed for ${nft.tokenId}:`, marketplaceError);
-          }
-        }
-      }
-
-      // =========================================================================
-      // OPENSEA FALLBACK: If venue is OpenSea and we don't have a price yet,
-      // query OpenSea's sale events API directly
-      // =========================================================================
-      if (acquisition?.venue === 'opensea' && marketplacePriceGun === undefined) {
-        try {
-          const openSeaService = new OpenSeaService();
-          const tokenId = nft.tokenIds?.[0] || nft.tokenId;
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[NFT Enrichment] OpenSea fallback for token ${tokenId} (venue: opensea, no marketplace price)`);
-          }
-
-          const saleEvents = await withTimeout(
-            openSeaService.getSaleEvents(nftContractAddress, tokenId, 'avalanche'),
-            8000 // 8 second timeout for OpenSea API
-          );
-
-          if (saleEvents && saleEvents.length > 0) {
-            // Find the sale where the buyer matches the wallet address
-            const walletLower = walletAddress.toLowerCase();
-            const matchingSale = saleEvents.find(sale =>
-              sale.buyerAddress?.toLowerCase() === walletLower
-            );
-
-            if (matchingSale && matchingSale.priceGUN > 0) {
-              marketplacePriceGun = matchingSale.priceGUN;
-              marketplacePurchaseDate = matchingSale.eventTimestamp ? new Date(matchingSale.eventTimestamp) : undefined;
-              console.log(`[NFT Enrichment] OpenSea sale found for ${tokenId}: ${marketplacePriceGun} GUN`);
-            } else {
-              console.log(`[NFT Enrichment] No matching OpenSea sale for ${tokenId} (buyer: ${walletLower})`);
-            }
-          } else {
-            console.log(`[NFT Enrichment] No OpenSea sale events for token ${tokenId}`);
-          }
-        } catch (openSeaError) {
-          console.warn(`[NFT Enrichment] OpenSea sale lookup failed for ${nft.tokenId}:`, openSeaError);
-        }
-      }
-
-      // Determine if acquisition data is meaningful (not null/timeout result)
-      const hasAcquisitionData = acquisition !== null && (
-        acquisition.txHash !== undefined ||
-        (typeof acquisition.costGun === 'number' && Number.isFinite(acquisition.costGun)) ||
-        acquisition.acquiredAtIso !== undefined
-      );
-
-      // Map acquisition data to NFT fields
-      // Prefer marketplace price over blockchain cost (blockchain only has mint costs)
-      const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint;
-      // For grouped NFTs, tokenIds.length is the authoritative quantity
-      const finalQuantity = (nft.tokenIds && nft.tokenIds.length > 1) ? nft.tokenIds.length : (quantity ?? nft.quantity ?? 1);
-      const enrichedData = {
-        quantity: finalQuantity,
-        purchasePriceGun: marketplacePriceGun ?? acquisition?.costGun,
-        purchaseDate: marketplacePurchaseDate ?? (acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined),
-        transferredFrom: isFreeTransfer ? acquisition?.fromAddress : undefined,
-        isFreeTransfer,
-        acquisitionVenue: acquisition?.venue,
-        acquisitionTxHash: acquisition?.txHash ?? undefined,
-      };
-
-      // Only cache if acquisition is meaningful OR we're caching quantity-only for ERC-1155
-      if (hasAcquisitionData) {
-        // Full cache with acquisition data
-        const priceSource = marketplacePriceGun !== undefined ? 'marketplace' : (acquisition?.costGun !== undefined ? 'blockchain' : undefined);
-        setCachedNFT(walletAddress, primaryTokenId, {
-          quantity: enrichedData.quantity,
-          purchasePriceGun: enrichedData.purchasePriceGun,
-          purchaseDate: enrichedData.purchaseDate?.toISOString(),
-          transferredFrom: enrichedData.transferredFrom,
-          isFreeTransfer: enrichedData.isFreeTransfer,
-          acquisitionVenue: enrichedData.acquisitionVenue,
-          acquisitionTxHash: enrichedData.acquisitionTxHash,
-          hasAcquisition: true,
-          hasMarketplacePrice: marketplacePriceGun !== undefined,
-          priceSource,
-          cachedAtIso: new Date().toISOString(),
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[NFT Cache] Cached complete: ${primaryTokenId} (txHash: ${acquisition?.txHash?.slice(0, 10)}...)`);
-        }
-      } else if (quantity !== null && quantity !== undefined) {
-        // Quantity-only cache (incomplete) - allows retry for acquisition
-        setCachedNFT(walletAddress, primaryTokenId, {
-          quantity: enrichedData.quantity,
-          hasAcquisition: false,
-          cachedAtIso: new Date().toISOString(),
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[NFT Cache] Skipped acquisition cache (incomplete): ${primaryTokenId} - acquisition was ${acquisition === null ? 'null/timeout' : 'missing data'}`);
-        }
-      } else {
-        // Nothing meaningful to cache
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[NFT Cache] Skipped cache entirely: ${primaryTokenId} - no acquisition or quantity`);
-        }
-      }
-
-      return {
-        ...nft,
-        ...enrichedData,
-      };
-    } catch (error) {
-      console.error(`Error enriching NFT ${nft.tokenId}:`, error);
-      return nft;
-    }
-  };
-
-  // Background enrichment function - updates NFTs progressively
-  const enrichNFTsInBackground = useCallback(async (
-    nfts: NFT[],
-    walletAddress: string,
-    avalancheService: AvalancheService,
-    marketplaceService: GameMarketplaceService | null,
-    updateCallback: (enrichedNFTs: NFT[]) => void,
-    onProgress?: (progress: EnrichmentProgress) => void,
-    priorityTokenIds?: string[]
-  ) => {
-    console.log(`[NFT Enrichment] START - ${nfts.length} NFTs to process, marketplace: ${marketplaceService ? 'configured' : 'null'}`);
-    try {
-    // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
-    const nftContractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
-    console.log(`[NFT Enrichment] Contract: ${nftContractAddress}`);
-    if (!nftContractAddress || nfts.length === 0) {
-      console.log(`[NFT Enrichment] SKIP - contract: ${nftContractAddress}, nfts: ${nfts.length}`);
-      return;
-    }
-
-    setEnrichingNFTs(true);
-    enrichmentCancelledRef.current = false;
-    console.log(`[NFT Enrichment] Step 1: Checking cache for ${nfts.length} NFTs`);
-
-    // Start with cached data applied immediately (even incomplete cache has quantity)
-    const nftsWithCache = nfts.map(nft => {
-      const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
-      const cached = getCachedNFT(walletAddress, primaryTokenId);
-      if (cached) {
-        // For grouped NFTs, tokenIds.length is the authoritative quantity
-        const groupedQuantity = nft.tokenIds && nft.tokenIds.length > 1 ? nft.tokenIds.length : undefined;
-        return {
-          ...nft,
-          quantity: groupedQuantity ?? cached.quantity ?? nft.quantity ?? 1,
-          purchasePriceGun: cached.purchasePriceGun,
-          purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
-          transferredFrom: cached.transferredFrom,
-          isFreeTransfer: cached.isFreeTransfer,
-          acquisitionVenue: cached.acquisitionVenue,
-          acquisitionTxHash: cached.acquisitionTxHash,
-        };
-      }
-      return nft;
-    });
-
-    // Update immediately with cached data
-    console.log(`[NFT Enrichment] Step 2: Cache mapped, calling updateCallback`);
-    updateCallback(nftsWithCache);
-    console.log(`[NFT Enrichment] Step 3: Filtering NFTs that need enrichment`);
-
-    // Find NFTs that need enrichment:
-    // - No cache at all
-    // - Cache exists but hasAcquisition is false/undefined (incomplete)
-    // - Cache is incomplete AND older than INCOMPLETE_CACHE_STALE_MS
-    const nftsNeedingEnrichment = nftsWithCache.filter(nft => {
-      const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
-      const tokenKey = buildTokenKey('avalanche', nftContractAddress, primaryTokenId);
-      const { needsRetry, reason } = needsReEnrichment(walletAddress, tokenKey);
-
-      if (needsRetry && process.env.NODE_ENV === 'development' && reason !== 'no_cache') {
-        console.log(`[NFT Enrichment] Retrying ${primaryTokenId}: ${reason}`);
-      }
-
-      return needsRetry;
-    });
-
-    if (nftsNeedingEnrichment.length === 0) {
-      console.log(`[NFT Enrichment] All ${nfts.length} NFTs loaded from cache`);
-      onProgress?.({ completed: 0, total: 0, phase: 'complete' });
-      setEnrichingNFTs(false);
-      return;
-    }
-
-    console.log(`[NFT Enrichment] ${nftsNeedingEnrichment.length}/${nfts.length} NFTs need enrichment`);
-
-    // Sort by priority: above-the-fold NFTs first for faster perceived load
-    let orderedNftsToEnrich = nftsNeedingEnrichment;
-    if (priorityTokenIds && priorityTokenIds.length > 0) {
-      const prioritySet = new Set(priorityTokenIds);
-      const priorityNfts = nftsNeedingEnrichment.filter(nft => {
-        const tokenId = nft.tokenIds?.[0] || nft.tokenId;
-        return prioritySet.has(tokenId);
-      });
-      const remainingNfts = nftsNeedingEnrichment.filter(nft => {
-        const tokenId = nft.tokenIds?.[0] || nft.tokenId;
-        return !prioritySet.has(tokenId);
-      });
-      orderedNftsToEnrich = [...priorityNfts, ...remainingNfts];
-      if (priorityNfts.length > 0) {
-        console.log(`[NFT Enrichment] Prioritizing ${priorityNfts.length} above-fold NFTs`);
-      }
-    }
-
-    // Report initial progress
-    onProgress?.({ completed: 0, total: orderedNftsToEnrich.length, phase: 'enriching' });
-
-    // Process in batches and update progressively
-    const enrichedResults = new Map<string, NFT>();
-    nftsWithCache.forEach(nft => {
-      const key = nft.tokenIds?.[0] || nft.tokenId;
-      enrichedResults.set(key, nft);
-    });
-
-    for (let i = 0; i < orderedNftsToEnrich.length; i += ENRICHMENT_BATCH_SIZE) {
-      if (enrichmentCancelledRef.current) break;
-
-      const batch = orderedNftsToEnrich.slice(i, i + ENRICHMENT_BATCH_SIZE);
-      console.log(`[NFT Enrichment] Processing batch ${i / ENRICHMENT_BATCH_SIZE + 1}: ${batch.map(n => n.tokenId).join(', ')}`);
-
-      const batchResults = await Promise.all(
-        batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService))
-      );
-
-      // Update results map and log enrichment results
-      batchResults.forEach(enrichedNFT => {
-        const key = enrichedNFT.tokenIds?.[0] || enrichedNFT.tokenId;
-        enrichedResults.set(key, enrichedNFT);
-        console.log(`[NFT Enrichment] ${key}: purchasePriceGun=${enrichedNFT.purchasePriceGun ?? 'undefined'}`);
-      });
-
-      // Reconstruct array in original order and update UI
-      if (!enrichmentCancelledRef.current) {
-        const updatedNFTs = nfts.map(nft => {
-          const key = nft.tokenIds?.[0] || nft.tokenId;
-          return enrichedResults.get(key) || nft;
-        });
-        updateCallback(updatedNFTs);
-
-        // Report progress after each batch
-        const completedCount = Math.min(i + ENRICHMENT_BATCH_SIZE, orderedNftsToEnrich.length);
-        onProgress?.({ completed: completedCount, total: orderedNftsToEnrich.length, phase: 'enriching' });
-      }
-
-      // Add delay between batches to avoid RPC rate limiting (429 errors)
-      if (i + ENRICHMENT_BATCH_SIZE < orderedNftsToEnrich.length && !enrichmentCancelledRef.current) {
-        await delay(ENRICHMENT_BATCH_DELAY_MS);
-      }
-    }
-
-    const withPrice = Array.from(enrichedResults.values()).filter(n => n.purchasePriceGun !== undefined).length;
-    console.log(`[NFT Enrichment] Complete: ${withPrice}/${nfts.length} NFTs have price data`);
-    onProgress?.({ completed: orderedNftsToEnrich.length, total: orderedNftsToEnrich.length, phase: 'complete' });
-    setEnrichingNFTs(false);
-    } catch (enrichmentError) {
-      console.error(`[NFT Enrichment] FATAL ERROR:`, enrichmentError);
-      setEnrichingNFTs(false);
-    }
-  }, []);
-
   // Load more NFTs (pagination)
   const handleLoadMoreNFTs = useCallback(async () => {
     if (!walletData || nftPagination.isLoadingMore || !nftPagination.hasMore) return;
@@ -625,11 +240,11 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
           isLoadingMore: false,
         }));
 
-        // Start background enrichment for new NFTs
+        // Start background enrichment for new NFTs using hook
         const paginationMarketplaceService = new GameMarketplaceService();
         const paginationMarketplaceConfigured = paginationMarketplaceService.isConfigured();
 
-        enrichNFTsInBackground(
+        startEnrichment(
           uniqueNewNFTs,
           walletData.address,
           avalancheService,
@@ -674,7 +289,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       console.error('Error loading more NFTs:', error);
       setNftPagination(prev => ({ ...prev, isLoadingMore: false }));
     }
-  }, [walletData, nftPagination, enrichNFTsInBackground]);
+  }, [walletData, nftPagination, startEnrichment]);
 
   /**
    * Fetch wallet data for a single address.
@@ -730,7 +345,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Cancel any ongoing enrichment
-    enrichmentCancelledRef.current = true;
+    cancelEnrichment();
 
     // Reset portfolio states for new search
     setIsPortfolioInitializing(true);
@@ -833,17 +448,13 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       // This prevents the search bar from showing the wallet address and triggering the dropdown
       setSearchAddress('');
 
-      // Start background enrichment for all Avalanche NFTs
+      // Start background enrichment for all Avalanche NFTs using hook
       // Reuse existing marketplace service (will gracefully handle unconfigured state)
       const marketplaceConfigured = marketplaceService.isConfigured();
 
-      // Extract priority tokens (above-the-fold NFTs) for faster perceived load
-      const priorityTokenIds = mergedData.avalanche.nfts
-        .slice(0, PRIORITY_ABOVE_FOLD_COUNT)
-        .map(nft => nft.tokenIds?.[0] || nft.tokenId);
-
       // For merged data, enrich all NFTs but update the merged state
-      enrichNFTsInBackground(
+      // Note: priority ordering and progress tracking are handled internally by the hook
+      startEnrichment(
         mergedData.avalanche.nfts,
         address, // Use primary address for cache keys
         avalancheService,
@@ -876,9 +487,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
               },
             };
           });
-        },
-        setEnrichmentProgress,
-        priorityTokenIds
+        }
       );
 
       // Fetch collection floor price in background and apply to all NFTs
@@ -938,7 +547,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
   // Handle wallet disconnect
   const handleWalletDisconnect = () => {
-    enrichmentCancelledRef.current = true;
+    cancelEnrichment();
     setWalletData(null);
     setNetworkInfo(null);
     setWalletType('unknown');
@@ -1131,7 +740,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
           <div className="flex items-center gap-4 mb-6">
             <button
               onClick={() => {
-                enrichmentCancelledRef.current = true;
+                cancelEnrichment();
                 setWalletData(null);
                 setNetworkInfo(null);
                 setWalletType('unknown');
