@@ -18,6 +18,7 @@ import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalan
 import { OpenSeaService } from '@/lib/api/opensea';
 import { CoinGeckoService } from '@/lib/api/coingecko';
 import { useGunPrice } from '@/lib/hooks/useGunPrice';
+import { useNFTDetailDebug } from '@/lib/hooks/useNFTDetailDebug';
 import {
   buildTokenKey,
   buildNftDetailCacheKey,
@@ -440,8 +441,16 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const searchParams = useSearchParams();
   const debugMode = searchParams.get('debugNft') === '1';
   const noCacheMode = searchParams.get('noCache') === '1';
-  const [debugExpanded, setDebugExpanded] = useState(false);
-  const [debugCopied, setDebugCopied] = useState(false);
+  // Debug state hook - manages debug data, copy-to-clipboard, and reset
+  const {
+    debugData,
+    debugExpanded,
+    debugCopied,
+    updateDebugData,
+    resetDebugData,
+    setDebugExpanded,
+    handleCopyDebugData,
+  } = useNFTDetailDebug(gunPriceTimestamp);
   const [isWeaponLabOpen, setIsWeaponLabOpen] = useState(false);
 
   // Ref to track fetch state and prevent duplicate fetches
@@ -492,117 +501,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     };
   }, []);
 
-  // Debug instrumentation state
-  const [debugData, setDebugData] = useState<{
-    tokenKey: string;
-    cacheKey: string;
-    cacheHit: boolean;
-    cacheReason: string;
-    transferEventCount: number;
-    marketplaceMatches: number;
-    gunPriceTimestamp: Date | null;
-    priceSource: PriceSource;
-    // Transfer query debug info (legacy - now uses acquisition debug)
-    transferQueryInfo?: {
-      fromBlock?: number;
-      toBlock?: number;
-      chunksQueried?: number;
-      totalLogsFound?: number;
-      currentOwner?: string | null;
-      // New acquisition debug fields
-      txTo?: string;
-      selector?: string;
-      gunIsNative?: boolean;
-      matchedRule?: string;
-    };
-    // Transfer-derived debug fields
-    derivedFromTransferTxHash?: string;
-    derivedAcquiredAt?: string; // ISO string
-    derivedAcquisitionType?: AcquisitionType;
-    // Acquisition venue/tx from getNFTHoldingAcquisition
-    acquisitionVenue?: string;
-    acquisitionTxHash?: string;
-    // Marketplace matching debug fields - enhanced
-    marketplaceConfigured: boolean;
-    serverProxyUsed: boolean;
-    marketplaceTestConnection?: {
-      success: boolean;
-      statusCode?: number;
-      itemCount?: number;
-      error?: string;
-      responseKeys?: string[];
-      serverProxyUsed?: boolean;
-    };
-    viewerWallet: string | null;
-    currentOwner: string | null;
-    tokenPurchasesCount: number;
-    walletPurchasesCount_viewerWallet: number;
-    walletPurchasesCount_currentOwner: number;
-    walletPurchasesTimeRange_viewerWallet?: { min: string; max: string };
-    walletPurchasesTimeRange_currentOwner?: { min: string; max: string };
-    marketplaceEndpointBaseUrl: string;
-    marketplaceNetwork: string;
-    matchWindowMinutes: number;
-    marketplaceMatchedTxHash?: string;
-    marketplaceMatchedOrderId?: string;
-    marketplaceMatchedPurchaseId?: string;
-    marketplaceMatchedTimestamp?: string;
-    marketplaceCandidatesCount: number;
-    marketplaceCandidateTimes?: { min: string; max: string };
-    marketplaceMatchMethod: MarketplaceMatchMethod;
-    // OpenSea error (if any)
-    openSeaError?: string;
-    // No-cache mode status
-    noCacheEnabled: boolean;
-    cacheBypassed: boolean;
-    // Background refresh tracking
-    cacheRenderedFirst: boolean;
-    backgroundRefreshAttempted: boolean;
-    backgroundRefreshUpdated: boolean;
-    // Enhanced refresh diagnostics
-    refreshStartedAtIso: string | null;
-    refreshFinishedAtIso: string | null;
-    refreshError: string | null;
-    refreshResultSummary: string | null;
-    refreshExistingScore: number | null;
-    refreshNewScore: number | null;
-    refreshDecision: 'updated' | 'kept_existing_no_downgrade' | 'error' | 'no_candidates' | null;
-  }>({
-    tokenKey: '',
-    cacheKey: '',
-    cacheHit: false,
-    cacheReason: '',
-    transferEventCount: 0,
-    marketplaceMatches: 0,
-    gunPriceTimestamp: null,
-    priceSource: 'none',
-    // Enhanced marketplace debug defaults
-    marketplaceConfigured: false,
-    serverProxyUsed: true,
-    viewerWallet: null,
-    currentOwner: null,
-    tokenPurchasesCount: 0,
-    walletPurchasesCount_viewerWallet: 0,
-    walletPurchasesCount_currentOwner: 0,
-    marketplaceEndpointBaseUrl: '',
-    marketplaceNetwork: '',
-    matchWindowMinutes: 10,
-    marketplaceCandidatesCount: 0,
-    marketplaceMatchMethod: 'none',
-    noCacheEnabled: false,
-    cacheBypassed: false,
-    cacheRenderedFirst: false,
-    backgroundRefreshAttempted: false,
-    backgroundRefreshUpdated: false,
-    // Enhanced refresh diagnostics
-    refreshStartedAtIso: null,
-    refreshFinishedAtIso: null,
-    refreshError: null,
-    refreshResultSummary: null,
-    refreshExistingScore: null,
-    refreshNewScore: null,
-    refreshDecision: null,
-  });
+  // Debug state is managed by useNFTDetailDebug hook (declared above)
 
   // Reset state when modal opens (component remounts via key prop when NFT changes)
   useEffect(() => {
@@ -640,53 +539,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         lastFetchTimestamp: 0,
         fetchInProgress: false,
       };
-      // Note: debugExpanded is NOT reset here - user preference persists during session
-      setDebugData({
-        tokenKey: '',
-        cacheKey: '',
-        cacheHit: false,
-        cacheReason: '',
-        transferEventCount: 0,
-        marketplaceMatches: 0,
-        gunPriceTimestamp: null,
-        priceSource: 'none',
-        // Enhanced marketplace debug defaults
-        marketplaceConfigured: false,
-        serverProxyUsed: true,
-        viewerWallet: null,
-        currentOwner: null,
-        tokenPurchasesCount: 0,
-        walletPurchasesCount_viewerWallet: 0,
-        walletPurchasesCount_currentOwner: 0,
-        marketplaceEndpointBaseUrl: '',
-        marketplaceNetwork: '',
-        matchWindowMinutes: 10,
-        marketplaceCandidatesCount: 0,
-        marketplaceMatchMethod: 'none',
-        noCacheEnabled: noCacheMode,
-        cacheBypassed: false,
-        cacheRenderedFirst: false,
-        backgroundRefreshAttempted: false,
-        backgroundRefreshUpdated: false,
-        // Enhanced refresh diagnostics
-        refreshStartedAtIso: null,
-        refreshFinishedAtIso: null,
-        refreshError: null,
-        refreshResultSummary: null,
-        refreshExistingScore: null,
-        refreshNewScore: null,
-        refreshDecision: null,
-      });
+      // Reset debug data (debugExpanded persists — handled inside hook)
+      resetDebugData(noCacheMode);
 
     }
   }, [isOpen, noCacheMode]);
-
-  // Sync GUN price timestamp from hook into debug data
-  useEffect(() => {
-    if (gunPriceTimestamp) {
-      setDebugData(prev => ({ ...prev, gunPriceTimestamp }));
-    }
-  }, [gunPriceTimestamp]);
 
   // Build sorted list of items (by rarity desc, then mint number asc)
   const sortedItems: ItemData[] = useMemo(() => {
@@ -753,11 +610,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     const fullCacheKey = buildNftDetailCacheKey(walletAddress, tokenKey);
 
     // Update debug keys
-    setDebugData(prev => ({
-      ...prev,
+    updateDebugData({
       tokenKey,
       cacheKey: fullCacheKey,
-    }));
+    });
 
     // =========================================================================
     // STALE-WHILE-REVALIDATE: Prevent duplicate/frequent fetches
@@ -789,14 +645,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         });
       }
       // Update debug to show we're using cached data without refresh
-      setDebugData(prev => ({
-        ...prev,
+      updateDebugData({
         cacheHit: true,
         cacheReason: 'fresh_data',
         priceSource: itemPurchaseData[tokenId].priceSource,
         cacheRenderedFirst: true,
         backgroundRefreshAttempted: false,
-      }));
+      });
       return;
     }
 
@@ -831,13 +686,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       }
       // Mark that we have cached data rendered
       cacheRenderedFirst = true;
-      setDebugData(prev => ({
-        ...prev,
+      updateDebugData({
         cacheHit: true,
         cacheReason: 'component_state',
         priceSource: itemPurchaseData[tokenId].priceSource,
         cacheRenderedFirst: true,
-      }));
+      });
       // NOTE: We do NOT return early - we continue to background refresh
     } else if (cacheResult.hit && 'value' in cacheResult && cacheResult.value && !noCacheMode) {
       // Determine acquisition source from cached data
@@ -906,13 +760,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       }
 
       cacheRenderedFirst = true;
-      setDebugData(prev => ({
-        ...prev,
+      updateDebugData({
         cacheHit: true,
         cacheReason: 'localStorage',
         priceSource: cachedPriceSource,
         cacheRenderedFirst: true,
-      }));
+      });
       // NOTE: We do NOT return early - we continue to background refresh
     } else {
       // Cache miss (or noCache mode) - need to fetch fresh data
@@ -928,11 +781,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
       // Update debug data to reflect cache bypass in noCache mode
       if (noCacheMode) {
-        setDebugData(prev => ({
-          ...prev,
+        updateDebugData({
           cacheBypassed: true,
           cacheReason: 'noCache_mode',
-        }));
+        });
       }
     }
 
@@ -970,21 +822,19 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
       // Mark background refresh as attempted and record start time
       if (isBackgroundRefresh) {
-        setDebugData(prev => ({
-          ...prev,
+        updateDebugData({
           backgroundRefreshAttempted: true,
           refreshStartedAtIso: new Date().toISOString(),
           refreshFinishedAtIso: null,
           refreshError: null,
           refreshResultSummary: null,
           refreshDecision: null,
-        }));
+        });
       } else {
-        setDebugData(prev => ({
-          ...prev,
+        updateDebugData({
           cacheHit: false,
           cacheReason: cacheResult.reason || 'fetching',
-        }));
+        });
       }
 
       if (debugMode) {
@@ -1063,11 +913,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
         // Track if acquisition fetch returned null (timeout or error)
         if (isBackgroundRefresh && acquisition === null) {
-          setDebugData(prev => ({
-            ...prev,
+          updateDebugData({
             refreshError: 'acquisition_null_or_timeout',
             refreshResultSummary: 'acquisition fetch returned null (timeout or no data) - keeping existing',
-          }));
+          });
         }
 
         // Backward compatibility aliases
@@ -1087,14 +936,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         }
 
         // Update debug transfer event count and query info
-        setDebugData(prev => ({
-          ...prev,
+        updateDebugData({
           transferEventCount: totalLogsFound,
           derivedAcquiredAt: acquiredAt?.toISOString(),
           derivedAcquisitionType: acquisitionType,
           acquisitionVenue,
           acquisitionTxHash: acquisitionTxHash ?? undefined,
-        }));
+        });
 
         // =====================================================================
         // STEP 2: Load marketplace listings (price data source)
@@ -1143,11 +991,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             }
 
             // Update debug marketplace matches and any error
-            setDebugData(prev => ({
-              ...prev,
+            updateDebugData({
               marketplaceMatches: marketplaceMatchCount,
               openSeaError: listings.error,
-            }));
+            });
 
             // HARDENING: FIFO eviction for listings map
             const listingsKeysToEvict = listingsKeyTrackerRef.current.track(tokenId);
@@ -1188,11 +1035,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               return;
             }
 
-            setDebugData(prev => ({
-              ...prev,
+            updateDebugData({
               marketplaceMatches: 0,
               openSeaError: errorMsg,
-            }));
+            });
 
             // HARDENING: Update listings status to error and record error message
             setListingsStatusByTokenId(prev => ({ ...prev, [tokenId]: 'error' }));
@@ -1247,8 +1093,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             const endpointInfo = marketplaceService.getEndpointInfo();
 
             // Update endpoint info in debug
-            setDebugData(prev => ({
-              ...prev,
+            updateDebugData({
               viewerWallet: viewerWalletLower,
               currentOwner: currentOwnerLower,
               marketplaceEndpointBaseUrl: endpointInfo.baseUrl,
@@ -1256,16 +1101,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               matchWindowMinutes: MATCH_WINDOW_MINUTES,
               marketplaceConfigured: endpointInfo.isConfigured,
               serverProxyUsed: endpointInfo.serverProxyUsed,
-            }));
+            });
 
             // Check if marketplace is configured before making API calls
             if (!endpointInfo.isConfigured) {
               // Run testConnection for debug info (helps diagnose configuration issues)
               const testResult = await marketplaceService.testConnection();
-              setDebugData(prev => ({
-                ...prev,
+              updateDebugData({
                 marketplaceTestConnection: testResult,
-              }));
+              });
 
               if (debugMode) {
                 console.debug('[NFTDetailModal] Marketplace not configured:', {
@@ -1508,8 +1352,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         }
 
         // Update debug data with marketplace matching results
-        setDebugData(prev => ({
-          ...prev,
+        updateDebugData({
           tokenPurchasesCount,
           walletPurchasesCount_viewerWallet,
           walletPurchasesCount_currentOwner,
@@ -1522,7 +1365,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           marketplaceMatchedOrderId: marketplaceOrderId,
           marketplaceMatchedPurchaseId: marketplacePurchaseId,
           marketplaceMatchedTimestamp,
-        }));
+        });
 
         // =====================================================================
         // STEP 4: Determine acquisition source and build final data
@@ -1883,8 +1726,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           ? `updated: score ${existingResolved?.qualityScore ?? 'none'} -> ${finalResolved.qualityScore} (${finalResolved.source})`
           : `kept existing: score ${existingResolved?.qualityScore ?? 'none'} >= new ${newResolved.qualityScore} (${mergeReason})`;
 
-        setDebugData(prev => ({
-          ...prev,
+        updateDebugData({
           priceSource: derivedPriceSource,
           marketplaceMatchedTxHash: marketplaceTxHash,
           // Mark if background refresh caused an update
@@ -1898,7 +1740,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             refreshNewScore: newResolved.qualityScore,
             refreshDecision,
           } : {}),
-        }));
+        });
 
         // Always update resolved acquisition state (it handles its own no-downgrade logic)
         setResolvedAcquisitions(prev => ({
@@ -1979,13 +1821,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
         // Record error in refresh diagnostics
         if (isBackgroundRefresh) {
-          setDebugData(prev => ({
-            ...prev,
+          updateDebugData({
             refreshFinishedAtIso: new Date().toISOString(),
             refreshError: errorMessage,
             refreshResultSummary: `error: ${errorMessage.slice(0, 100)}`,
             refreshDecision: 'error',
-          }));
+          });
         }
       } finally {
         // HARDENING: Clean up AbortController reference
@@ -2030,99 +1871,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   const currentPurchaseData = activeItem ? itemPurchaseData[activeItem.tokenId] : undefined;
   // Get resolved acquisition (deterministic, no-downgrade)
   const currentResolvedAcquisition = activeItem ? resolvedAcquisitions[activeItem.tokenId] : undefined;
-
-  // Copy debug data to clipboard
-  const handleCopyDebugData = useCallback(() => {
-    const debugOutput = {
-      tokenKey: debugData.tokenKey,
-      cacheKey: debugData.cacheKey,
-      cacheHit: debugData.cacheHit,
-      cacheReason: debugData.cacheReason,
-      priceSource: debugData.priceSource,
-      noCacheEnabled: debugData.noCacheEnabled,
-      cacheBypassed: debugData.cacheBypassed,
-      cacheRenderedFirst: debugData.cacheRenderedFirst,
-      backgroundRefreshAttempted: debugData.backgroundRefreshAttempted,
-      backgroundRefreshUpdated: debugData.backgroundRefreshUpdated,
-      // Enhanced refresh diagnostics
-      refreshDiagnostics: {
-        startedAt: debugData.refreshStartedAtIso,
-        finishedAt: debugData.refreshFinishedAtIso,
-        error: debugData.refreshError,
-        resultSummary: debugData.refreshResultSummary,
-        existingScore: debugData.refreshExistingScore,
-        newScore: debugData.refreshNewScore,
-        decision: debugData.refreshDecision,
-      },
-      metadataDebug: nft?.metadataDebug ?? null,
-      // Resolved acquisition (deterministic, no-downgrade)
-      resolvedAcquisition: currentResolvedAcquisition ?? null,
-      // Legacy acquisition data
-      acquisition: {
-        priceSource: currentPurchaseData?.priceSource ?? 'none',
-        acquisitionVenue: currentPurchaseData?.acquisitionVenue ?? null,
-        acquiredAt: toIsoStringSafe(currentPurchaseData?.acquiredAt) ?? null,
-        fromAddress: currentPurchaseData?.fromAddress ?? null,
-        acquisitionType: currentPurchaseData?.acquisitionType ?? null,
-        acquisitionTxHash: currentPurchaseData?.acquisitionTxHash ?? null,
-        purchasePriceGun: currentPurchaseData?.purchasePriceGun ?? null,
-        purchasePriceUsd: currentPurchaseData?.purchasePriceUsd ?? null,
-        purchaseDate: toIsoStringSafe(currentPurchaseData?.purchaseDate) ?? null,
-        marketplaceTxHash: currentPurchaseData?.marketplaceTxHash ?? null,
-        decodeCostGun: currentPurchaseData?.decodeCostGun ?? null,
-        decodeCostUsd: currentPurchaseData?.decodeCostUsd ?? null,
-        transferredFrom: currentPurchaseData?.transferredFrom ?? null,
-        isFreeTransfer: currentPurchaseData?.isFreeTransfer ?? null,
-      },
-      holdingAcquisitionRaw,
-      transferDerivation: {
-        derivedAcquiredAt: debugData.derivedAcquiredAt ?? null,
-        derivedAcquisitionType: debugData.derivedAcquisitionType ?? null,
-      },
-      marketplaceMatching: {
-        viewerWallet: debugData.viewerWallet,
-        currentOwner: debugData.currentOwner,
-        endpointBaseUrl: debugData.marketplaceEndpointBaseUrl,
-        network: debugData.marketplaceNetwork,
-        configured: debugData.marketplaceConfigured,
-        serverProxyUsed: debugData.serverProxyUsed,
-        testConnection: debugData.marketplaceTestConnection ?? null,
-        matchWindowMinutes: debugData.matchWindowMinutes,
-        tokenPurchasesCount: debugData.tokenPurchasesCount,
-        walletPurchasesCount_viewerWallet: debugData.walletPurchasesCount_viewerWallet,
-        walletPurchasesTimeRange_viewerWallet: debugData.walletPurchasesTimeRange_viewerWallet ?? null,
-        walletPurchasesCount_currentOwner: debugData.walletPurchasesCount_currentOwner,
-        walletPurchasesTimeRange_currentOwner: debugData.walletPurchasesTimeRange_currentOwner ?? null,
-        candidatesCount: debugData.marketplaceCandidatesCount,
-        candidateTimes: debugData.marketplaceCandidateTimes ?? null,
-        matchMethod: debugData.marketplaceMatchMethod,
-        matchedPurchaseId: debugData.marketplaceMatchedPurchaseId ?? null,
-        matchedOrderId: debugData.marketplaceMatchedOrderId ?? null,
-        matchedTimestamp: debugData.marketplaceMatchedTimestamp ?? null,
-        matchedTxHash: debugData.marketplaceMatchedTxHash ?? null,
-      },
-      gunUsdRate: currentGunPrice ?? null,
-      gunPriceTimestamp: toIsoStringSafe(debugData.gunPriceTimestamp) ?? null,
-      transferEventCount: debugData.transferEventCount,
-      transferQueryInfo: debugData.transferQueryInfo ?? null,
-      marketplaceMatches: debugData.marketplaceMatches,
-      openSeaError: debugData.openSeaError ?? null,
-      listingsData,
-      // Computed market inputs (single source of truth for hero + position label)
-      marketInputs: computeMarketInputs(listingsData, nft?.floorPrice, nft?.ceilingPrice),
-      // Active token ID for context
-      activeTokenId: activeItem?.tokenId ?? null,
-    };
-
-    navigator.clipboard.writeText(JSON.stringify(debugOutput, null, 2))
-      .then(() => {
-        setDebugCopied(true);
-        setTimeout(() => setDebugCopied(false), 2000);
-      })
-      .catch((err) => {
-        console.error('Failed to copy debug data:', err);
-      });
-  }, [debugData, nft, activeItem, currentPurchaseData, currentResolvedAcquisition, holdingAcquisitionRaw, currentGunPrice, listingsData]);
 
   // Filter traits to exclude "None" values
   const filteredTraits = useMemo(() => {
@@ -2825,7 +2573,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 listingsMapSize={Object.keys(listingsStatusByTokenId).length}
                 holdingAcqMapSize={Object.keys(holdingAcqStatusByTokenId).length}
                 onToggleExpanded={() => setDebugExpanded(v => !v)}
-                onCopyDebugData={handleCopyDebugData}
+                onCopyDebugData={() => handleCopyDebugData({
+                  nft,
+                  activeTokenId: activeItem?.tokenId,
+                  currentPurchaseData,
+                  currentResolvedAcquisition,
+                  holdingAcquisitionRaw,
+                  currentGunPrice,
+                  listingsData,
+                })}
                 toIsoStringSafe={toIsoStringSafe}
               />
             </div>
