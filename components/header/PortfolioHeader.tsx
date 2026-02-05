@@ -4,7 +4,6 @@ import { useEffect, useMemo } from 'react';
 import WalletIdentity from './WalletIdentity';
 import PortfolioGlanceCard from './PortfolioGlanceCard';
 import { addPortfolioSnapshot } from '@/lib/utils/portfolioHistory';
-import { usePortfolioPnL } from '@/lib/hooks/usePortfolioPnL';
 import {
   usePortfolioWallet,
   usePortfolioGunPrice,
@@ -14,74 +13,48 @@ import {
 
 /**
  * PortfolioHeader - Main header component for portfolio view.
- * Now uses PortfolioContext instead of props for data access.
+ * Uses PortfolioContext for data access. P&L data is owned by PortfolioGlanceCard.
  */
 export default function PortfolioHeader() {
   // Get data from context
-  const { walletData, address, networkInfo, walletType } = usePortfolioWallet();
+  const { walletData, networkInfo, walletType } = usePortfolioWallet();
   const { gunPrice = 0, gunPriceChange24h = 0, gunPriceChangePercent24h = 0 } = usePortfolioGunPrice();
   const portfolioResult = usePortfolioResult();
-  const { allNfts, enrichmentProgress } = usePortfolioNFTs();
+  const { allNfts } = usePortfolioNFTs();
 
   // Early return if no wallet data
   if (!walletData) return null;
 
-  // Derive display values from portfolioResult (single source of truth)
-  // Falls back to legacy calculation if portfolioResult not provided
-  const { totalTokenValue, breakdown, totalBalance } = useMemo(() => {
+  // Derive display values for WalletIdentity
+  const { totalTokenValue, totalBalance, gunValue } = useMemo(() => {
     if (portfolioResult) {
-      // Use calcPortfolio result as single source of truth
       return {
         totalTokenValue: portfolioResult.totalUsd,
         totalBalance: portfolioResult.totalGunBalance,
-        breakdown: {
-          gunValue: portfolioResult.tokensUsd,
-          nftValue: portfolioResult.nftsUsd,
-          otherValue: 0,
-          nftCount: portfolioResult.nftCount,
-          totalGunSpent: portfolioResult.totalGunSpent,
-        },
+        gunValue: portfolioResult.tokensUsd,
       };
     }
 
-    // Legacy fallback (should not be reached when portfolioResult is provided)
+    // Legacy fallback
     const avalancheBalance = walletData.avalanche.gunToken?.balance || 0;
     const solanaBalance = walletData.solana.gunToken?.balance || 0;
     const totalBal = avalancheBalance + solanaBalance;
-    const gunValue = totalBal * (gunPrice || 0);
+    const gunVal = totalBal * (gunPrice || 0);
 
-    // Calculate NFT value and total spent (from NFTs with purchase prices if available)
+    // Calculate NFT value for total
     let nftValue = 0;
-    let totalGunSpent = 0;
     allNfts.forEach(nft => {
-      if (nft.purchasePriceGun) {
-        totalGunSpent += nft.purchasePriceGun * (nft.quantity || 1);
-        if (gunPrice) {
-          nftValue += nft.purchasePriceGun * gunPrice * (nft.quantity || 1);
-        }
+      if (nft.purchasePriceGun && gunPrice) {
+        nftValue += nft.purchasePriceGun * gunPrice * (nft.quantity || 1);
       }
     });
 
-    // NFT count from allNfts
-    const totalNFTCount = allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
-
     return {
-      totalTokenValue: gunValue + nftValue,
+      totalTokenValue: gunVal + nftValue,
       totalBalance: totalBal,
-      breakdown: {
-        gunValue,
-        nftValue,
-        otherValue: 0,
-        nftCount: totalNFTCount,
-        totalGunSpent,
-      },
+      gunValue: gunVal,
     };
   }, [walletData, gunPrice, portfolioResult, allNfts]);
-
-  // Fetch P&L data (runs in background, doesn't block initial render)
-  const { costBasis, isLoading: pnlLoading, coverage: pnlCoverage } = usePortfolioPnL(walletData.address, {
-    enabled: !!walletData.address && totalTokenValue > 0,
-  });
 
   // Add portfolio snapshot for history tracking
   useEffect(() => {
@@ -107,31 +80,21 @@ export default function PortfolioHeader() {
             walletType={walletType}
             lastUpdated={walletData.lastUpdated}
             gunBalance={totalBalance}
-            gunValueUsd={breakdown.gunValue}
+            gunValueUsd={gunValue}
             gunPrice={gunPrice}
             gunPriceChange24h={gunPriceChange24h}
             gunPriceChangePercent24h={gunPriceChangePercent24h}
           />
         </div>
 
-        {/* Zone B: Portfolio Glance (right) */}
+        {/* Zone B: Portfolio Glance (right) - uses context directly */}
         <div
           className="lg:col-span-7 relative bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden"
           style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
         >
           {/* Top accent line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-          <PortfolioGlanceCard
-            address={walletData.address}
-            totalValue={totalTokenValue}
-            breakdown={breakdown}
-            costBasis={costBasis ?? undefined}
-            pnlLoading={pnlLoading}
-            pnlCoverage={pnlCoverage}
-            enrichmentProgress={enrichmentProgress}
-            nfts={allNfts}
-            gunPrice={gunPrice}
-          />
+          <PortfolioGlanceCard />
         </div>
       </div>
     </div>

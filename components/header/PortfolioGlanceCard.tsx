@@ -8,15 +8,13 @@ import CoverageBadge from '@/components/ui/CoverageBadge';
 import InsightsPanel from '@/components/ui/InsightsPanel';
 import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
 import { generateInsights } from '@/lib/portfolio/portfolioInsights';
-import { EnrichmentProgress, NFT } from '@/lib/types';
-
-interface PortfolioBreakdown {
-  gunValue: number;
-  nftValue: number;
-  otherValue: number;
-  nftCount: number;
-  totalGunSpent?: number;
-}
+import { usePortfolioPnL } from '@/lib/hooks/usePortfolioPnL';
+import {
+  usePortfolioWallet,
+  usePortfolioGunPrice,
+  usePortfolioResult,
+  usePortfolioNFTs,
+} from '@/lib/contexts/PortfolioContext';
 
 interface CostBasis {
   tokens: number | null;
@@ -25,15 +23,6 @@ interface CostBasis {
 }
 
 interface PortfolioGlanceCardProps {
-  address: string;
-  totalValue: number;
-  breakdown: PortfolioBreakdown;
-  costBasis?: CostBasis;
-  pnlLoading?: boolean;
-  pnlCoverage?: number;  // 0-1, fraction of NFTs with cost basis
-  enrichmentProgress?: EnrichmentProgress | null;
-  nfts?: NFT[];          // NFTs for generating insights
-  gunPrice?: number;     // GUN price for insights calculations
   className?: string;
 }
 
@@ -72,33 +61,49 @@ function formatChange(
   };
 }
 
-export default function PortfolioGlanceCard({
-  address,
-  totalValue,
-  breakdown,
-  costBasis,
-  pnlLoading = false,
-  pnlCoverage,
-  enrichmentProgress,
-  nfts = [],
-  gunPrice,
-  className = '',
-}: PortfolioGlanceCardProps) {
+/**
+ * PortfolioGlanceCard - Shows portfolio composition and performance.
+ * Now uses PortfolioContext instead of props for data access.
+ */
+export default function PortfolioGlanceCard({ className = '' }: PortfolioGlanceCardProps) {
   const [showPerformanceTooltip, setShowPerformanceTooltip] = useState(false);
+
+  // Get data from context
+  const { address } = usePortfolioWallet();
+  const { gunPrice } = usePortfolioGunPrice();
+  const portfolioResult = usePortfolioResult();
+  const { allNfts, enrichmentProgress } = usePortfolioNFTs();
+
+  // Derive values from portfolioResult
+  const totalValue = portfolioResult?.totalUsd ?? 0;
+  const breakdown = useMemo(() => ({
+    gunValue: portfolioResult?.tokensUsd ?? 0,
+    nftValue: portfolioResult?.nftsUsd ?? 0,
+    otherValue: 0,
+    nftCount: portfolioResult?.nftCount ?? 0,
+    totalGunSpent: portfolioResult?.totalGunSpent ?? 0,
+  }), [portfolioResult]);
+
+  // Fetch P&L data directly (now owned by this component)
+  const { costBasis, isLoading: pnlLoading, coverage: pnlCoverage } = usePortfolioPnL(address ?? '', {
+    enabled: !!address && totalValue > 0,
+  });
 
   // Get portfolio changes from history
   const changes = useMemo<PortfolioChanges>(() => {
+    if (!address) return { change24h: null, changePercent24h: null, change7d: null, changePercent7d: null, hasEnoughData: false };
     return calculatePortfolioChanges(address, totalValue);
   }, [address, totalValue]);
 
   // Get sparkline values
   const sparklineValues = useMemo(() => {
+    if (!address) return [];
     return getSparklineValues(address, 24);
   }, [address]);
 
   // Optimistic UI: Load cached P&L data for instant display while refreshing
   const cachedCostBasis = useMemo<CostBasis | null>(() => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined' || !address) return null;
     try {
       const cached = localStorage.getItem(`pnl_${address}`);
       if (cached) {
@@ -112,7 +117,7 @@ export default function PortfolioGlanceCard({
 
   // Save cost basis to cache when we receive new data
   useEffect(() => {
-    if (costBasis && costBasis.total !== null && typeof window !== 'undefined') {
+    if (costBasis && costBasis.total !== null && typeof window !== 'undefined' && address) {
       try {
         localStorage.setItem(`pnl_${address}`, JSON.stringify(costBasis));
       } catch {
@@ -148,8 +153,8 @@ export default function PortfolioGlanceCard({
   const insights = useMemo(() => {
     // Only generate insights if we have enough P&L coverage
     if (pnlCoverage !== undefined && pnlCoverage < 0.3) return [];
-    return generateInsights(nfts, gunPrice);
-  }, [nfts, gunPrice, pnlCoverage]);
+    return generateInsights(allNfts, gunPrice);
+  }, [allNfts, gunPrice, pnlCoverage]);
 
   // Format changes
   const change24h = formatChange(changes.change24h);
