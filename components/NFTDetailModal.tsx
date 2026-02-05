@@ -17,6 +17,7 @@ import { useSearchParams } from 'next/navigation';
 import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { CoinGeckoService } from '@/lib/api/coingecko';
+import { useGunPrice } from '@/lib/hooks/useGunPrice';
 import {
   buildTokenKey,
   buildNftDetailCacheKey,
@@ -429,7 +430,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     highest?: number;
     average?: number;
   } | null>>({});
-  const [currentGunPrice, setCurrentGunPrice] = useState<number | null>(null);
+  // GUN price hook - fetches current GUN/USD rate when modal opens
+  const { gunPrice: currentGunPrice, timestamp: gunPriceTimestamp } = useGunPrice(isOpen);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [relatedItemsExpanded, setRelatedItemsExpanded] = useState(false);
 
@@ -615,7 +617,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       setItemPurchaseData({});
       setResolvedAcquisitions({});  // Reset resolved acquisition data
       setListingsByTokenId({});     // Reset per-token listings
-      setCurrentGunPrice(null);
       setDetailsExpanded(false);
       setHoldingAcquisitionRawByTokenId({}); // Reset per-token raw acquisition for fresh fetch
 
@@ -677,30 +678,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         refreshDecision: null,
       });
 
-      // Fetch current GUN price
-      const fetchGunPrice = async () => {
-        try {
-          const coinGeckoService = new CoinGeckoService();
-          const priceData = await coinGeckoService.getGunTokenPrice();
-          if (priceData?.gunTokenPrice) {
-            setCurrentGunPrice(priceData.gunTokenPrice);
-            const timestamp = priceData.timestamp;
-            setDebugData(prev => ({ ...prev, gunPriceTimestamp: timestamp }));
-            if (debugMode) {
-              console.debug('[NFTDetailModal] GUN/USD rate fetched:', {
-                rate: priceData.gunTokenPrice,
-                timestamp: timestamp,
-                source: priceData.source,
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching GUN price:', error);
-        }
-      };
-      fetchGunPrice();
     }
-  }, [isOpen, debugMode, noCacheMode]);
+  }, [isOpen, noCacheMode]);
+
+  // Sync GUN price timestamp from hook into debug data
+  useEffect(() => {
+    if (gunPriceTimestamp) {
+      setDebugData(prev => ({ ...prev, gunPriceTimestamp }));
+    }
+  }, [gunPriceTimestamp]);
 
   // Build sorted list of items (by rarity desc, then mint number asc)
   const sortedItems: ItemData[] = useMemo(() => {
