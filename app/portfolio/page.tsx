@@ -7,8 +7,6 @@ import NFTGallery from '@/components/NFTGallery';
 import DebugPanel from '@/components/DebugPanel';
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
-import { SolanaService } from '@/lib/blockchain/solana';
-import { CoinGeckoService } from '@/lib/api/coingecko';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { NFT } from '@/lib/types';
@@ -27,6 +25,7 @@ import WalletSearchDropdown from '@/components/WalletSearchDropdown';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggregation';
 import { useNFTEnrichmentOrchestrator } from '@/lib/hooks/useNFTEnrichmentOrchestrator';
+import { useWalletDataFetcher } from '@/lib/hooks/useWalletDataFetcher';
 
 // Wrapper component to provide Suspense boundary for useSearchParams
 function PortfolioContent() {
@@ -62,6 +61,9 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     startEnrichment,
     cancelEnrichment,
   } = useNFTEnrichmentOrchestrator();
+
+  // Wallet data fetcher hook - provides fetchSingleWallet and services
+  const walletFetcher = useWalletDataFetcher();
 
   // Portfolio aggregation state
   const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
@@ -291,58 +293,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     }
   }, [walletData, nftPagination, startEnrichment]);
 
-  /**
-   * Fetch wallet data for a single address.
-   * Returns WalletData or null if fetch fails.
-   */
-  const fetchSingleWallet = async (
-    address: string,
-    avalancheService: AvalancheService,
-    solanaService: SolanaService
-  ): Promise<{ walletData: WalletData; nftResult: { totalCount: number; hasMore: boolean; fetchedCount: number } } | null> => {
-    try {
-      const [
-        avalancheToken,
-        avalancheNFTsResult,
-        solanaToken,
-        solanaNFTs,
-      ] = await Promise.all([
-        avalancheService.getGunTokenBalance(address),
-        avalancheService.getNFTsPaginated(address, 0, 50),
-        solanaService.getGunTokenBalance(address),
-        solanaService.getNFTs(address),
-      ]);
-
-      // Group NFTs by metadata to consolidate duplicates
-      const groupedAvalancheNFTs = groupNFTsByMetadata(avalancheNFTsResult.nfts);
-      const groupedSolanaNFTs = groupNFTsByMetadata(solanaNFTs);
-
-      return {
-        walletData: {
-          address,
-          avalanche: {
-            gunToken: avalancheToken,
-            nfts: groupedAvalancheNFTs,
-          },
-          solana: {
-            gunToken: solanaToken,
-            nfts: groupedSolanaNFTs,
-          },
-          totalValue: 0,
-          lastUpdated: new Date(),
-        },
-        nftResult: {
-          totalCount: avalancheNFTsResult.totalCount,
-          hasMore: avalancheNFTsResult.hasMore,
-          fetchedCount: avalancheNFTsResult.nfts.length,
-        },
-      };
-    } catch (err) {
-      console.error(`Error fetching wallet data for ${address}:`, err);
-      return null;
-    }
-  };
-
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Cancel any ongoing enrichment
     cancelEnrichment();
@@ -354,9 +304,8 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     setError(null);
 
     try {
-      const avalancheService = new AvalancheService();
-      const solanaService = new SolanaService();
-      const coinGeckoService = new CoinGeckoService();
+      // Get services from hook (reuses existing instances)
+      const { avalanche: avalancheService, coinGecko: coinGeckoService } = walletFetcher.getServices();
       const marketplaceService = new GameMarketplaceService();
 
       // Detect network and wallet type
@@ -391,7 +340,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
         coinGeckoService.getGunTokenPrice(),
         networkDetector.getNetworkInfo(),
         networkDetector.detectWalletType(address),
-        ...addressesToFetch.map(addr => fetchSingleWallet(addr, avalancheService, solanaService)),
+        ...addressesToFetch.map(addr => walletFetcher.fetchSingleWallet(addr)),
       ]);
 
       // Filter out failed fetches
