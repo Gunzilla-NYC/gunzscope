@@ -13,6 +13,9 @@
  */
 
 import { isDev, isTest } from '../utils/dev';
+import { NFT, AcquisitionVenue } from '../types';
+import { isWeapon } from '../weapon/weaponCompatibility';
+import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '../utils/rarityColors';
 
 // =============================================================================
 // Re-export Types from lib/nft/types.ts
@@ -393,6 +396,126 @@ export function getPositionLabel(input: GetPositionLabelInput): PositionLabelRes
     marketRefGun,
     dataQuality,
   };
+}
+
+// =============================================================================
+// Venue Display Label
+// =============================================================================
+
+/**
+ * Get human-readable label for acquisition venue.
+ * Note: Labels do NOT include "Purchased" prefix - purchase context is implied by the Cost line.
+ */
+export function getVenueDisplayLabel(venue: AcquisitionVenue | undefined, hasDecodeCost?: boolean): string {
+  switch (venue) {
+    case 'decode':
+      return 'Decoded (in-game)';
+    case 'system_mint':
+      return 'System Reward / Airdrop';
+    case 'opensea':
+      return 'OpenSea';
+    case 'otg_marketplace':
+      return 'OTG Marketplace';
+    case 'in_game_marketplace':
+      return 'In-Game Marketplace';
+    case 'decoder':
+      return 'Decoded (in-game)';
+    case 'mint':
+      return hasDecodeCost ? 'Decoded (in-game)' : 'Minted';
+    case 'transfer':
+      return 'Transfer';
+    case 'unknown':
+    default:
+      return 'Unknown';
+  }
+}
+
+// =============================================================================
+// Rarity Color Lookup
+// =============================================================================
+
+/**
+ * Get rarity color for an NFT based on its RARITY trait.
+ */
+export function getRarityColorForNft(nft: NFT): { primary: string; border: string } {
+  const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '';
+  return RARITY_COLORS[rarity] || DEFAULT_RARITY_COLORS;
+}
+
+// =============================================================================
+// Related Items Finder
+// =============================================================================
+
+/**
+ * Find all related items (skins, attachments) for a weapon NFT.
+ * Returns NFTs that mention this weapon in their name, sorted by class then rarity.
+ */
+export function findRelatedItems(weaponNft: NFT, allNfts: NFT[]): NFT[] {
+  if (!isWeapon(weaponNft)) return [];
+
+  const weaponName = weaponNft.name;
+
+  // Extract the core weapon name (without suffixes like Legacy, MK2, etc.)
+  const coreWeaponName = weaponName
+    .replace(/\s+(Legacy|MK\d+|Pro|Elite|Prime|Standard)\s*$/i, '')
+    .trim();
+
+  // Also extract just the first word for shorter weapon names
+  const firstWord = coreWeaponName.split(/\s+/)[0];
+
+  const related: NFT[] = [];
+
+  for (const nft of allNfts) {
+    // Skip the weapon itself
+    if (nft.tokenId === weaponNft.tokenId) continue;
+
+    const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
+
+    // Only include skins and attachments
+    const isSkin = itemClass === 'Weapon Skin' || itemClass.toLowerCase().includes('skin');
+    const isAccessory = itemClass === 'Accessory' || itemClass.toLowerCase().includes('attachment') || itemClass.toLowerCase().includes('accessory');
+
+    if (!isSkin && !isAccessory) continue;
+
+    // Check if the item name mentions this weapon
+    const nftName = nft.name.toLowerCase();
+    const lowerWeaponName = coreWeaponName.toLowerCase();
+    const lowerFullName = weaponName.toLowerCase();
+    const lowerFirstWord = firstWord.toLowerCase();
+
+    if (
+      nftName.includes(`for the ${lowerWeaponName}`) ||
+      nftName.includes(`for the ${lowerFullName}`) ||
+      nftName.includes(`for the ${lowerFirstWord}`) ||
+      nftName.includes(`for ${lowerWeaponName}`) ||
+      nftName.includes(`for ${lowerFirstWord}`) ||
+      nftName.endsWith(lowerWeaponName) ||
+      nftName.endsWith(lowerFullName) ||
+      nftName.endsWith(lowerFirstWord) ||
+      nftName.includes(` ${lowerFirstWord} `) ||
+      nftName.includes(` ${lowerFirstWord}`)
+    ) {
+      related.push(nft);
+    }
+  }
+
+  // Sort by class (skins first, then attachments), then by rarity, then by name
+  return related.sort((a, b) => {
+    const classA = a.traits?.['CLASS'] || '';
+    const classB = b.traits?.['CLASS'] || '';
+
+    // Skins before Accessories
+    if (classA === 'Weapon Skin' && classB !== 'Weapon Skin') return -1;
+    if (classB === 'Weapon Skin' && classA !== 'Weapon Skin') return 1;
+
+    // Then by rarity
+    const rarityA = RARITY_ORDER[a.traits?.['RARITY'] || a.traits?.['Rarity'] || ''] || 99;
+    const rarityB = RARITY_ORDER[b.traits?.['RARITY'] || b.traits?.['Rarity'] || ''] || 99;
+    if (rarityA !== rarityB) return rarityA - rarityB;
+
+    // Then by name
+    return a.name.localeCompare(b.name);
+  });
 }
 
 // =============================================================================

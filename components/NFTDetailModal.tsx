@@ -37,6 +37,9 @@ import {
   toIsoStringSafe,
   computeMarketInputs,
   getPositionLabel,
+  getVenueDisplayLabel,
+  getRarityColorForNft,
+  findRelatedItems,
 } from '@/lib/nft/nftDetailHelpers';
 
 // =============================================================================
@@ -64,113 +67,12 @@ const NFTDetailDebugPanel = dynamic(
   () => import('@/components/nft-detail/NFTDetailDebugPanel').then(mod => ({ default: mod.NFTDetailDebugPanel })),
   { ssr: false, loading: () => null }
 );
-import { isWeaponLocked, isWeapon as isWeaponLib, getFunctionalTier } from '@/lib/weapon';
+import { isWeaponLocked, isWeapon, getFunctionalTier } from '@/lib/weapon';
 import TierBadge from '@/components/ui/TierBadge';
 import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
 import { gunzExplorerTxUrl } from '@/lib/explorer';
 
 const getDefaultRarityColors = () => DEFAULT_RARITY_COLORS;
-
-// =============================================================================
-// Related Items Utility
-// =============================================================================
-
-/**
- * Check if an NFT is a weapon (base item that can have related skins/attachments)
- */
-function isWeapon(nft: NFT): boolean {
-  const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
-  // Check for exact "Weapon" match or weapon subtypes
-  return itemClass === 'Weapon' ||
-         itemClass === 'Primary Weapon' ||
-         itemClass === 'Secondary Weapon' ||
-         itemClass === 'Melee Weapon';
-}
-
-/**
- * Find all related items (skins, attachments) for a weapon NFT
- * Returns NFTs that mention this weapon in their name
- */
-function findRelatedItems(weaponNft: NFT, allNfts: NFT[]): NFT[] {
-  if (!isWeapon(weaponNft)) return [];
-
-  const weaponName = weaponNft.name;
-
-  // Extract the core weapon name (without suffixes like Legacy, MK2, etc.)
-  // e.g., "Kestrel Legacy" -> "Kestrel", "Thunder MK2" -> "Thunder"
-  const coreWeaponName = weaponName
-    .replace(/\s+(Legacy|MK\d+|Pro|Elite|Prime|Standard)\s*$/i, '')
-    .trim();
-
-  // Also extract just the first word for shorter weapon names
-  // e.g., "Kestrel Legacy" -> "Kestrel"
-  const firstWord = coreWeaponName.split(/\s+/)[0];
-
-  const related: NFT[] = [];
-
-  for (const nft of allNfts) {
-    // Skip the weapon itself
-    if (nft.tokenId === weaponNft.tokenId) continue;
-
-    const itemClass = nft.traits?.['CLASS'] || nft.traits?.['Class'] || '';
-
-    // Only include skins and attachments (also check for variations)
-    const isSkin = itemClass === 'Weapon Skin' || itemClass.toLowerCase().includes('skin');
-    const isAccessory = itemClass === 'Accessory' || itemClass.toLowerCase().includes('attachment') || itemClass.toLowerCase().includes('accessory');
-
-    if (!isSkin && !isAccessory) continue;
-
-    // Check if the item name mentions this weapon
-    const nftName = nft.name.toLowerCase();
-    const lowerWeaponName = coreWeaponName.toLowerCase();
-    const lowerFullName = weaponName.toLowerCase();
-    const lowerFirstWord = firstWord.toLowerCase();
-
-    // Check for various patterns that indicate this item is for this weapon
-    if (
-      nftName.includes(`for the ${lowerWeaponName}`) ||
-      nftName.includes(`for the ${lowerFullName}`) ||
-      nftName.includes(`for the ${lowerFirstWord}`) ||
-      nftName.includes(`for ${lowerWeaponName}`) ||
-      nftName.includes(`for ${lowerFirstWord}`) ||
-      // Also check if it ends with the weapon name (e.g., "Enhanced Compensator Kestrel")
-      nftName.endsWith(lowerWeaponName) ||
-      nftName.endsWith(lowerFullName) ||
-      nftName.endsWith(lowerFirstWord) ||
-      // Check if it contains the weapon name as a word
-      nftName.includes(` ${lowerFirstWord} `) ||
-      nftName.includes(` ${lowerFirstWord}`)
-    ) {
-      related.push(nft);
-    }
-  }
-
-  // Sort by class (skins first, then attachments), then by rarity, then by name
-  return related.sort((a, b) => {
-    const classA = a.traits?.['CLASS'] || '';
-    const classB = b.traits?.['CLASS'] || '';
-
-    // Skins before Accessories
-    if (classA === 'Weapon Skin' && classB !== 'Weapon Skin') return -1;
-    if (classB === 'Weapon Skin' && classA !== 'Weapon Skin') return 1;
-
-    // Then by rarity
-    const rarityA = RARITY_ORDER[a.traits?.['RARITY'] || a.traits?.['Rarity'] || ''] || 99;
-    const rarityB = RARITY_ORDER[b.traits?.['RARITY'] || b.traits?.['Rarity'] || ''] || 99;
-    if (rarityA !== rarityB) return rarityA - rarityB;
-
-    // Then by name
-    return a.name.localeCompare(b.name);
-  });
-}
-
-/**
- * Get rarity color for an NFT
- */
-function getRarityColorForNft(nft: NFT): { primary: string; border: string } {
-  const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '';
-  return RARITY_COLORS[rarity] || getDefaultRarityColors();
-}
 
 interface ItemData {
   tokenId: string;
@@ -200,36 +102,6 @@ type MarketplaceMatchMethod = 'txHash' | 'timeWindow' | 'none';
 
 // Acquisition type from transfer analysis
 type AcquisitionType = 'MINT' | 'TRANSFER' | 'PURCHASE' | 'UNKNOWN';
-
-// Get human-readable label for acquisition venue
-// Note: Labels do NOT include "Purchased" prefix - purchase context is implied by the Cost line
-function getVenueDisplayLabel(venue: AcquisitionVenue | undefined, hasDecodeCost?: boolean): string {
-  switch (venue) {
-    case 'decode':
-      // In-game hex decode (mint from zero address)
-      return 'Decoded (in-game)';
-    case 'system_mint':
-      // System-initiated mint (mintForUser) - decode fee paid off-chain
-      return 'System Reward / Airdrop';
-    case 'opensea':
-      return 'OpenSea';
-    case 'otg_marketplace':
-      return 'OTG Marketplace';
-    case 'in_game_marketplace':
-      return 'In-Game Marketplace';
-    case 'decoder':
-      // Legacy decoder contract
-      return 'Decoded (in-game)';
-    case 'mint':
-      // Legacy mint venue - kept for backwards compatibility
-      return hasDecodeCost ? 'Decoded (in-game)' : 'Minted';
-    case 'transfer':
-      return 'Transfer';
-    case 'unknown':
-    default:
-      return 'Unknown';
-  }
-}
 
 // =============================================================================
 // RESOLVED ACQUISITION - Deterministic best-available acquisition data
@@ -2285,13 +2157,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   // Determine if this weapon can show the Weapon Lab
   const weaponLabEligible = useMemo(() => {
     if (!nft) return false;
-    if (!isWeaponLib(nft)) return false;
+    if (!isWeapon(nft)) return false;
     return !isWeaponLocked(nft);
   }, [nft]);
 
   const isLockedWeapon = useMemo(() => {
     if (!nft) return false;
-    return isWeaponLib(nft) && isWeaponLocked(nft);
+    return isWeapon(nft) && isWeaponLocked(nft);
   }, [nft]);
 
   // Check if this NFT is a weapon with related items
