@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import { TokenBalance, NFT, NFTPageResult, AcquisitionVenue, MetadataSource, NFTMetadataDebug, NFTTypeSpec } from '../types';
 import { getCachedMetadata, setCachedMetadata } from '../utils/nftCache';
+import { deduplicateRequest } from '../utils/requestDeduplicator';
 
 // =============================================================================
 // Contract Deployment Block Configuration
@@ -1140,8 +1141,12 @@ export class AvalancheService {
     tokenId: string,
     walletAddress: string
   ): Promise<NFTHoldingAcquisition | null> {
-    try {
-      const walletLower = normalizeAddr(walletAddress);
+    // Deduplicate concurrent requests for the same NFT acquisition data
+    const key = `acquisition:${contractAddress}:${tokenId}:${walletAddress}`.toLowerCase();
+
+    return deduplicateRequest(key, async () => {
+      try {
+        const walletLower = normalizeAddr(walletAddress);
 
       // Get all transfer events for this token
       const { events, currentOwner } = await this.getTransferEvents(contractAddress, tokenId);
@@ -1287,10 +1292,11 @@ export class AvalancheService {
             }
           : undefined,
       };
-    } catch (error) {
-      console.error('[getNFTHoldingAcquisition] Error:', error);
-      return null;
-    }
+      } catch (error) {
+        console.error('[getNFTHoldingAcquisition] Error:', error);
+        return null;
+      }
+    });
   }
 
 }
