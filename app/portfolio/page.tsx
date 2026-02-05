@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import WalletSearchDropdown from '@/components/WalletSearchDropdown';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
+import { mergeWalletData } from '@/lib/hooks/useWalletAggregation';
 
 // Wrapper component to provide Suspense boundary for useSearchParams
 function PortfolioContent() {
@@ -54,60 +55,6 @@ const PRIORITY_ABOVE_FOLD_COUNT = 12;
 
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * Merge multiple WalletData objects into a single aggregated view.
- * Used when user has portfolio addresses configured.
- *
- * - GUN Balance: Sum all gunBalance values across wallets
- * - NFT List: Concatenate all NFT arrays from all wallets
- * - Address: Uses the primary (first) address for display
- */
-const mergeWalletData = (wallets: WalletData[]): WalletData => {
-  if (wallets.length === 0) {
-    throw new Error('No wallet data to merge');
-  }
-  if (wallets.length === 1) {
-    return wallets[0];
-  }
-
-  // Sum GUN balances across chains
-  const avalancheGunBalance = wallets.reduce((sum, w) => {
-    return sum + (w.avalanche.gunToken?.balance ?? 0);
-  }, 0);
-
-  const solanaGunBalance = wallets.reduce((sum, w) => {
-    return sum + (w.solana.gunToken?.balance ?? 0);
-  }, 0);
-
-  // Concatenate all NFTs (no deduplication - each wallet may have different NFTs)
-  const allAvalancheNFTs = wallets.flatMap(w => w.avalanche.nfts);
-  const allSolanaNFTs = wallets.flatMap(w => w.solana.nfts);
-
-  // Use first wallet's token metadata as template
-  const firstAvalancheToken = wallets.find(w => w.avalanche.gunToken)?.avalanche.gunToken;
-  const firstSolanaToken = wallets.find(w => w.solana.gunToken)?.solana.gunToken;
-
-  return {
-    address: wallets[0].address, // Primary address for display
-    avalanche: {
-      gunToken: firstAvalancheToken ? {
-        ...firstAvalancheToken,
-        balance: avalancheGunBalance,
-      } : null,
-      nfts: allAvalancheNFTs,
-    },
-    solana: {
-      gunToken: firstSolanaToken ? {
-        ...firstSolanaToken,
-        balance: solanaGunBalance,
-      } : null,
-      nfts: allSolanaNFTs,
-    },
-    totalValue: 0, // Calculated via calcPortfolio
-    lastUpdated: new Date(),
-  };
-};
 
 function PortfolioInner({ debugMode }: { debugMode: boolean }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
