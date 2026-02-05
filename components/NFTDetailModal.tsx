@@ -45,7 +45,6 @@ import {
 import {
   NFTDetailAcquisitionCard,
   NFTDetailObservedMarketRange,
-  NFTDetailDebugPanel,
   NFTDetailQuickStats,
   NFTDetailTraitPills,
   type HoldingAcquisitionData,
@@ -59,6 +58,12 @@ const WeaponLabDrawer = dynamic(() => import('@/components/weapon/WeaponLabDrawe
   ssr: false,
   loading: () => null,
 });
+
+// Dynamic import for NFTDetailDebugPanel - only loaded when debugMode is active
+const NFTDetailDebugPanel = dynamic(
+  () => import('@/components/nft-detail/NFTDetailDebugPanel').then(mod => ({ default: mod.NFTDetailDebugPanel })),
+  { ssr: false, loading: () => null }
+);
 import { isWeaponLocked, isWeapon as isWeaponLib, getFunctionalTier } from '@/lib/weapon';
 import TierBadge from '@/components/ui/TierBadge';
 import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
