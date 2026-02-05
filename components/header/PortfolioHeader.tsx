@@ -1,37 +1,31 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { WalletData, EnrichmentProgress } from '@/lib/types';
-import { NetworkInfo } from '@/lib/utils/networkDetector';
 import WalletIdentity from './WalletIdentity';
 import PortfolioGlanceCard from './PortfolioGlanceCard';
 import { addPortfolioSnapshot } from '@/lib/utils/portfolioHistory';
-import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import { usePortfolioPnL } from '@/lib/hooks/usePortfolioPnL';
+import {
+  usePortfolioWallet,
+  usePortfolioGunPrice,
+  usePortfolioResult,
+  usePortfolioNFTs,
+} from '@/lib/contexts/PortfolioContext';
 
-interface PortfolioHeaderProps {
-  walletData: WalletData;
-  gunPrice?: number;
-  gunPriceChange24h?: number;
-  gunPriceChangePercent24h?: number;
-  networkInfo?: NetworkInfo | null;
-  walletType?: 'in-game' | 'external' | 'unknown';
-  totalOwnedCount?: number;
-  portfolioResult?: PortfolioCalcResult | null;
-  enrichmentProgress?: EnrichmentProgress | null;
-}
+/**
+ * PortfolioHeader - Main header component for portfolio view.
+ * Now uses PortfolioContext instead of props for data access.
+ */
+export default function PortfolioHeader() {
+  // Get data from context
+  const { walletData, address, networkInfo, walletType } = usePortfolioWallet();
+  const { gunPrice = 0, gunPriceChange24h = 0, gunPriceChangePercent24h = 0 } = usePortfolioGunPrice();
+  const portfolioResult = usePortfolioResult();
+  const { allNfts, enrichmentProgress } = usePortfolioNFTs();
 
-export default function PortfolioHeader({
-  walletData,
-  gunPrice = 0,
-  gunPriceChange24h = 0,
-  gunPriceChangePercent24h = 0,
-  networkInfo,
-  walletType = 'unknown',
-  totalOwnedCount,
-  portfolioResult,
-  enrichmentProgress,
-}: PortfolioHeaderProps) {
+  // Early return if no wallet data
+  if (!walletData) return null;
+
   // Derive display values from portfolioResult (single source of truth)
   // Falls back to legacy calculation if portfolioResult not provided
   const { totalTokenValue, breakdown, totalBalance } = useMemo(() => {
@@ -54,13 +48,12 @@ export default function PortfolioHeader({
     const avalancheBalance = walletData.avalanche.gunToken?.balance || 0;
     const solanaBalance = walletData.solana.gunToken?.balance || 0;
     const totalBal = avalancheBalance + solanaBalance;
-    const gunValue = totalBal * gunPrice;
+    const gunValue = totalBal * (gunPrice || 0);
 
     // Calculate NFT value and total spent (from NFTs with purchase prices if available)
     let nftValue = 0;
     let totalGunSpent = 0;
-    const allNFTs = [...walletData.avalanche.nfts, ...walletData.solana.nfts];
-    allNFTs.forEach(nft => {
+    allNfts.forEach(nft => {
       if (nft.purchasePriceGun) {
         totalGunSpent += nft.purchasePriceGun * (nft.quantity || 1);
         if (gunPrice) {
@@ -69,16 +62,8 @@ export default function PortfolioHeader({
       }
     });
 
-    // NFT count
-    const avalancheNFTCount = totalOwnedCount ?? walletData.avalanche.nfts.reduce(
-      (sum, nft) => sum + (nft.quantity || 1),
-      0
-    );
-    const solanaNFTCount = walletData.solana.nfts.reduce(
-      (sum, nft) => sum + (nft.quantity || 1),
-      0
-    );
-    const totalNFTCount = avalancheNFTCount + solanaNFTCount;
+    // NFT count from allNfts
+    const totalNFTCount = allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
 
     return {
       totalTokenValue: gunValue + nftValue,
@@ -91,7 +76,7 @@ export default function PortfolioHeader({
         totalGunSpent,
       },
     };
-  }, [walletData, gunPrice, totalOwnedCount, portfolioResult]);
+  }, [walletData, gunPrice, portfolioResult, allNfts]);
 
   // Fetch P&L data (runs in background, doesn't block initial render)
   const { costBasis, isLoading: pnlLoading, coverage: pnlCoverage } = usePortfolioPnL(walletData.address, {
@@ -144,7 +129,7 @@ export default function PortfolioHeader({
             pnlLoading={pnlLoading}
             pnlCoverage={pnlCoverage}
             enrichmentProgress={enrichmentProgress}
-            nfts={[...walletData.avalanche.nfts, ...walletData.solana.nfts]}
+            nfts={allNfts}
             gunPrice={gunPrice}
           />
         </div>

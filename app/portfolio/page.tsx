@@ -1234,16 +1234,8 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
             )}
           </div>
 
-          {/* Portfolio Header - scrolls normally */}
-          <PortfolioHeader
-            walletData={walletData}
-            gunPrice={gunPrice}
-            networkInfo={networkInfo}
-            walletType={walletType}
-            totalOwnedCount={nftPagination.totalOwnedCount}
-            portfolioResult={portfolioResult}
-            enrichmentProgress={enrichmentProgress}
-          />
+          {/* Portfolio Header - uses PortfolioContext */}
+          <PortfolioHeader />
 
           <div className="space-y-6 mt-4">
             {/* Portfolio Summary Bar */}
