@@ -162,10 +162,10 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
     return () => document.removeEventListener('keydown', handleEscape);
   }, [showDetails]);
 
-  // Focus management
+  // Focus management - use preventScroll to avoid page jumping
   useEffect(() => {
     if (showDetails && popoverRef.current) {
-      popoverRef.current.focus();
+      popoverRef.current.focus({ preventScroll: true });
     }
   }, [showDetails]);
 
