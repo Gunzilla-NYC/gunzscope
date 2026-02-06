@@ -1,10 +1,79 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Logo from './Logo';
 import WalletButton from './WalletButton';
+
+const GLITCH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&!';
+
+function GlitchLink({ href, label, isActive }: { href: string; label: string; isActive: boolean }) {
+  const [display, setDisplay] = useState(label);
+  const [hovered, setHovered] = useState(false);
+  const frameRef = useRef<number>(0);
+  const iterRef = useRef(0);
+
+  const scramble = useCallback(() => {
+    setHovered(true);
+    iterRef.current = 0;
+    const target = label.toUpperCase();
+    const totalSteps = target.length * 2;
+
+    const tick = () => {
+      iterRef.current++;
+      const resolved = Math.floor(iterRef.current / 2);
+
+      setDisplay(
+        target
+          .split('')
+          .map((char, i) => {
+            if (char === ' ') return ' ';
+            if (i < resolved) return char;
+            return GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+          })
+          .join('')
+      );
+
+      if (iterRef.current < totalSteps) {
+        frameRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(tick);
+  }, [label]);
+
+  const reset = useCallback(() => {
+    setHovered(false);
+    cancelAnimationFrame(frameRef.current);
+    setDisplay(label);
+  }, [label]);
+
+  useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+  return (
+    <Link
+      href={href}
+      onMouseEnter={scramble}
+      onMouseLeave={reset}
+      className={`relative font-mono text-[12px] tracking-wider uppercase transition-colors duration-150 inline-block py-1 ${
+        isActive
+          ? 'text-[var(--gs-lime)]'
+          : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)]'
+      }`}
+    >
+      {display}
+      <span
+        className="absolute bottom-0 left-0 h-px bg-[var(--gs-lime)] transition-transform duration-150 origin-left"
+        style={{
+          width: '100%',
+          transform: hovered || isActive ? 'scaleX(1)' : 'scaleX(0)',
+        }}
+      />
+    </Link>
+  );
+}
 
 interface NavbarProps {
   onWalletConnect?: (address: string) => void;
@@ -14,8 +83,16 @@ interface NavbarProps {
 
 export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountClick }: NavbarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeAddress = searchParams.get('address');
   const isHomePage = pathname === '/';
+  const isInApp = pathname === '/portfolio' || pathname === '/leaderboard';
   const [isScrolled, setIsScrolled] = useState(false);
+
+  // Forward wallet address to leaderboard link so it can highlight the active wallet
+  const leaderboardHref = activeAddress
+    ? `/leaderboard?address=${activeAddress}`
+    : '/leaderboard';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,28 +126,12 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
 
             {/* Navigation Links + Wallet */}
             <div className="flex items-center gap-5">
-              <div className="hidden md:flex items-center gap-5">
-                <Link
-                  href="/portfolio"
-                  className={`font-mono text-[11px] tracking-wider uppercase transition-colors ${
-                    pathname === '/portfolio'
-                      ? 'text-[var(--gs-lime)]'
-                      : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'
-                  }`}
-                >
-                  Portfolio
-                </Link>
-                <Link
-                  href="/leaderboard"
-                  className={`font-mono text-[11px] tracking-wider uppercase transition-colors ${
-                    pathname === '/leaderboard'
-                      ? 'text-[var(--gs-lime)]'
-                      : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'
-                  }`}
-                >
-                  Leaderboard
-                </Link>
-              </div>
+              {isInApp && (
+                <div className="hidden md:flex items-center gap-5">
+                  <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
+                  <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />
+                </div>
+              )}
 
               {/* Wallet Button - only show on home page */}
               {isHomePage && (

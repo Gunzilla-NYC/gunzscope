@@ -291,9 +291,6 @@ export default function HomePage() {
           <a href="#preview" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
             Dashboard
           </a>
-          <Link href="/leaderboard" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
-            Leaderboard
-          </Link>
         </div>
       </nav>
 
