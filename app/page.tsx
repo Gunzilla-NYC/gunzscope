@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import { useCountUp } from '@/hooks/useCountUp';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
 import { useTextScramble } from '@/hooks/useTextScramble';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
 // Features data
 const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing'; title: string; desc: string }[] = [
@@ -72,6 +73,7 @@ export default function HomePage() {
   const [accessLoading, setAccessLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [walletChain, setWalletChain] = useState<'gunzchain' | 'solana' | null>(null);
+  const { setShowAuthFlow } = useDynamicContext();
 
   // Text scramble effect for hero text (LayerZero style)
   const heroScramble = useTextScramble({
@@ -401,6 +403,16 @@ export default function HomePage() {
                     Enter a valid GunzChain (0x...) or Solana address
                   </p>
                 )}
+                <p className="font-mono text-[11px] text-[var(--gs-gray-3)] mt-3">
+                  or{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthFlow(true)}
+                    className="text-[var(--gs-lime)] hover:text-[var(--gs-lime-hover)] transition-colors underline underline-offset-2"
+                  >
+                    connect wallet
+                  </button>
+                </p>
               </div>
             )}
           </div>

@@ -25,6 +25,9 @@ import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggregation';
 import { useNFTEnrichmentOrchestrator } from '@/lib/hooks/useNFTEnrichmentOrchestrator';
 import { useWalletDataFetcher } from '@/lib/hooks/useWalletDataFetcher';
+import { useAccountGate } from '@/lib/hooks/useAccountGate';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import UnlockBanner from '@/components/UnlockBanner';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -84,6 +87,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Wallet search dropdown state
   const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
+
+  // Account gate — first search free, then require wallet connection
+  const { canSearch, isGated, incrementSearch, getLastSearchedAddress } = useAccountGate();
+  const { setShowAuthFlow } = useDynamicContext();
 
   // Get user profile for portfolio addresses (authenticated users only)
   const { profile, isConnected, addTrackedAddress, addPortfolioAddress, isInPortfolio } = useUserProfile();
@@ -390,6 +397,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       setWalletData(mergedData);
       setLoading(false);
 
+      // Track search for account gate (anonymous users only)
+      if (!isConnected) {
+        incrementSearch(address);
+      }
+
       // Clear search input after successful load
       // This prevents the search bar from showing the wallet address and triggering the dropdown
       setSearchAddress('');
@@ -476,16 +488,23 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     }
   };
 
-  // Handle wallet search
+  // Handle wallet search (gated after first free search)
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchAddress.trim()) {
-      handleWalletSubmit(searchAddress.trim(), 'avalanche');
-    }
+    if (!searchAddress.trim()) return;
+    if (!canSearch) return;
+    handleWalletSubmit(searchAddress.trim(), 'avalanche');
   };
 
   // Handle wallet connection from Dynamic
   const handleWalletConnect = (address: string) => {
+    // Auto-save the last searched address as a tracked address
+    const lastSearched = getLastSearchedAddress();
+    if (lastSearched) {
+      addTrackedAddress(lastSearched).catch(() => {
+        // Non-critical — profile may not exist yet on first connect
+      });
+    }
     // Auto-load wallet data when user connects via Dynamic
     handleWalletSubmit(address, 'avalanche');
   };
@@ -647,15 +666,17 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   type="text"
                   value={searchAddress}
                   onChange={(e) => setSearchAddress(e.target.value)}
-                  placeholder="Enter wallet address..."
-                  className="flex-1 px-5 py-4 text-base bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-l-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono"
+                  placeholder={isGated ? 'Connect wallet to search more...' : 'Enter wallet address...'}
+                  disabled={isGated}
+                  className="flex-1 px-5 py-4 text-base bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-l-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
-                  type="submit"
-                  disabled={!searchAddress.trim()}
+                  type={isGated ? 'button' : 'submit'}
+                  onClick={isGated ? () => setShowAuthFlow(true) : undefined}
+                  disabled={!isGated && !searchAddress.trim()}
                   className="px-8 py-4 bg-[var(--gs-lime)] text-black font-display font-bold text-sm rounded-r-lg hover:bg-[var(--gs-lime-bright)] transition-all disabled:opacity-50 disabled:cursor-not-allowed clip-corner-tr"
                 >
-                  TRACK
+                  {isGated ? 'CONNECT' : 'TRACK'}
                 </button>
               </div>
             </div>
@@ -691,71 +712,68 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       {/* Portfolio View - shown when wallet is connected */}
       {walletData && !loading && (
         <div className="max-w-7xl mx-auto py-8 px-4">
-          {/* Search another wallet - inline search bar */}
-          <div className="flex items-center gap-4 mb-6">
-            <button
-              onClick={() => handleWalletDisconnect()}
-              className="text-[var(--gs-lime)] hover:text-[var(--gs-purple)] font-medium transition-colors text-sm flex items-center gap-1"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              New Search
-            </button>
-            <form onSubmit={handleSearch} className="flex-1 max-w-md">
-              <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gs-gray-3)]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  value={searchAddress}
-                  onChange={(e) => setSearchAddress(e.target.value)}
-                  placeholder="Search another wallet..."
-                  className="w-full pl-9 pr-20 py-2 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono"
-                />
-                <button
-                  type="submit"
-                  disabled={!searchAddress.trim()}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] text-xs font-medium rounded hover:bg-[var(--gs-lime)]/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Go
-                </button>
-                {/* Wallet Search Dropdown */}
-                <WalletSearchDropdown
-                  searchValue={searchAddress}
-                  onNavigate={handleDropdownNavigate}
-                  onAddToWatchlist={handleAddToWatchlist}
-                  onAddToPortfolio={handleAddToPortfolio}
-                  isInWatchlist={isInWatchlist}
-                  isInPortfolio={addressInPortfolio}
-                  isAddingWatchlist={isAddingWatchlist}
-                  isAddingPortfolio={isAddingPortfolio}
-                  isAtPortfolioLimit={isAtPortfolioLimit}
-                />
-              </div>
-            </form>
-            {enrichingNFTs && (
-              <div className="flex items-center gap-2 text-xs text-[var(--gs-gray-3)]">
-                <div className="w-3 h-3 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin"></div>
-                <span>Loading details...</span>
-              </div>
-            )}
-            {/* Aggregation indicator */}
-            {aggregatedAddresses.length > 1 && (
-              <div className="flex items-center gap-2 text-xs text-[var(--gs-purple)]">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                <span>{aggregatedAddresses.length} wallets combined</span>
-              </div>
-            )}
-          </div>
+          {/* Search / Unlock section */}
+          {isGated ? (
+            <div className="mb-6">
+              <UnlockBanner onConnect={() => setShowAuthFlow(true)} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 mb-6">
+              <form onSubmit={handleSearch} className="flex-1 max-w-md">
+                <div className="relative">
+                  <svg
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gs-gray-3)]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={searchAddress}
+                    onChange={(e) => setSearchAddress(e.target.value)}
+                    placeholder="Search another wallet..."
+                    className="w-full pl-9 pr-20 py-2 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!searchAddress.trim()}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] text-xs font-medium rounded hover:bg-[var(--gs-lime)]/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Go
+                  </button>
+                  {/* Wallet Search Dropdown */}
+                  <WalletSearchDropdown
+                    searchValue={searchAddress}
+                    onNavigate={handleDropdownNavigate}
+                    onAddToWatchlist={handleAddToWatchlist}
+                    onAddToPortfolio={handleAddToPortfolio}
+                    isInWatchlist={isInWatchlist}
+                    isInPortfolio={addressInPortfolio}
+                    isAddingWatchlist={isAddingWatchlist}
+                    isAddingPortfolio={isAddingPortfolio}
+                    isAtPortfolioLimit={isAtPortfolioLimit}
+                  />
+                </div>
+              </form>
+              {enrichingNFTs && (
+                <div className="flex items-center gap-2 text-xs text-[var(--gs-gray-3)]">
+                  <div className="w-3 h-3 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin"></div>
+                  <span>Loading details...</span>
+                </div>
+              )}
+              {/* Aggregation indicator */}
+              {aggregatedAddresses.length > 1 && (
+                <div className="flex items-center gap-2 text-xs text-[var(--gs-purple)]">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <span>{aggregatedAddresses.length} wallets combined</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Portfolio Header - uses PortfolioContext */}
           <PortfolioHeader />

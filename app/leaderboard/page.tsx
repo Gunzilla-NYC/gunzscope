@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useLeaderboard, type SortField } from '@/lib/hooks/useLeaderboard';
@@ -52,6 +53,7 @@ const SORT_COLUMNS: { field: SortField; label: string; shortLabel: string }[] = 
 function LeaderboardContent() {
   const searchParams = useSearchParams();
   const activeAddress = searchParams.get('address');
+  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
 
   const {
     sortedEntries,
@@ -63,6 +65,35 @@ function LeaderboardContent() {
     sortOrder,
     handleSort,
   } = useLeaderboard();
+
+  // Gate: require wallet connection
+  if (!primaryWallet) {
+    return (
+      <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center py-32">
+          <div className="size-20 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-white/[0.06] flex items-center justify-center">
+            <svg className="size-10 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+          </div>
+          <h1 className="text-balance font-display font-bold text-2xl sm:text-3xl uppercase mb-3">
+            Connect to View Leaderboard
+          </h1>
+          <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)] mb-8 max-w-md text-center">
+            Connect your wallet to access the GunzChain leaderboard and see how your portfolio ranks.
+          </p>
+          <button
+            onClick={() => setShowAuthFlow(true)}
+            className="font-display font-semibold text-sm uppercase px-8 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors"
+          >
+            Connect Wallet
+          </button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
