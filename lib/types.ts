@@ -170,3 +170,19 @@ export interface WalletClassification {
   /** Whether this result came from cache */
   fromCache: boolean;
 }
+
+// Leaderboard entry from /api/leaderboard
+export interface LeaderboardEntry {
+  rank: number;
+  address: string;
+  chain: string;
+  totalPortfolioUsd: number;
+  gunBalance: number;
+  gunBalanceUsd: number;
+  nftCount: number;
+  nftValueUsd: number;
+  totalGunSpent: number;
+  unrealizedPnlUsd: number;
+  pnlPercentage: number | null;
+  lastUpdated: string;
+}

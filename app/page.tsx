@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
 import { useCountUp } from '@/hooks/useCountUp';
-import { useMousePosition } from '@/hooks/useMousePosition';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
 import { useTextScramble } from '@/hooks/useTextScramble';
 
@@ -59,11 +59,19 @@ interface SiteStats {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const observerRef = useRef<IntersectionObserver | null>(null);
   const heroRef = useRef<HTMLElement>(null);
   const [gunPrice, setGunPrice] = useState<number | null>(null);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
-  const { smoothPosition } = useMousePosition({ containerRef: heroRef, smoothing: 0.08 });
+
+  // Access gate state
+  const [accessUnlocked, setAccessUnlocked] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [walletChain, setWalletChain] = useState<'gunzchain' | 'solana' | null>(null);
 
   // Text scramble effect for hero text (LayerZero style)
   const heroScramble = useTextScramble({
@@ -111,6 +119,55 @@ export default function HomePage() {
     decimals: 0,
     startOnMount: false
   });
+
+  // Detect wallet address chain type
+  const detectChain = (addr: string): 'gunzchain' | 'solana' | null => {
+    const trimmed = addr.trim();
+    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return 'gunzchain';
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return 'solana';
+    return null;
+  };
+
+  const handleWalletAddressChange = (value: string) => {
+    setWalletAddress(value);
+    setWalletChain(detectChain(value));
+  };
+
+  const handleAccessCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessCode.trim()) return;
+
+    setAccessLoading(true);
+    setAccessError(null);
+
+    try {
+      const res = await fetch('/api/access/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: accessCode.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setAccessUnlocked(true);
+      } else {
+        setAccessError(data.error || 'Invalid access code');
+      }
+    } catch {
+      setAccessError('Failed to validate. Please try again.');
+    } finally {
+      setAccessLoading(false);
+    }
+  };
+
+  const handleWalletSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = walletAddress.trim();
+    if (!trimmed) return;
+    const chain = detectChain(trimmed);
+    if (!chain) return;
+    router.push(`/portfolio?address=${encodeURIComponent(trimmed)}`);
+  };
 
   // Social proof visibility state
   const socialProofRef = useRef<HTMLDivElement>(null);
@@ -222,7 +279,7 @@ export default function HomePage() {
           <span className="font-display font-bold text-lg tracking-wider uppercase">
             GUNZ<span className="text-[var(--gs-purple)]">scope</span>
           </span>
-          <span className="font-mono text-[9px] tracking-wider uppercase px-2 py-1 rounded-sm bg-[var(--gs-gray-1)]/50 text-[var(--gs-gray-3)] border border-[var(--gs-gray-2)]/30 flex items-center justify-center leading-none">
+          <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] border border-[var(--gs-purple)]/30">
             Alpha
           </span>
         </Link>
@@ -234,21 +291,10 @@ export default function HomePage() {
           <a href="#preview" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
             Dashboard
           </a>
-          <Link
-            href="/portfolio"
-            className="font-display font-semibold text-xs tracking-wider uppercase px-5 py-2 border border-[var(--gs-lime)] text-[var(--gs-lime)] hover:bg-[var(--gs-lime)] hover:text-[var(--gs-black)] transition-all clip-corner-sm"
-          >
-            Launch App
+          <Link href="/leaderboard" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
+            Leaderboard
           </Link>
         </div>
-
-        {/* Mobile menu button */}
-        <Link
-          href="/portfolio"
-          className="md:hidden font-display font-semibold text-xs tracking-wider uppercase px-4 py-2 border border-[var(--gs-lime)] text-[var(--gs-lime)] clip-corner-sm"
-        >
-          Launch App
-        </Link>
       </nav>
 
       {/* Hero Section */}
@@ -262,17 +308,6 @@ export default function HomePage() {
         <div className="crosshair absolute bottom-[25%] right-[30%]" />
         <div className="crosshair crosshair-purple absolute top-[35%] right-[8%]" />
 
-        {/* Mouse-follow crosshair */}
-        {smoothPosition.isInside && (
-          <div
-            className="crosshair crosshair-interactive pointer-events-none absolute z-20 transition-opacity duration-300"
-            style={{
-              left: smoothPosition.x - 12,
-              top: smoothPosition.y - 12,
-              opacity: 0.3,
-            }}
-          />
-        )}
 
         <div className="relative z-10 max-w-[900px]">
           {/* Badge */}
@@ -300,14 +335,77 @@ export default function HomePage() {
             <strong className="text-[var(--gs-white)] font-medium">Solana</strong>.
           </p>
 
-          {/* CTA Button */}
-          <div className="animate-fade-in-up delay-300">
-            <Link
-              href="/portfolio"
-              className="cta-button font-display font-semibold text-sm tracking-wider uppercase px-8 py-3.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] hover:shadow-[0_8px_30px_rgba(166,247,0,0.2)] hover:-translate-y-0.5 transition-all clip-corner"
-            >
-              Connect Wallet
-            </Link>
+          {/* Access Gate */}
+          <div className="animate-fade-in-up delay-300 max-w-[480px]">
+            {!accessUnlocked ? (
+              /* Phase 1: Access Code */
+              <div>
+                <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-2">
+                  Early Access
+                </span>
+                <form onSubmit={handleAccessCodeSubmit} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={accessCode}
+                    onChange={(e) => { setAccessCode(e.target.value); setAccessError(null); }}
+                    placeholder="Enter access code"
+                    className="flex-1 px-4 py-3 bg-[var(--gs-dark-2)] border border-white/[0.06] text-[var(--gs-white)] font-mono text-sm placeholder:text-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm"
+                    disabled={accessLoading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={accessLoading || !accessCode.trim()}
+                    className="font-display font-semibold text-sm tracking-wider uppercase px-6 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] hover:shadow-[0_8px_30px_rgba(166,247,0,0.2)] transition-all clip-corner disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {accessLoading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-[var(--gs-black)]/30 border-t-[var(--gs-black)] rounded-full animate-spin" />
+                    ) : 'Unlock'}
+                  </button>
+                </form>
+                {accessError && (
+                  <p className="font-mono text-[11px] text-[var(--gs-loss)] mt-2">{accessError}</p>
+                )}
+              </div>
+            ) : (
+              /* Phase 2: Wallet Address */
+              <div className="animate-fade-in-up">
+                <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-2">
+                  Enter Wallet Address
+                </span>
+                <form onSubmit={handleWalletSubmit} className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={walletAddress}
+                      onChange={(e) => handleWalletAddressChange(e.target.value)}
+                      placeholder="0x... or Solana address"
+                      className={`w-full py-3 pl-4 bg-[var(--gs-dark-2)] border border-white/[0.06] text-[var(--gs-white)] font-mono text-sm placeholder:text-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm ${walletChain ? 'pr-24' : 'pr-4'}`}
+                    />
+                    {walletAddress.trim() && walletChain && (
+                      <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm ${
+                        walletChain === 'gunzchain'
+                          ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
+                          : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
+                      }`}>
+                        {walletChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!walletAddress.trim() || !walletChain}
+                    className="font-display font-semibold text-sm tracking-wider uppercase px-6 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] hover:shadow-[0_8px_30px_rgba(166,247,0,0.2)] transition-all clip-corner disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    View
+                  </button>
+                </form>
+                {walletAddress.trim() && !walletChain && (
+                  <p className="font-mono text-[11px] text-[var(--gs-gray-4)] mt-2">
+                    Enter a valid GunzChain (0x...) or Solana address
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -428,10 +526,10 @@ export default function HomePage() {
           {/* Community quote */}
           <div className="mt-12 text-center observe" style={{ transitionDelay: '400ms' }}>
             <blockquote className="font-body text-lg italic text-[var(--gs-gray-4)] max-w-2xl mx-auto">
-              "Finally, a portfolio tracker that actually understands OTG weapons and acquisition costs."
+              "Waiting for someone cool from the OTG Discord to put a testimonial here."
             </blockquote>
             <cite className="block mt-4 font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)]">
-              — OTG Community Member
+              — OTG Discord Cool Person
             </cite>
           </div>
         </div>

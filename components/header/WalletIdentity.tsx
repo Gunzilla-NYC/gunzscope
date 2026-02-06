@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   usePortfolioWallet,
@@ -108,22 +108,36 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
     setPopoverPosition({ top, left });
   }, []);
 
-  // Update position on open, resize, scroll
-  useEffect(() => {
+  // Calculate position synchronously with useLayoutEffect
+  useLayoutEffect(() => {
     if (!showDetails) return;
 
+    // Calculate position immediately (synchronously before paint)
     updatePopoverPosition();
 
-    const handleUpdate = () => {
-      requestAnimationFrame(updatePopoverPosition);
+    // Close on scroll after a brief delay (to ignore any initial scroll from mount)
+    let scrollEnabled = false;
+    const enableScrollClose = setTimeout(() => {
+      scrollEnabled = true;
+    }, 150);
+
+    const handleScroll = () => {
+      if (scrollEnabled) {
+        setShowDetails(false);
+      }
     };
 
-    window.addEventListener('resize', handleUpdate);
-    window.addEventListener('scroll', handleUpdate, true);
+    const handleResize = () => {
+      updatePopoverPosition();
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll, true);
 
     return () => {
-      window.removeEventListener('resize', handleUpdate);
-      window.removeEventListener('scroll', handleUpdate, true);
+      clearTimeout(enableScrollClose);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll, true);
     };
   }, [showDetails, updatePopoverPosition]);
 
@@ -162,10 +176,14 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
     return () => document.removeEventListener('keydown', handleEscape);
   }, [showDetails]);
 
-  // Focus management - use preventScroll to avoid page jumping
+  // Focus management
   useEffect(() => {
     if (showDetails && popoverRef.current) {
-      popoverRef.current.focus({ preventScroll: true });
+      // Small delay to ensure portal is mounted
+      const focusTimeout = setTimeout(() => {
+        popoverRef.current?.focus({ preventScroll: true });
+      }, 10);
+      return () => clearTimeout(focusTimeout);
     }
   }, [showDetails]);
 
@@ -179,7 +197,9 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const toggleDetails = () => {
+  const toggleDetails = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setShowDetails(prev => !prev);
   };
 
@@ -187,7 +207,7 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
   const popoverContent = (
     <div
       ref={popoverRef}
-      className="fixed w-[320px] bg-[#0a0a0a] border border-white/[0.06] shadow-2xl shadow-black/80 overflow-hidden relative"
+      className="fixed w-[320px] bg-[#0a0a0a] border border-white/[0.06] shadow-2xl shadow-black/80 overflow-hidden"
       style={{
         top: popoverPosition.top,
         left: popoverPosition.left,

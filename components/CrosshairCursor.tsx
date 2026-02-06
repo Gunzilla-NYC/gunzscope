@@ -1,77 +1,125 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
-interface MousePosition {
-  x: number;
-  y: number;
-  isVisible: boolean;
-}
+/**
+ * Custom crosshair cursor that contracts on hover over clickable elements.
+ *
+ * Flat 1px lime + lines matching the original CSS crosshair style (24px).
+ *
+ * Uses direct DOM manipulation (refs) instead of React state to avoid
+ * triggering re-renders on every mouse move / animation frame.
+ * Uses left/top positioning (not transform) to coexist with CSS animations.
+ */
+
+const HALF_SIZE = 12; // 24px / 2
 
 export default function CrosshairCursor() {
-  const [position, setPosition] = useState<MousePosition>({ x: 0, y: 0, isVisible: false });
-  const [smoothPosition, setSmoothPosition] = useState<MousePosition>({ x: 0, y: 0, isVisible: false });
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    setPosition({ x: e.clientX, y: e.clientY, isVisible: true });
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setPosition(prev => ({ ...prev, isVisible: false }));
-  }, []);
-
-  const handleMouseEnter = useCallback(() => {
-    setPosition(prev => ({ ...prev, isVisible: true }));
-  }, []);
+  const elRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef({ x: 0, y: 0 });
+  const currentRef = useRef({ x: 0, y: 0 });
+  const visibleRef = useRef(false);
+  const interactiveRef = useRef(false);
+  const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    // Check for reduced motion preference
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
-    window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
-    document.addEventListener('mouseenter', handleMouseEnter);
+    const el = elRef.current;
+    if (!el) return;
 
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-      document.removeEventListener('mouseenter', handleMouseEnter);
+    const SMOOTHING = 0.25;
+    const INTERACTIVE_SELECTOR = 'a, button, [role="button"], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+
+    const onMouseMove = (e: MouseEvent) => {
+      targetRef.current.x = e.clientX;
+      targetRef.current.y = e.clientY;
+      if (!visibleRef.current) {
+        visibleRef.current = true;
+        el.style.opacity = '1';
+      }
+
+      // Detect clickable elements — toggle contract animation
+      const target = e.target as Element;
+      const isOver = !!target?.closest?.(INTERACTIVE_SELECTOR);
+      if (isOver !== interactiveRef.current) {
+        interactiveRef.current = isOver;
+        el.classList.toggle('is-interactive', isOver);
+      }
     };
-  }, [handleMouseMove, handleMouseLeave, handleMouseEnter]);
 
-  // Smooth interpolation with 0.08 smoothing factor
-  useEffect(() => {
-    let animationId: number;
-    const smoothing = 0.08;
+    const onMouseLeave = () => {
+      visibleRef.current = false;
+      el.style.opacity = '0';
+    };
+
+    const onMouseEnter = () => {
+      visibleRef.current = true;
+      el.style.opacity = '1';
+    };
 
     const animate = () => {
-      setSmoothPosition(prev => ({
-        x: prev.x + (position.x - prev.x) * smoothing,
-        y: prev.y + (position.y - prev.y) * smoothing,
-        isVisible: position.isVisible,
-      }));
-      animationId = requestAnimationFrame(animate);
+      const cur = currentRef.current;
+      const tgt = targetRef.current;
+      cur.x += (tgt.x - cur.x) * SMOOTHING;
+      cur.y += (tgt.y - cur.y) * SMOOTHING;
+      el.style.left = `${cur.x - HALF_SIZE}px`;
+      el.style.top = `${cur.y - HALF_SIZE}px`;
+      rafRef.current = requestAnimationFrame(animate);
     };
 
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
-  }, [position]);
+    window.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseleave', onMouseLeave);
+    document.addEventListener('mouseenter', onMouseEnter);
+    rafRef.current = requestAnimationFrame(animate);
 
-  // Don't render on touch devices or when not visible
-  if (!smoothPosition.isVisible) return null;
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseleave', onMouseLeave);
+      document.removeEventListener('mouseenter', onMouseEnter);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   return (
     <div
-      className="crosshair crosshair-interactive pointer-events-none transition-opacity duration-300"
+      ref={elRef}
+      className="pointer-events-none"
       style={{
         position: 'fixed',
-        left: smoothPosition.x - 12,
-        top: smoothPosition.y - 12,
-        opacity: 0.3,
+        left: 0,
+        top: 0,
+        opacity: 0,
         zIndex: 9999,
+        willChange: 'left, top, opacity',
       }}
       aria-hidden="true"
-    />
+    >
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="crosshair-reticle"
+      >
+        <defs>
+          <filter id="reticle-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <g filter="url(#reticle-glow)" className="crosshair-scope">
+          {/* Vertical */}
+          <line x1="12" y1="0" x2="12" y2="24" stroke="#A6F700" strokeWidth="1" />
+          {/* Horizontal */}
+          <line x1="0" y1="12" x2="24" y2="12" stroke="#A6F700" strokeWidth="1" />
+        </g>
+      </svg>
+    </div>
   );
 }

@@ -1,37 +1,8 @@
 /**
- * Portfolio Hooks
+ * Hooks barrel exports
  *
- * These hooks encapsulate the portfolio page's data fetching and state management.
- * They can be used individually or composed via usePortfolioPage.
- *
- * Integration path for portfolio page refactoring:
- *
- * 1. Replace inline state with usePortfolioPage hook:
- *    ```
- *    const {
- *      walletData,
- *      gunPrice,
- *      portfolioResult,
- *      isLoading,
- *      fetchWallet,
- *      ...
- *    } = usePortfolioPage({ initialAddress: address });
- *    ```
- *
- * 2. Wire up contextValue from hook return values:
- *    ```
- *    const contextValue: PortfolioContextValue = useMemo(() => ({
- *      walletData,
- *      address: walletData?.address ?? null,
- *      gunPrice,
- *      // ... other fields directly from hook
- *    }), [walletData, gunPrice, ...]);
- *    ```
- *
- * 3. Remove extracted functions:
- *    - fetchSingleWallet → useWalletDataFetcher
- *    - enrichNFTsInBackground, enrichSingleNFT → useNFTEnrichmentOrchestrator
- *    - mergeWalletData → useWalletAggregation
+ * Portfolio hooks: data fetching and state management for portfolio page.
+ * NFT Detail hooks: decomposed from NFTDetailModal for testability.
  */
 
 // Wallet data fetching hook
@@ -62,3 +33,31 @@ export {
   type UsePortfolioPageOptions,
   type UsePortfolioPageResult,
 } from './usePortfolioPage';
+
+// ---------------------------------------------------------------------------
+// NFT Detail Modal hooks
+// ---------------------------------------------------------------------------
+
+// GUN price fetching
+export { useGunPrice } from './useGunPrice';
+
+// Debug panel state management
+export {
+  useNFTDetailDebug,
+  type CopyDebugParams,
+  type UseNFTDetailDebugResult,
+} from './useNFTDetailDebug';
+
+// Acquisition data pipeline (biggest hook — owns caching, fetching, scoring)
+export {
+  useNFTAcquisitionPipeline,
+  type ItemData,
+  type UseNFTAcquisitionPipelineOptions,
+  type UseNFTAcquisitionPipelineResult,
+} from './useNFTAcquisitionPipeline';
+
+// Weapon compatibility analysis
+export {
+  useWeaponCompatibility,
+  type UseWeaponCompatibilityResult,
+} from './useWeaponCompatibility';

@@ -115,8 +115,6 @@ describe('Rarity counts display', () => {
 
   it('displays all rarity tiers when all are present', () => {
     const nfts = createNFTsWithRarities({
-      Mythic: 1,
-      Legendary: 2,
       Epic: 3,
       Rare: 4,
       Uncommon: 5,
@@ -125,8 +123,6 @@ describe('Rarity counts display', () => {
 
     render(<NFTGallery nfts={nfts} chain="avalanche" />);
 
-    expect(screen.getByText(/Mythic: 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Legendary: 2/)).toBeInTheDocument();
     expect(screen.getByText(/Epic: 3/)).toBeInTheDocument();
     expect(screen.getByText(/Rare: 4/)).toBeInTheDocument();
     expect(screen.getByText(/Uncommon: 5/)).toBeInTheDocument();
@@ -147,15 +143,16 @@ describe('Rarity filtering', () => {
 
     render(<NFTGallery nfts={nfts} chain="avalanche" />);
 
-    // Initially shows all NFTs (check heading)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('7)');
+    // Initially shows all 7 NFTs
+    expect(screen.getAllByText(/^(Epic|Common) NFT \d+$/)).toHaveLength(7);
 
     // Click Epic filter
     const epicButton = screen.getByRole('button', { name: /Epic: 2/ });
     fireEvent.click(epicButton);
 
-    // Should only show Epic NFTs
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('2 of 7');
+    // Should only show 2 Epic NFTs
+    expect(screen.getAllByText(/^Epic NFT \d+$/)).toHaveLength(2);
+    expect(screen.queryByText(/^Common NFT \d+$/)).not.toBeInTheDocument();
   });
 
   it('shows only NFTs of selected rarity', () => {
@@ -195,11 +192,12 @@ describe('Rarity filtering', () => {
 
     // Click to enable filter
     fireEvent.click(epicButton);
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('2 of 7');
+    expect(screen.getAllByText(/^Epic NFT \d+$/)).toHaveLength(2);
+    expect(screen.queryByText(/^Common NFT \d+$/)).not.toBeInTheDocument();
 
     // Click again to disable filter
     fireEvent.click(epicButton);
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('7)');
+    expect(screen.getAllByText(/^(Epic|Common) NFT \d+$/)).toHaveLength(7);
   });
 
   it('clicking All pill resets rarity filter', () => {
@@ -213,12 +211,13 @@ describe('Rarity filtering', () => {
     // Enable Epic filter
     const epicButton = screen.getByRole('button', { name: /Epic: 2/ });
     fireEvent.click(epicButton);
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('2 of 7');
+    expect(screen.getAllByText(/^Epic NFT \d+$/)).toHaveLength(2);
+    expect(screen.queryByText(/^Common NFT \d+$/)).not.toBeInTheDocument();
 
     // Click All to reset
     const allButton = screen.getByRole('button', { name: 'All' });
     fireEvent.click(allButton);
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('7)');
+    expect(screen.getAllByText(/^(Epic|Common) NFT \d+$/)).toHaveLength(7);
   });
 });
 
@@ -238,23 +237,23 @@ describe('Multi-select rarity filtering', () => {
     render(<NFTGallery nfts={nfts} chain="avalanche" />);
 
     // Initially shows all 4 NFTs
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('4)');
+    expect(screen.getAllByText(/^(Epic Sword|Epic Shield|Common Blade|Rare Helm)$/)).toHaveLength(4);
 
     // Click Epic filter
     const epicButton = screen.getByRole('button', { name: /Epic: 2/ });
     fireEvent.click(epicButton);
 
     // Should show 2 Epic NFTs
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('2 of 4');
     expect(screen.getByText('Epic Sword')).toBeInTheDocument();
     expect(screen.getByText('Epic Shield')).toBeInTheDocument();
+    expect(screen.queryByText('Common Blade')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rare Helm')).not.toBeInTheDocument();
 
     // Click Common filter (while Epic still active)
     const commonButton = screen.getByRole('button', { name: /Common: 1/ });
     fireEvent.click(commonButton);
 
     // Should show Epic + Common NFTs (3 total)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('3 of 4');
     expect(screen.getByText('Epic Sword')).toBeInTheDocument();
     expect(screen.getByText('Epic Shield')).toBeInTheDocument();
     expect(screen.getByText('Common Blade')).toBeInTheDocument();
@@ -278,13 +277,14 @@ describe('Multi-select rarity filtering', () => {
     fireEvent.click(commonButton);
 
     // Should show Epic + Common (2 total)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('2 of 3');
+    expect(screen.getByText('Epic Sword')).toBeInTheDocument();
+    expect(screen.getByText('Common Blade')).toBeInTheDocument();
+    expect(screen.queryByText('Rare Helm')).not.toBeInTheDocument();
 
     // Toggle Epic off (click again)
     fireEvent.click(epicButton);
 
     // Should only show Common now
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('1 of 3');
     expect(screen.queryByText('Epic Sword')).not.toBeInTheDocument();
     expect(screen.getByText('Common Blade')).toBeInTheDocument();
   });
@@ -306,14 +306,15 @@ describe('Multi-select rarity filtering', () => {
     fireEvent.click(rareButton);
 
     // Should show 5 (Epic + Rare)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('5 of 10');
+    expect(screen.getAllByText(/^(Epic|Rare) NFT \d+$/)).toHaveLength(5);
+    expect(screen.queryByText(/^Common NFT \d+$/)).not.toBeInTheDocument();
 
     // Click All to clear
     const allButton = screen.getByRole('button', { name: 'All' });
     fireEvent.click(allButton);
 
     // Should show all 10 NFTs
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('10)');
+    expect(screen.getAllByText(/^(Epic|Rare|Common) NFT \d+$/)).toHaveLength(10);
   });
 });
 
@@ -430,14 +431,15 @@ describe('Rarity filter integration with other filters', () => {
     fireEvent.change(collectionsDropdown!, { target: { value: 'Weapon' } });
 
     // Should show 2 weapons
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('2 of 3');
+    expect(screen.getByText('Epic Weapon')).toBeInTheDocument();
+    expect(screen.getByText('Common Weapon')).toBeInTheDocument();
+    expect(screen.queryByText('Epic Character')).not.toBeInTheDocument();
 
     // Now filter by Epic
     const epicButton = screen.getByRole('button', { name: /Epic: 1/ });
     fireEvent.click(epicButton);
 
     // Should show only Epic Weapon
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('1 of 3');
     expect(screen.getByText('Epic Weapon')).toBeInTheDocument();
     expect(screen.queryByText('Epic Character')).not.toBeInTheDocument();
     expect(screen.queryByText('Common Weapon')).not.toBeInTheDocument();
@@ -480,14 +482,15 @@ describe('Rarity filter integration with other filters', () => {
     // Apply rarity filter
     const epicButton = screen.getByRole('button', { name: /Epic: 3/ });
     fireEvent.click(epicButton);
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('3 of 8');
+    expect(screen.getAllByText(/^Epic NFT \d+$/)).toHaveLength(3);
+    expect(screen.queryByText(/^Common NFT \d+$/)).not.toBeInTheDocument();
 
     // Click Clear all
     const clearButton = screen.getByRole('button', { name: /clear all/i });
     fireEvent.click(clearButton);
 
     // Should show all NFTs
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('8)');
+    expect(screen.getAllByText(/^(Epic|Common) NFT \d+$/)).toHaveLength(8);
   });
 });
 
@@ -574,27 +577,28 @@ describe('Rarity-grouped sorting when filters active', () => {
     expect(nftNames).toEqual(['Epic Item', 'Rare Item', 'Uncommon Item', 'Common Item']);
   });
 
-  it('includes Mythic and Legendary in correct order when present', () => {
+  it('unknown-rarity NFTs appear after known rarities when filters active', () => {
+    // NFTs with unsupported rarities (Mythic, Legendary) get classified as "Unknown"
+    // and won't have rarity pills, so they can only appear when no rarity filter is active.
+    // This test verifies that with all supported rarities selected, Unknown items are excluded.
     const nfts = [
       createNFTWithMint('Common X', 'Common', '001'),
-      createNFTWithMint('Mythic X', 'Mythic', '002'),
+      createNFTWithMint('Unknown X', 'Mythic', '002'), // Mythic -> Unknown
       createNFTWithMint('Epic X', 'Epic', '003'),
-      createNFTWithMint('Legendary X', 'Legendary', '004'),
     ];
 
     render(<NFTGallery nfts={nfts} chain="avalanche" />);
 
-    // Select all four rarities
-    fireEvent.click(screen.getByRole('button', { name: /Mythic: 1/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Legendary: 1/ }));
+    // Select Epic and Common (the only known rarities present)
     fireEvent.click(screen.getByRole('button', { name: /Epic: 1/ }));
     fireEvent.click(screen.getByRole('button', { name: /Common: 1/ }));
 
-    // Get all NFT names in order
+    // Get all NFT names in order — should NOT include the Unknown/Mythic NFT
     const nftNames = screen.getAllByText(/X$/).map(el => el.textContent);
+    expect(nftNames).toEqual(['Epic X', 'Common X']);
 
-    // Should be: Mythic → Legendary → Epic → Common
-    expect(nftNames).toEqual(['Mythic X', 'Legendary X', 'Epic X', 'Common X']);
+    // The Unknown NFT should not be visible
+    expect(screen.queryByText('Unknown X')).not.toBeInTheDocument();
   });
 
   it('uses standard sortBy when no rarity filters active', () => {
@@ -770,7 +774,8 @@ describe('Rarity filter tag', () => {
     const commonButton = screen.getByRole('button', { name: /Common: 5/ });
     fireEvent.click(epicButton);
     fireEvent.click(commonButton);
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('7)');
+    // Both Epic and Common selected = shows all 7 NFTs
+    expect(screen.getAllByText(/^(Epic|Common) NFT \d+$/)).toHaveLength(7);
 
     // Find the Epic filter tag's close button
     const filterTagSpans = document.querySelectorAll('span.inline-flex');
@@ -787,7 +792,8 @@ describe('Rarity filter tag', () => {
     if (epicTagCloseButton) {
       fireEvent.click(epicTagCloseButton);
       // Should now only show Common (5 NFTs)
-      expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('5 of 7');
+      expect(screen.getAllByText(/^Common NFT \d+$/)).toHaveLength(5);
+      expect(screen.queryByText(/^Epic NFT \d+$/)).not.toBeInTheDocument();
     }
   });
 });

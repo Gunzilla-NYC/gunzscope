@@ -114,6 +114,12 @@ body {
   background: var(--gs-black);
   color: var(--gs-white);
   font-family: var(--font-body);
+  cursor: none;
+}
+
+/* Hide cursor everywhere — !important overrides Tailwind cursor-pointer */
+*, *::before, *::after {
+  cursor: none !important;
 }
 
 /* Typography utility classes */
@@ -685,30 +691,20 @@ body {
   background: var(--gs-purple);
 }
 
-.crosshair-interactive {
-  width: 24px;
-  height: 24px;
-  animation: crosshair-pulse 2s ease-in-out infinite;
+/* ── Targeting Reticle (SVG crosshair cursor) ── */
+
+.crosshair-reticle {
+  shape-rendering: crispEdges;
 }
 
-@keyframes crosshair-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+/* Crosshair group — contracts when hovering clickable elements */
+.crosshair-scope {
+  transform-origin: 12px 12px;
+  transition: transform 0.15s ease-out;
 }
 
-.crosshair-interactive::before,
-.crosshair-interactive::after {
-  background: linear-gradient(135deg, var(--gs-lime), var(--gs-purple));
-}
-
-.crosshair-interactive::before {
-  width: 2px;
-  box-shadow: 0 0 10px rgba(166, 247, 0, 0.5);
-}
-
-.crosshair-interactive::after {
-  height: 2px;
-  box-shadow: 0 0 10px rgba(166, 247, 0, 0.5);
+.is-interactive .crosshair-scope {
+  transform: scale(0.65);
 }
 
 /* Section number styling */

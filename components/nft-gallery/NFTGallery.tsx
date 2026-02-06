@@ -1,0 +1,132 @@
+'use client';
+
+import dynamic from 'next/dynamic';
+import { deriveCardData } from './utils';
+import type { NFTGalleryProps } from './types';
+import { useNFTGalleryFilters } from './useNFTGalleryFilters';
+import { NFTGalleryControls } from './NFTGalleryControls';
+import { NFTGalleryPagination } from './NFTGalleryPagination';
+import { NFTGalleryGridCard } from './NFTGalleryGridCard';
+import { NFTGalleryListRow } from './NFTGalleryListRow';
+
+// Dynamic import for NFTDetailModal - only loaded when user clicks an NFT
+// This reduces initial bundle size as the modal has heavy dependencies
+const NFTDetailModal = dynamic(() => import('../NFTDetailModal'), {
+  ssr: false,
+  loading: () => null, // Modal is hidden by default, no loading UI needed
+});
+
+export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset }: NFTGalleryProps) {
+  const {
+    searchQuery, setSearchQuery,
+    sortBy, setSortBy,
+    selectedItemClass, setSelectedItemClass,
+    activeRarities, toggleRarity, clearRarities,
+    viewMode, setViewMode,
+    selectedNFT, selectedTokenKeyString, isModalOpen,
+    handleNFTClick, handleCloseModal,
+    itemClasses, rarityCounts, filteredAndSortedNFTs,
+    clearFilters, hasActiveFilters,
+  } = useNFTGalleryFilters(nfts);
+
+  if (nfts.length === 0) {
+    return (
+      <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
+        <h3 className="font-display text-lg font-semibold mb-2 text-[var(--gs-white)]">
+          Off The Grid Game Assets
+        </h3>
+        <p className="font-body text-[var(--gs-gray-4)]">No game assets found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
+      {/* Sticky Controls Bar */}
+      <NFTGalleryControls
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        selectedItemClass={selectedItemClass}
+        setSelectedItemClass={setSelectedItemClass}
+        activeRarities={activeRarities}
+        toggleRarity={toggleRarity}
+        clearRarities={clearRarities}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        nfts={nfts}
+        itemClasses={itemClasses}
+        rarityCounts={rarityCounts}
+        hasActiveFilters={hasActiveFilters}
+        clearFilters={clearFilters}
+        stickyOffset={stickyOffset}
+      />
+
+      {/* No Results Message */}
+      {filteredAndSortedNFTs.length === 0 && nfts.length > 0 && (
+        <div className="text-center py-12 text-[var(--gs-gray-4)]">
+          <svg className="w-16 h-16 mx-auto mb-4 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <p className="font-display text-lg mb-2">No NFTs match your search</p>
+          <p className="font-body text-sm text-[var(--gs-gray-3)] mb-4">Try adjusting your filters or search terms</p>
+          <button
+            onClick={clearFilters}
+            className="px-4 py-2 text-sm bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] rounded-lg hover:bg-[var(--gs-lime)]/30 transition border border-[var(--gs-lime)]/30 font-body"
+          >
+            Clear all filters
+          </button>
+        </div>
+      )}
+
+      {/* Grid Views (Small & Medium) */}
+      {viewMode !== 'list' && (
+        <div className={`grid gap-4 ${
+          viewMode === 'small'
+            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
+            : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+        }`}>
+          {filteredAndSortedNFTs.map((nft) => (
+            <NFTGalleryGridCard
+              key={`${nft.chain}-${nft.tokenId}`}
+              cardData={deriveCardData(nft)}
+              viewMode={viewMode as 'small' | 'medium'}
+              isEnriching={isEnriching}
+              onClick={handleNFTClick}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* List View */}
+      {viewMode === 'list' && (
+        <div className="flex flex-col gap-2">
+          {filteredAndSortedNFTs.map((nft) => (
+            <NFTGalleryListRow
+              key={`${nft.chain}-${nft.tokenId}`}
+              cardData={deriveCardData(nft)}
+              isEnriching={isEnriching}
+              onClick={handleNFTClick}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Load More Button and Pagination Info */}
+      {paginationInfo && (
+        <NFTGalleryPagination paginationInfo={paginationInfo} onLoadMore={onLoadMore} />
+      )}
+
+      {/* NFT Detail Modal - keyed by tokenKeyString to force remount on NFT change */}
+      <NFTDetailModal
+        key={selectedTokenKeyString || 'no-selection'}
+        nft={selectedNFT}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        walletAddress={walletAddress}
+        allNfts={nfts}
+      />
+    </div>
+  );
+}

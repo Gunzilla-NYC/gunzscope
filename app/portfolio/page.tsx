@@ -26,15 +26,14 @@ import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggr
 import { useNFTEnrichmentOrchestrator } from '@/lib/hooks/useNFTEnrichmentOrchestrator';
 import { useWalletDataFetcher } from '@/lib/hooks/useWalletDataFetcher';
 
-// Wrapper component to provide Suspense boundary for useSearchParams
 function PortfolioContent() {
   const searchParams = useSearchParams();
   const debugMode = searchParams.get('debug') === '1';
+  const addressParam = searchParams.get('address');
 
-  return <PortfolioInner debugMode={debugMode} />;
+  return <PortfolioInner debugMode={debugMode} initialAddress={addressParam} />;
 }
 
-// Main export wrapped in Suspense
 export default function PortfolioPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-black" />}>
@@ -43,7 +42,7 @@ export default function PortfolioPage() {
   );
 }
 
-function PortfolioInner({ debugMode }: { debugMode: boolean }) {
+function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; initialAddress: string | null }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -63,6 +62,10 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
 
   // Wallet data fetcher hook - provides fetchSingleWallet and services
   const walletFetcher = useWalletDataFetcher();
+
+  // Shared service instances (avoid re-creating per call)
+  const marketplaceServiceRef = useRef(new GameMarketplaceService());
+  const openSeaServiceRef = useRef(new OpenSeaService());
 
   // Portfolio aggregation state
   const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
@@ -243,14 +246,13 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
         }));
 
         // Start background enrichment for new NFTs using hook
-        const paginationMarketplaceService = new GameMarketplaceService();
-        const paginationMarketplaceConfigured = paginationMarketplaceService.isConfigured();
+        const marketplaceConfigured = marketplaceServiceRef.current.isConfigured();
 
         startEnrichment(
           uniqueNewNFTs,
           walletData.address,
           avalancheService,
-          paginationMarketplaceConfigured ? paginationMarketplaceService : null,
+          marketplaceConfigured ? marketplaceServiceRef.current : null,
           (enrichedNFTs: NFT[]) => {
             setWalletData(prev => {
               if (!prev) return prev;
@@ -306,7 +308,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     try {
       // Get services from hook (reuses existing instances)
       const { avalanche: avalancheService, coinGecko: coinGeckoService } = walletFetcher.getServices();
-      const marketplaceService = new GameMarketplaceService();
+      const marketplaceService = marketplaceServiceRef.current;
 
       // Detect network and wallet type
       // Note: RPC URL is server-side only, client uses hardcoded fallback
@@ -323,11 +325,6 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
           .map(p => p.address)
           .filter(a => a.toLowerCase() !== primaryLower);
         addressesToFetch.push(...additionalAddresses);
-      }
-
-      // Log aggregation mode
-      if (addressesToFetch.length > 1) {
-        console.log(`[Portfolio Aggregation] Fetching ${addressesToFetch.length} wallets:`, addressesToFetch);
       }
 
       // Fetch shared data (prices, network) plus all wallet data in parallel
@@ -443,8 +440,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
       // This enables Value/P&L sorting in the gallery
       const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
       if (nftContractAddress) {
-        const openSeaService = new OpenSeaService();
-        openSeaService.getNFTFloorPrice(nftContractAddress, 'avalanche')
+        openSeaServiceRef.current.getNFTFloorPrice(nftContractAddress, 'avalanche')
           .then(floorPrice => {
             if (floorPrice !== null && floorPrice > 0) {
               setWalletData(prev => {
@@ -520,6 +516,16 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
     setSearchAddress(address);
     handleWalletSubmit(address, 'avalanche');
   }, []);
+
+  // Auto-load wallet from URL query param (e.g. ?address=0x...)
+  const initialAddressLoaded = useRef(false);
+  useEffect(() => {
+    if (initialAddress && !initialAddressLoaded.current) {
+      initialAddressLoaded.current = true;
+      setSearchAddress(initialAddress);
+      handleWalletSubmit(initialAddress, 'avalanche');
+    }
+  }, [initialAddress]);
 
   // Wallet search dropdown handlers
   const handleAddToWatchlist = async (address: string) => {
@@ -688,14 +694,7 @@ function PortfolioInner({ debugMode }: { debugMode: boolean }) {
           {/* Search another wallet - inline search bar */}
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => {
-                cancelEnrichment();
-                setWalletData(null);
-                setNetworkInfo(null);
-                setWalletType('unknown');
-                setError(null);
-                setSearchAddress('');
-              }}
+              onClick={() => handleWalletDisconnect()}
               className="text-[var(--gs-lime)] hover:text-[var(--gs-purple)] font-medium transition-colors text-sm flex items-center gap-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

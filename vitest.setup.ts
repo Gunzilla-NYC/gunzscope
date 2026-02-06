@@ -38,5 +38,20 @@ const localStorageMock = new Proxy(localStorageBase, {
 });
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
+// Mock IntersectionObserver for components that use sticky detection
+class IntersectionObserverMock {
+  callback: IntersectionObserverCallback;
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+  }
+  observe(target: Element) {
+    // Simulate element being visible (not intersecting = not sticky)
+    this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+  }
+  unobserve() {}
+  disconnect() {}
+}
+Object.defineProperty(window, 'IntersectionObserver', { value: IntersectionObserverMock });
+
 // Suppress console.warn/error in tests unless explicitly testing them
 // Tests that need to spy on console should mock it themselves

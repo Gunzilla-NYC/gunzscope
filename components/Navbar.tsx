@@ -47,14 +47,40 @@ export default function Navbar({ onWalletConnect, onWalletDisconnect, onAccountC
               </span>
             </Link>
 
-            {/* Wallet Button - only show on home page */}
-            {isHomePage && (
-              <WalletButton
-                onWalletConnect={onWalletConnect}
-                onWalletDisconnect={onWalletDisconnect}
-                onAccountClick={onAccountClick}
-              />
-            )}
+            {/* Navigation Links + Wallet */}
+            <div className="flex items-center gap-5">
+              <div className="hidden md:flex items-center gap-5">
+                <Link
+                  href="/portfolio"
+                  className={`font-mono text-[11px] tracking-wider uppercase transition-colors ${
+                    pathname === '/portfolio'
+                      ? 'text-[var(--gs-lime)]'
+                      : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'
+                  }`}
+                >
+                  Portfolio
+                </Link>
+                <Link
+                  href="/leaderboard"
+                  className={`font-mono text-[11px] tracking-wider uppercase transition-colors ${
+                    pathname === '/leaderboard'
+                      ? 'text-[var(--gs-lime)]'
+                      : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'
+                  }`}
+                >
+                  Leaderboard
+                </Link>
+              </div>
+
+              {/* Wallet Button - only show on home page */}
+              {isHomePage && (
+                <WalletButton
+                  onWalletConnect={onWalletConnect}
+                  onWalletDisconnect={onWalletDisconnect}
+                  onAccountClick={onAccountClick}
+                />
+              )}
+            </div>
           </div>
         </div>
       </nav>

@@ -1,117 +1,46 @@
 'use client';
 
-// =============================================================================
-// TODO: REMAINING HARDENING PHASES
-// =============================================================================
-// Phase 7 — Historical USD conversion:
-//   - Requires API/provider changes: price-at-time for GUN/USD
-//   - Fallback rules + caching strategy for historical prices
-// =============================================================================
-
+import { useState, useEffect, useRef } from 'react';
 import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
-import Image from 'next/image';
-import dynamic from 'next/dynamic';
-import { GameMarketplaceService } from '@/lib/api/marketplace';
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { CoinGeckoService } from '@/lib/api/coingecko';
-import { useGunPrice } from '@/lib/hooks/useGunPrice';
-import { useNFTDetailDebug } from '@/lib/hooks/useNFTDetailDebug';
+import { GameMarketplaceService } from '@/lib/api/marketplace';
+import {
+  FetchStatus,
+  TOKEN_MAP_SOFT_CAP,
+  isAbortError,
+  FIFOKeyTracker,
+} from '@/lib/nft/nftDetailHelpers';
 import {
   buildTokenKey,
   buildNftDetailCacheKey,
   getCachedNFTDetail,
   setCachedNFTDetail,
 } from '@/lib/utils/nftCache';
+import { type DebugDataState } from '@/components/nft-detail/types';
 
 // =============================================================================
-// Import pure helpers from dedicated module (extracted for testability)
+// Types
 // =============================================================================
-import {
-  FetchStatus,
-  TOKEN_MAP_SOFT_CAP,
-  warnOnce,
-  normalizeCostBasis,
-  isAbortError,
-  FIFOKeyTracker,
-  toIsoStringSafe,
-  computeMarketInputs,
-  getPositionLabel,
-  getVenueDisplayLabel,
-  getRarityColorForNft,
-  findRelatedItems,
-} from '@/lib/nft/nftDetailHelpers';
-
-// =============================================================================
-// Import extracted presentational subcomponents
-// =============================================================================
-import {
-  NFTDetailObservedMarketRange,
-  NFTDetailQuickStats,
-  NFTDetailTraitPills,
-  type HoldingAcquisitionData,
-  type ResolvedAcquisitionData,
-  type MetadataDebugData,
-} from '@/components/nft-detail';
-import { LockedWeaponIndicator } from '@/components/weapon';
-
-// Dynamic import for WeaponLabDrawer - only loaded when user opens weapon lab
-const WeaponLabDrawer = dynamic(() => import('@/components/weapon/WeaponLabDrawer'), {
-  ssr: false,
-  loading: () => null,
-});
-
-// Dynamic import for NFTDetailDebugPanel - only loaded when debugMode is active
-const NFTDetailDebugPanel = dynamic(
-  () => import('@/components/nft-detail/NFTDetailDebugPanel').then(mod => ({ default: mod.NFTDetailDebugPanel })),
-  { ssr: false, loading: () => null }
-);
-import { isWeaponLocked, isWeapon, getFunctionalTier } from '@/lib/weapon';
-import TierBadge from '@/components/ui/TierBadge';
-import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
-import { gunzExplorerTxUrl } from '@/lib/explorer';
-
-const getDefaultRarityColors = () => DEFAULT_RARITY_COLORS;
-
-interface ItemData {
-  tokenId: string;
-  mintNumber: string;
-  rarity?: string;
-  index: number;
-  colors: { primary: string; border: string };
-  purchasePriceGun?: number;
-  purchasePriceUsd?: number;
-  purchaseDate?: Date;
-}
-
-interface NFTDetailModalProps {
-  nft: NFT | null;
-  isOpen: boolean;
-  onClose: () => void;
-  walletAddress?: string;
-  /** All NFTs in the wallet - used for finding related items (skins/attachments) */
-  allNfts?: NFT[];
-}
 
 // Price source tracking - how we determined the purchase price
-type PriceSource = 'transfers' | 'localStorage' | 'onchain' | 'none';
+export type PriceSource = 'transfers' | 'localStorage' | 'onchain' | 'none';
 
 // Marketplace matching method
-type MarketplaceMatchMethod = 'txHash' | 'timeWindow' | 'none';
+export type MarketplaceMatchMethod = 'txHash' | 'timeWindow' | 'none';
 
 // Acquisition type from transfer analysis
-type AcquisitionType = 'MINT' | 'TRANSFER' | 'PURCHASE' | 'UNKNOWN';
+export type AcquisitionType = 'MINT' | 'TRANSFER' | 'PURCHASE' | 'UNKNOWN';
 
 // =============================================================================
 // RESOLVED ACQUISITION - Deterministic best-available acquisition data
 // Prevents downgrades during refresh (e.g., PURCHASE -> TRANSFER fallback)
 // =============================================================================
 
-type ResolvedAcquisitionSource = 'holdingAcquisitionRaw' | 'onchain' | 'localStorage' | 'transferDerivation' | 'unknown';
+export type ResolvedAcquisitionSource = 'holdingAcquisitionRaw' | 'onchain' | 'localStorage' | 'transferDerivation' | 'unknown';
 
-interface ResolvedAcquisition {
+export interface ResolvedAcquisition {
   acquisitionType: AcquisitionType | null;
   venue: AcquisitionVenue | null;
   acquiredAt: string | null;  // ISO string
@@ -392,7 +321,7 @@ function mergeAcquisitionIfBetter(
 }
 
 // Structured acquisition data - separates transfer-derived vs price-derived fields
-interface AcquisitionData {
+export interface AcquisitionData {
   // Source tracking
   priceSource: PriceSource;           // How we determined the price (onchain/transfers/localStorage/none)
   acquisitionVenue?: AcquisitionVenue; // Where the acquisition happened (opensea/otg_marketplace/decoder/mint/transfer/unknown)
@@ -418,40 +347,81 @@ interface AcquisitionData {
   isFreeTransfer?: boolean;    // True if TRANSFER with no price (not applicable to paid decodes)
 }
 
-export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, allNfts = [] }: NFTDetailModalProps) {
+// Re-export ItemData for consumers
+export interface ItemData {
+  tokenId: string;
+  mintNumber: string;
+  rarity?: string;
+  index: number;
+  colors: { primary: string; border: string };
+  purchasePriceGun?: number;
+  purchasePriceUsd?: number;
+  purchaseDate?: Date;
+}
+
+// =============================================================================
+// Hook Options & Result
+// =============================================================================
+
+export interface UseNFTAcquisitionPipelineOptions {
+  walletAddress?: string;
+  debugMode: boolean;
+  noCacheMode: boolean;
+  currentGunPrice: number | null;
+  updateDebugData: (updates: Partial<DebugDataState>) => void;
+}
+
+export interface UseNFTAcquisitionPipelineResult {
+  loadingDetails: boolean;
+  currentPurchaseData: AcquisitionData | undefined;
+  currentResolvedAcquisition: ResolvedAcquisition | undefined;
+  holdingAcquisitionRaw: NFTHoldingAcquisition | null;
+  listingsData: { lowest?: number; highest?: number; average?: number } | null;
+  itemPurchaseData: Record<string, AcquisitionData>;
+  resolvedAcquisitions: Record<string, ResolvedAcquisition>;
+  listingsStatusByTokenId: Record<string, FetchStatus>;
+  listingsErrorByTokenId: Record<string, string | null>;
+  holdingAcqStatusByTokenId: Record<string, FetchStatus>;
+  holdingAcqErrorByTokenId: Record<string, string | null>;
+}
+
+// =============================================================================
+// Hook Implementation
+// =============================================================================
+
+/**
+ * Hook for the NFTDetailModal acquisition pipeline.
+ * Manages acquisition data fetching, caching, marketplace matching,
+ * and resolved acquisition scoring.
+ */
+export function useNFTAcquisitionPipeline(
+  nft: NFT | null,
+  activeItem: ItemData | undefined,
+  isOpen: boolean,
+  options: UseNFTAcquisitionPipelineOptions,
+): UseNFTAcquisitionPipelineResult {
+  const { walletAddress, debugMode, noCacheMode, currentGunPrice, updateDebugData } = options;
+
+  // =========================================================================
+  // State
+  // =========================================================================
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [itemPurchaseData, setItemPurchaseData] = useState<Record<string, AcquisitionData>>({});
-  // Resolved acquisition data per token - deterministic best-available data
   const [resolvedAcquisitions, setResolvedAcquisitions] = useState<Record<string, ResolvedAcquisition>>({});
-  // Per-token listings data to prevent cross-token leakage in multi-token NFTs
   const [listingsByTokenId, setListingsByTokenId] = useState<Record<string, {
     lowest?: number;
     highest?: number;
     average?: number;
   } | null>>({});
-  // GUN price hook - fetches current GUN/USD rate when modal opens
-  const { gunPrice: currentGunPrice, timestamp: gunPriceTimestamp } = useGunPrice(isOpen);
-  const [relatedItemsExpanded, setRelatedItemsExpanded] = useState(false);
+  const [holdingAcquisitionRawByTokenId, setHoldingAcquisitionRawByTokenId] = useState<Record<string, NFTHoldingAcquisition | null>>({});
+  const [listingsStatusByTokenId, setListingsStatusByTokenId] = useState<Record<string, FetchStatus>>({});
+  const [listingsErrorByTokenId, setListingsErrorByTokenId] = useState<Record<string, string | null>>({});
+  const [holdingAcqStatusByTokenId, setHoldingAcqStatusByTokenId] = useState<Record<string, FetchStatus>>({});
+  const [holdingAcqErrorByTokenId, setHoldingAcqErrorByTokenId] = useState<Record<string, string | null>>({});
 
-  // Debug mode: enabled via ?debugNft=1 URL parameter
-  // No-cache mode: enabled via ?noCache=1 - bypasses all cache reads for fresh data
-  const searchParams = useSearchParams();
-  const debugMode = searchParams.get('debugNft') === '1';
-  const noCacheMode = searchParams.get('noCache') === '1';
-  // Debug state hook - manages debug data, copy-to-clipboard, and reset
-  const {
-    debugData,
-    debugExpanded,
-    debugCopied,
-    updateDebugData,
-    resetDebugData,
-    setDebugExpanded,
-    handleCopyDebugData,
-  } = useNFTDetailDebug(gunPriceTimestamp);
-  const [isWeaponLabOpen, setIsWeaponLabOpen] = useState(false);
-
-  // Ref to track fetch state and prevent duplicate fetches
+  // =========================================================================
+  // Refs
+  // =========================================================================
   const fetchStateRef = useRef<{
     lastFetchedTokenKey: string | null;
     lastFetchTimestamp: number;
@@ -461,138 +431,58 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     lastFetchTimestamp: 0,
     fetchInProgress: false,
   });
-
-  // Staleness threshold for background refresh (10 minutes)
   const STALE_THRESHOLD_MS = 10 * 60 * 1000;
-
-  // Per-token raw holding acquisition results from RPC (prevents cross-token leakage)
-  const [holdingAcquisitionRawByTokenId, setHoldingAcquisitionRawByTokenId] = useState<Record<string, NFTHoldingAcquisition | null>>({});
-
-  // ==========================================================================
-  // HARDENING: Per-token status and error tracking (removes null ambiguity)
-  // ==========================================================================
-  const [listingsStatusByTokenId, setListingsStatusByTokenId] = useState<Record<string, FetchStatus>>({});
-  const [listingsErrorByTokenId, setListingsErrorByTokenId] = useState<Record<string, string | null>>({});
-  const [holdingAcqStatusByTokenId, setHoldingAcqStatusByTokenId] = useState<Record<string, FetchStatus>>({});
-  const [holdingAcqErrorByTokenId, setHoldingAcqErrorByTokenId] = useState<Record<string, string | null>>({});
-
-  // ==========================================================================
-  // HARDENING: AbortController refs for race-proofing async operations
-  // ==========================================================================
   const abortControllersRef = useRef<Record<string, AbortController | undefined>>({});
-
-  // ==========================================================================
-  // HARDENING: FIFO key trackers for memory-bounded maps
-  // ==========================================================================
   const listingsKeyTrackerRef = useRef(new FIFOKeyTracker(TOKEN_MAP_SOFT_CAP));
   const holdingAcqKeyTrackerRef = useRef(new FIFOKeyTracker(TOKEN_MAP_SOFT_CAP));
-
-  // Async safety: track mounted state to prevent state updates after unmount
   const isMountedRef = useRef(true);
+
+  // =========================================================================
+  // Cleanup effect
+  // =========================================================================
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // Abort all in-flight requests on unmount
       Object.values(abortControllersRef.current).forEach(controller => controller?.abort());
       abortControllersRef.current = {};
     };
   }, []);
 
-  // Debug state is managed by useNFTDetailDebug hook (declared above)
-
-  // Reset state when modal opens (component remounts via key prop when NFT changes)
+  // =========================================================================
+  // Reset effect — resets all pipeline state when modal opens
+  // =========================================================================
   useEffect(() => {
     if (isOpen) {
-      // =======================================================================
-      // HARDENING: Abort any in-flight requests from previous modal session
-      // =======================================================================
       Object.values(abortControllersRef.current).forEach(controller => controller?.abort());
       abortControllersRef.current = {};
-
-      setActiveItemIndex(0);
       setItemPurchaseData({});
-      setResolvedAcquisitions({});  // Reset resolved acquisition data
-      setListingsByTokenId({});     // Reset per-token listings
-      setHoldingAcquisitionRawByTokenId({}); // Reset per-token raw acquisition for fresh fetch
-
-      // =======================================================================
-      // HARDENING: Reset per-token status/error maps
-      // =======================================================================
+      setResolvedAcquisitions({});
+      setListingsByTokenId({});
+      setHoldingAcquisitionRawByTokenId({});
       setListingsStatusByTokenId({});
       setListingsErrorByTokenId({});
       setHoldingAcqStatusByTokenId({});
       setHoldingAcqErrorByTokenId({});
-
-      // =======================================================================
-      // HARDENING: Reset FIFO key trackers
-      // =======================================================================
       listingsKeyTrackerRef.current.reset();
       holdingAcqKeyTrackerRef.current.reset();
-
-      // Reset fetch state for new modal session (allows fresh fetch on open)
       fetchStateRef.current = {
         lastFetchedTokenKey: null,
         lastFetchTimestamp: 0,
         fetchInProgress: false,
       };
-      // Reset debug data (debugExpanded persists — handled inside hook)
-      resetDebugData(noCacheMode);
-
     }
-  }, [isOpen, noCacheMode]);
+  }, [isOpen]);
 
-  // Build sorted list of items (by rarity desc, then mint number asc)
-  const sortedItems: ItemData[] = useMemo(() => {
-    if (!nft) {
-      return [];
-    }
-
-    const getRarity = () => nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
-    const rarity = getRarity();
-    const colors = RARITY_COLORS[rarity || ''] || getDefaultRarityColors();
-
-    if (!nft.tokenIds || nft.tokenIds.length <= 1) {
-      return [{
-        tokenId: nft.tokenId,
-        mintNumber: nft.mintNumber || nft.tokenId,
-        rarity,
-        index: 0,
-        colors,
-      }];
-    }
-
-    // Create items array with their data
-    const items: ItemData[] = nft.tokenIds.map((tokenId, index) => ({
-      tokenId,
-      mintNumber: nft.mintNumbers?.[index] || tokenId,
-      rarity,
-      index,
-      colors,
-    }));
-
-    // Sort by rarity (highest first), then by mint number (lowest first)
-    return items.sort((a, b) => {
-      const rarityA = RARITY_ORDER[a.rarity || ''] || 999;
-      const rarityB = RARITY_ORDER[b.rarity || ''] || 999;
-      if (rarityA !== rarityB) {
-        return rarityA - rarityB;
-      }
-      const mintA = parseInt(a.mintNumber) || 0;
-      const mintB = parseInt(b.mintNumber) || 0;
-      return mintA - mintB;
-    });
-  }, [nft]);
-
-  // Get currently active item
-  const activeItem = sortedItems[activeItemIndex] || sortedItems[0];
-
-  // Derive current token's listings and acquisition data from per-token maps
-  // This prevents cross-token leakage when switching between items in multi-token NFTs
+  // =========================================================================
+  // Derived values (before effect — captured in effect closure)
+  // =========================================================================
   const listingsData = activeItem ? listingsByTokenId[activeItem.tokenId] ?? null : null;
   const holdingAcquisitionRaw = activeItem ? holdingAcquisitionRawByTokenId[activeItem.tokenId] ?? null : null;
 
-  // Load purchase data for the active item
+  // =========================================================================
+  // Monolithic acquisition pipeline effect
+  // =========================================================================
   useEffect(() => {
     if (!isOpen || !nft || !walletAddress || !activeItem) {
       return;
@@ -1847,868 +1737,23 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     // Note: listingsData removed from deps - it's fetched inside and shouldn't trigger re-runs
   }, [isOpen, nft, walletAddress, activeItem, debugMode, noCacheMode]);
 
-  // Close on Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
-
-  // Get current item's purchase data
+  // =========================================================================
+  // Derived values (after effect)
+  // =========================================================================
   const currentPurchaseData = activeItem ? itemPurchaseData[activeItem.tokenId] : undefined;
-  // Get resolved acquisition (deterministic, no-downgrade)
   const currentResolvedAcquisition = activeItem ? resolvedAcquisitions[activeItem.tokenId] : undefined;
 
-  // Filter traits to exclude "None" values
-  const filteredTraits = useMemo(() => {
-    if (!nft?.traits) return {};
-    return Object.fromEntries(
-      Object.entries(nft.traits).filter(([, value]) =>
-        value && value.toLowerCase() !== 'none'
-      )
-    );
-  }, [nft?.traits]);
-
-  // Find related items (skins/attachments) for weapons
-  const relatedItems = useMemo(() => {
-    if (!nft || allNfts.length === 0) return [];
-    return findRelatedItems(nft, allNfts);
-  }, [nft, allNfts]);
-
-  // Determine if this weapon can show the Weapon Lab
-  const weaponLabEligible = useMemo(() => {
-    if (!nft) return false;
-    if (!isWeapon(nft)) return false;
-    return !isWeaponLocked(nft);
-  }, [nft]);
-
-  const isLockedWeapon = useMemo(() => {
-    if (!nft) return false;
-    return isWeapon(nft) && isWeaponLocked(nft);
-  }, [nft]);
-
-  // Check if this NFT is a weapon with related items
-  const hasRelatedItems = nft && isWeapon(nft) && relatedItems.length > 0;
-
-  // Early return after all hooks
-  if (!nft) return null;
-
-  const formatDate = (date?: Date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  return {
+    loadingDetails,
+    currentPurchaseData,
+    currentResolvedAcquisition,
+    holdingAcquisitionRaw,
+    listingsData,
+    itemPurchaseData,
+    resolvedAcquisitions,
+    listingsStatusByTokenId,
+    listingsErrorByTokenId,
+    holdingAcqStatusByTokenId,
+    holdingAcqErrorByTokenId,
   };
-
-  // Format chain name for display
-  const getChainDisplayName = (chain: string) => {
-    if (chain === 'avalanche') return 'GUNZ';
-    return chain.toUpperCase();
-  };
-
-  // =============================================================================
-  // Canonical cost basis from resolved acquisition (single source of truth)
-  // Uses normalizeCostBasis helper for consistent validation
-  // =============================================================================
-  const costBasisGun: number | null = (() => {
-    // Transfers have no cost basis
-    if (!currentResolvedAcquisition || currentResolvedAcquisition.acquisitionType === 'TRANSFER') {
-      return null;
-    }
-    const rawCost = currentResolvedAcquisition.costGun;
-    const normalized = normalizeCostBasis(rawCost);
-
-    // HARDENING: warnOnce if we filtered out an anomalous value
-    if (rawCost !== null && rawCost !== undefined && normalized === null) {
-      warnOnce(`costBasis:${activeItem?.tokenId ?? 'unknown'}`, 'Anomalous cost basis filtered:', rawCost);
-    }
-
-    return normalized;
-  })();
-
-  // =============================================================================
-  // Canonical market inputs (single source of truth for hero + position label)
-  // Memoized to prevent recomputation on every render
-  // =============================================================================
-  const marketInputs = useMemo(
-    () => computeMarketInputs(listingsData, nft.floorPrice, nft.ceilingPrice),
-    [listingsData, nft.floorPrice, nft.ceilingPrice]
-  );
-
-  // Market reference values for display (uses marketInputs)
-  const marketRef = {
-    hasMarketData: marketInputs.ref !== null,
-    gunValue: marketInputs.ref,
-    usdValue: marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : undefined,
-    dataQuality: marketInputs.dataQuality,
-  };
-
-  // Calculate position of a value on the range bar (0-100%)
-  const getPositionOnRange = (value: number, low: number, high: number): number => {
-    if (high === low) return 50;
-    const position = ((value - low) / (high - low)) * 100;
-    // Clamp between 2% and 98% to keep markers visible
-    return Math.max(2, Math.min(98, position));
-  };
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={onClose}
-      />
-
-      {/* Modal Container - flex row to allow related items panel */}
-      <div
-        className={`fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none ${
-          isOpen ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <div className="flex items-stretch gap-0 pointer-events-auto">
-          {/* Main Modal */}
-          <div
-            className={`relative w-full min-w-[432px] max-w-[440px] max-h-[85vh] bg-[var(--gs-dark-1)] rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 ${
-              isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
-            } ${hasRelatedItems && relatedItemsExpanded ? 'rounded-r-none' : ''}`}
-            style={{
-              boxShadow: hasRelatedItems && relatedItemsExpanded ? 'none' : '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
-            }}
-          >
-          {/* ===== 1) ModalHeader ===== */}
-          <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.06]">
-            <h2 className="font-display text-base font-semibold uppercase tracking-wide text-white">NFT Details</h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close modal"
-              className="text-gray-400 hover:text-white transition p-1.5 -mr-1.5 rounded-lg hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gs-lime)]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--gs-dark-1)]"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Scrollable Content Area - hidden scrollbar to prevent any width shift */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden overscroll-contain [-webkit-overflow-scrolling:touch] select-none">
-            <div className="p-4 space-y-4">
-
-              {/* ===== 2) IdentitySection ===== */}
-              <div className="space-y-3 animate-[fade-in-up_0.4s_ease-out]">
-                {/* NFT Image */}
-                {sortedItems.length > 1 ? (
-                  // Multiple items - grid view
-                  <div className="grid grid-cols-2 gap-2">
-                    {sortedItems.map((item, index) => {
-                      const isActive = index === activeItemIndex;
-                      return (
-                        <button
-                          key={item.tokenId}
-                          onClick={() => setActiveItemIndex(index)}
-                          className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
-                            isActive ? 'ring-1 opacity-100' : 'opacity-50 hover:opacity-75'
-                          }`}
-                          style={{
-                            borderColor: isActive ? item.colors.border : 'transparent',
-                            boxShadow: isActive ? `0 0 5px ${item.colors.border}` : 'none',
-                          }}
-                        >
-                          {loadingDetails && isActive ? (
-                            <div className="w-full h-full bg-[var(--gs-dark-2)] animate-pulse" />
-                          ) : nft.image ? (
-                            <Image
-                              src={nft.image}
-                              alt={`${nft.name} #${item.mintNumber}`}
-                              fill
-                              className="object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-[var(--gs-dark-2)] text-gray-600 text-xs">
-                              No Image
-                            </div>
-                          )}
-                          {/* Mint badge */}
-                          <div
-                            className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white"
-                            style={{ backgroundColor: isActive ? item.colors.primary : 'rgba(0,0,0,0.7)' }}
-                          >
-                            #{item.mintNumber}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  // Single image - responsive: 180px on small screens, 220px otherwise
-                  <div className="relative mx-auto max-h-[180px] sm:max-h-[220px]">
-                    <div
-                      className="relative aspect-square rounded-xl overflow-hidden mx-auto max-h-[180px] sm:max-h-[220px] max-w-[180px] sm:max-w-[220px]"
-                      style={{
-                        border: `1px solid ${activeItem?.colors.border}`,
-                        boxShadow: `0 0 5px ${activeItem?.colors.border}`,
-                      }}
-                    >
-                      {loadingDetails ? (
-                        <div className="w-full h-full bg-[var(--gs-dark-2)] animate-pulse" />
-                      ) : nft.image ? (
-                        <Image
-                          src={nft.image}
-                          alt={nft.name}
-                          fill
-                          className="object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-[var(--gs-dark-2)] text-gray-600">
-                          No Image
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Metadata below image */}
-                <div className="text-center">
-                  <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-white">{nft.name}</h3>
-                  {/* Subtitle: description if available, otherwise collection name */}
-                  {(() => {
-                    const descriptionText = (nft?.description ?? '').trim();
-                    const subtitle = descriptionText.length > 0 ? descriptionText : nft.collection;
-                    return (
-                      <p className="text-sm text-white/60 leading-snug line-clamp-2 mt-0.5">
-                        {subtitle}
-                      </p>
-                    );
-                  })()}
-                  <p className="text-[11px] text-white/60 mt-1">
-                    Chain: {getChainDisplayName(nft.chain)}
-                  </p>
-                  {nft.typeSpec?.Item?.rarity && (
-                    <TierBadge tier={getFunctionalTier(nft)} className="mt-2" />
-                  )}
-                  {/* Inline trait pills */}
-                  <NFTDetailTraitPills
-                    mintNumber={activeItem?.mintNumber}
-                    rarity={filteredTraits['Rarity']}
-                    itemClass={filteredTraits['Class']}
-                    platform={filteredTraits['Platform']}
-                  />
-                </div>
-              </div>
-
-              {/* ===== 2.25) Quick Stats Row ===== */}
-              {walletAddress && costBasisGun !== null && (
-                <NFTDetailQuickStats
-                  costBasisGun={costBasisGun}
-                  costBasisUsd={currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null}
-                  marketValueGun={marketInputs.ref}
-                  marketValueUsd={marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null}
-                  unrealizedUsd={(() => {
-                    const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
-                    const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
-                    if (costUsd === null || marketUsd === null) return null;
-                    return marketUsd - costUsd;
-                  })()}
-                  unrealizedPct={(() => {
-                    const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
-                    const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
-                    if (costUsd === null || marketUsd === null || costUsd <= 0) return null;
-                    return ((marketUsd - costUsd) / costUsd) * 100;
-                  })()}
-                  isLoading={loadingDetails}
-                />
-              )}
-
-              {/* ===== 2.5) YOUR POSITION Section ===== */}
-              {walletAddress && costBasisGun !== null && (() => {
-                // Compute USD values for position tracking
-                const costBasisUsdAtAcquisition = currentPurchaseData?.purchasePriceUsd
-                  ?? currentPurchaseData?.decodeCostUsd
-                  ?? currentResolvedAcquisition?.costUsd
-                  ?? null;
-
-                const currentValueUsd = costBasisGun !== null && currentGunPrice !== null
-                  ? costBasisGun * currentGunPrice
-                  : null;
-
-                const unrealizedUsd = (currentValueUsd !== null && costBasisUsdAtAcquisition !== null)
-                  ? currentValueUsd - costBasisUsdAtAcquisition
-                  : null;
-
-                const unrealizedPct = (unrealizedUsd !== null && costBasisUsdAtAcquisition !== null && costBasisUsdAtAcquisition > 0)
-                  ? (unrealizedUsd / costBasisUsdAtAcquisition) * 100
-                  : null;
-
-                // Status pill based on acquisition type
-                const acquisitionType = currentResolvedAcquisition?.acquisitionType;
-                const getStatusPill = () => {
-                  if (acquisitionType === 'MINT') {
-                    return { text: 'Decoded', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
-                  }
-                  if (acquisitionType === 'PURCHASE') {
-                    return { text: 'Acquired', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
-                  }
-                  if (acquisitionType === 'TRANSFER') {
-                    return { text: 'Transferred', style: 'bg-white/10 text-white/60' };
-                  }
-                  return null;
-                };
-
-                const statusPill = getStatusPill();
-
-                // Unrealized line color
-                const getUnrealizedColor = () => {
-                  if (unrealizedUsd === null) return 'text-white/60';
-                  if (unrealizedUsd > 0.01) return 'text-[var(--gs-lime)]';
-                  if (unrealizedUsd < -0.01) return 'text-[var(--gs-loss)]';
-                  return 'text-white/60';
-                };
-
-                // Format unrealized display
-                const formatUnrealized = () => {
-                  if (unrealizedUsd === null || unrealizedPct === null) return null;
-                  const sign = unrealizedUsd >= 0 ? '+' : '';
-                  const usdStr = `${sign}$${Math.abs(unrealizedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                  const pctStr = `(${sign}${unrealizedPct.toFixed(1)}%)`;
-                  return `${usdStr} ${pctStr}`;
-                };
-
-                return (
-                  <div
-                    className="rounded-xl p-4 animate-[fade-in-up_0.4s_ease-out_0.1s_both]"
-                    style={{ backgroundColor: 'rgba(166, 247, 0, 0.06)' }}
-                  >
-                    {/* Header row: YOUR POSITION + Status pill */}
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-mono text-[10px] font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                        Your Position
-                      </p>
-                      {/* Status pill */}
-                      {statusPill && (
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusPill.style}`}>
-                          {statusPill.text}
-                        </span>
-                      )}
-                    </div>
-
-                    {loadingDetails ? (
-                      // Loading skeleton - brand shimmer
-                      <div className="space-y-2">
-                        <div className="h-8 w-28 bg-gradient-to-r from-white/5 via-white/10 to-white/5 bg-[length:200%_100%] rounded animate-shimmer" />
-                        <div className="h-4 w-36 bg-gradient-to-r from-white/5 via-white/10 to-white/5 bg-[length:200%_100%] rounded animate-shimmer [animation-delay:0.1s]" />
-                        <div className="h-4 w-32 bg-gradient-to-r from-white/5 via-white/10 to-white/5 bg-[length:200%_100%] rounded animate-shimmer [animation-delay:0.2s]" />
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        {/* Current USD value */}
-                        <p className="font-display text-[26px] font-bold text-white tabular-nums">
-                          {currentValueUsd !== null
-                            ? `$${currentValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : '—'}
-                        </p>
-
-                        {/* Cost basis in GUN */}
-                        <p className="text-[13px] text-white/70">
-                          Cost basis: {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
-                        </p>
-
-                        {/* USD at acquisition */}
-                        {costBasisUsdAtAcquisition !== null && (
-                          <p className="text-[13px] text-white/60">
-                            At acquisition: ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        )}
-
-                        {/* Unrealized P&L */}
-                        {formatUnrealized() && (
-                          <p className={`text-[13px] ${getUnrealizedColor()}`}>
-                            Unrealized (GUN): {formatUnrealized()}
-                          </p>
-                        )}
-
-                        {/* Explanation text */}
-                        <p className="text-[11px] text-white/60 mt-2 leading-relaxed">
-                          Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
-                        </p>
-
-                        {/* Acquisition Summary - inline, not hidden */}
-                        {(currentPurchaseData?.acquisitionVenue || currentPurchaseData?.purchaseDate) && (
-                          <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
-                            {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] uppercase tracking-wider text-white/60">Source</span>
-                                <span className={`text-[13px] font-medium ${
-                                  currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
-                                  currentPurchaseData.acquisitionVenue === 'otg_marketplace' ? 'text-[var(--gs-purple)]' :
-                                  currentPurchaseData.acquisitionVenue === 'decode' || currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-[var(--gs-lime)]' :
-                                  'text-white/90'
-                                }`}>
-                                  {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0)}
-                                </span>
-                              </div>
-                            )}
-                            {currentPurchaseData?.purchaseDate && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] uppercase tracking-wider text-white/60">Acquired</span>
-                                <span className="text-[13px] font-medium text-white/90 tabular-nums">
-                                  {formatDate(currentPurchaseData.purchaseDate)}
-                                </span>
-                              </div>
-                            )}
-                            {/* Transaction link */}
-                            {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] uppercase tracking-wider text-white/60">Transaction</span>
-                                <a
-                                  href={gunzExplorerTxUrl(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash || '')}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-[13px] font-medium text-[var(--gs-lime)] hover:text-[var(--gs-purple)] transition inline-flex items-center gap-1"
-                                >
-                                  View
-                                  <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                  </svg>
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* ===== 3) ValueHeroSection ===== */}
-              {walletAddress && (() => {
-                // Compute position label using canonical sources (costBasisGun + marketInputs)
-                const positionLabel = getPositionLabel({
-                  acquisitionPriceGun: costBasisGun,
-                  marketRefGun: marketInputs.ref,
-                  dataQuality: marketInputs.dataQuality,
-                });
-
-                // Position pill styling based on state
-                const getPositionPillStyles = () => {
-                  switch (positionLabel.state) {
-                    case 'UP':
-                      return 'bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20';
-                    case 'DOWN':
-                      return 'bg-[var(--gs-loss)]/10 text-[var(--gs-loss)] border border-[var(--gs-loss)]/20';
-                    case 'FLAT':
-                      return 'bg-white/5 text-white/70 border border-white/10';
-                    default:
-                      return 'bg-transparent text-white/60 border border-white/10';
-                  }
-                };
-
-                // Position pill text
-                const getPositionPillText = () => {
-                  switch (positionLabel.state) {
-                    case 'UP': return 'Up';
-                    case 'DOWN': return 'Down';
-                    case 'FLAT': return 'Flat';
-                    case 'NO_COST_BASIS': return 'No cost basis';
-                    case 'NO_MARKET_REF': return 'No market reference';
-                  }
-                };
-
-                // Position pill icon
-                const getPositionIcon = () => {
-                  switch (positionLabel.state) {
-                    case 'UP':
-                      return <span className="text-[10px]">↗</span>;
-                    case 'DOWN':
-                      return <span className="text-[10px]">↘</span>;
-                    case 'FLAT':
-                      return <span className="text-[10px]">–</span>;
-                    default:
-                      return <span className="text-[10px]">•</span>;
-                  }
-                };
-
-                // Tooltip text
-                const getTooltipText = () => {
-                  if (positionLabel.state === 'NO_COST_BASIS') {
-                    return "We can't compute your position without an acquisition cost.";
-                  }
-                  if (positionLabel.state === 'NO_MARKET_REF') {
-                    return "No active listings found. Market reference may be unavailable in illiquid markets.";
-                  }
-                  let tooltip = "Based on observed listings (low–high). Illiquid markets can be noisy.";
-                  if (positionLabel.dataQuality) {
-                    tooltip += ` Data quality: ${positionLabel.dataQuality.charAt(0).toUpperCase() + positionLabel.dataQuality.slice(1)} (based on price spread).`;
-                  }
-                  return tooltip;
-                };
-
-                return (
-                  <div
-                    className="rounded-xl p-4 animate-[fade-in-up_0.4s_ease-out_0.15s_both]"
-                    style={{ backgroundColor: 'rgba(166, 247, 0, 0.06)' }}
-                  >
-                    {/* Header row: Market Reference + Position pill */}
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-mono text-[10px] font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                        Market Reference
-                      </p>
-                      {/* Position pill */}
-                      <div
-                        role="status"
-                        aria-label={`Position: ${getPositionPillText()}`}
-                        className={`h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 cursor-help ${getPositionPillStyles()}`}
-                        title={getTooltipText()}
-                      >
-                        {getPositionIcon()}
-                        {getPositionPillText()}
-                      </div>
-                    </div>
-
-                    {loadingDetails ? (
-                      // Loading skeleton
-                      <div className="space-y-2">
-                        <div className="h-7 w-32 bg-white/10 rounded animate-pulse" />
-                        <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
-                        <div className="h-3 w-40 bg-white/10 rounded animate-pulse" />
-                      </div>
-                    ) : marketRef.hasMarketData ? (
-                      <div className="space-y-1">
-                        <p className="font-display text-[22px] font-semibold text-white tabular-nums">
-                          ≈ ${marketRef.usdValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'} USD
-                        </p>
-                        <p className="text-[13px] font-medium text-white/85">
-                          ≈ {marketRef.gunValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
-                        </p>
-                        {/* Unrealized P/L percent line */}
-                        {positionLabel.pnlPct !== null && (
-                          <p className={`text-xs ${
-                            positionLabel.state === 'UP' ? 'text-[var(--gs-lime)]' :
-                            positionLabel.state === 'DOWN' ? 'text-[var(--gs-loss)]' :
-                            'text-white/70'
-                          }`}>
-                            Unrealized: {positionLabel.pnlPct >= 0 ? '+' : ''}{(positionLabel.pnlPct * 100).toFixed(1)}%
-                          </p>
-                        )}
-                        {/* Data Quality - neutral styling, spread-based only */}
-                        {positionLabel.dataQuality && (
-                          <p
-                            className="text-[11px] text-white/60 mt-2 inline-flex items-center gap-1 cursor-help"
-                            title="Based on observed price range only. Listings are sparse and may not reflect actual sale prices."
-                          >
-                            Data Quality:{' '}
-                            <span className="capitalize">{positionLabel.dataQuality}</span>
-                            <svg className="w-3 h-3 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      // No market data state
-                      <div className="space-y-1">
-                        <p className="text-base font-medium text-white/85">No active listings found</p>
-                        <p className="text-xs text-white/60">
-                          This is an illiquid market; reference values may be unavailable.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* ===== 4) MarketReferenceSection (Observed Range Visualization) ===== */}
-              <div className="animate-[fade-in-up_0.4s_ease-out_0.2s_both]">
-                <NFTDetailObservedMarketRange
-                  show={!!walletAddress}
-                  loading={loadingDetails}
-                  marketInputs={marketInputs}
-                  costBasisGun={costBasisGun}
-                  getPositionOnRange={getPositionOnRange}
-                  listingsStatus={listingsStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
-                  listingsError={listingsErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
-                />
-              </div>
-
-              {/* Armory Tab - only for modifiable weapons */}
-              {weaponLabEligible && (
-                <button
-                  onClick={() => setIsWeaponLabOpen(true)}
-                  className="mt-4 w-full px-4 py-3 rounded-lg
-                    bg-[#64ffff]/10 border border-[#64ffff]/30
-                    text-sm font-medium text-[#64ffff]
-                    hover:bg-[#64ffff]/20 transition-colors
-                    flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                  </svg>
-                  Open Weapon Lab
-                </button>
-              )}
-
-              {/* Locked Weapon Indicator */}
-              {isLockedWeapon && (
-                <div className="mt-4">
-                  <LockedWeaponIndicator />
-                </div>
-              )}
-
-              {/* ===== Debug Section (only visible with ?debugNft=1) ===== */}
-              <NFTDetailDebugPanel
-                show={debugMode}
-                expanded={debugExpanded}
-                copied={debugCopied}
-                debugData={debugData}
-                metadataDebug={nft?.metadataDebug as MetadataDebugData | undefined}
-                currentPurchaseDataJson={JSON.stringify({
-                  priceSource: currentPurchaseData?.priceSource ?? 'none',
-                  acquisitionVenue: currentPurchaseData?.acquisitionVenue ?? null,
-                  acquiredAt: toIsoStringSafe(currentPurchaseData?.acquiredAt) ?? null,
-                  fromAddress: currentPurchaseData?.fromAddress ?? null,
-                  acquisitionType: currentPurchaseData?.acquisitionType ?? null,
-                  acquisitionTxHash: currentPurchaseData?.acquisitionTxHash ?? null,
-                  purchasePriceGun: currentPurchaseData?.purchasePriceGun ?? null,
-                  purchasePriceUsd: currentPurchaseData?.purchasePriceUsd ?? null,
-                  purchaseDate: toIsoStringSafe(currentPurchaseData?.purchaseDate) ?? null,
-                  marketplaceTxHash: currentPurchaseData?.marketplaceTxHash ?? null,
-                  decodeCostGun: currentPurchaseData?.decodeCostGun ?? null,
-                  decodeCostUsd: currentPurchaseData?.decodeCostUsd ?? null,
-                  transferredFrom: currentPurchaseData?.transferredFrom ?? null,
-                  isFreeTransfer: currentPurchaseData?.isFreeTransfer ?? null,
-                }, null, 2)}
-                currentResolvedAcquisition={currentResolvedAcquisition as ResolvedAcquisitionData | undefined}
-                holdingAcquisitionRaw={holdingAcquisitionRaw as HoldingAcquisitionData | null}
-                currentGunPrice={currentGunPrice}
-                listingsDataJson={JSON.stringify(listingsData, null, 2)}
-                listingsStatus={listingsStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
-                listingsError={listingsErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
-                holdingAcqStatus={holdingAcqStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
-                holdingAcqError={holdingAcqErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
-                listingsMapSize={Object.keys(listingsStatusByTokenId).length}
-                holdingAcqMapSize={Object.keys(holdingAcqStatusByTokenId).length}
-                onToggleExpanded={() => setDebugExpanded(v => !v)}
-                onCopyDebugData={() => handleCopyDebugData({
-                  nft,
-                  activeTokenId: activeItem?.tokenId,
-                  currentPurchaseData,
-                  currentResolvedAcquisition,
-                  holdingAcquisitionRaw,
-                  currentGunPrice,
-                  listingsData,
-                })}
-                toIsoStringSafe={toIsoStringSafe}
-              />
-            </div>
-          </div>
-
-          {/* ===== 6) ModalFooter ===== */}
-          <div className="h-14 flex-shrink-0 flex items-center justify-center px-4 border-t border-white/[0.06]">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close modal"
-              className="w-full h-10 bg-white/10 hover:bg-white/15 text-white font-medium rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gs-lime)]/50"
-            >
-              Close
-            </button>
-          </div>
-
-        </div>
-
-          {/* Enter Armory Button - positioned outside modal overflow */}
-          {hasRelatedItems && (
-            <button
-              onClick={() => setRelatedItemsExpanded(!relatedItemsExpanded)}
-              className={`relative self-start mt-[140px] w-10 h-32 bg-gradient-to-r from-[#1a1a1a] to-[#252525] border border-l-0 border-white/20 rounded-r-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-[#64ffff] hover:border-[#64ffff]/50 transition-all duration-300 z-10 group ${
-                relatedItemsExpanded ? 'opacity-0 pointer-events-none w-0 overflow-hidden' : 'opacity-100 hover:translate-x-1'
-              }`}
-              title={`Armory - ${relatedItems.length} modifications available`}
-            >
-              {/* Vertical "ARMORY" text */}
-              <span
-                className="text-[9px] font-bold tracking-widest uppercase text-gray-500 group-hover:text-[#64ffff] transition-colors whitespace-nowrap"
-                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-              >
-                ARMORY
-              </span>
-              {/* Animated arrow */}
-              <svg
-                className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              {/* Item count badge */}
-              <span className="absolute -top-2 -right-1 w-5 h-5 bg-[#64ffff] text-black text-[10px] font-bold rounded-full flex items-center justify-center">
-                {relatedItems.length}
-              </span>
-            </button>
-          )}
-
-          {/* ===== Weapon Lab Panel ===== */}
-          {hasRelatedItems && (
-            <div
-              className={`relative max-h-[85vh] bg-[var(--gs-dark-1)] rounded-r-2xl overflow-hidden flex flex-col transform transition-all duration-300 origin-left ${
-                relatedItemsExpanded
-                  ? 'w-[320px] opacity-100 scale-x-100'
-                  : 'w-0 opacity-0 scale-x-0'
-              }`}
-              style={{
-                boxShadow: relatedItemsExpanded ? '0 25px 50px -12px rgba(0, 0, 0, 0.8)' : 'none',
-              }}
-            >
-              {/* Panel Header */}
-              <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.06]">
-                <h3 className="text-sm font-semibold text-white">
-                  Weapon Lab
-                </h3>
-                <button
-                  onClick={() => setRelatedItemsExpanded(false)}
-                  className="text-gray-400 hover:text-white transition p-1 rounded hover:bg-white/5 flex items-center gap-1 text-xs"
-                  title="Exit Armory"
-                >
-                  <span className="text-[10px] text-gray-500">Exit Armory</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Panel Content */}
-              <div className="flex-1 overflow-y-auto scrollbar-premium">
-                {/* Available Modifications Section */}
-                <div className="p-3">
-                  <h4 className="text-xs font-semibold text-[#64ffff] uppercase tracking-wider mb-2">
-                    Available Modifications
-                  </h4>
-                  <div className="space-y-2">
-                    {relatedItems.map((item) => {
-                      const itemColors = getRarityColorForNft(item);
-                      const itemRarity = item.traits?.['RARITY'] || item.traits?.['Rarity'] || 'Unknown';
-                      const itemClass = item.traits?.['CLASS'] || item.traits?.['Class'] || '';
-                      const quantity = item.quantity || 1;
-
-                      return (
-                        <div
-                          key={item.tokenId}
-                          className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition cursor-pointer"
-                          style={{
-                            borderLeft: `3px solid ${itemColors.primary}`,
-                          }}
-                        >
-                          {/* Thumbnail */}
-                          <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-black/50">
-                            {item.image ? (
-                              <Image
-                                src={item.image}
-                                alt={item.name}
-                                width={48}
-                                height={48}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Item Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate" title={item.name}>
-                              {item.name}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span
-                                className="text-[10px] font-semibold uppercase"
-                                style={{ color: itemColors.primary }}
-                              >
-                                {itemRarity}
-                              </span>
-                              <span className="text-[10px] text-gray-500">
-                                {itemClass === 'Weapon Skin' ? 'Skin' : itemClass}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Quantity Badge */}
-                          {quantity > 1 && (
-                            <div className="flex-shrink-0 px-2 py-0.5 bg-[#96aaff]/20 text-[#96aaff] text-xs font-semibold rounded">
-                              ×{quantity}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Weapon Prototypes Section */}
-                <div className="p-3 border-t border-white/[0.08]">
-                  <h4 className="text-xs font-semibold text-[#96aaff] uppercase tracking-wider mb-1">
-                    Weapon Prototypes
-                  </h4>
-                  <p className="text-[10px] text-gray-500 mb-3">
-                    Configure, upgrade, and prototype weapons
-                  </p>
-                  <div className="flex items-center justify-center py-6 text-gray-600 text-xs">
-                    <span className="text-center">Coming soon</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Panel Footer with summary */}
-              <div className="flex-shrink-0 px-4 py-2 border-t border-white/[0.06] text-xs text-gray-500">
-                {(() => {
-                  const skins = relatedItems.filter(i => (i.traits?.['CLASS'] || i.traits?.['Class']) === 'Weapon Skin');
-                  const accessories = relatedItems.filter(i => (i.traits?.['CLASS'] || i.traits?.['Class']) === 'Accessory');
-                  const parts = [];
-                  if (skins.length > 0) parts.push(`${skins.length} skin${skins.length > 1 ? 's' : ''}`);
-                  if (accessories.length > 0) parts.push(`${accessories.length} attachment${accessories.length > 1 ? 's' : ''}`);
-                  return parts.join(', ') || 'No modifications';
-                })()}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Weapon Lab Drawer */}
-      {nft && weaponLabEligible && (
-        <WeaponLabDrawer
-          isOpen={isWeaponLabOpen}
-          onClose={() => setIsWeaponLabOpen(false)}
-          weapon={nft}
-          inventory={allNfts || []}
-        />
-      )}
-    </>
-  );
 }
