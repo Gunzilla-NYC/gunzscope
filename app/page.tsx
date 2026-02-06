@@ -329,7 +329,7 @@ export default function HomePage() {
           {/* Subtitle */}
           <p className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-[560px] mb-10 animate-fade-in-up delay-200">
             Track, analyze, and dominate your <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> NFT portfolio.
-            Real-time P&L, acquisition tracking, and weapon intelligence across{' '}
+            Real&#8209;time P&L, acquisition tracking, and weapon intelligence across{' '}
             <strong className="text-[var(--gs-white)] font-medium">GunzChain</strong> and{' '}
             <strong className="text-[var(--gs-white)] font-medium">Solana</strong>.
           </p>
