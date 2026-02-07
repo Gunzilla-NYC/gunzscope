@@ -41,6 +41,7 @@ export interface UseNFTEnrichmentResult {
     updateCallback: (enrichedNFTs: NFT[]) => void
   ) => void;
   cancelEnrichment: () => void;
+  retryEnrichment: () => void;
 }
 
 // =============================================================================
@@ -83,6 +84,15 @@ export function useNFTEnrichmentOrchestrator(
 
   // Cancellation ref
   const cancelledRef = useRef(false);
+
+  // Store last enrichment args for retry
+  const lastArgsRef = useRef<{
+    nfts: NFT[];
+    walletAddress: string;
+    avalancheService: AvalancheService;
+    marketplaceService: GameMarketplaceService | null;
+    updateCallback: (enrichedNFTs: NFT[]) => void;
+  } | null>(null);
 
   /**
    * Enrich a single NFT with caching.
@@ -269,6 +279,9 @@ export function useNFTEnrichmentOrchestrator(
   ) => {
     if (!enabled || nfts.length === 0) return;
 
+    // Store args for retry
+    lastArgsRef.current = { nfts, walletAddress, avalancheService, marketplaceService, updateCallback };
+
     cancelledRef.current = false;
     setIsEnriching(true);
 
@@ -307,7 +320,7 @@ export function useNFTEnrichmentOrchestrator(
       });
 
       if (nftsNeedingEnrichment.length === 0) {
-        setProgress({ completed: 0, total: 0, phase: 'complete' });
+        setProgress({ completed: 0, total: 0, phase: 'complete', failedCount: 0 });
         setIsEnriching(false);
         return;
       }
@@ -325,9 +338,10 @@ export function useNFTEnrichmentOrchestrator(
       });
       const orderedNftsToEnrich = [...priorityNfts, ...remainingNfts];
 
-      setProgress({ completed: 0, total: orderedNftsToEnrich.length, phase: 'enriching' });
+      setProgress({ completed: 0, total: orderedNftsToEnrich.length, phase: 'enriching', failedCount: 0 });
 
       // Process in batches
+      let failedCount = 0;
       const enrichedResults = new Map<string, NFT>();
       nftsWithCache.forEach(nft => {
         const key = nft.tokenIds?.[0] || nft.tokenId;
@@ -342,9 +356,22 @@ export function useNFTEnrichmentOrchestrator(
           batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService))
         );
 
-        batchResults.forEach(enrichedNFT => {
+        // Track failures: compare input vs output for each NFT in batch
+        batchResults.forEach((enrichedNFT, idx) => {
           const key = enrichedNFT.tokenIds?.[0] || enrichedNFT.tokenId;
           enrichedResults.set(key, enrichedNFT);
+          // If enrichment didn't add acquisition data, count as failed
+          const original = batch[idx];
+          const gainedData = (
+            enrichedNFT.purchasePriceGun !== undefined && enrichedNFT.purchasePriceGun !== original.purchasePriceGun
+          ) || (
+            enrichedNFT.purchaseDate !== undefined && enrichedNFT.purchaseDate !== original.purchaseDate
+          ) || (
+            enrichedNFT.acquisitionVenue !== undefined && enrichedNFT.acquisitionVenue !== original.acquisitionVenue
+          );
+          if (!gainedData) {
+            failedCount++;
+          }
         });
 
         if (!cancelledRef.current) {
@@ -356,7 +383,7 @@ export function useNFTEnrichmentOrchestrator(
           setEnrichedNFTs(updatedNFTs);
 
           const completedCount = Math.min(i + batchSize, orderedNftsToEnrich.length);
-          setProgress({ completed: completedCount, total: orderedNftsToEnrich.length, phase: 'enriching' });
+          setProgress({ completed: completedCount, total: orderedNftsToEnrich.length, phase: 'enriching', failedCount });
         }
 
         if (i + batchSize < orderedNftsToEnrich.length && !cancelledRef.current) {
@@ -364,7 +391,7 @@ export function useNFTEnrichmentOrchestrator(
         }
       }
 
-      setProgress({ completed: orderedNftsToEnrich.length, total: orderedNftsToEnrich.length, phase: 'complete' });
+      setProgress({ completed: orderedNftsToEnrich.length, total: orderedNftsToEnrich.length, phase: 'complete', failedCount });
       setIsEnriching(false);
     } catch (error) {
       console.error('[NFT Enrichment] Error:', error);
@@ -381,6 +408,15 @@ export function useNFTEnrichmentOrchestrator(
     setProgress(null);
   }, []);
 
+  /**
+   * Retry enrichment using the last arguments.
+   */
+  const retryEnrichment = useCallback(() => {
+    const args = lastArgsRef.current;
+    if (!args) return;
+    startEnrichment(args.nfts, args.walletAddress, args.avalancheService, args.marketplaceService, args.updateCallback);
+  }, [startEnrichment]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -394,5 +430,6 @@ export function useNFTEnrichmentOrchestrator(
     isEnriching,
     startEnrichment,
     cancelEnrichment,
+    retryEnrichment,
   };
 }

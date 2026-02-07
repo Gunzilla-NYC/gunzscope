@@ -49,6 +49,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
@@ -61,6 +62,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     isEnriching: enrichingNFTs,
     startEnrichment,
     cancelEnrichment,
+    retryEnrichment,
   } = useNFTEnrichmentOrchestrator();
 
   // Wallet data fetcher hook - provides fetchSingleWallet and services
@@ -87,6 +89,12 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Wallet search dropdown state
   const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
+
+  // Wallet hint dismissal
+  const [walletHintDismissed, setWalletHintDismissed] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return sessionStorage.getItem('gs_wallet_hint_dismissed') === '1';
+  });
 
   // Account gate — first search free, then require wallet connection
   const { canSearch, isGated, incrementSearch, getLastSearchedAddress } = useAccountGate();
@@ -126,6 +134,15 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       totalOwnedNftCount: nftPagination.totalOwnedCount,
     });
   }, [walletData, gunPrice, nftPagination.totalOwnedCount]);
+
+  // Phased loading messages — auto-advance while loading
+  const LOADING_MESSAGES = ['Connecting to GunzChain\u2026', 'Fetching wallet data\u2026', 'Loading NFT collection\u2026'];
+  useEffect(() => {
+    if (!loading) { setLoadingPhase(0); return; }
+    const t1 = setTimeout(() => setLoadingPhase(1), 1500);
+    const t2 = setTimeout(() => setLoadingPhase(2), 4000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [loading]);
 
   // Transition out of initializing state when we have valid NFT price data OR after timeout
   // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
@@ -625,11 +642,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   return (
     <PortfolioProvider value={contextValue}>
     <div className="min-h-screen bg-gunzscope">
-      <Navbar
-        onWalletConnect={handleWalletConnect}
-        onWalletDisconnect={handleWalletDisconnect}
-        onAccountClick={() => setIsAccountPanelOpen(true)}
-      />
+      <Navbar />
 
       {/* Account Panel */}
       <AccountPanel
@@ -666,7 +679,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   type="text"
                   value={searchAddress}
                   onChange={(e) => setSearchAddress(e.target.value)}
-                  placeholder={isGated ? 'Connect wallet to search more...' : 'Enter wallet address...'}
+                  placeholder={isGated ? 'Connect wallet to unlock unlimited tracking' : 'Enter wallet address...'}
                   disabled={isGated}
                   className="flex-1 px-5 py-4 text-base bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-l-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                 />
@@ -705,7 +718,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       {loading && (
         <div className="text-center py-24">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--gs-lime)]"></div>
-          <p className="mt-4 text-[var(--gs-gray-4)]">Loading wallet data...</p>
+          <p className="mt-4 text-[var(--gs-gray-4)]">{LOADING_MESSAGES[loadingPhase]}</p>
         </div>
       )}
 
@@ -785,7 +798,42 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               gunPrice={gunPrice}
               nfts={walletData.avalanche.nfts}
               isInitializing={isPortfolioInitializing}
+              enrichmentProgress={enrichmentProgress}
+              onRetryEnrichment={retryEnrichment}
             />
+
+            {/* Cross-sell: leaderboard */}
+            {searchAddress && (
+              <div className="flex items-center px-4 py-2 border border-white/[0.06] bg-[var(--gs-dark-2)]">
+                <Link
+                  href={`/leaderboard?address=${searchAddress}`}
+                  className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+                >
+                  See your rank on the Leaderboard {'\u2192'}
+                </Link>
+              </div>
+            )}
+
+            {/* Wallet hint — shown to connected users with < 2 portfolio wallets */}
+            {isConnected && portfolioAddresses.length < 2 && !walletHintDismissed && (
+              <div className="flex items-center justify-between px-4 py-2.5 border border-white/[0.06] bg-[var(--gs-dark-2)]">
+                <p className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)]">
+                  Track up to 5 wallets in one view{' \u2192 '}
+                  <Link href="/account" className="text-[var(--gs-lime)] hover:underline">
+                    Manage Wallets
+                  </Link>
+                </p>
+                <button
+                  onClick={() => { setWalletHintDismissed(true); sessionStorage.setItem('gs_wallet_hint_dismissed', '1'); }}
+                  className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer ml-4"
+                  aria-label="Dismiss"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
 
             <NFTGallery
               nfts={walletData.avalanche.nfts}

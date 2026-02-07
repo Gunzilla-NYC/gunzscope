@@ -133,6 +133,7 @@ export interface EnrichmentProgress {
   completed: number;           // Number of NFTs enriched so far
   total: number;               // Total NFTs needing enrichment
   phase: 'cache' | 'enriching' | 'complete';  // Current enrichment phase
+  failedCount: number;         // Number of NFTs that failed enrichment
 }
 
 // =============================================================================

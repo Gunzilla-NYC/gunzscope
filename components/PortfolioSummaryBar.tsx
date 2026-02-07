@@ -1,16 +1,19 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { NFT } from '@/lib/types';
+import { NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult, formatUsd } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
+import InfoTooltip from '@/components/ui/InfoTooltip';
 
 interface PortfolioSummaryBarProps {
   portfolioResult: PortfolioCalcResult | null;
   gunPrice: number | undefined;
   nfts: NFT[];
   isInitializing?: boolean;
+  enrichmentProgress?: EnrichmentProgress | null;
+  onRetryEnrichment?: () => void;
 }
 
 export default function PortfolioSummaryBar({
@@ -18,6 +21,8 @@ export default function PortfolioSummaryBar({
   gunPrice,
   nfts,
   isInitializing = false,
+  enrichmentProgress,
+  onRetryEnrichment,
 }: PortfolioSummaryBarProps) {
   // Calculate NFT-based P&L from floor prices
   const nftPnL = useMemo(() => {
@@ -51,7 +56,7 @@ export default function PortfolioSummaryBar({
 
   // Calculate total portfolio P&L percentage
   const totalPnLPct = useMemo(() => {
-    if (!portfolioResult || !nftPnL.pct) return null;
+    if (!portfolioResult || nftPnL.pct === null) return null;
 
     // Simple approach: use NFT P&L as the overall P&L indicator
     // (GUN tokens don't have a "cost basis" to compare against)
@@ -62,7 +67,6 @@ export default function PortfolioSummaryBar({
   const totalValue = portfolioResult?.totalUsd ?? 0;
   const gunHoldings = portfolioResult?.totalGunBalance ?? 0;
   const gunValue = portfolioResult?.tokensUsd ?? 0;
-  const nftValue = portfolioResult?.nftsUsd ?? 0;
   const totalGunSpent = portfolioResult?.totalGunSpent ?? 0;
   const nftCount = portfolioResult?.nftCount ?? nfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
 
@@ -95,8 +99,19 @@ export default function PortfolioSummaryBar({
     return total > 0 ? total : null;
   }, [nfts]);
 
-  const isProfit = totalPnLPct !== null && totalPnLPct > 1;
-  const isLoss = totalPnLPct !== null && totalPnLPct < -1;
+  // NFT floor value in USD from portfolio calculation
+  const nftFloorValueUsd = portfolioResult?.nftsUsd ?? null;
+
+  // Enrichment progress helpers
+  const isEnriching = enrichmentProgress?.phase === 'enriching';
+  const isEnrichmentComplete = enrichmentProgress?.phase === 'complete';
+  const hasFailures = isEnrichmentComplete && (enrichmentProgress?.failedCount ?? 0) > 0;
+  const progressPct = enrichmentProgress && enrichmentProgress.total > 0
+    ? Math.round((enrichmentProgress.completed / enrichmentProgress.total) * 100)
+    : null;
+
+  const isProfit = totalPnLPct !== null && totalPnLPct > 0.01;
+  const isLoss = totalPnLPct !== null && totalPnLPct < -0.01;
 
   if (!portfolioResult) return null;
 
@@ -121,7 +136,7 @@ export default function PortfolioSummaryBar({
               <span className="font-display text-4xl font-bold text-[var(--gs-gray-3)]">
                 Calculating
               </span>
-              {/* Branded gradient loading bar */}
+              {/* Loading bar */}
               <div
                 className="h-[3px] w-48 bg-[var(--gs-dark-4)] overflow-hidden"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))' }}
@@ -140,7 +155,7 @@ export default function PortfolioSummaryBar({
         </div>
 
         {/* P&L Badge */}
-        {totalPnLPct !== null && !isInitializing && (
+        {totalPnLPct !== null && !isInitializing ? (
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 border ${
               isProfit
@@ -165,7 +180,30 @@ export default function PortfolioSummaryBar({
               {totalPnLPct >= 0 ? '+' : ''}{totalPnLPct.toFixed(1)}%
             </span>
           </div>
-        )}
+        ) : portfolioResult && !isInitializing ? (
+          <div
+            className={`flex items-center gap-1.5 px-3 py-1.5 border bg-white/5 ${hasFailures ? 'border-[var(--gs-loss)]/20' : 'border-white/10'}`}
+            style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+          >
+            {hasFailures ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-loss)]" />
+                <span className="font-mono text-[11px] text-[var(--gs-loss)] tabular-nums">
+                  {enrichmentProgress!.failedCount} failed
+                </span>
+              </>
+            ) : (
+              <>
+                <span className={`w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] ${isEnrichmentComplete ? '' : 'animate-pulse'}`} />
+                <span className="font-mono text-[11px] text-[var(--gs-gray-3)] tabular-nums">
+                  {isEnriching && enrichmentProgress && enrichmentProgress.total > 0
+                    ? `${enrichmentProgress.completed}/${enrichmentProgress.total}`
+                    : isEnrichmentComplete ? 'No cost data' : 'Analyzing'}
+                </span>
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Stats Grid */}
@@ -191,8 +229,9 @@ export default function PortfolioSummaryBar({
             onMouseEnter={handleGunMouseEnter}
             onMouseLeave={handleGunMouseLeave}
           >
-            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
+            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1 flex items-center gap-1.5">
               GUN Balance Today
+              <InfoTooltip text="GUN tokens held in this wallet. Hover to see USD value at current price." />
             </p>
             <div className="relative h-[52px] overflow-hidden">
               {/* Default: Token count */}
@@ -227,13 +266,14 @@ export default function PortfolioSummaryBar({
           {/* NFT Holdings - Interactive hover reveal */}
           <div
             className={`p-4 border-r border-white/[0.06] stat-cell-animate cursor-pointer transition-all duration-200 ${
-              nftHovered ? 'bg-[var(--gs-purple)]/5' : ''
+              nftHovered ? 'bg-white/[0.02]' : ''
             }`}
             onMouseEnter={handleNftMouseEnter}
             onMouseLeave={handleNftMouseLeave}
           >
-            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
+            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1 flex items-center gap-1.5">
               NFT Holdings
+              <InfoTooltip text="Total Off The Grid items owned. Hover to see floor value in USD, GUN spent, and P&L." />
             </p>
             <div className="relative h-[52px] overflow-hidden">
               {/* Default: NFT count */}
@@ -249,41 +289,40 @@ export default function PortfolioSummaryBar({
                   items
                 </p>
               </div>
-              {/* Hover: Cost basis */}
+              {/* Hover: Floor value + spent + P&L */}
               <div
                 className={`absolute inset-0 transition-all duration-200 ${
                   nftHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
                 }`}
               >
-                {totalGunSpent > 0 || totalCostBasisUsd !== null ? (
-                  <>
-                    <p className="font-mono text-2xl font-semibold text-[var(--gs-purple)]">
-                      {totalGunSpent > 0
-                        ? totalGunSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })
-                        : '—'}
-                    </p>
-                    <p className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">
-                      GUN spent{totalCostBasisUsd !== null && ` · $${formatUsd(totalCostBasisUsd)}`}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-mono text-2xl font-semibold text-[var(--gs-gray-3)]">
-                      —
-                    </p>
-                    <p className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">
-                      cost basis
-                    </p>
-                  </>
-                )}
+                <p className="font-mono text-2xl font-semibold text-[var(--gs-white)]">
+                  {nftFloorValueUsd !== null ? `$${formatUsd(nftFloorValueUsd)}` : '\u2014'}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="font-mono text-[10px] text-[var(--gs-gray-4)]">
+                    {totalGunSpent > 0
+                      ? `Spent ${totalGunSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN`
+                      : 'floor value'}
+                  </p>
+                  {nftPnL.pct !== null && (
+                    <span
+                      className={`font-mono text-[10px] font-semibold ${
+                        nftPnL.pct > 0.01 ? 'text-[var(--gs-profit)]' : nftPnL.pct < -0.01 ? 'text-[var(--gs-loss)]' : 'text-[var(--gs-gray-3)]'
+                      }`}
+                    >
+                      {nftPnL.pct >= 0 ? '+' : ''}{nftPnL.pct.toFixed(1)}%
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Unrealized P&L */}
           <div className="p-4 stat-cell-animate">
-            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
+            <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)] mb-1 flex items-center gap-1.5">
               Unrealized P&L
+              <InfoTooltip text="Profit or loss if you sold all NFTs at current floor prices, compared to what you originally paid." />
             </p>
             {nftPnL.unrealizedUsd !== null ? (
               <div className="h-[52px]">
@@ -309,21 +348,50 @@ export default function PortfolioSummaryBar({
                 )}
               </div>
             ) : (
-              <div className="h-[52px] flex flex-col justify-center">
-                {/* Animated progress bar */}
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)] rounded-full animate-pulse"
-                      style={{ width: '60%' }}
-                    />
+              <div className="h-[52px] flex flex-col justify-center gap-2">
+                {isEnriching && enrichmentProgress && enrichmentProgress.total > 0 ? (
+                  <>
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-mono text-2xl font-semibold text-[var(--gs-white)] tabular-nums">
+                        {enrichmentProgress.completed}
+                      </span>
+                      <span className="font-mono text-sm text-[var(--gs-gray-3)] tabular-nums">
+                        / {enrichmentProgress.total}
+                      </span>
+                    </div>
+                    {/* Determinate progress bar — brand spec: 3px, dark-4 bg, lime→purple fill */}
+                    <div className="h-[3px] bg-[var(--gs-dark-4)] overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)] transition-all duration-300 ease-out"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                  </>
+                ) : hasFailures && onRetryEnrichment ? (
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xs text-[var(--gs-gray-3)]">
+                      {enrichmentProgress!.failedCount} items failed
+                    </span>
+                    <button
+                      onClick={onRetryEnrichment}
+                      className="font-mono text-[9px] uppercase tracking-widest border border-[var(--gs-loss)]/30 text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 px-3 py-1.5 transition-colors cursor-pointer"
+                    >
+                      Retry
+                    </button>
                   </div>
-                </div>
-                {/* Status text */}
-                <p className="font-mono text-[11px] text-[var(--gs-gray-3)] flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse" />
-                  Analyzing...
-                </p>
+                ) : isEnriching ? (
+                  <p className="font-mono text-sm text-[var(--gs-gray-3)] animate-pulse">
+                    Analyzing&hellip;
+                  </p>
+                ) : isEnrichmentComplete ? (
+                  <p className="font-mono text-xs text-[var(--gs-gray-2)]">
+                    No cost data available
+                  </p>
+                ) : (
+                  <p className="font-mono text-2xl font-semibold text-[var(--gs-gray-3)]">
+                    {'\u2014'}
+                  </p>
+                )}
               </div>
             )}
           </div>

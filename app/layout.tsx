@@ -3,6 +3,7 @@ import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import CrosshairCursor from "@/components/CrosshairCursor";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { Toaster } from "sonner";
 
 // GUNZscope Brand Fonts
@@ -51,6 +52,7 @@ export default function RootLayout({
           <div className="relative z-10">
             {children}
           </div>
+          <OnboardingChecklist />
           <Toaster
             position="top-right"
             toastOptions={{

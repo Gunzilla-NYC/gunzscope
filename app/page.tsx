@@ -73,7 +73,12 @@ export default function HomePage() {
   const [accessLoading, setAccessLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [walletChain, setWalletChain] = useState<'gunzchain' | 'solana' | null>(null);
-  const { setShowAuthFlow } = useDynamicContext();
+  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
+  // Track whether wallet was already connected on mount (don't auto-redirect on page load)
+  const wasConnectedOnMount = useRef<boolean | null>(null);
+  if (wasConnectedOnMount.current === null) {
+    wasConnectedOnMount.current = !!primaryWallet;
+  }
 
   // Text scramble effect for hero text (LayerZero style)
   const heroScramble = useTextScramble({
@@ -170,6 +175,13 @@ export default function HomePage() {
     if (!chain) return;
     router.push(`/portfolio?address=${encodeURIComponent(trimmed)}`);
   };
+
+  // Auto-redirect to portfolio when wallet connects (fresh connection only)
+  useEffect(() => {
+    if (primaryWallet?.address && !wasConnectedOnMount.current) {
+      router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+    }
+  }, [primaryWallet?.address, router]);
 
   // Social proof visibility state
   const socialProofRef = useRef<HTMLDivElement>(null);
@@ -281,7 +293,7 @@ export default function HomePage() {
           <span className="font-display font-bold text-lg tracking-wider uppercase">
             GUNZ<span className="text-[var(--gs-purple)]">scope</span>
           </span>
-          <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] border border-[var(--gs-purple)]/30">
+          <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors">
             Alpha
           </span>
         </Link>

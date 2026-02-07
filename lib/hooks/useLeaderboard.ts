@@ -22,6 +22,7 @@ export interface UseLeaderboardResult {
   sortOrder: SortOrder;
   handleSort: (field: SortField) => void;
   sortedEntries: LeaderboardEntry[];
+  refetch: () => void;
 }
 
 export function useLeaderboard(): UseLeaderboardResult {
@@ -33,23 +34,26 @@ export function useLeaderboard(): UseLeaderboardResult {
   const [sortField, setSortField] = useState<SortField>('totalPortfolioUsd');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      try {
-        const res = await fetch('/api/leaderboard');
-        if (!res.ok) throw new Error('Failed to fetch leaderboard');
-        const data = await res.json();
-        setEntries(data.entries);
-        setGunPriceUsd(data.gunPriceUsd);
-        setTotalWallets(data.totalWallets);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchLeaderboard();
+  const fetchLeaderboard = useCallback(async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/leaderboard');
+      if (!res.ok) throw new Error('Failed to fetch leaderboard');
+      const data = await res.json();
+      setEntries(data.entries);
+      setGunPriceUsd(data.gunPriceUsd);
+      setTotalWallets(data.totalWallets);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
 
   const handleSort = useCallback(
     (field: SortField) => {
@@ -84,5 +88,6 @@ export function useLeaderboard(): UseLeaderboardResult {
     sortOrder,
     handleSort,
     sortedEntries,
+    refetch: fetchLeaderboard,
   };
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { deriveCardData } from './utils';
 import type { NFTGalleryProps } from './types';
 import { useNFTGalleryFilters } from './useNFTGalleryFilters';
@@ -31,11 +32,35 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
 
   if (nfts.length === 0) {
     return (
-      <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
-        <h3 className="font-display text-lg font-semibold mb-2 text-[var(--gs-white)]">
-          Off The Grid Game Assets
-        </h3>
-        <p className="font-body text-[var(--gs-gray-4)]">No game assets found</p>
+      <div className="text-center py-24">
+        <div className="size-16 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-white/[0.06] flex items-center justify-center">
+          <svg className="w-7 h-7 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661Z" />
+          </svg>
+        </div>
+        <h2 className="text-balance font-display text-2xl font-bold text-[var(--gs-white)] mb-3">
+          No Game Assets Found
+        </h2>
+        <p className="text-pretty text-[var(--gs-gray-4)] mb-8 max-w-md mx-auto font-body">
+          This wallet doesn&apos;t have any Off The Grid items yet. Browse the leaderboard to see top collectors, or search another wallet.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <Link
+            href="/leaderboard"
+            className="inline-block font-display font-semibold text-sm uppercase px-6 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner"
+          >
+            View Leaderboard
+          </Link>
+          <button
+            onClick={() => {
+              const input = document.getElementById('wallet-search-input');
+              if (input) { input.scrollIntoView({ behavior: 'smooth' }); input.focus(); }
+            }}
+            className="inline-block font-display font-semibold text-sm uppercase px-6 py-3 border border-white/[0.06] text-[var(--gs-gray-3)] hover:border-white/20 hover:text-[var(--gs-white)] transition-colors cursor-pointer"
+          >
+            Search Another Wallet
+          </button>
+        </div>
       </div>
     );
   }

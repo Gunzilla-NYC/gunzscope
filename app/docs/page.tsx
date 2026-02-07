@@ -18,7 +18,7 @@ export default function DocsPage() {
           <span className="font-display font-bold text-lg tracking-wider uppercase">
             GUNZ<span className="text-[var(--gs-purple)]">scope</span>
           </span>
-          <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] border border-[var(--gs-purple)]/30">
+          <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors">
             Alpha
           </span>
         </Link>

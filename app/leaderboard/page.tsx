@@ -64,6 +64,7 @@ function LeaderboardContent() {
     sortField,
     sortOrder,
     handleSort,
+    refetch,
   } = useLeaderboard();
 
   // Gate: require wallet connection
@@ -108,9 +109,6 @@ function LeaderboardContent() {
                 <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase">
                   Leaderboard
                 </h1>
-                <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-sm bg-[var(--gs-purple)]/20 text-[var(--gs-purple)] border border-[var(--gs-purple)]/30">
-                  Alpha
-                </span>
               </div>
               <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
                 Top GunzChain wallets ranked by portfolio value
@@ -162,12 +160,67 @@ function LeaderboardContent() {
           </div>
         </div>
 
-        {/* Error State */}
-        {error && (
-          <div className="bg-[var(--gs-loss)]/10 border border-[var(--gs-loss)]/20 p-4 mb-8">
-            <p className="font-mono text-sm text-[var(--gs-loss)]">{error}</p>
+        {/* Cross-sell: portfolio */}
+        {!activeAddress && !isLoading && (
+          <div className="flex items-center px-4 py-2 border border-white/[0.06] bg-[var(--gs-dark-2)] mb-8">
+            <Link
+              href="/portfolio"
+              className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+            >
+              Track your own portfolio {'\u2192'}
+            </Link>
           </div>
         )}
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-[var(--gs-loss)]/10 border border-[var(--gs-loss)]/20 p-4 mb-8 flex items-center justify-between gap-4">
+            <p className="font-mono text-sm text-[var(--gs-loss)]">{error}</p>
+            <button
+              onClick={refetch}
+              className="font-mono text-[9px] uppercase tracking-widest border border-[var(--gs-loss)]/30 text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 px-3 py-1.5 transition-colors shrink-0 cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Your Position — shown when connected wallet is in leaderboard */}
+        {!isLoading && primaryWallet?.address && (() => {
+          const myEntry = sortedEntries.find(
+            e => e.address.toLowerCase() === primaryWallet.address.toLowerCase()
+          );
+          if (!myEntry) return null;
+          const pnlColor = getPnlColor(myEntry.pnlPercentage);
+          return (
+            <div className="mb-8 bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-2 bg-[var(--gs-purple)]/[0.06] border-b border-[var(--gs-purple)]/10">
+                <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-purple)]">
+                  Your Position
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.04]">
+                <div className="bg-[var(--gs-dark-2)] px-5 py-3">
+                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">Rank</span>
+                  <span className="font-display text-xl font-bold text-[var(--gs-white)] tabular-nums">#{myEntry.rank}</span>
+                  <span className="font-mono text-[10px] text-[var(--gs-gray-3)]"> of {sortedEntries.length}</span>
+                </div>
+                <div className="bg-[var(--gs-dark-2)] px-5 py-3">
+                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">Portfolio</span>
+                  <span className="font-display text-xl font-bold text-[var(--gs-white)] tabular-nums">${formatUsd(myEntry.totalPortfolioUsd)}</span>
+                </div>
+                <div className="bg-[var(--gs-dark-2)] px-5 py-3">
+                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">NFTs</span>
+                  <span className="font-display text-xl font-bold text-[var(--gs-white)] tabular-nums">{myEntry.nftCount}</span>
+                </div>
+                <div className="bg-[var(--gs-dark-2)] px-5 py-3">
+                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">P&L</span>
+                  <span className={`font-display text-xl font-bold tabular-nums ${pnlColor}`}>{formatPnl(myEntry.pnlPercentage)}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Loading Skeleton */}
         {isLoading && (
@@ -244,13 +297,16 @@ function LeaderboardContent() {
                 </thead>
                 <tbody>
                   {sortedEntries.map((entry) => {
-                    const isActiveWallet = activeAddress?.toLowerCase() === entry.address.toLowerCase();
+                    const isOwnWallet = primaryWallet?.address?.toLowerCase() === entry.address.toLowerCase();
+                    const isHighlighted = activeAddress?.toLowerCase() === entry.address.toLowerCase();
                     return (
                       <tr
                         key={entry.address}
                         className={`border-b border-white/[0.06] hover:bg-[var(--gs-lime)]/[0.03] transition-colors ${
-                          isActiveWallet
-                            ? 'bg-[var(--gs-lime)]/[0.05] border-l-2 border-l-[var(--gs-purple)]'
+                          isOwnWallet
+                            ? 'bg-[var(--gs-purple)]/[0.06] border-l-2 border-l-[var(--gs-purple)]'
+                            : isHighlighted
+                            ? 'bg-[var(--gs-lime)]/[0.05] border-l-2 border-l-[var(--gs-lime)]'
                             : entry.rank <= 3
                               ? 'border-l-2 border-l-[var(--gs-lime)]'
                               : ''
@@ -273,8 +329,8 @@ function LeaderboardContent() {
                             className="font-mono text-sm text-[var(--gs-lime)] hover:text-[var(--gs-lime-hover)] transition-colors"
                           >
                             {truncateAddress(entry.address)}
-                            {isActiveWallet && (
-                              <span className="ml-2 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-purple)]">
+                            {isOwnWallet && (
+                              <span className="ml-2 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-purple)] border border-[var(--gs-purple)]/30 px-1.5 py-0.5">
                                 You
                               </span>
                             )}
@@ -333,14 +389,17 @@ function LeaderboardContent() {
               </div>
 
               {sortedEntries.map((entry) => {
-                const isActiveWallet = activeAddress?.toLowerCase() === entry.address.toLowerCase();
+                const isOwnWallet = primaryWallet?.address?.toLowerCase() === entry.address.toLowerCase();
+                const isHighlighted = activeAddress?.toLowerCase() === entry.address.toLowerCase();
                 return (
                   <Link
                     key={entry.address}
                     href={`/portfolio?address=${entry.address}`}
                     className={`block bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 hover:bg-[var(--gs-lime)]/[0.03] transition-colors ${
-                      isActiveWallet
-                        ? 'border-l-2 border-l-[var(--gs-purple)] bg-[var(--gs-lime)]/[0.05]'
+                      isOwnWallet
+                        ? 'border-l-2 border-l-[var(--gs-purple)] bg-[var(--gs-purple)]/[0.06]'
+                        : isHighlighted
+                        ? 'border-l-2 border-l-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
                         : entry.rank <= 3
                           ? 'border-l-2 border-l-[var(--gs-lime)]'
                           : ''
@@ -360,8 +419,8 @@ function LeaderboardContent() {
                         <span className="font-mono text-sm text-[var(--gs-lime)]">
                           {truncateAddress(entry.address)}
                         </span>
-                        {isActiveWallet && (
-                          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-purple)]">
+                        {isOwnWallet && (
+                          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-purple)] border border-[var(--gs-purple)]/30 px-1.5 py-0.5">
                             You
                           </span>
                         )}
