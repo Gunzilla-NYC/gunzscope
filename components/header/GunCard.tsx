@@ -68,16 +68,16 @@ export default function GunCard({
           <span className="text-xs font-bold text-black">G</span>
         </div>
         <div>
-          <span className="font-mono text-[9px] tracking-[1.5px] uppercase text-[var(--gs-gray-3)]">
+          <span className="font-mono text-label tracking-[1.5px] uppercase text-[var(--gs-gray-3)]">
             GUN
           </span>
-          <div className="text-[12px] text-[var(--gs-gray-4)] font-body">Native Token</div>
+          <div className="text-body-sm text-[var(--gs-gray-4)] font-body">Native Token</div>
         </div>
       </div>
 
       {/* Price section */}
       <div className="mb-3">
-        <span className="font-mono text-[9px] tracking-[1.5px] uppercase text-[var(--gs-gray-3)] block mb-1">
+        <span className="font-mono text-label tracking-[1.5px] uppercase text-[var(--gs-gray-3)] block mb-1">
           Price
         </span>
         <div className="flex items-baseline gap-2 flex-wrap">
@@ -88,7 +88,7 @@ export default function GunCard({
             {changeSign}{priceChangePercent24h.toFixed(2)}%
           </span>
         </div>
-        <div className={`font-mono text-[12px] ${changeColor} mt-0.5`}>
+        <div className={`font-mono text-body-sm ${changeColor} mt-0.5`}>
           {changeSign}${Math.abs(priceChange24h).toFixed(6)} (24h)
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function GunCard({
         {/* Balance section */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <span className="font-mono text-[9px] tracking-[1.5px] uppercase text-[var(--gs-gray-3)] block mb-0.5">
+            <span className="font-mono text-label tracking-[1.5px] uppercase text-[var(--gs-gray-3)] block mb-0.5">
               Balance
             </span>
             <div className="font-mono text-[13px] font-medium text-[var(--gs-white-dim)]">
@@ -106,7 +106,7 @@ export default function GunCard({
             </div>
           </div>
           <div>
-            <span className="font-mono text-[9px] tracking-[1.5px] uppercase text-[var(--gs-gray-3)] block mb-0.5">
+            <span className="font-mono text-label tracking-[1.5px] uppercase text-[var(--gs-gray-3)] block mb-0.5">
               Value
             </span>
             <div className="font-display text-[16px] leading-[1.2] font-bold text-[var(--gs-purple)]">

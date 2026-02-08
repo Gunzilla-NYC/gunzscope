@@ -60,7 +60,7 @@ export default function HoldingsSection({
             </svg>
           </div>
           <div className="text-left">
-            <span className="text-[11px] tracking-[0.12em] uppercase text-white/50 font-medium block">
+            <span className="text-data tracking-[0.12em] uppercase text-white/50 font-medium block">
               Holdings
             </span>
             {/* Compact summary */}
@@ -83,7 +83,7 @@ export default function HoldingsSection({
 
         {/* Expand/Collapse chevron */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-white/40">
+          <span className="text-data text-white/40">
             {isExpanded ? 'Hide' : 'View'} details
           </span>
           <svg
@@ -108,7 +108,7 @@ export default function HoldingsSection({
             {hasGunzHoldings && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] tracking-[0.15em] uppercase text-white/40 font-medium">
+                  <span className="text-caption tracking-[0.15em] uppercase text-white/40 font-medium">
                     GUNZ Chain
                   </span>
                   <div className="flex-1 h-px bg-white/5" />
@@ -125,7 +125,7 @@ export default function HoldingsSection({
                     />
                     <div>
                       <span className="text-[13px] font-medium text-white/90">GUN</span>
-                      <span className="text-[11px] text-white/40 ml-2">GUN Token</span>
+                      <span className="text-data text-white/40 ml-2">GUN Token</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -133,7 +133,7 @@ export default function HoldingsSection({
                       {formatBalance(gunzBalance!.balance)}
                     </p>
                     {gunzValue > 0 && (
-                      <p className="text-[11px] text-[#beffd2]">
+                      <p className="text-data text-[#beffd2]">
                         ${formatUsd(gunzValue)}
                       </p>
                     )}
@@ -141,7 +141,7 @@ export default function HoldingsSection({
                 </div>
                 {/* Price info */}
                 {gunPrice && (
-                  <p className="text-[10px] text-white/30 pl-3">
+                  <p className="text-caption text-white/30 pl-3">
                     Price: ${gunPrice.toFixed(6)} per GUN
                   </p>
                 )}
@@ -152,7 +152,7 @@ export default function HoldingsSection({
             {(hasSolanaHoldings || showEmptyChains) && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] tracking-[0.15em] uppercase text-white/40 font-medium">
+                  <span className="text-caption tracking-[0.15em] uppercase text-white/40 font-medium">
                     Solana
                   </span>
                   <div className="flex-1 h-px bg-white/5" />
@@ -161,11 +161,11 @@ export default function HoldingsSection({
                   <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center">
-                        <span className="text-[8px] font-bold text-white">S</span>
+                        <span className="text-micro font-bold text-white">S</span>
                       </div>
                       <div>
                         <span className="text-[13px] font-medium text-white/90">GUN</span>
-                        <span className="text-[11px] text-white/40 ml-2">on Solana</span>
+                        <span className="text-data text-white/40 ml-2">on Solana</span>
                       </div>
                     </div>
                     <div className="text-right">
@@ -173,14 +173,14 @@ export default function HoldingsSection({
                         {formatBalance(solanaBalance!.balance)}
                       </p>
                       {solanaValue > 0 && (
-                        <p className="text-[11px] text-[#beffd2]">
+                        <p className="text-data text-[#beffd2]">
                           ${formatUsd(solanaValue)}
                         </p>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-white/30 italic pl-3 py-2">
+                  <p className="text-data text-white/30 italic pl-3 py-2">
                     No holdings on Solana
                   </p>
                 )}
@@ -190,7 +190,7 @@ export default function HoldingsSection({
             {/* Empty chains toggle */}
             <div className="flex items-center justify-end pt-2 border-t border-white/5">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <span className="text-[10px] text-white/40 group-hover:text-white/50 transition-colors">
+                <span className="text-caption text-white/40 group-hover:text-white/50 transition-colors">
                   Show empty chains
                 </span>
                 <button

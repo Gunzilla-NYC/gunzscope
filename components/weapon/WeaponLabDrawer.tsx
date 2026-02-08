@@ -54,14 +54,14 @@ function CompatibleItemCard({ item }: { item: CompatibleItem }) {
         <div className="text-sm font-medium text-white truncate">{item.nft.name}</div>
         <div className="flex items-center gap-2 mt-1">
           <span
-            className="text-[10px] font-semibold"
+            className="text-caption font-semibold"
             style={{ color: colors.primary }}
           >
             {rarity.toUpperCase()}
           </span>
           {tier !== 'Unknown' && <TierBadge tier={tier} showTooltip={false} />}
         </div>
-        <div className="text-[10px] text-gray-500 mt-0.5">{categoryLabel}</div>
+        <div className="text-caption text-gray-500 mt-0.5">{categoryLabel}</div>
       </div>
     </div>
   );
@@ -133,7 +133,7 @@ export default function WeaponLabDrawer({ isOpen, onClose, weapon, inventory }: 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Available Modifications Section */}
           <section>
-            <h3 className="text-[11px] uppercase tracking-wider text-gray-400 font-medium mb-3">
+            <h3 className="text-data uppercase tracking-wider text-gray-400 font-medium mb-3">
               Available Modifications
             </h3>
 
@@ -148,7 +148,7 @@ export default function WeaponLabDrawer({ isOpen, onClose, weapon, inventory }: 
               <div className="space-y-3">
                 {skins.length > 0 && (
                   <div>
-                    <div className="text-[10px] text-gray-500 mb-2">Skins ({skins.length})</div>
+                    <div className="text-caption text-gray-500 mb-2">Skins ({skins.length})</div>
                     <div className="space-y-2">
                       {skins.map(item => (
                         <CompatibleItemCard key={item.nft.tokenId} item={item} />
@@ -159,7 +159,7 @@ export default function WeaponLabDrawer({ isOpen, onClose, weapon, inventory }: 
 
                 {attachments.length > 0 && (
                   <div className={skins.length > 0 ? 'mt-4' : ''}>
-                    <div className="text-[10px] text-gray-500 mb-2">Attachments ({attachments.length})</div>
+                    <div className="text-caption text-gray-500 mb-2">Attachments ({attachments.length})</div>
                     <div className="space-y-2">
                       {attachments.map(item => (
                         <CompatibleItemCard key={item.nft.tokenId} item={item} />
@@ -174,14 +174,14 @@ export default function WeaponLabDrawer({ isOpen, onClose, weapon, inventory }: 
           {/* Weapon Prototypes Section */}
           <section className="border-t border-white/10 pt-4">
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">
+              <h3 className="text-data uppercase tracking-wider text-gray-400 font-medium">
                 WEAPON PROTOTYPES
               </h3>
-              <span className="text-[9px] px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 bg-amber-500/10">
+              <span className="text-label px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 bg-amber-500/10">
                 Experimental
               </span>
             </div>
-            <p className="text-[11px] text-gray-500 mb-4">
+            <p className="text-data text-gray-500 mb-4">
               Configure, upgrade, and prototype weapons
             </p>
             <div className="text-center py-6 text-gray-600 border border-dashed border-gray-700 rounded-lg">

@@ -64,8 +64,7 @@ export default function CrosshairCursor() {
       const tgt = targetRef.current;
       cur.x += (tgt.x - cur.x) * SMOOTHING;
       cur.y += (tgt.y - cur.y) * SMOOTHING;
-      el.style.left = `${cur.x - HALF_SIZE}px`;
-      el.style.top = `${cur.y - HALF_SIZE}px`;
+      el.style.transform = `translate(${cur.x - HALF_SIZE}px, ${cur.y - HALF_SIZE}px)`;
       rafRef.current = requestAnimationFrame(animate);
     };
 
@@ -92,7 +91,7 @@ export default function CrosshairCursor() {
         top: 0,
         opacity: 0,
         zIndex: 9999,
-        willChange: 'left, top, opacity',
+        willChange: 'transform, opacity',
       }}
       aria-hidden="true"
     >

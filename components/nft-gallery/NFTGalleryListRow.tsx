@@ -9,13 +9,13 @@
 
 import Image from 'next/image';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
-import { getRarityColorByName } from './utils';
+import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel } from './utils';
 import type { NFTGalleryListRowProps } from './types';
 
-export function NFTGalleryListRow({ cardData, isEnriching, onClick }: NFTGalleryListRowProps) {
+export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
   const {
     nft, rarityName, rarityColor, mintDisplay, mintData, nameInitials,
-    pnlPct, isProfit, isLoss, priceGun,
+    pnlPct, isProfit, isLoss, priceGun, marketListings,
   } = cardData;
 
   return (
@@ -79,18 +79,25 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick }: NFTGallery
 
       {/* Info */}
       <div className="flex-grow min-w-0">
-        <p className="font-display font-semibold text-xs uppercase tracking-wide text-[var(--gs-white)] truncate" title={nft.name}>
-          {nft.name}
-        </p>
-        <p className="font-mono text-[9px] uppercase tracking-wide text-[var(--gs-gray-3)] truncate">
+        <div className="flex items-center gap-1.5">
+          <p className="font-display font-semibold text-xs uppercase tracking-wide text-[var(--gs-white)] truncate" title={nft.name}>
+            {nft.name}
+          </p>
+          {portfolioViewMode === 'detailed' && nft.acquisitionVenue && (
+            <span className="font-mono text-[6px] tracking-wide uppercase px-1 py-0.5 bg-white/5 text-[var(--gs-gray-3)] border border-white/[0.06] shrink-0">
+              {getVenueLabel(nft.acquisitionVenue)}
+            </span>
+          )}
+        </div>
+        <p className="font-mono text-label uppercase tracking-wide text-[var(--gs-gray-3)] truncate">
           {getSpecificItemType(nft) || nft.collection}
         </p>
       </div>
 
       {/* Mint Number */}
       <div className="flex-shrink-0 text-right hidden sm:block">
-        <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Mint</p>
-        <p className="font-mono text-[10px] font-medium">
+        <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">Mint</p>
+        <p className="font-mono text-caption font-medium">
           {mintData.length > 1 ? (
             mintData.map((m, i) => (
               <span key={m.mint}>
@@ -107,32 +114,60 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick }: NFTGallery
       {/* Quantity */}
       {nft.quantity && nft.quantity > 1 && (
         <div className="flex-shrink-0 text-right hidden md:block">
-          <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Qty</p>
-          <p className="font-mono text-[10px] text-[var(--gs-purple)] font-bold">
+          <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">Qty</p>
+          <p className="font-mono text-caption text-[var(--gs-purple)] font-bold">
             ×{nft.quantity}
+          </p>
+        </div>
+      )}
+
+      {/* Market Scarcity */}
+      {marketListings !== null && (
+        <div className="flex-shrink-0 text-right hidden md:block min-w-[50px]">
+          <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">Listed</p>
+          <p
+            className="font-mono text-caption font-medium"
+            style={{ color: getMarketScarcityColor(marketListings) }}
+          >
+            {marketListings === 0 ? 'None' : marketListings}
           </p>
         </div>
       )}
 
       {/* Price */}
       <div className="flex-shrink-0 text-right hidden lg:block min-w-[80px]">
-        <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">Price</p>
+        <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">Price</p>
         {isEnriching && priceGun === undefined ? (
           <span className="skeleton-stat inline-block w-14 h-3.5 mt-0.5" />
         ) : (
-          <p className="font-mono text-[10px] text-[var(--gs-white)] font-medium">
+          <p className="font-mono text-caption text-[var(--gs-white)] font-medium">
             {priceGun !== undefined ? `${priceGun.toLocaleString()} GUN` : '—'}
           </p>
         )}
       </div>
 
+      {/* Cost (detailed mode only) */}
+      {portfolioViewMode === 'detailed' && (
+        <div className="flex-shrink-0 text-right hidden lg:block min-w-[70px]">
+          <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">Cost</p>
+          {(() => {
+            const cb = getCostBasisDisplay(nft);
+            return (
+              <p className="font-mono text-caption font-medium" style={{ color: cb.color }}>
+                {cb.label}
+              </p>
+            );
+          })()}
+        </div>
+      )}
+
       {/* P&L */}
       <div className="flex-shrink-0 text-right min-w-[50px]">
-        <p className="font-mono text-[9px] text-[var(--gs-gray-4)] uppercase">P&L</p>
+        <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">P&L</p>
         {isEnriching && pnlPct === null ? (
           <span className="skeleton-stat inline-block w-10 h-3.5 mt-0.5" />
         ) : (
-          <p className={`font-mono text-[10px] font-medium ${
+          <p className={`font-mono text-caption font-medium ${
             isProfit ? 'text-[var(--gs-profit)]' :
             isLoss ? 'text-[var(--gs-loss)]' :
             'text-[var(--gs-gray-3)]'

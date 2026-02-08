@@ -172,6 +172,28 @@ export interface WalletClassification {
   fromCache: boolean;
 }
 
+// Scarcity page types
+export interface ScarcityTraitStats {
+  weaponTypes: Record<string, number>;
+  qualities: Record<string, number>;
+  classes: Record<string, number>;
+}
+
+export interface MarketplaceListing {
+  itemName: string;
+  imageUrl: string | null;
+  listingCount: number;
+  floorPriceGun: number;
+  recentSales: number;
+  avgSalePriceGun: number | null;
+}
+
+export interface ScarcityPageData {
+  traitStats: ScarcityTraitStats;
+  listings: MarketplaceListing[];
+  lastUpdated: string;
+}
+
 // Leaderboard entry from /api/leaderboard
 export interface LeaderboardEntry {
   rank: number;

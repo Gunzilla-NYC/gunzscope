@@ -22,11 +22,15 @@ model UserProfile {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  wallets            Wallet[]
-  trackedAddresses   TrackedAddress[]
-  portfolioAddresses PortfolioAddress[]
-  favorites          FavoriteItem[]
-  settings           UserSettings?
+  wallets             Wallet[]
+  trackedAddresses    TrackedAddress[]
+  portfolioAddresses  PortfolioAddress[]
+  favorites           FavoriteItem[]
+  settings            UserSettings?
+  featureRequests     FeatureRequest[]
+  featureRequestVotes FeatureRequestVote[]
+  alertPreferences    AlertPreference[]
+  alertLogs           AlertLog[]
 
   @@map("user_profiles")
 }
@@ -129,4 +133,83 @@ model PortfolioSnapshot {
   @@index([address, chain])
   @@index([timestamp])
   @@map("portfolio_snapshots")
+}
+
+// =============================================================================
+// Feature Request - Community feature suggestions
+// =============================================================================
+model FeatureRequest {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  status      String   @default("open") // open | planned | completed | declined
+  authorId    String
+  author      UserProfile @relation(fields: [authorId], references: [id])
+  votes       FeatureRequestVote[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([authorId])
+  @@map("feature_requests")
+}
+
+// =============================================================================
+// Feature Request Vote - Upvote/downvote on feature requests
+// =============================================================================
+model FeatureRequestVote {
+  id               String   @id @default(cuid())
+  value            Int      // +1 or -1
+  userId           String
+  featureRequestId String
+  user             UserProfile    @relation(fields: [userId], references: [id])
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, featureRequestId])
+  @@map("feature_request_votes")
+}
+
+// =============================================================================
+// Alert Preference - User notification settings per alert type
+// =============================================================================
+model AlertPreference {
+  id        String      @id @default(cuid())
+  userId    String
+  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String      // gun_price | portfolio_digest | floor_drop | whale_tracker | collection_drop | snipe_alert
+  enabled   Boolean     @default(true)
+  config    String      @default("{}") // JSON: thresholds, watched addresses, etc.
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([userId, type])
+  @@map("alert_preferences")
+}
+
+// =============================================================================
+// Alert Log - Record of sent alert emails
+// =============================================================================
+model AlertLog {
+  id       String      @id @default(cuid())
+  userId   String
+  user     UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     String
+  subject  String
+  sentAt   DateTime    @default(now())
+  metadata String      @default("{}") // JSON: what triggered the alert
+
+  @@index([userId, type])
+  @@map("alert_logs")
+}
+
+// =============================================================================
+// Price Cache - Stores latest prices + state for dedup in cron jobs
+// =============================================================================
+model PriceCache {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. "gun_usd", "floor_otg_weapons"
+  value     Float
+  updatedAt DateTime @updatedAt
+
+  @@map("price_cache")
 }

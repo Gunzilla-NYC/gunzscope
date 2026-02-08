@@ -5,7 +5,7 @@
  */
 
 import type { NFT, NFTPaginationInfo } from '@/lib/types';
-import type { SortOption, ViewMode, Rarity, NFTCardData } from './utils';
+import type { SortOption, ViewMode, Rarity, NFTCardData, MarketItemData } from './utils';
 
 /** Props for the top-level NFTGallery component */
 export interface NFTGalleryProps {
@@ -18,6 +18,10 @@ export interface NFTGalleryProps {
   isEnriching?: boolean;
   /** Offset in pixels from top of viewport for sticky controls (accounts for navbar + sticky header) */
   stickyOffset?: number;
+  /** Market scarcity data keyed by item name */
+  marketMap?: Map<string, MarketItemData>;
+  /** Portfolio view mode — cards show extra detail (cost basis, venue) in detailed mode */
+  portfolioViewMode?: 'simple' | 'detailed';
 }
 
 /** Props for NFTGalleryControls (sticky controls bar) */
@@ -47,6 +51,8 @@ export interface NFTGalleryGridCardProps {
   viewMode: 'small' | 'medium';
   isEnriching: boolean;
   onClick: (nft: NFT) => void;
+  /** Portfolio view mode — shows cost basis, venue badge, enrichment indicator when 'detailed' */
+  portfolioViewMode?: 'simple' | 'detailed';
 }
 
 /** Props for NFTGalleryListRow */
@@ -54,6 +60,8 @@ export interface NFTGalleryListRowProps {
   cardData: NFTCardData;
   isEnriching: boolean;
   onClick: (nft: NFT) => void;
+  /** Portfolio view mode — shows cost column and venue badge when 'detailed' */
+  portfolioViewMode?: 'simple' | 'detailed';
 }
 
 /** Props for NFTGalleryPagination */

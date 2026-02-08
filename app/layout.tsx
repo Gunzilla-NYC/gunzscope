@@ -49,7 +49,7 @@ export default function RootLayout({
       <body className="antialiased font-body bg-gunzscope">
         <DynamicProvider>
           <CrosshairCursor />
-          <div className="relative z-10">
+          <div id="app-content" className="relative z-10">
             {children}
           </div>
           <OnboardingChecklist />

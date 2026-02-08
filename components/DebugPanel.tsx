@@ -69,7 +69,7 @@ export default function DebugPanel({
               <span className="text-amber-400 font-semibold text-xs uppercase tracking-wider">
                 Portfolio Debug
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded ${
+              <span className={`text-caption px-2 py-0.5 rounded ${
                 portfolioResult?.invariants.ok
                   ? 'bg-green-500/20 text-green-400'
                   : 'bg-red-500/20 text-red-400'
@@ -82,7 +82,7 @@ export default function DebugPanel({
           <div className="p-3 space-y-3 text-xs font-mono">
             {/* Wallet Info */}
             <div className="space-y-1">
-              <div className="text-amber-400/70 text-[10px] uppercase">Wallet</div>
+              <div className="text-amber-400/70 text-caption uppercase">Wallet</div>
               <div className="text-white/80 break-all">
                 {walletAddress || '(none)'}
               </div>
@@ -90,7 +90,7 @@ export default function DebugPanel({
 
             {/* GUN Price */}
             <div className="space-y-1">
-              <div className="text-amber-400/70 text-[10px] uppercase">GUN Price</div>
+              <div className="text-amber-400/70 text-caption uppercase">GUN Price</div>
               <div className="text-white/80">
                 {gunPrice !== undefined ? `$${gunPrice.toFixed(6)}` : '(unavailable)'}
               </div>
@@ -100,25 +100,25 @@ export default function DebugPanel({
               <>
                 {/* Summary */}
                 <div className="border-t border-amber-500/20 pt-3 space-y-2">
-                  <div className="text-amber-400/70 text-[10px] uppercase">Summary</div>
+                  <div className="text-amber-400/70 text-caption uppercase">Summary</div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <div className="text-white/50 text-[10px]">Total USD</div>
+                      <div className="text-white/50 text-caption">Total USD</div>
                       <div className="text-white font-semibold">${formatUsd(portfolioResult.totalUsd)}</div>
                     </div>
                     <div>
-                      <div className="text-white/50 text-[10px]">Tokens USD</div>
+                      <div className="text-white/50 text-caption">Tokens USD</div>
                       <div className="text-cyan-400">${formatUsd(portfolioResult.tokensUsd)}</div>
                     </div>
                     <div>
-                      <div className="text-white/50 text-[10px]">NFTs USD</div>
+                      <div className="text-white/50 text-caption">NFTs USD</div>
                       <div className={portfolioResult.nftUsdReliable ? 'text-purple-400' : 'text-gray-500'}>
                         ${formatUsd(portfolioResult.nftsUsd)}
                         {!portfolioResult.nftUsdReliable && ' (unreliable)'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-white/50 text-[10px]">NFT Reliable</div>
+                      <div className="text-white/50 text-caption">NFT Reliable</div>
                       <div className={portfolioResult.nftUsdReliable ? 'text-green-400' : 'text-red-400'}>
                         {portfolioResult.nftUsdReliable ? 'true' : 'false'}
                       </div>
@@ -128,7 +128,7 @@ export default function DebugPanel({
 
                 {/* Balances */}
                 <div className="border-t border-amber-500/20 pt-3 space-y-2">
-                  <div className="text-amber-400/70 text-[10px] uppercase">Balances</div>
+                  <div className="text-amber-400/70 text-caption uppercase">Balances</div>
                   <div className="space-y-1">
                     <div className="flex justify-between">
                       <span className="text-white/50">Total GUN</span>
@@ -160,8 +160,8 @@ export default function DebugPanel({
                 {/* Breakdown Table */}
                 {portfolioResult.breakdown.length > 0 && (
                   <div className="border-t border-amber-500/20 pt-3 space-y-2">
-                    <div className="text-amber-400/70 text-[10px] uppercase">Breakdown</div>
-                    <table className="w-full text-[10px]">
+                    <div className="text-amber-400/70 text-caption uppercase">Breakdown</div>
+                    <table className="w-full text-caption">
                       <thead>
                         <tr className="text-white/40">
                           <th className="text-left pb-1">Section</th>
@@ -191,7 +191,7 @@ export default function DebugPanel({
 
                 {/* Invariants */}
                 <div className="border-t border-amber-500/20 pt-3 space-y-2">
-                  <div className="text-amber-400/70 text-[10px] uppercase">Invariants</div>
+                  <div className="text-amber-400/70 text-caption uppercase">Invariants</div>
                   <div className="space-y-1">
                     <div className="flex justify-between">
                       <span className="text-white/50">Status</span>
@@ -217,10 +217,10 @@ export default function DebugPanel({
                 {/* Warnings */}
                 {portfolioResult.invariants.warnings.length > 0 && (
                   <div className="border-t border-red-500/20 pt-3 space-y-2">
-                    <div className="text-red-400/70 text-[10px] uppercase">Warnings ({portfolioResult.invariants.warnings.length})</div>
+                    <div className="text-red-400/70 text-caption uppercase">Warnings ({portfolioResult.invariants.warnings.length})</div>
                     <div className="space-y-1">
                       {portfolioResult.invariants.warnings.map((warning, i) => (
-                        <div key={i} className="text-red-300/80 text-[10px] leading-tight">
+                        <div key={i} className="text-red-300/80 text-caption leading-tight">
                           {warning}
                         </div>
                       ))}

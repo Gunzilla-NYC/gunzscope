@@ -53,7 +53,7 @@ const SORT_COLUMNS: { field: SortField; label: string; shortLabel: string }[] = 
 function LeaderboardContent() {
   const searchParams = useSearchParams();
   const activeAddress = searchParams.get('address');
-  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
+  const { primaryWallet, user, setShowAuthFlow } = useDynamicContext();
 
   const {
     sortedEntries,
@@ -67,34 +67,7 @@ function LeaderboardContent() {
     refetch,
   } = useLeaderboard();
 
-  // Gate: require wallet connection
-  if (!primaryWallet) {
-    return (
-      <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center py-32">
-          <div className="size-20 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-white/[0.06] flex items-center justify-center">
-            <svg className="size-10 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-          </div>
-          <h1 className="text-balance font-display font-bold text-2xl sm:text-3xl uppercase mb-3">
-            Connect to View Leaderboard
-          </h1>
-          <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)] mb-8 max-w-md text-center">
-            Connect your wallet to access the GunzChain leaderboard and see how your portfolio ranks.
-          </p>
-          <button
-            onClick={() => setShowAuthFlow(true)}
-            className="font-display font-semibold text-sm uppercase px-8 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors"
-          >
-            Connect Wallet
-          </button>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  const isAnonymous = !user;
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
@@ -115,13 +88,13 @@ function LeaderboardContent() {
               </p>
             </div>
 
-            {/* Active wallet badge */}
-            {activeAddress && (
+            {/* Active wallet badge — only when authenticated */}
+            {!isAnonymous && activeAddress && (
               <Link
                 href={`/portfolio?address=${activeAddress}`}
                 className="flex items-center gap-2 px-3 py-2 bg-[var(--gs-dark-2)] border border-white/[0.06] hover:border-[var(--gs-lime)]/30 transition-colors"
               >
-                <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-gray-3)]">
+                <span className="font-mono text-label uppercase tracking-wider text-[var(--gs-gray-3)]">
                   Viewing
                 </span>
                 <span className="font-mono text-xs text-[var(--gs-lime)] tabular-nums">
@@ -135,7 +108,7 @@ function LeaderboardContent() {
         {/* Stats Bar */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-white/[0.06] border border-white/[0.06] mb-8">
           <div className="bg-[var(--gs-dark-2)] px-5 py-4">
-            <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">
+            <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">
               Wallets Ranked
             </span>
             <span className="font-display text-2xl font-bold text-[var(--gs-white)] tabular-nums">
@@ -143,7 +116,7 @@ function LeaderboardContent() {
             </span>
           </div>
           <div className="bg-[var(--gs-dark-2)] px-5 py-4">
-            <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">
+            <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">
               GUN Price
             </span>
             <span className="font-display text-2xl font-bold text-[var(--gs-lime)] tabular-nums">
@@ -151,7 +124,7 @@ function LeaderboardContent() {
             </span>
           </div>
           <div className="bg-[var(--gs-dark-2)] px-5 py-4 col-span-2 md:col-span-1">
-            <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">
+            <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">
               Total Tracked
             </span>
             <span className="font-display text-2xl font-bold text-[var(--gs-white)] tabular-nums">
@@ -165,7 +138,7 @@ function LeaderboardContent() {
           <div className="flex items-center px-4 py-2 border border-white/[0.06] bg-[var(--gs-dark-2)] mb-8">
             <Link
               href="/portfolio"
-              className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+              className="font-mono text-caption tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
             >
               Track your own portfolio {'\u2192'}
             </Link>
@@ -178,43 +151,69 @@ function LeaderboardContent() {
             <p className="font-mono text-sm text-[var(--gs-loss)]">{error}</p>
             <button
               onClick={refetch}
-              className="font-mono text-[9px] uppercase tracking-widest border border-[var(--gs-loss)]/30 text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 px-3 py-1.5 transition-colors shrink-0 cursor-pointer"
+              className="font-mono text-label uppercase tracking-widest border border-[var(--gs-loss)]/30 text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 px-3 py-1.5 transition-colors shrink-0 cursor-pointer"
             >
               Retry
             </button>
           </div>
         )}
 
-        {/* Your Position — shown when connected wallet is in leaderboard */}
-        {!isLoading && primaryWallet?.address && (() => {
+        {/* Your Position — CTA for anonymous users, real data for connected */}
+        {!isLoading && isAnonymous && (
+          <div className="mb-8 bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 overflow-hidden clip-corner">
+            <div className="flex items-center gap-2 px-5 py-2 bg-[var(--gs-purple)]/[0.06] border-b border-[var(--gs-purple)]/10">
+              <span className="font-mono text-label uppercase tracking-widest text-[var(--gs-purple)]">
+                Your Position
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-5">
+              <div className="flex items-center gap-3">
+                <svg className="size-5 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <div>
+                  <p className="font-body text-sm text-[var(--gs-white)]">Connect to see where you rank</p>
+                  <p className="font-mono text-caption text-[var(--gs-gray-3)] mt-0.5">Tracked portfolios are ranked automatically</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAuthFlow(true)}
+                className="font-display font-semibold text-data uppercase tracking-wider px-5 py-2 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm shrink-0"
+              >
+                Connect Wallet
+              </button>
+            </div>
+          </div>
+        )}
+        {!isLoading && !isAnonymous && primaryWallet?.address && (() => {
           const myEntry = sortedEntries.find(
             e => e.address.toLowerCase() === primaryWallet.address.toLowerCase()
           );
           if (!myEntry) return null;
           const pnlColor = getPnlColor(myEntry.pnlPercentage);
           return (
-            <div className="mb-8 bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 overflow-hidden">
+            <div className="mb-8 bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 overflow-hidden clip-corner">
               <div className="flex items-center gap-2 px-5 py-2 bg-[var(--gs-purple)]/[0.06] border-b border-[var(--gs-purple)]/10">
-                <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-purple)]">
+                <span className="font-mono text-label uppercase tracking-widest text-[var(--gs-purple)]">
                   Your Position
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.04]">
                 <div className="bg-[var(--gs-dark-2)] px-5 py-3">
-                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">Rank</span>
+                  <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">Rank</span>
                   <span className="font-display text-xl font-bold text-[var(--gs-white)] tabular-nums">#{myEntry.rank}</span>
-                  <span className="font-mono text-[10px] text-[var(--gs-gray-3)]"> of {sortedEntries.length}</span>
+                  <span className="font-mono text-caption text-[var(--gs-gray-3)]"> of {sortedEntries.length}</span>
                 </div>
                 <div className="bg-[var(--gs-dark-2)] px-5 py-3">
-                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">Portfolio</span>
+                  <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">Portfolio</span>
                   <span className="font-display text-xl font-bold text-[var(--gs-white)] tabular-nums">${formatUsd(myEntry.totalPortfolioUsd)}</span>
                 </div>
                 <div className="bg-[var(--gs-dark-2)] px-5 py-3">
-                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">NFTs</span>
+                  <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">NFTs</span>
                   <span className="font-display text-xl font-bold text-[var(--gs-white)] tabular-nums">{myEntry.nftCount}</span>
                 </div>
                 <div className="bg-[var(--gs-dark-2)] px-5 py-3">
-                  <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">P&L</span>
+                  <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">P&L</span>
                   <span className={`font-display text-xl font-bold tabular-nums ${pnlColor}`}>{formatPnl(myEntry.pnlPercentage)}</span>
                 </div>
               </div>
@@ -272,16 +271,16 @@ function LeaderboardContent() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-[var(--gs-dark-1)] border-b border-white/[0.06]">
-                    <th className="text-left px-5 py-3 font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] w-12">
+                    <th className="text-left px-5 py-3 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] w-12">
                       #
                     </th>
-                    <th className="text-left px-5 py-3 font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                    <th className="text-left px-5 py-3 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
                       Wallet
                     </th>
                     {SORT_COLUMNS.map((col) => (
                       <th
                         key={col.field}
-                        className="text-right px-5 py-3 font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] cursor-pointer hover:text-[var(--gs-lime)] transition-colors select-none"
+                        className="text-right px-5 py-3 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] cursor-pointer hover:text-[var(--gs-lime)] transition-colors select-none"
                         onClick={() => handleSort(col.field)}
                       >
                         <span className="inline-flex items-center">
@@ -297,7 +296,7 @@ function LeaderboardContent() {
                 </thead>
                 <tbody>
                   {sortedEntries.map((entry) => {
-                    const isOwnWallet = primaryWallet?.address?.toLowerCase() === entry.address.toLowerCase();
+                    const isOwnWallet = !isAnonymous && primaryWallet?.address?.toLowerCase() === entry.address.toLowerCase();
                     const isHighlighted = activeAddress?.toLowerCase() === entry.address.toLowerCase();
                     return (
                       <tr
@@ -330,7 +329,7 @@ function LeaderboardContent() {
                           >
                             {truncateAddress(entry.address)}
                             {isOwnWallet && (
-                              <span className="ml-2 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-purple)] border border-[var(--gs-purple)]/30 px-1.5 py-0.5">
+                              <span className="ml-2 font-mono text-label uppercase tracking-wider text-[var(--gs-purple)] border border-[var(--gs-purple)]/30 px-1.5 py-0.5">
                                 You
                               </span>
                             )}
@@ -372,7 +371,7 @@ function LeaderboardContent() {
             <div className="md:hidden space-y-3">
               {/* Sort Selector */}
               <div className="flex items-center gap-2 mb-4">
-                <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
                   Sort by
                 </span>
                 <select
@@ -389,7 +388,7 @@ function LeaderboardContent() {
               </div>
 
               {sortedEntries.map((entry) => {
-                const isOwnWallet = primaryWallet?.address?.toLowerCase() === entry.address.toLowerCase();
+                const isOwnWallet = !isAnonymous && primaryWallet?.address?.toLowerCase() === entry.address.toLowerCase();
                 const isHighlighted = activeAddress?.toLowerCase() === entry.address.toLowerCase();
                 return (
                   <Link
@@ -420,7 +419,7 @@ function LeaderboardContent() {
                           {truncateAddress(entry.address)}
                         </span>
                         {isOwnWallet && (
-                          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-purple)] border border-[var(--gs-purple)]/30 px-1.5 py-0.5">
+                          <span className="font-mono text-label uppercase tracking-wider text-[var(--gs-purple)] border border-[var(--gs-purple)]/30 px-1.5 py-0.5">
                             You
                           </span>
                         )}
@@ -429,7 +428,7 @@ function LeaderboardContent() {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
+                        <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
                           Portfolio
                         </span>
                         <span className="font-mono text-sm text-[var(--gs-white)] tabular-nums">
@@ -437,7 +436,7 @@ function LeaderboardContent() {
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
+                        <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
                           GUN Balance
                         </span>
                         <span className="font-mono text-sm text-[var(--gs-white)] tabular-nums">
@@ -447,7 +446,7 @@ function LeaderboardContent() {
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
+                        <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
                           NFTs
                         </span>
                         <span className="font-mono text-sm text-[var(--gs-white)] tabular-nums">
@@ -455,7 +454,7 @@ function LeaderboardContent() {
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
+                        <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-0.5">
                           P&L
                         </span>
                         <span

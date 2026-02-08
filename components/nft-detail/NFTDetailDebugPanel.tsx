@@ -117,7 +117,7 @@ export function NFTDetailDebugPanel({
           {debugData.noCacheEnabled && (
             <div className="bg-purple-500/20 border border-purple-500/30 rounded px-2 py-1 mb-2">
               <span className="text-purple-300 font-semibold">⚡ noCache mode enabled</span>
-              <span className="text-purple-200/70 text-[10px] ml-2">
+              <span className="text-purple-200/70 text-caption ml-2">
                 (bypassed: {debugData.cacheBypassed ? 'yes' : 'no'})
               </span>
             </div>
@@ -138,14 +138,14 @@ export function NFTDetailDebugPanel({
                 }`}>
                   {debugData.refreshError ? '❌' : debugData.backgroundRefreshUpdated ? '✅' : '🔄'} Background refresh
                 </span>
-                <span className="text-[10px] text-white/60">
+                <span className="text-caption text-white/60">
                   attempted: {debugData.backgroundRefreshAttempted ? 'yes' : 'no'},
                   updated: {debugData.backgroundRefreshUpdated ? 'yes' : 'no'}
                 </span>
               </div>
               {/* Detailed refresh diagnostics */}
               {debugData.backgroundRefreshAttempted && (
-                <div className="mt-1 text-[10px] space-y-0.5">
+                <div className="mt-1 text-caption space-y-0.5">
                   {debugData.refreshStartedAtIso && (
                     <div>
                       <span className="text-white/50">started:</span>{' '}
@@ -201,7 +201,7 @@ export function NFTDetailDebugPanel({
           </div>
           <div>
             <span className="text-amber-400/70">cacheKey:</span>{' '}
-            <span className="text-amber-200 break-all text-[10px]">{debugData.cacheKey || '(not set)'}</span>
+            <span className="text-amber-200 break-all text-caption">{debugData.cacheKey || '(not set)'}</span>
           </div>
           <div className="flex gap-4">
             <div>
@@ -229,7 +229,7 @@ export function NFTDetailDebugPanel({
           {/* Metadata Debug Section */}
           <div className="border-t border-amber-500/20 pt-2">
             <span className="text-green-400 font-semibold">metadata debug:</span>
-            <div className="mt-1 ml-2 text-[10px] space-y-1">
+            <div className="mt-1 ml-2 text-caption space-y-1">
               <div>
                 <span className="text-green-400/50">metadataSource:</span>{' '}
                 <span className={`font-semibold ${
@@ -252,7 +252,7 @@ export function NFTDetailDebugPanel({
               </div>
               <div>
                 <span className="text-green-400/50">tokenURI:</span>{' '}
-                <span className="text-green-200/80 break-all text-[9px]">
+                <span className="text-green-200/80 break-all text-label">
                   {metadataDebug?.tokenURI
                     ? (metadataDebug.tokenURI.length > 200
                         ? metadataDebug.tokenURI.slice(0, 200) + '...'
@@ -270,14 +270,14 @@ export function NFTDetailDebugPanel({
           </div>
           <div className="border-t border-amber-500/20 pt-2">
             <span className="text-amber-400/70">acquisition (full):</span>
-            <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all text-[10px]">
+            <pre className="text-amber-200 mt-1 whitespace-pre-wrap break-all text-caption">
 {currentPurchaseDataJson}
             </pre>
           </div>
           {/* Debug: Resolved Acquisition (deterministic, no-downgrade) */}
           <div className="border-t border-purple-500/20 pt-2 bg-purple-500/5 -mx-3 px-3 py-2 rounded">
             <span className="text-purple-400 font-semibold">resolved acquisition (deterministic):</span>
-            <div className="mt-2 ml-2 text-[10px] space-y-1">
+            <div className="mt-2 ml-2 text-caption space-y-1">
               <div>
                 <span className="text-purple-400/50">qualityScore:</span>{' '}
                 <span className={`font-bold ${
@@ -328,20 +328,20 @@ export function NFTDetailDebugPanel({
               </div>
               <div>
                 <span className="text-purple-400/50">txHash:</span>{' '}
-                <span className="text-purple-200/80 break-all text-[9px]">
+                <span className="text-purple-200/80 break-all text-label">
                   {currentResolvedAcquisition?.txHash ?? 'null'}
                 </span>
               </div>
               <div>
                 <span className="text-purple-400/50">fromAddress:</span>{' '}
-                <span className="text-purple-200/80 break-all text-[9px]">
+                <span className="text-purple-200/80 break-all text-label">
                   {currentResolvedAcquisition?.fromAddress ?? 'null'}
                 </span>
               </div>
               {currentResolvedAcquisition?.qualityReasons && currentResolvedAcquisition.qualityReasons.length > 0 && (
                 <div className="border-t border-purple-500/20 pt-1 mt-1">
                   <span className="text-purple-400/50">qualityReasons:</span>
-                  <div className="ml-2 text-[9px] text-purple-200/60">
+                  <div className="ml-2 text-label text-purple-200/60">
                     {currentResolvedAcquisition.qualityReasons.map((reason, i) => (
                       <div key={i}>{reason}</div>
                     ))}
@@ -353,10 +353,10 @@ export function NFTDetailDebugPanel({
           {/* Debug: Holding Acquisition from RPC (getNFTHoldingAcquisition) */}
           <div className="border-t border-amber-500/20 pt-2">
             <span className="text-cyan-400 font-semibold">holding acquisition (RPC):</span>
-            <pre className="text-cyan-200 mt-1 whitespace-pre-wrap break-all text-[10px] bg-cyan-500/5 p-2 rounded">
+            <pre className="text-cyan-200 mt-1 whitespace-pre-wrap break-all text-caption bg-cyan-500/5 p-2 rounded">
 {JSON.stringify(holdingAcquisitionRaw, null, 2)}
             </pre>
-            <div className="mt-2 ml-2 text-[10px] space-y-1">
+            <div className="mt-2 ml-2 text-caption space-y-1">
               <div>
                 <span className="text-cyan-400/50">owned:</span>{' '}
                 <span className={`font-semibold ${holdingAcquisitionRaw?.owned ? 'text-green-400' : 'text-rose-400'}`}>
@@ -425,7 +425,7 @@ export function NFTDetailDebugPanel({
           {/* Debug: Transfer derivation details (legacy) */}
           <div className="border-t border-amber-500/20 pt-2">
             <span className="text-amber-400/70">transfer derivation (legacy):</span>
-            <div className="mt-1 ml-2 text-[10px] space-y-1">
+            <div className="mt-1 ml-2 text-caption space-y-1">
               <div>
                 <span className="text-amber-400/50">derivedAcquiredAt:</span>{' '}
                 <span className="text-amber-200/80">{debugData.derivedAcquiredAt ?? 'null'}</span>
@@ -439,7 +439,7 @@ export function NFTDetailDebugPanel({
           {/* Debug: Marketplace matching (enhanced) */}
           <div className="border-t border-amber-500/20 pt-2">
             <span className="text-amber-400/70">marketplace matching:</span>
-            <div className="mt-1 ml-2 text-[10px] space-y-1">
+            <div className="mt-1 ml-2 text-caption space-y-1">
               {/* Identity info */}
               <div>
                 <span className="text-amber-400/50">viewerWallet:</span>{' '}
@@ -477,7 +477,7 @@ export function NFTDetailDebugPanel({
                 </span>
               </div>
               {debugData.marketplaceTestConnection && (
-                <div className="ml-2 text-[9px]">
+                <div className="ml-2 text-label">
                   <span className="text-amber-400/30">testConnection:</span>{' '}
                   <span className={`${debugData.marketplaceTestConnection.success ? 'text-green-400' : 'text-rose-400'}`}>
                     {debugData.marketplaceTestConnection.success ? 'OK' : 'FAIL'}
@@ -508,7 +508,7 @@ export function NFTDetailDebugPanel({
               {debugData.walletPurchasesTimeRange_viewerWallet && (
                 <div className="ml-2">
                   <span className="text-amber-400/30">timeRange:</span>{' '}
-                  <span className="text-amber-200/60 text-[9px]">
+                  <span className="text-amber-200/60 text-label">
                     {debugData.walletPurchasesTimeRange_viewerWallet.min} → {debugData.walletPurchasesTimeRange_viewerWallet.max}
                   </span>
                 </div>
@@ -522,7 +522,7 @@ export function NFTDetailDebugPanel({
               {debugData.walletPurchasesTimeRange_currentOwner && (
                 <div className="ml-2">
                   <span className="text-amber-400/30">timeRange:</span>{' '}
-                  <span className="text-amber-200/60 text-[9px]">
+                  <span className="text-amber-200/60 text-label">
                     {debugData.walletPurchasesTimeRange_currentOwner.min} → {debugData.walletPurchasesTimeRange_currentOwner.max}
                   </span>
                 </div>
@@ -537,7 +537,7 @@ export function NFTDetailDebugPanel({
               {debugData.marketplaceCandidateTimes && (
                 <div>
                   <span className="text-amber-400/50">candidateTimes:</span>{' '}
-                  <span className="text-amber-200/80 text-[9px]">
+                  <span className="text-amber-200/80 text-label">
                     {debugData.marketplaceCandidateTimes.min} → {debugData.marketplaceCandidateTimes.max}
                   </span>
                 </div>
@@ -588,7 +588,7 @@ export function NFTDetailDebugPanel({
             </span>
           </div>
           {debugData.transferQueryInfo && (
-            <div className="mt-1 ml-2 text-[10px] space-y-1">
+            <div className="mt-1 ml-2 text-caption space-y-1">
               {debugData.transferQueryInfo.fromBlock !== undefined && debugData.transferQueryInfo.toBlock !== undefined && (
                 <div>
                   <span className="text-amber-400/50">blockRange:</span>{' '}
@@ -626,7 +626,7 @@ export function NFTDetailDebugPanel({
           {debugData.openSeaError && (
             <div className="mt-1">
               <span className="text-amber-400/70">openSeaError:</span>{' '}
-              <span className="text-rose-400 text-[10px]">{debugData.openSeaError}</span>
+              <span className="text-rose-400 text-caption">{debugData.openSeaError}</span>
             </div>
           )}
           <div className="border-t border-amber-500/20 pt-2">
@@ -638,7 +638,7 @@ export function NFTDetailDebugPanel({
           {/* Fetch Status/Error Debug Section */}
           <div className="border-t border-rose-500/20 pt-2 bg-rose-500/5 -mx-3 px-3 py-2 rounded">
             <span className="text-rose-400 font-semibold">fetch status (per-token maps):</span>
-            <div className="mt-2 ml-2 text-[10px] space-y-2">
+            <div className="mt-2 ml-2 text-caption space-y-2">
               {/* Listings fetch status */}
               <div>
                 <span className="text-rose-400/50">listings.status:</span>{' '}
@@ -676,7 +676,7 @@ export function NFTDetailDebugPanel({
                 </div>
               )}
               {/* Map sizes for memory monitoring */}
-              <div className="border-t border-rose-500/10 pt-1 mt-1 text-[9px]">
+              <div className="border-t border-rose-500/10 pt-1 mt-1 text-label">
                 <span className="text-rose-400/30">mapSizes:</span>{' '}
                 <span className="text-rose-200/60">
                   listings={listingsMapSize}, holdingAcq={holdingAcqMapSize}

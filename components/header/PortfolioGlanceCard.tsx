@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Sparkline from '@/components/ui/Sparkline';
-import WaffleChart from '@/components/ui/WaffleChart';
 import PnLLoadingIndicator from '@/components/ui/PnLLoadingIndicator';
 import CoverageBadge from '@/components/ui/CoverageBadge';
 import InsightsPanel from '@/components/ui/InsightsPanel';
@@ -15,12 +14,6 @@ import {
   usePortfolioResult,
   usePortfolioNFTs,
 } from '@/lib/contexts/PortfolioContext';
-
-interface CostBasis {
-  tokens: number | null;
-  nfts: number | null;
-  total: number | null;
-}
 
 interface PortfolioGlanceCardProps {
   className?: string;
@@ -76,16 +69,9 @@ export default function PortfolioGlanceCard({ className = '' }: PortfolioGlanceC
 
   // Derive values from portfolioResult
   const totalValue = portfolioResult?.totalUsd ?? 0;
-  const breakdown = useMemo(() => ({
-    gunValue: portfolioResult?.tokensUsd ?? 0,
-    nftValue: portfolioResult?.nftsUsd ?? 0,
-    otherValue: 0,
-    nftCount: portfolioResult?.nftCount ?? 0,
-    totalGunSpent: portfolioResult?.totalGunSpent ?? 0,
-  }), [portfolioResult]);
 
-  // Fetch P&L data directly (now owned by this component)
-  const { costBasis, isLoading: pnlLoading, coverage: pnlCoverage } = usePortfolioPnL(address ?? '', {
+  // Fetch P&L data for loading indicator and coverage badge
+  const { isLoading: pnlLoading, coverage: pnlCoverage } = usePortfolioPnL(address ?? '', {
     enabled: !!address && totalValue > 0,
   });
 
@@ -100,54 +86,6 @@ export default function PortfolioGlanceCard({ className = '' }: PortfolioGlanceC
     if (!address) return [];
     return getSparklineValues(address, 24);
   }, [address]);
-
-  // Optimistic UI: Load cached P&L data for instant display while refreshing
-  const cachedCostBasis = useMemo<CostBasis | null>(() => {
-    if (typeof window === 'undefined' || !address) return null;
-    try {
-      const cached = localStorage.getItem(`pnl_${address}`);
-      if (cached) {
-        return JSON.parse(cached) as CostBasis;
-      }
-    } catch {
-      // Ignore parse errors
-    }
-    return null;
-  }, [address]);
-
-  // Save cost basis to cache when we receive new data
-  useEffect(() => {
-    if (costBasis && costBasis.total !== null && typeof window !== 'undefined' && address) {
-      try {
-        localStorage.setItem(`pnl_${address}`, JSON.stringify(costBasis));
-      } catch {
-        // Ignore storage errors (quota exceeded, etc.)
-      }
-    }
-  }, [address, costBasis]);
-
-  // Use cached data while loading (optimistic UI)
-  const displayCostBasis = pnlLoading && !costBasis ? cachedCostBasis : costBasis;
-  const isUsingCachedData = pnlLoading && !costBasis && cachedCostBasis !== null;
-
-  // Calculate PnL if cost basis is available (uses cached data for optimistic UI)
-  const pnl = useMemo(() => {
-    if (!displayCostBasis) return null;
-
-    const tokenPnL = displayCostBasis.tokens !== null ? breakdown.gunValue - displayCostBasis.tokens : null;
-    const nftPnL = displayCostBasis.nfts !== null ? breakdown.nftValue - displayCostBasis.nfts : null;
-    const totalPnL = displayCostBasis.total !== null ? totalValue - displayCostBasis.total : null;
-
-    return { tokens: tokenPnL, nfts: nftPnL, total: totalPnL };
-  }, [breakdown, totalValue, displayCostBasis]);
-
-  // Waffle chart percentages
-  const waffleData = useMemo(() => {
-    const total = totalValue > 0 ? totalValue : 1;
-    const gunPercent = (breakdown.gunValue / total) * 100;
-    const nftPercent = (breakdown.nftValue / total) * 100;
-    return { gunPercent, nftPercent };
-  }, [totalValue, breakdown]);
 
   // Generate portfolio insights
   const insights = useMemo(() => {
@@ -171,7 +109,7 @@ export default function PortfolioGlanceCard({ className = '' }: PortfolioGlanceC
         {/* Performance eyebrow with sparkline and tooltip */}
         <div className="flex items-center justify-between gap-4 mb-2">
           <div className="flex items-center gap-1.5 relative">
-            <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
+            <span className="text-data tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
               Performance
             </span>
             {isCalculating && (
@@ -185,7 +123,7 @@ export default function PortfolioGlanceCard({ className = '' }: PortfolioGlanceC
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {showPerformanceTooltip && (
-                  <div className="absolute left-0 top-full mt-1 z-50 w-48 bg-black/95 border border-white/20 rounded-lg px-3 py-2 text-[11px] text-white/70 shadow-xl">
+                  <div className="absolute left-0 top-full mt-1 z-50 w-48 bg-black/95 border border-white/20 rounded-lg px-3 py-2 text-data text-white/70 shadow-xl">
                     Change metrics appear after enough history is collected.
                   </div>
                 )}
@@ -208,64 +146,41 @@ export default function PortfolioGlanceCard({ className = '' }: PortfolioGlanceC
         {/* Performance metrics - two columns */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[12px] text-[var(--gs-gray-3)]">24h:</span>
+            <span className="text-body-sm text-[var(--gs-gray-3)]">24h:</span>
             {change24h.isCalculating ? (
               <span className="text-[13px] font-medium text-[var(--gs-gray-2)] italic">{change24h.text}</span>
             ) : (
               <>
                 <span className={`text-[13px] font-medium ${change24h.colorClass}`}>{change24h.text}</span>
-                <span className={`text-[11px] ${changePercent24h.colorClass}`}>({changePercent24h.text})</span>
+                <span className={`text-data ${changePercent24h.colorClass}`}>({changePercent24h.text})</span>
               </>
             )}
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[12px] text-[var(--gs-gray-3)]">7d:</span>
+            <span className="text-body-sm text-[var(--gs-gray-3)]">7d:</span>
             {change7d.isCalculating ? (
               <span className="text-[13px] font-medium text-[var(--gs-gray-2)] italic">{change7d.text}</span>
             ) : (
               <>
                 <span className={`text-[13px] font-medium ${change7d.colorClass}`}>{change7d.text}</span>
-                <span className={`text-[11px] ${changePercent7d.colorClass}`}>({changePercent7d.text})</span>
+                <span className={`text-data ${changePercent7d.colorClass}`}>({changePercent7d.text})</span>
               </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Composition section - Waffle Chart */}
-      <div className="border-t border-white/[0.06] pt-3 mt-3">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
-            Composition
-          </span>
-          {isUsingCachedData && (
-            <span className="text-[9px] text-white/40 italic">(updating...)</span>
+      {/* P&L Status */}
+      {(pnlLoading || (pnlCoverage !== undefined && pnlCoverage > 0)) && (
+        <div className="border-t border-white/[0.06] pt-3 mt-3">
+          <PnLLoadingIndicator isLoading={pnlLoading} progress={enrichmentProgress} />
+          {!pnlLoading && pnlCoverage !== undefined && pnlCoverage > 0 && (
+            <div className="flex justify-center mt-2">
+              <CoverageBadge coverage={pnlCoverage} />
+            </div>
           )}
         </div>
-        <div className="flex justify-center">
-          <WaffleChart
-            gunPercent={waffleData.gunPercent}
-            nftPercent={waffleData.nftPercent}
-            gunValueUsd={breakdown.gunValue}
-            nftValueUsd={breakdown.nftValue}
-            nftCount={breakdown.nftCount}
-            size={140}
-            showLegend={true}
-            gunCostBasis={displayCostBasis?.tokens}
-            nftCostBasis={displayCostBasis?.nfts}
-            gunPnl={pnl?.tokens}
-            nftPnl={pnl?.nfts}
-            totalGunSpent={breakdown.totalGunSpent}
-          />
-        </div>
-        {/* P&L Status */}
-        <PnLLoadingIndicator isLoading={pnlLoading} progress={enrichmentProgress} />
-        {!pnlLoading && pnlCoverage !== undefined && pnlCoverage > 0 && (
-          <div className="flex justify-center mt-2">
-            <CoverageBadge coverage={pnlCoverage} />
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Insights section */}
       {insights.length > 0 && (
@@ -276,7 +191,7 @@ export default function PortfolioGlanceCard({ className = '' }: PortfolioGlanceC
 
       {/* Status line - tertiary helper text */}
       {!changes.hasEnoughData && (
-        <div className="mt-2 text-[12px] text-[var(--gs-gray-2)] flex items-center gap-1.5">
+        <div className="mt-2 text-body-sm text-[var(--gs-gray-2)] flex items-center gap-1.5">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>

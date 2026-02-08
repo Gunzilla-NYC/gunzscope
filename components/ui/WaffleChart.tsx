@@ -164,7 +164,7 @@ export default function WaffleChart({
           >
             <div className="flex flex-col items-center gap-2">
               <div className="w-8 h-8 border-2 border-white/20 border-t-[var(--gs-lime)] rounded-full animate-spin" />
-              <span className="text-[10px] text-white/40 font-mono">Loading...</span>
+              <span className="text-caption text-white/40 font-mono">Loading...</span>
             </div>
           </div>
         </div>
@@ -304,7 +304,7 @@ export default function WaffleChart({
                 <span className="text-white/50 ml-1">({tooltip.content.percent.toFixed(1)}%)</span>
               </div>
               {tooltip.content.count !== undefined && tooltip.content.count > 0 && (
-                <div className="text-white/50 text-[10px] mt-0.5">
+                <div className="text-white/50 text-caption mt-0.5">
                   {tooltip.content.count} {tooltip.content.count === 1 ? 'item' : 'items'}
                 </div>
               )}
@@ -325,15 +325,15 @@ export default function WaffleChart({
               <div className="w-3 h-3 rounded-sm flex-shrink-0 mt-0.5" style={{ backgroundColor: GUN_COLOR }} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-white/70">GUN</span>
-                  <span className="text-[10px] text-white/40">{gunPercent.toFixed(0)}%</span>
+                  <span className="text-data text-white/70">GUN</span>
+                  <span className="text-caption text-white/40">{gunPercent.toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {gunValueUsd > 0 && (
-                    <span className="text-[10px] text-white/60">${gunValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-caption text-white/60">${gunValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   )}
                   {gunPnl !== undefined && gunPnl !== null && (
-                    <span className={`text-[9px] ${gunPnl >= 0 ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
+                    <span className={`text-label ${gunPnl >= 0 ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
                       ({gunPnl >= 0 ? '+' : ''}${Math.abs(gunPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                     </span>
                   )}
@@ -346,23 +346,23 @@ export default function WaffleChart({
               <div className="w-3 h-3 rounded-sm flex-shrink-0 mt-0.5" style={{ backgroundColor: NFT_COLOR }} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-white/70">
+                  <span className="text-data text-white/70">
                     NFTs{nftCount !== undefined && nftCount > 0 && <span className="text-white/50 ml-1">({nftCount})</span>}
                   </span>
-                  <span className="text-[10px] text-white/40">{nftPercent.toFixed(0)}%</span>
+                  <span className="text-caption text-white/40">{nftPercent.toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {nftValueUsd > 0 && (
-                    <span className="text-[10px] text-white/60">${nftValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-caption text-white/60">${nftValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   )}
                   {nftPnl !== undefined && nftPnl !== null && (
-                    <span className={`text-[9px] ${nftPnl >= 0 ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
+                    <span className={`text-label ${nftPnl >= 0 ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
                       ({nftPnl >= 0 ? '+' : ''}${Math.abs(nftPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                     </span>
                   )}
                 </div>
                 {totalGunSpent !== undefined && totalGunSpent > 0 && (
-                  <div className="text-[9px] text-white/50 mt-0.5">
+                  <div className="text-label text-white/50 mt-0.5">
                     Spent {totalGunSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
                   </div>
                 )}

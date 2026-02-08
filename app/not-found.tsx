@@ -121,7 +121,7 @@ function Crosshair() {
 
 function HudReadout({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="font-mono text-[9px] tracking-[1.5px] uppercase">
+    <div className="font-mono text-label tracking-[1.5px] uppercase">
       <span className="text-[var(--gs-gray-3)]">{label}</span>
       <span className="text-[var(--gs-gray-2)] mx-1">//</span>
       {children}
@@ -265,10 +265,10 @@ export default function NotFound() {
 
       {/* Bottom HUD bar */}
       <footer className="relative z-10 px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between border-t border-white/[0.04] animate-[fadeIn_300ms_ease-out_700ms_both]">
-        <span className="font-mono text-[9px] tracking-[1.5px] uppercase text-[var(--gs-gray-2)]">
+        <span className="font-mono text-label tracking-[1.5px] uppercase text-[var(--gs-gray-2)]">
           GUNZscope // Error Handler
         </span>
-        <span className="font-mono text-[9px] tracking-[1.5px] uppercase text-[var(--gs-gray-2)] tabular-nums">
+        <span className="font-mono text-label tracking-[1.5px] uppercase text-[var(--gs-gray-2)] tabular-nums">
           HTTP 404
         </span>
       </footer>

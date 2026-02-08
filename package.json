@@ -13,6 +13,7 @@
   "dependencies": {
     "@dynamic-labs/ethereum": "^4.55.0",
     "@dynamic-labs/sdk-react-core": "^4.55.0",
+    "@playwright/test": "^1.58.2",
     "@prisma/adapter-better-sqlite3": "^7.2.0",
     "@solana/web3.js": "^1.98.4",
     "axios": "^1.13.2",
@@ -24,6 +25,7 @@
     "next": "^16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "resend": "^6.9.1",
     "sonner": "^2.0.7",
     "viem": "^2.44.4"
   },

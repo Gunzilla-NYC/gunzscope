@@ -803,6 +803,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               onRetryEnrichment={retryEnrichment}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              walletAddress={walletData.address}
             />
 
             {/* Cross-sell: leaderboard */}

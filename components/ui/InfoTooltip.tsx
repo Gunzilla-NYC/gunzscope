@@ -54,7 +54,7 @@ export default function InfoTooltip({ text }: InfoTooltipProps) {
           className="fixed w-52 px-3 py-2 bg-[var(--gs-dark-1)] border border-white/10 shadow-xl shadow-black/40 z-[100] -translate-x-1/2"
           style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)' }}
         >
-          <p className="font-body text-[11px] leading-relaxed text-[var(--gs-gray-4)]">{text}</p>
+          <p className="font-body text-data leading-relaxed text-[var(--gs-gray-4)]">{text}</p>
         </div>,
         document.body
       )}

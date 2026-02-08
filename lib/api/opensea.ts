@@ -826,6 +826,121 @@ export class OpenSeaService {
   }
 
   // ===========================================================================
+  // Scarcity / Collection Trait Methods
+  // ===========================================================================
+
+  /**
+   * Fetch trait value counts for the OTG collection.
+   * Single API call — returns exact counts across ~22.9M indexed items.
+   */
+  async getCollectionTraits(
+    collectionSlug: string = 'off-the-grid'
+  ): Promise<{ weaponTypes: Record<string, number>; qualities: Record<string, number>; classes: Record<string, number> }> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      const response = await axios.get(
+        `${OPENSEA_API_BASE}/traits/${collectionSlug}`,
+        { headers }
+      );
+
+      const counts = response.data?.counts || {};
+
+      // "Type" trait = weapon subtypes (AssaultRifle, SniperRifle, etc.)
+      const weaponTypes: Record<string, number> = {};
+      if (counts['Type']) {
+        for (const [key, val] of Object.entries(counts['Type'])) {
+          if (key !== 'None') weaponTypes[key] = val as number;
+        }
+      }
+
+      const qualities: Record<string, number> = counts['Rarity'] || {};
+
+      // Normalize duplicate class keys (e.g. "WeaponSkin" → "Weapon Skin")
+      const rawClasses = counts['Class'] || {};
+      const classes: Record<string, number> = {};
+      for (const [key, val] of Object.entries(rawClasses)) {
+        const normalized = key.replace(/([a-z])([A-Z])/g, '$1 $2');
+        classes[normalized] = (classes[normalized] || 0) + (val as number);
+      }
+
+      return { weaponTypes, qualities, classes };
+    } catch (error) {
+      console.warn('[OpenSea] Error fetching collection traits:', error);
+      return { weaponTypes: {}, qualities: {}, classes: {} };
+    }
+  }
+
+  /**
+   * Fetch active listings for the collection, grouped by item name.
+   * Also enriches with recent sales data.
+   */
+  async getActiveListingsByItem(
+    collectionSlug: string = 'off-the-grid',
+    maxPages: number = 10
+  ): Promise<Array<{ itemName: string; imageUrl: string | null; listingCount: number; floorPriceGun: number }>> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+      const itemMap = new Map<string, { count: number; minPrice: number; imageUrl: string | null }>();
+      let cursor: string | null = null;
+      let page = 0;
+
+      do {
+        const params: Record<string, string | number> = { limit: 100 };
+        if (cursor) params.next = cursor;
+
+        const response = await axios.get(
+          `${OPENSEA_API_BASE}/listings/collection/${collectionSlug}/all`,
+          { headers, params }
+        );
+
+        const listings = response.data?.listings || [];
+        cursor = response.data?.next || null;
+        page++;
+
+        for (const listing of listings) {
+          const orderPrice = listing.price?.current?.value;
+          const orderDecimals = listing.price?.current?.decimals ?? 18;
+          let priceGun = 0;
+          if (orderPrice) {
+            priceGun = parseFloat(orderPrice) / Math.pow(10, orderDecimals);
+          }
+
+          const asset = listing.maker_asset_bundle?.assets?.[0];
+          const tokenId = listing.protocol_data?.parameters?.offer?.[0]?.identifierOrCriteria;
+          const name = asset?.name || (tokenId ? `Token #${tokenId}` : null);
+          const imageUrl = asset?.image_url || null;
+
+          if (priceGun > 0 && name) {
+            const existing = itemMap.get(name);
+            if (existing) {
+              existing.count++;
+              existing.minPrice = Math.min(existing.minPrice, priceGun);
+              if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
+            } else {
+              itemMap.set(name, { count: 1, minPrice: priceGun, imageUrl });
+            }
+          }
+        }
+
+        if (listings.length === 0) break;
+      } while (cursor && page < maxPages);
+
+      return Array.from(itemMap.entries())
+        .map(([itemName, data]) => ({
+          itemName,
+          imageUrl: data.imageUrl,
+          listingCount: data.count,
+          floorPriceGun: data.minPrice,
+        }))
+        .sort((a, b) => a.listingCount - b.listingCount);
+    } catch (error) {
+      console.warn('[OpenSea] Error fetching active listings:', error);
+      return [];
+    }
+  }
+
+  // ===========================================================================
   // Private Helper Methods
   // ===========================================================================
 

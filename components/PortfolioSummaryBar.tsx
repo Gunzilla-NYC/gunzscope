@@ -6,6 +6,10 @@ import { PortfolioCalcResult, formatUsd } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
 import InfoTooltip from '@/components/ui/InfoTooltip';
+import Sparkline from '@/components/ui/Sparkline';
+import InsightsPanel from '@/components/ui/InsightsPanel';
+import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
+import { generateInsights } from '@/lib/portfolio/portfolioInsights';
 export type PortfolioViewMode = 'simple' | 'detailed';
 
 interface PortfolioSummaryBarProps {
@@ -17,6 +21,30 @@ interface PortfolioSummaryBarProps {
   onRetryEnrichment?: () => void;
   viewMode: PortfolioViewMode;
   onViewModeChange: (mode: PortfolioViewMode) => void;
+  walletAddress?: string;
+}
+
+/**
+ * Format a portfolio change value with sign and color
+ */
+function formatChangeDisplay(
+  value: number | null,
+  isPercent: boolean = false
+): { text: string; colorClass: string; isCalculating: boolean } {
+  if (value === null) {
+    return { text: 'Calculating\u2026', colorClass: 'text-[var(--gs-gray-2)]', isCalculating: true };
+  }
+
+  const colorClass = value > 0 ? 'text-[#beffd2]' : value < 0 ? 'text-[#ff6b6b]' : 'text-[var(--gs-gray-3)]';
+
+  if (isPercent) {
+    const sign = value >= 0 ? '+' : '';
+    return { text: `${sign}${value.toFixed(2)}%`, colorClass, isCalculating: false };
+  }
+
+  const absFormatted = Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const text = value >= 0 ? `+$${absFormatted}` : `-$${absFormatted}`;
+  return { text, colorClass, isCalculating: false };
 }
 
 export default function PortfolioSummaryBar({
@@ -28,6 +56,7 @@ export default function PortfolioSummaryBar({
   onRetryEnrichment,
   viewMode,
   onViewModeChange,
+  walletAddress,
 }: PortfolioSummaryBarProps) {
   // Calculate NFT-based P&L from floor prices with coverage info
   const nftPnL = useMemo(() => {
@@ -112,6 +141,31 @@ export default function PortfolioSummaryBar({
     // (GUN tokens don't have a "cost basis" to compare against)
     return nftPnL.pct;
   }, [portfolioResult, nftPnL.pct]);
+
+  // Performance changes from portfolio history
+  const portfolioChanges = useMemo<PortfolioChanges>(() => {
+    if (!walletAddress) return { change24h: null, changePercent24h: null, change7d: null, changePercent7d: null, hasEnoughData: false };
+    return calculatePortfolioChanges(walletAddress, portfolioResult?.totalUsd ?? 0);
+  }, [walletAddress, portfolioResult?.totalUsd]);
+
+  // Sparkline values from portfolio history
+  const sparklineValues = useMemo(() => {
+    if (!walletAddress) return [];
+    return getSparklineValues(walletAddress, 24);
+  }, [walletAddress]);
+
+  // Portfolio insights
+  const insights = useMemo(() => {
+    const coverageRatio = nftPnL.totalItems > 0 ? nftPnL.nftsWithCost / nftPnL.totalItems : 0;
+    if (coverageRatio < 0.3) return [];
+    return generateInsights(nfts, gunPrice);
+  }, [nfts, gunPrice, nftPnL.nftsWithCost, nftPnL.totalItems]);
+
+  // Format 24h/7d changes
+  const change24h = formatChangeDisplay(portfolioChanges.change24h);
+  const changePercent24h = formatChangeDisplay(portfolioChanges.changePercent24h, true);
+  const change7d = formatChangeDisplay(portfolioChanges.change7d);
+  const changePercent7d = formatChangeDisplay(portfolioChanges.changePercent7d, true);
 
   // Format values
   const totalValue = portfolioResult?.totalUsd ?? 0;
@@ -227,6 +281,33 @@ export default function PortfolioSummaryBar({
                     <p className="font-display text-4xl font-bold text-[var(--gs-white)]">
                       ${animatedTotal}
                     </p>
+                    {/* 24h / 7d performance changes */}
+                    {walletAddress && (
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="font-mono text-[13px]">
+                          <span className="text-[var(--gs-gray-3)] mr-1">24h</span>
+                          {change24h.isCalculating ? (
+                            <span className="text-[var(--gs-gray-2)] italic">{change24h.text}</span>
+                          ) : (
+                            <>
+                              <span className={change24h.colorClass}>{change24h.text}</span>
+                              <span className={`text-data ml-0.5 ${changePercent24h.colorClass}`}>({changePercent24h.text})</span>
+                            </>
+                          )}
+                        </span>
+                        <span className="font-mono text-[13px]">
+                          <span className="text-[var(--gs-gray-3)] mr-1">7d</span>
+                          {change7d.isCalculating ? (
+                            <span className="text-[var(--gs-gray-2)] italic">{change7d.text}</span>
+                          ) : (
+                            <>
+                              <span className={change7d.colorClass}>{change7d.text}</span>
+                              <span className={`text-data ml-0.5 ${changePercent7d.colorClass}`}>({changePercent7d.text})</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    )}
                     {/* Detailed mode: asset split line below hero */}
                     {viewMode === 'detailed' && (
                       <p className="font-mono text-caption text-[var(--gs-gray-3)] mt-1">
@@ -241,8 +322,22 @@ export default function PortfolioSummaryBar({
                 )}
               </div>
 
-              {/* Right column: View toggle + P&L Badge */}
+              {/* Right column: Sparkline + View toggle + P&L Badge */}
               <div className="flex items-center gap-2">
+                {/* Sparkline */}
+                {!isInitializing && walletAddress && (
+                  <div className="flex-shrink-0 opacity-80 hidden sm:block">
+                    <Sparkline
+                      values={sparklineValues.length > 0 ? sparklineValues : [totalValue, totalValue]}
+                      width={80}
+                      height={28}
+                      strokeWidth={1.25}
+                      showFill={true}
+                      showCurrentDot={true}
+                    />
+                  </div>
+                )}
+
                 {/* View mode toggle */}
                 {!isInitializing && (
                   <button
@@ -889,6 +984,15 @@ export default function PortfolioSummaryBar({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* INSIGHTS PANEL — auto-generated portfolio insights                */}
+      {/* ================================================================= */}
+      {insights.length > 0 && !isInitializing && (
+        <div className="border-t border-white/[0.06] px-6 py-3">
+          <InsightsPanel insights={insights} />
         </div>
       )}
     </div>

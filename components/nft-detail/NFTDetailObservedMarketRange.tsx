@@ -37,7 +37,7 @@ export function NFTDetailObservedMarketRange({
 
   return (
     <div className="py-4 border-t border-white/[0.12]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/65 mb-3">
+      <p className="text-data font-semibold uppercase tracking-[0.06em] text-white/65 mb-3">
         Observed Market Range
       </p>
 
@@ -179,7 +179,7 @@ function MarketRangeContent({
         </div>
 
         {/* Helper text + data quality */}
-        <p className="text-[10px] text-white/40 text-center">
+        <p className="text-caption text-white/40 text-center">
           Based on observed listings
           {marketInputs.dataQuality && (
             <span className="ml-1">· Quality: <span className="capitalize">{marketInputs.dataQuality}</span></span>
@@ -191,7 +191,7 @@ function MarketRangeContent({
           const isBelow = costBasisGun < avg;
           const pctDiff = ((avg - costBasisGun) / avg) * 100;
           return (
-            <p className={`text-[10px] text-center ${isBelow ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
+            <p className={`text-caption text-center ${isBelow ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
               Your cost is {Math.abs(pctDiff).toFixed(0)}% {isBelow ? 'below' : 'above'} average
             </p>
           );
@@ -220,7 +220,7 @@ function MarketRangeContent({
 
         {/* Acquisition comparison if available */}
         {costBasisGun !== null && Number.isFinite(costBasisGun) && (
-          <p className="text-[10px] text-white/40 text-center">
+          <p className="text-caption text-white/40 text-center">
             Your cost: {costBasisGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
             {costBasisGun < singleValue && <span className="text-emerald-400/70 ml-1">(below market)</span>}
             {costBasisGun > singleValue && <span className="text-rose-400/70 ml-1">(above market)</span>}
@@ -228,7 +228,7 @@ function MarketRangeContent({
         )}
 
         {/* Helper text */}
-        <p className="text-[10px] text-white/40 text-center">
+        <p className="text-caption text-white/40 text-center">
           Limited market data available
         </p>
       </div>
@@ -246,7 +246,7 @@ function MarketRangeContent({
           </svg>
           Unable to fetch market data
         </p>
-        <p className="text-[10px] text-white/40">
+        <p className="text-caption text-white/40">
           {listingsError || 'Marketplace API unavailable'}
         </p>
       </div>
@@ -264,7 +264,7 @@ function MarketRangeContent({
       {/* Title */}
       <p className="text-sm font-medium text-white/70">No Market Data</p>
       {/* Description */}
-      <p className="text-[11px] text-white/50 max-w-[200px] mx-auto leading-relaxed">
+      <p className="text-data text-white/50 max-w-[200px] mx-auto leading-relaxed">
         This item isn&apos;t currently listed on any marketplace we track.
       </p>
     </div>

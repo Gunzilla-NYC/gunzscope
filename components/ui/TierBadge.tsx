@@ -55,7 +55,7 @@ export default function TierBadge({ tier, className = '', showTooltip = true }: 
     <span className={`relative group inline-flex items-center ${className}`}>
       <span
         className={`
-          inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium
+          inline-flex items-center px-2 py-0.5 rounded text-caption font-medium
           border ${styles.bg} ${styles.border} ${styles.text}
           ${isClassified ? 'font-semibold' : ''}
         `}
@@ -68,7 +68,7 @@ export default function TierBadge({ tier, className = '', showTooltip = true }: 
         <span
           className="
             absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2
-            text-[11px] text-white/90 bg-black/95 border border-white/20
+            text-data text-white/90 bg-black/95 border border-white/20
             rounded-lg shadow-xl whitespace-nowrap opacity-0 invisible
             group-hover:opacity-100 group-hover:visible
             transition-all duration-200 pointer-events-none z-50

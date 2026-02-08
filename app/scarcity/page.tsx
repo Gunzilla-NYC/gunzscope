@@ -1,0 +1,515 @@
+'use client';
+
+import { Suspense, useState } from 'react';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import { useScarcity, type ScarcitySortField } from '@/lib/hooks/useScarcity';
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+function formatGun(n: number): string {
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1) return n.toFixed(0);
+  return n.toFixed(2);
+}
+
+function getListingScarcityColor(count: number): string {
+  if (count <= 2) return '#ff44ff';
+  if (count <= 5) return '#ff8800';
+  if (count <= 15) return '#4488ff';
+  return '#888888';
+}
+
+function getListingScarcityLabel(count: number): string {
+  if (count === 0) return 'Unlisted';
+  if (count <= 2) return 'Very Scarce';
+  if (count <= 5) return 'Limited';
+  if (count <= 15) return 'Moderate';
+  return 'Available';
+}
+
+function SortArrow({ active, order }: { active: boolean; order: 'asc' | 'desc' }) {
+  if (!active) return <span className="text-white/20 ml-1">&uarr;</span>;
+  return (
+    <span className="text-[var(--gs-lime)] ml-1">
+      {order === 'desc' ? '\u2193' : '\u2191'}
+    </span>
+  );
+}
+
+const SORT_COLUMNS: { field: ScarcitySortField; label: string; shortLabel: string }[] = [
+  { field: 'listingCount', label: 'Listed', shortLabel: 'Listed' },
+  { field: 'floorPriceGun', label: 'Floor (GUN)', shortLabel: 'Floor' },
+  { field: 'recentSales', label: '7d Sales', shortLabel: 'Sales' },
+  { field: 'itemName', label: 'Item Name', shortLabel: 'Name' },
+];
+
+// Horizontal bar for trait distribution
+function TraitBar({ label, count, maxCount, color }: { label: string; count: number; maxCount: number; color: string }) {
+  const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <span className="font-mono text-data text-[var(--gs-gray-4)] w-28 shrink-0 truncate">{label}</span>
+      <div className="flex-1 h-4 bg-white/[0.03] overflow-hidden" style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}>
+        <div className="h-full transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: color, opacity: 0.7 }} />
+      </div>
+      <span className="font-mono text-data tabular-nums text-[var(--gs-gray-3)] w-16 text-right shrink-0">{formatNumber(count)}</span>
+    </div>
+  );
+}
+
+type DataSource = 'opensea' | 'onchain';
+
+function ScarcityContent() {
+  const [dataSource, setDataSource] = useState<DataSource>('opensea');
+
+  const {
+    traitStats,
+    sortedListings,
+    isLoading,
+    error,
+    sortField,
+    sortOrder,
+    handleSort,
+    searchQuery,
+    setSearchQuery,
+    lastUpdated,
+    refetch,
+  } = useScarcity();
+
+  // Compute summary stats
+  const totalListed = sortedListings.reduce((sum, l) => sum + l.listingCount, 0);
+  const uniqueItems = sortedListings.length;
+  const totalSales7d = sortedListings.reduce((sum, l) => sum + l.recentSales, 0);
+
+  // Weapon type distribution (sorted by count ascending = rarest first)
+  const weaponTypeSorted = traitStats
+    ? Object.entries(traitStats.weaponTypes).sort(([, a], [, b]) => a - b)
+    : [];
+  const maxWeaponCount = weaponTypeSorted.length > 0 ? weaponTypeSorted[weaponTypeSorted.length - 1][1] : 0;
+
+  // Quality distribution
+  const qualityOrder = ['Epic', 'Rare', 'Uncommon', 'Common'];
+  const qualityColors: Record<string, string> = { Epic: '#cc44ff', Rare: '#4488ff', Uncommon: '#44ff44', Common: '#888888' };
+  const maxQualityCount = traitStats ? Math.max(...Object.values(traitStats.qualities)) : 0;
+
+  return (
+    <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
+      <Navbar />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Page Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase">
+              Scarcity
+            </h1>
+            <span className="font-mono text-micro tracking-widest uppercase px-2 py-1 border border-[var(--gs-warning)]/40 text-[var(--gs-warning)] bg-[var(--gs-warning)]/5 clip-corner-sm">
+              Experimental
+            </span>
+          </div>
+          <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)] mb-3">
+            Marketplace availability and trait distribution across the OTG collection
+          </p>
+        </div>
+
+        {/* Data Source Toggle */}
+        <div className="flex items-center gap-0 mb-6 border border-white/[0.06] w-fit clip-corner-sm">
+          <button
+            onClick={() => setDataSource('opensea')}
+            className={`flex items-center gap-2 px-5 py-2.5 font-mono text-caption uppercase tracking-widest transition-colors ${
+              dataSource === 'opensea'
+                ? 'bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border-r border-white/[0.06]'
+                : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] border-r border-white/[0.06]'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.374 0 0 5.374 0 12s5.374 12 12 12 12-5.374 12-12S18.629 0 12 0ZM5.92 12.403l.051-.081 3.123-4.884a.107.107 0 0 1 .187.014c.52 1.169.972 2.623.76 3.528-.09.372-.335.876-.614 1.342a2.405 2.405 0 0 1-.117.199.108.108 0 0 1-.09.045H6.013a.106.106 0 0 1-.091-.163Zm13.914 1.68a.109.109 0 0 1-.065.101c-.243.103-1.07.485-1.414.962-.878 1.222-1.548 2.97-3.048 2.97H9.053a4.019 4.019 0 0 1-4.013-4.028v-.072c0-.058.048-.106.108-.106h3.485c.07 0 .12.063.115.132-.026.226.017.46.125.67.206.42.636.682 1.099.682h1.726v-1.347H9.99a.11.11 0 0 1-.089-.173l.063-.09c.16-.231.39-.586.621-.992.157-.278.308-.574.43-.87.024-.059.044-.117.064-.176.036-.104.073-.202.1-.3.027-.08.048-.163.065-.243a5.68 5.68 0 0 0 .075-.553 6.25 6.25 0 0 0-.009-.594 4.455 4.455 0 0 0-.025-.287 6.77 6.77 0 0 0-.08-.48 6.89 6.89 0 0 0-.111-.44l-.015-.053c-.032-.117-.065-.229-.104-.35a12.294 12.294 0 0 0-.398-1.066c-.053-.132-.112-.26-.17-.385-.09-.19-.176-.365-.256-.527a4.856 4.856 0 0 1-.112-.217c-.039-.08-.081-.157-.117-.228l-.26-.48a.067.067 0 0 1 .072-.098l1.326.36h.004l.173.049.194.055.069.02v-.783c0-.379.302-.686.679-.686.188 0 .357.078.479.202a.676.676 0 0 1 .2.484v1.164l.142.04a.107.107 0 0 1 .037.023c.036.032.088.08.155.14.052.047.108.102.175.16.132.122.29.278.461.45.046.046.09.094.138.14.182.192.38.407.575.643.066.079.129.162.198.244.068.085.14.17.204.257.085.115.178.237.256.366.036.058.075.117.108.178.1.166.186.34.263.515.032.074.063.155.088.234.073.21.13.427.163.647.012.06.02.123.024.184v.014c.012.082.016.17.016.256a3.302 3.302 0 0 1-.107.86c-.029.1-.06.198-.099.301a3.457 3.457 0 0 1-.27.543c-.026.047-.058.1-.088.147a3.37 3.37 0 0 1-.118.178c-.044.063-.085.13-.132.192a3.985 3.985 0 0 1-.18.234c-.028.035-.06.074-.09.106a3.315 3.315 0 0 1-.166.192c-.057.066-.11.128-.169.187-.036.04-.076.08-.112.117a2.932 2.932 0 0 1-.163.16l-.107.099a.108.108 0 0 1-.072.027h-1.05v1.347h1.322c.295 0 .576-.102.804-.286.078-.062.637-.543 1.291-1.229a.108.108 0 0 1 .056-.033l3.543-1.024a.108.108 0 0 1 .136.103v.72Z" />
+            </svg>
+            OpenSea Data
+          </button>
+          <button
+            onClick={() => setDataSource('onchain')}
+            className={`flex items-center gap-2 px-5 py-2.5 font-mono text-caption uppercase tracking-widest transition-colors ${
+              dataSource === 'onchain'
+                ? 'bg-[var(--gs-purple)]/10 text-[var(--gs-purple)]'
+                : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)]'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+            </svg>
+            On&#8209;Chain Data
+            <span className="font-mono text-[7px] tracking-wider uppercase px-1.5 py-0.5 border border-[var(--gs-warning)]/30 text-[var(--gs-warning)] bg-[var(--gs-warning)]/5 clip-corner-sm">
+              Soon
+            </span>
+          </button>
+        </div>
+
+        {/* On-Chain Data — Locked Placeholder */}
+        {dataSource === 'onchain' && (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="size-16 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 flex items-center justify-center">
+              <svg className="size-7 text-[var(--gs-purple)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h2 className="font-display font-bold text-xl uppercase mb-3 text-[var(--gs-white)]">
+              On&#8209;Chain Scarcity Coming Soon
+            </h2>
+            <p className="font-body text-sm text-[var(--gs-gray-4)] max-w-lg mb-6">
+              Full on&#8209;chain data will show exact mint quantities, true supply per item, and real&#8209;time minting activity directly from GunzChain. This requires Gunzilla to whitelist the GUNZscope IP for higher API rate limits.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl w-full">
+              {[
+                { label: 'Per&#8209;Item Supply', desc: 'Exact count of how many of each item exist on&#8209;chain' },
+                { label: 'Mint Tracking', desc: 'Real&#8209;time tracking of new mints and supply changes' },
+                { label: '"X of Y" Badges', desc: 'Show mint rarity like "1 of 48" on your NFT cards' },
+              ].map((feature) => (
+                <div key={feature.label} className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner text-left">
+                  <div className="h-[2px] bg-gradient-to-r from-[var(--gs-purple)]/60 to-transparent" />
+                  <div className="p-4">
+                    <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-purple)] mb-1.5" dangerouslySetInnerHTML={{ __html: feature.label }} />
+                    <p className="font-body text-xs text-[var(--gs-gray-3)] leading-relaxed" dangerouslySetInnerHTML={{ __html: feature.desc }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* OpenSea Data — Active Content */}
+        {dataSource === 'opensea' && (<>
+        {/* Error state */}
+        {error && (
+          <div className="mb-6 px-4 py-3 bg-[var(--gs-loss)]/[0.08] border border-[var(--gs-loss)]/20 clip-corner-sm">
+            <div className="flex items-center justify-between">
+              <p className="font-mono text-data text-[var(--gs-loss)]">{error}</p>
+              <button onClick={refetch} className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-6">
+            {/* Skeleton stats bar */}
+            <div className="grid grid-cols-3 gap-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner stat-cell-animate">
+                  <div className="h-[2px] gradient-accent-line" />
+                  <div className="p-4">
+                    <div className="h-3 w-20 skeleton-stat mb-3" />
+                    <div className="h-7 w-16 skeleton-stat" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Skeleton table rows */}
+            <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
+              <div className="h-[2px] gradient-accent-line" />
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="h-10 bg-white/[0.02] animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Stats Bar */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden stat-cell-animate clip-corner">
+                <div className="h-[2px] gradient-accent-line" />
+                <div className="p-4">
+                  <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">Total Listed</p>
+                  <p className="font-mono text-2xl font-semibold tabular-nums text-[var(--gs-white)]">{totalListed.toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden stat-cell-animate clip-corner">
+                <div className="h-[2px] gradient-accent-line" />
+                <div className="p-4">
+                  <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">Unique Items</p>
+                  <p className="font-mono text-2xl font-semibold tabular-nums text-[var(--gs-white)]">{uniqueItems.toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden stat-cell-animate clip-corner">
+                <div className="h-[2px] gradient-accent-line" />
+                <div className="p-4">
+                  <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">7d Sales</p>
+                  <p className="font-mono text-2xl font-semibold tabular-nums text-[var(--gs-white)]">{totalSales7d.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Trait Distribution Cards */}
+            {traitStats && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Weapon Types */}
+                <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
+                  <div className="h-[2px] gradient-accent-line" />
+                  <div className="p-4">
+                    <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)] mb-3">
+                      Weapon Type Distribution
+                    </p>
+                    <div className="space-y-0">
+                      {weaponTypeSorted.map(([type, count]) => (
+                        <TraitBar
+                          key={type}
+                          label={type}
+                          count={count}
+                          maxCount={maxWeaponCount}
+                          color="var(--gs-lime)"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quality Distribution */}
+                <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
+                  <div className="h-[2px] gradient-accent-line" />
+                  <div className="p-4">
+                    <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)] mb-3">
+                      Quality Distribution
+                    </p>
+                    <div className="space-y-0">
+                      {qualityOrder
+                        .filter((q) => traitStats.qualities[q])
+                        .map((quality) => (
+                          <TraitBar
+                            key={quality}
+                            label={quality}
+                            count={traitStats.qualities[quality]}
+                            maxCount={maxQualityCount}
+                            color={qualityColors[quality] || '#888'}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Marketplace Listings Section */}
+            <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
+              <div className="h-[2px] gradient-accent-line" />
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
+                    Marketplace Listings
+                  </p>
+                  {lastUpdated && (
+                    <p className="font-mono text-label text-[var(--gs-gray-2)] tabular-nums">
+                      Updated {new Date(lastUpdated).toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+
+                {/* Search */}
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search items..."
+                    className="w-full max-w-xs px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm"
+                  />
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/[0.06]">
+                        <th className="text-left font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2 w-8">#</th>
+                        <th className="text-left font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
+                          <button onClick={() => handleSort('itemName')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors">
+                            Item
+                            <SortArrow active={sortField === 'itemName'} order={sortOrder} />
+                          </button>
+                        </th>
+                        <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
+                          <button onClick={() => handleSort('listingCount')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto">
+                            Listed
+                            <SortArrow active={sortField === 'listingCount'} order={sortOrder} />
+                          </button>
+                        </th>
+                        <th className="text-center font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
+                          Scarcity
+                        </th>
+                        <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
+                          <button onClick={() => handleSort('floorPriceGun')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto">
+                            Floor (GUN)
+                            <SortArrow active={sortField === 'floorPriceGun'} order={sortOrder} />
+                          </button>
+                        </th>
+                        <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
+                          <button onClick={() => handleSort('recentSales')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto">
+                            7d Sales
+                            <SortArrow active={sortField === 'recentSales'} order={sortOrder} />
+                          </button>
+                        </th>
+                        <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
+                          Avg Sale
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedListings.map((listing, idx) => {
+                        const scarcityColor = getListingScarcityColor(listing.listingCount);
+                        const scarcityLabel = getListingScarcityLabel(listing.listingCount);
+                        return (
+                          <tr
+                            key={listing.itemName}
+                            className="border-b border-white/[0.03] hover:bg-[var(--gs-lime)]/[0.03] transition-colors"
+                          >
+                            <td className="py-3 px-2 font-mono text-data tabular-nums text-[var(--gs-gray-3)]">
+                              {idx + 1}
+                            </td>
+                            <td className="py-3 px-2">
+                              <div className="flex items-center gap-2.5">
+                                {listing.imageUrl && (
+                                  <img
+                                    src={listing.imageUrl}
+                                    alt=""
+                                    className="w-8 h-8 object-cover bg-black/50"
+                                    style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+                                    loading="lazy"
+                                  />
+                                )}
+                                <span className="font-mono text-sm text-[var(--gs-white)] truncate max-w-[250px]">
+                                  {listing.itemName}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums" style={{ color: scarcityColor }}>
+                              {listing.listingCount}
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              <span
+                                className="inline-block font-mono text-label uppercase tracking-wider px-2 py-0.5 border clip-corner-sm"
+                                style={{ color: scarcityColor, borderColor: scarcityColor + '40' }}
+                              >
+                                {scarcityLabel}
+                              </span>
+                            </td>
+                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)]">
+                              {listing.floorPriceGun > 0 ? formatGun(listing.floorPriceGun) : '\u2014'}
+                            </td>
+                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)]">
+                              {listing.recentSales > 0 ? listing.recentSales : '\u2014'}
+                            </td>
+                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)]">
+                              {listing.avgSalePriceGun ? formatGun(listing.avgSalePriceGun) : '\u2014'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {sortedListings.length === 0 && (
+                    <div className="py-12 text-center">
+                      <p className="font-mono text-sm text-[var(--gs-gray-3)]">
+                        {searchQuery ? 'No items match your search' : 'No active listings found'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="md:hidden space-y-0">
+                  {/* Mobile sort dropdown */}
+                  <div className="mb-3">
+                    <select
+                      value={`${sortField}-${sortOrder}`}
+                      onChange={(e) => {
+                        const [field, order] = e.target.value.split('-') as [ScarcitySortField, 'asc' | 'desc'];
+                        handleSort(field);
+                      }}
+                      className="w-full px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] focus:outline-none focus:border-[var(--gs-lime)]/40 clip-corner-sm"
+                    >
+                      <option value="listingCount-asc">Scarcest First</option>
+                      <option value="floorPriceGun-desc">Highest Floor</option>
+                      <option value="floorPriceGun-asc">Lowest Floor</option>
+                      <option value="recentSales-desc">Most Sold (7d)</option>
+                      <option value="itemName-asc">Name A-Z</option>
+                    </select>
+                  </div>
+
+                  {sortedListings.map((listing, idx) => {
+                    const scarcityColor = getListingScarcityColor(listing.listingCount);
+                    const scarcityLabel = getListingScarcityLabel(listing.listingCount);
+                    return (
+                      <div
+                        key={listing.itemName}
+                        className="flex items-center gap-3 py-3 border-b border-white/[0.04]"
+                      >
+                        <span className="font-mono text-caption tabular-nums text-[var(--gs-gray-2)] w-6 shrink-0">{idx + 1}</span>
+                        {listing.imageUrl && (
+                          <img
+                            src={listing.imageUrl}
+                            alt=""
+                            className="w-10 h-10 object-cover bg-black/50 shrink-0"
+                            style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+                            loading="lazy"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-body-sm text-[var(--gs-white)] truncate">{listing.itemName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono text-caption tabular-nums" style={{ color: scarcityColor }}>
+                              {listing.listingCount} listed
+                            </span>
+                            <span className="font-mono text-caption text-[var(--gs-gray-2)]">&middot;</span>
+                            <span className="font-mono text-caption uppercase" style={{ color: scarcityColor }}>
+                              {scarcityLabel}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-mono text-body-sm tabular-nums text-[var(--gs-gray-4)]">
+                            {listing.floorPriceGun > 0 ? `${formatGun(listing.floorPriceGun)} GUN` : '\u2014'}
+                          </p>
+                          {listing.recentSales > 0 && (
+                            <p className="font-mono text-caption tabular-nums text-[var(--gs-gray-2)]">
+                              {listing.recentSales} sales
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {sortedListings.length === 0 && (
+                    <div className="py-12 text-center">
+                      <p className="font-mono text-sm text-[var(--gs-gray-3)]">
+                        {searchQuery ? 'No items match your search' : 'No active listings found'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        </>)}
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default function ScarcityPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-[var(--gs-black)]" />}>
+      <ScarcityContent />
+    </Suspense>
+  );
+}

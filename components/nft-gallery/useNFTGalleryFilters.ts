@@ -9,7 +9,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { NFT } from '@/lib/types';
 import { buildTokenKey } from '@/lib/utils/nftCache';
 import {
-  SortOption, ViewMode, Rarity,
+  SortOption, ViewMode, Rarity, MarketItemData,
   getRarityRank, getRarityName,
   getItemClass, getMintNumericValue, isNumericMint,
 } from './utils';
@@ -31,7 +31,7 @@ function matchesTraits(nft: NFT, query: string): boolean {
   return false;
 }
 
-export function useNFTGalleryFilters(nfts: NFT[]) {
+export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, MarketItemData>) {
   // Modal state
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [selectedTokenKeyString, setSelectedTokenKeyString] = useState<string | null>(null);
@@ -232,6 +232,12 @@ export function useNFTGalleryFilters(nfts: NFT[]) {
             const bVal = b.floorPrice ?? b.purchasePriceGun ?? 0;
             return bVal - aVal;
           }
+          case 'scarcity-asc': {
+            const aListings = marketMap?.get(a.name)?.listingCount ?? Infinity;
+            const bListings = marketMap?.get(b.name)?.listingCount ?? Infinity;
+            if (aListings !== bListings) return aListings - bListings;
+            return a.name.localeCompare(b.name);
+          }
           default:
             return 0;
         }
@@ -239,7 +245,7 @@ export function useNFTGalleryFilters(nfts: NFT[]) {
     }
 
     return result;
-  }, [preRarityFilteredNFTs, activeRarities, sortBy]);
+  }, [preRarityFilteredNFTs, activeRarities, sortBy, marketMap]);
 
   // Event handlers
   const handleNFTClick = useCallback((nft: NFT) => {

@@ -30,7 +30,7 @@ export function NFTDetailTraitPills({
     <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2">
       {/* Mint Number */}
       {mintNumber && (
-        <span className="inline-flex items-center px-2 py-0.5 bg-white/5 border border-white/10 font-mono text-[10px] text-white/70 tracking-wide">
+        <span className="inline-flex items-center px-2 py-0.5 bg-white/5 border border-white/10 font-mono text-caption text-white/70 tracking-wide">
           #{mintNumber}
         </span>
       )}
@@ -40,14 +40,14 @@ export function NFTDetailTraitPills({
 
       {/* Class */}
       {itemClass && (
-        <span className="inline-flex items-center px-2 py-0.5 bg-[var(--gs-purple)]/10 border border-[var(--gs-purple)]/20 font-mono text-[10px] text-[var(--gs-purple)] uppercase tracking-wide">
+        <span className="inline-flex items-center px-2 py-0.5 bg-[var(--gs-purple)]/10 border border-[var(--gs-purple)]/20 font-mono text-caption text-[var(--gs-purple)] uppercase tracking-wide">
           {itemClass}
         </span>
       )}
 
       {/* Platform */}
       {platform && (
-        <span className="inline-flex items-center px-2 py-0.5 bg-white/5 border border-white/10 font-mono text-[10px] text-white/60 uppercase tracking-wide">
+        <span className="inline-flex items-center px-2 py-0.5 bg-white/5 border border-white/10 font-mono text-caption text-white/60 uppercase tracking-wide">
           {platform}
         </span>
       )}

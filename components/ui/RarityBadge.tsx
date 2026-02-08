@@ -46,8 +46,8 @@ const rarityStyles: Record<string, { bg: string; text: string; border: string }>
 };
 
 const sizeClasses = {
-  sm: 'px-1.5 py-0.5 text-[8px]',
-  md: 'px-2 py-1 text-[9px]',
+  sm: 'px-1.5 py-0.5 text-micro',
+  md: 'px-2 py-1 text-label',
 };
 
 export default function RarityBadge({ rarity, size = 'sm' }: RarityBadgeProps) {

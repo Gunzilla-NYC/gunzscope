@@ -13,6 +13,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
 import { OpenSeaService } from '@/lib/api/opensea';
@@ -1963,11 +1964,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     return Math.max(2, Math.min(98, position));
   };
 
-  return (
+  // Render via portal to document.body so the modal sits above all page content
+  if (typeof window === 'undefined') return null;
+
+  return createPortal(
     <>
-      {/* Backdrop */}
+      {/* Backdrop — solid dark overlay, no blur (blur causes mouse lag from GPU recompositing) */}
       <div
-        className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 bg-black/80 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
@@ -1982,7 +1986,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         <div className="flex items-stretch gap-0 pointer-events-auto">
           {/* Main Modal */}
           <div
-            className={`relative w-full min-w-[432px] max-w-[440px] max-h-[85vh] bg-[var(--gs-dark-1)] rounded-2xl overflow-hidden flex flex-col transform transition-all duration-300 ${
+            className={`relative w-full min-w-[432px] max-w-[440px] max-h-[85vh] bg-[var(--gs-dark-1)] rounded-2xl overflow-hidden flex flex-col transition-[opacity,transform] duration-300 ${
               isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
             } ${hasRelatedItems && relatedItemsExpanded ? 'rounded-r-none' : ''}`}
             style={{
@@ -2048,7 +2052,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           )}
                           {/* Mint badge */}
                           <div
-                            className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white"
+                            className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-caption font-semibold text-white"
                             style={{ backgroundColor: isActive ? item.colors.primary : 'rgba(0,0,0,0.7)' }}
                           >
                             #{item.mintNumber}
@@ -2102,7 +2106,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       </p>
                     );
                   })()}
-                  <p className="text-[11px] text-white/60 mt-1">
+                  <p className="text-data text-white/60 mt-1">
                     Chain: {getChainDisplayName(nft.chain)}
                   </p>
                   {nft.typeSpec?.Item?.rarity && (
@@ -2202,12 +2206,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   >
                     {/* Header row: YOUR POSITION + Status pill */}
                     <div className="flex items-center justify-between mb-2">
-                      <p className="font-mono text-[10px] font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                      <p className="font-mono text-caption font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
                         Your Position
                       </p>
                       {/* Status pill */}
                       {statusPill && (
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusPill.style}`}>
+                        <span className={`text-caption font-semibold px-2 py-0.5 rounded-full ${statusPill.style}`}>
                           {statusPill.text}
                         </span>
                       )}
@@ -2249,7 +2253,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         )}
 
                         {/* Explanation text */}
-                        <p className="text-[11px] text-white/60 mt-2 leading-relaxed">
+                        <p className="text-data text-white/60 mt-2 leading-relaxed">
                           Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
                         </p>
 
@@ -2258,7 +2262,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
                             {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' && (
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] uppercase tracking-wider text-white/60">Source</span>
+                                <span className="text-data uppercase tracking-wider text-white/60">Source</span>
                                 <span className={`text-[13px] font-medium ${
                                   currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
                                   currentPurchaseData.acquisitionVenue === 'otg_marketplace' ? 'text-[var(--gs-purple)]' :
@@ -2271,7 +2275,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                             )}
                             {currentPurchaseData?.purchaseDate && (
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] uppercase tracking-wider text-white/60">Acquired</span>
+                                <span className="text-data uppercase tracking-wider text-white/60">Acquired</span>
                                 <span className="text-[13px] font-medium text-white/90 tabular-nums">
                                   {formatDate(currentPurchaseData.purchaseDate)}
                                 </span>
@@ -2280,7 +2284,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                             {/* Transaction link */}
                             {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) && (
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] uppercase tracking-wider text-white/60">Transaction</span>
+                                <span className="text-data uppercase tracking-wider text-white/60">Transaction</span>
                                 <a
                                   href={gunzExplorerTxUrl(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash || '')}
                                   target="_blank"
@@ -2340,13 +2344,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 const getPositionIcon = () => {
                   switch (positionLabel.state) {
                     case 'UP':
-                      return <span className="text-[10px]">↗</span>;
+                      return <span className="text-caption">↗</span>;
                     case 'DOWN':
-                      return <span className="text-[10px]">↘</span>;
+                      return <span className="text-caption">↘</span>;
                     case 'FLAT':
-                      return <span className="text-[10px]">–</span>;
+                      return <span className="text-caption">–</span>;
                     default:
-                      return <span className="text-[10px]">•</span>;
+                      return <span className="text-caption">•</span>;
                   }
                 };
 
@@ -2372,7 +2376,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   >
                     {/* Header row: Market Reference + Position pill */}
                     <div className="flex items-center justify-between mb-2">
-                      <p className="font-mono text-[10px] font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                      <p className="font-mono text-caption font-normal uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
                         Market Reference
                       </p>
                       {/* Position pill */}
@@ -2415,7 +2419,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         {/* Data Quality - neutral styling, spread-based only */}
                         {positionLabel.dataQuality && (
                           <p
-                            className="text-[11px] text-white/60 mt-2 inline-flex items-center gap-1 cursor-help"
+                            className="text-data text-white/60 mt-2 inline-flex items-center gap-1 cursor-help"
                             title="Based on observed price range only. Listings are sparse and may not reflect actual sale prices."
                           >
                             Data Quality:{' '}
@@ -2453,7 +2457,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               </div>
 
               {/* Armory Tab - only for modifiable weapons */}
-              {weaponLabEligible && (
+              {weaponLabEligible && hasRelatedItems && (
                 <button
                   onClick={() => setIsWeaponLabOpen(true)}
                   className="mt-4 w-full px-4 py-3 rounded-lg
@@ -2549,7 +2553,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             >
               {/* Vertical "ARMORY" text */}
               <span
-                className="text-[9px] font-bold tracking-widest uppercase text-gray-500 group-hover:text-[#64ffff] transition-colors whitespace-nowrap"
+                className="text-label font-bold tracking-widest uppercase text-gray-500 group-hover:text-[#64ffff] transition-colors whitespace-nowrap"
                 style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
               >
                 ARMORY
@@ -2564,7 +2568,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
               {/* Item count badge */}
-              <span className="absolute -top-2 -right-1 w-5 h-5 bg-[#64ffff] text-black text-[10px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-2 -right-1 w-5 h-5 bg-[#64ffff] text-black text-caption font-bold rounded-full flex items-center justify-center">
                 {relatedItems.length}
               </span>
             </button>
@@ -2592,7 +2596,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   className="text-gray-400 hover:text-white transition p-1 rounded hover:bg-white/5 flex items-center gap-1 text-xs"
                   title="Exit Armory"
                 >
-                  <span className="text-[10px] text-gray-500">Exit Armory</span>
+                  <span className="text-caption text-gray-500">Exit Armory</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
@@ -2647,12 +2651,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                             </p>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span
-                                className="text-[10px] font-semibold uppercase"
+                                className="text-caption font-semibold uppercase"
                                 style={{ color: itemColors.primary }}
                               >
                                 {itemRarity}
                               </span>
-                              <span className="text-[10px] text-gray-500">
+                              <span className="text-caption text-gray-500">
                                 {itemClass === 'Weapon Skin' ? 'Skin' : itemClass}
                               </span>
                             </div>
@@ -2675,7 +2679,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   <h4 className="text-xs font-semibold text-[#96aaff] uppercase tracking-wider mb-1">
                     Weapon Prototypes
                   </h4>
-                  <p className="text-[10px] text-gray-500 mb-3">
+                  <p className="text-caption text-gray-500 mb-3">
                     Configure, upgrade, and prototype weapons
                   </p>
                   <div className="flex items-center justify-center py-6 text-gray-600 text-xs">
@@ -2709,6 +2713,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           inventory={allNfts || []}
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }

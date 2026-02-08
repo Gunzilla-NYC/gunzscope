@@ -82,13 +82,13 @@ export default function PnLLoadingIndicator({ isLoading, progress }: PnLLoadingI
         </span>
 
         {/* Stage message */}
-        <span className="text-[9px] text-[var(--gs-gray-3)] font-mono">
+        <span className="text-label text-[var(--gs-gray-3)] font-mono">
           {getMessage()}
         </span>
 
         {/* Elapsed time after 10s (only when no real progress) */}
         {seconds >= 10 && !progressPercent && (
-          <span className="text-[9px] text-[var(--gs-gray-2)] font-mono">
+          <span className="text-label text-[var(--gs-gray-2)] font-mono">
             ({seconds}s)
           </span>
         )}

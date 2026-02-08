@@ -117,7 +117,7 @@ export default function OnboardingChecklist() {
         style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
       >
         <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse" />
-        <span className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)]">
+        <span className="font-mono text-caption tracking-wide text-[var(--gs-gray-3)]">
           {completedCount}/{STEPS.length}
         </span>
       </button>
@@ -132,7 +132,7 @@ export default function OnboardingChecklist() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
         <div>
-          <p className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+          <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
             Getting Started
           </p>
           {/* Progress bar */}
@@ -185,13 +185,13 @@ export default function OnboardingChecklist() {
               </div>
               {/* Text */}
               <div className="min-w-0">
-                <p className={`font-mono text-[11px] leading-tight ${
+                <p className={`font-mono text-data leading-tight ${
                   done ? 'text-[var(--gs-gray-3)] line-through' : 'text-[var(--gs-white)]'
                 }`}>
                   {step.label}
                 </p>
                 {!done && (
-                  <p className="font-body text-[10px] text-[var(--gs-gray-2)] mt-0.5 leading-snug">
+                  <p className="font-body text-caption text-[var(--gs-gray-2)] mt-0.5 leading-snug">
                     {step.description}
                   </p>
                 )}
@@ -237,7 +237,7 @@ export default function OnboardingChecklist() {
       {/* All done celebration */}
       {allDone && (
         <div className="px-4 py-3 border-t border-white/[0.06] bg-[var(--gs-lime)]/[0.04]">
-          <p className="font-mono text-[11px] text-[var(--gs-lime)]">
+          <p className="font-mono text-data text-[var(--gs-lime)]">
             All set! You&apos;re ready to track.
           </p>
         </div>

@@ -2,5 +2,13 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    { "path": "/api/cron/gun-price", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/floor-drop", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/whale-tracker", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/collection-drop", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/snipe-alert", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/portfolio-digest", "schedule": "0 10 * * 0" }
+  ]
 }

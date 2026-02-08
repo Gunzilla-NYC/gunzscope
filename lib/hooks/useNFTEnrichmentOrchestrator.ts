@@ -22,6 +22,11 @@ const NFT_CONTRACT_ADDRESS = '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
 // Types
 // =============================================================================
 
+interface EnrichmentResult {
+  nft: NFT;
+  fetchSucceeded: boolean;
+}
+
 export interface UseNFTEnrichmentOptions {
   priorityCount?: number;
   batchSize?: number;
@@ -103,7 +108,7 @@ export function useNFTEnrichmentOrchestrator(
     nftContractAddress: string,
     avalancheService: AvalancheService,
     marketplaceService: GameMarketplaceService | null
-  ): Promise<NFT> => {
+  ): Promise<EnrichmentResult> => {
     const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
 
     // Check cache - only use if acquisition is complete
@@ -111,14 +116,17 @@ export function useNFTEnrichmentOrchestrator(
     if (cached && cached.hasAcquisition === true) {
       const groupedQuantity = nft.tokenIds && nft.tokenIds.length > 1 ? nft.tokenIds.length : undefined;
       return {
-        ...nft,
-        quantity: groupedQuantity ?? cached.quantity ?? nft.quantity ?? 1,
-        purchasePriceGun: cached.purchasePriceGun,
-        purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
-        transferredFrom: cached.transferredFrom,
-        isFreeTransfer: cached.isFreeTransfer,
-        acquisitionVenue: cached.acquisitionVenue,
-        acquisitionTxHash: cached.acquisitionTxHash,
+        nft: {
+          ...nft,
+          quantity: groupedQuantity ?? cached.quantity ?? nft.quantity ?? 1,
+          purchasePriceGun: cached.purchasePriceGun,
+          purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
+          transferredFrom: cached.transferredFrom,
+          isFreeTransfer: cached.isFreeTransfer,
+          acquisitionVenue: cached.acquisitionVenue,
+          acquisitionTxHash: cached.acquisitionTxHash,
+        },
+        fetchSucceeded: true,
       };
     }
 
@@ -258,12 +266,12 @@ export function useNFTEnrichmentOrchestrator(
       }
 
       return {
-        ...nft,
-        ...enrichedData,
+        nft: { ...nft, ...enrichedData },
+        fetchSucceeded: acquisition !== null,
       };
     } catch (error) {
       console.error(`Error enriching NFT ${nft.tokenId}:`, error);
-      return nft;
+      return { nft, fetchSucceeded: false };
     }
   }, []);
 
@@ -348,32 +356,35 @@ export function useNFTEnrichmentOrchestrator(
         enrichedResults.set(key, nft);
       });
 
+      let completedCount = 0;
+
       for (let i = 0; i < orderedNftsToEnrich.length; i += batchSize) {
         if (cancelledRef.current) break;
 
         const batch = orderedNftsToEnrich.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
-          batch.map(nft => enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService))
+
+        // Process batch with per-NFT progress updates
+        await Promise.all(
+          batch.map(async (nft) => {
+            const { nft: enrichedNFT, fetchSucceeded } = await enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService);
+
+            if (!fetchSucceeded) {
+              failedCount++;
+            }
+
+            // Update per-NFT so the counter keeps moving during slow RPC calls
+            const key = enrichedNFT.tokenIds?.[0] || enrichedNFT.tokenId;
+            enrichedResults.set(key, enrichedNFT);
+            completedCount++;
+            if (!cancelledRef.current) {
+              setProgress({ completed: completedCount, total: orderedNftsToEnrich.length, phase: 'enriching', failedCount });
+            }
+
+            return enrichedNFT;
+          })
         );
 
-        // Track failures: compare input vs output for each NFT in batch
-        batchResults.forEach((enrichedNFT, idx) => {
-          const key = enrichedNFT.tokenIds?.[0] || enrichedNFT.tokenId;
-          enrichedResults.set(key, enrichedNFT);
-          // If enrichment didn't add acquisition data, count as failed
-          const original = batch[idx];
-          const gainedData = (
-            enrichedNFT.purchasePriceGun !== undefined && enrichedNFT.purchasePriceGun !== original.purchasePriceGun
-          ) || (
-            enrichedNFT.purchaseDate !== undefined && enrichedNFT.purchaseDate !== original.purchaseDate
-          ) || (
-            enrichedNFT.acquisitionVenue !== undefined && enrichedNFT.acquisitionVenue !== original.acquisitionVenue
-          );
-          if (!gainedData) {
-            failedCount++;
-          }
-        });
-
+        // Push full batch update to callback
         if (!cancelledRef.current) {
           const updatedNFTs = nfts.map(nft => {
             const key = nft.tokenIds?.[0] || nft.tokenId;
@@ -381,9 +392,6 @@ export function useNFTEnrichmentOrchestrator(
           });
           updateCallback(updatedNFTs);
           setEnrichedNFTs(updatedNFTs);
-
-          const completedCount = Math.min(i + batchSize, orderedNftsToEnrich.length);
-          setProgress({ completed: completedCount, total: orderedNftsToEnrich.length, phase: 'enriching', failedCount });
         }
 
         if (i + batchSize < orderedNftsToEnrich.length && !cancelledRef.current) {

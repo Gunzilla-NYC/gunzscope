@@ -36,14 +36,14 @@ export default function StatCard({
       `}
       style={{ borderLeftColor: accentColors[accentColor] }}
     >
-      <div className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
+      <div className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
         {label}
       </div>
       <div className="font-display text-2xl font-bold text-[var(--gs-white)]">
         {value}
       </div>
       {subValue && (
-        <div className="font-mono text-[11px] text-[var(--gs-gray-4)] mt-1">
+        <div className="font-mono text-data text-[var(--gs-gray-4)] mt-1">
           {subValue}
         </div>
       )}

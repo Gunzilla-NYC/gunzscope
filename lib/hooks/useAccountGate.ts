@@ -5,10 +5,11 @@ import { useState, useCallback, useEffect } from 'react';
 
 const SEARCH_COUNT_KEY = 'gs_search_count';
 const LAST_SEARCH_KEY = 'gs_last_search';
+const FREE_SEARCH_LIMIT = 3;
 
 /**
  * Manages search gating for anonymous users.
- * First search is free; subsequent searches require wallet connection.
+ * Users get 3 free searches per session; after that, wallet connection is required.
  * Uses sessionStorage so the count resets each browser session.
  */
 export function useAccountGate() {
@@ -39,8 +40,10 @@ export function useAccountGate() {
   return {
     isConnected,
     searchCount,
-    canSearch: isConnected || searchCount < 1,
-    isGated: !isConnected && searchCount >= 1,
+    canSearch: isConnected || searchCount < FREE_SEARCH_LIMIT,
+    isGated: !isConnected && searchCount >= FREE_SEARCH_LIMIT,
+    isSoftNudge: !isConnected && searchCount >= 1 && searchCount < FREE_SEARCH_LIMIT,
+    remainingSearches: Math.max(0, FREE_SEARCH_LIMIT - searchCount),
     incrementSearch,
     getLastSearchedAddress,
   };

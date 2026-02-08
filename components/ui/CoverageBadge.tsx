@@ -49,7 +49,7 @@ export default function CoverageBadge({ coverage, className = '' }: CoverageBadg
       {/* Indicator dot */}
       <span className={`w-1.5 h-1.5 rounded-full ${level.color.replace('text-', 'bg-')}`} />
       {/* Label and percentage */}
-      <span className={`text-[10px] font-mono ${level.color}`}>
+      <span className={`text-caption font-mono ${level.color}`}>
         {level.label} ({percentage}%)
       </span>
     </div>

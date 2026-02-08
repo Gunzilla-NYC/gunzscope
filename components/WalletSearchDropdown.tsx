@@ -81,7 +81,7 @@ export default function WalletSearchDropdown({
     <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden z-50">
       {/* Section header */}
       <div className="px-3 pt-3 pb-1">
-        <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+        <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
           Wallets
         </span>
       </div>
@@ -103,7 +103,7 @@ export default function WalletSearchDropdown({
             onClick={handleWatchlistClick}
             disabled={isInWatchlist || isAddingWatchlist}
             className={`
-              font-mono text-[11px] tracking-wide uppercase px-3 py-1.5
+              font-mono text-data tracking-wide uppercase px-3 py-1.5
               bg-transparent border transition-all
               flex items-center gap-1.5
               ${isInWatchlist
@@ -128,7 +128,7 @@ export default function WalletSearchDropdown({
 
           {/* Portfolio button */}
           {isAtPortfolioLimit && !isInPortfolio ? (
-            <span className="font-mono text-[11px] tracking-wide uppercase px-3 py-1.5 text-[var(--gs-gray-2)]">
+            <span className="font-mono text-data tracking-wide uppercase px-3 py-1.5 text-[var(--gs-gray-2)]">
               Limit (5)
             </span>
           ) : (
@@ -136,7 +136,7 @@ export default function WalletSearchDropdown({
               onClick={handlePortfolioClick}
               disabled={isInPortfolio || isAddingPortfolio}
               className={`
-                font-mono text-[11px] tracking-wide uppercase px-3 py-1.5
+                font-mono text-data tracking-wide uppercase px-3 py-1.5
                 bg-transparent border transition-all
                 flex items-center gap-1.5
                 ${isInPortfolio

@@ -10,13 +10,19 @@ import type { NFT } from '@/lib/types';
 // Types
 // ============================================================================
 
-export type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc' | 'value-desc' | 'pnl-desc';
+export type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc' | 'value-desc' | 'pnl-desc' | 'scarcity-asc';
 export type ViewMode = 'small' | 'medium' | 'list';
 export type Rarity = 'Epic' | 'Rare' | 'Uncommon' | 'Common';
 
 export interface MintWithRarity {
   mint: string;
   rarity: string;
+}
+
+/** Market data for an item name (from /api/scarcity) */
+export interface MarketItemData {
+  listingCount: number;
+  floorPriceGun: number;
 }
 
 /** Pre-computed display data for a single NFT card/row */
@@ -35,6 +41,8 @@ export interface NFTCardData {
   priceGun: number | undefined;
   priceDisplay: string;
   pnlDisplay: string;
+  marketListings: number | null;
+  marketFloor: number | null;
 }
 
 // ============================================================================
@@ -183,11 +191,59 @@ export function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean
 }
 
 // ============================================================================
+// Venue & cost basis helpers (for detailed portfolio view)
+// ============================================================================
+
+/** Map acquisition venue to a short display label */
+export function getVenueLabel(venue?: string): string {
+  if (!venue) return '\u2014';
+  switch (venue) {
+    case 'decode':
+    case 'decoder':
+    case 'mint':
+    case 'system_mint':
+      return 'MINTED';
+    case 'opensea':
+      return 'OPENSEA';
+    case 'otg_marketplace':
+    case 'in_game_marketplace':
+      return 'MARKET';
+    case 'transfer':
+      return 'TRANSFER';
+    default:
+      return venue.toUpperCase().slice(0, 8);
+  }
+}
+
+/** Get display text and color for an NFT's cost basis */
+export function getCostBasisDisplay(nft: NFT): { label: string; color: string } {
+  if (nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0) {
+    return { label: `${nft.purchasePriceGun.toLocaleString()} GUN`, color: 'var(--gs-gray-3)' };
+  }
+  const venue = nft.acquisitionVenue;
+  if (venue === 'decode' || venue === 'decoder' || venue === 'mint' || venue === 'system_mint') {
+    return { label: 'HEX', color: 'var(--gs-lime)' };
+  }
+  if (nft.isFreeTransfer) {
+    return { label: 'FREE', color: 'var(--gs-gray-2)' };
+  }
+  return { label: '?', color: 'var(--gs-gray-2)' };
+}
+
+// ============================================================================
 // Card data derivation (shared between grid and list views)
 // ============================================================================
 
+// Scarcity color by marketplace listing count
+export function getMarketScarcityColor(listingCount: number): string {
+  if (listingCount <= 2) return '#ff44ff';   // Magenta — very scarce
+  if (listingCount <= 5) return '#ff8800';   // Orange — limited
+  if (listingCount <= 15) return '#4488ff';  // Blue — moderate
+  return '#888888';                           // Gray — available
+}
+
 /** Compute display-ready data for a single NFT — used by both grid cards and list rows */
-export function deriveCardData(nft: NFT): NFTCardData {
+export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>): NFTCardData {
   const rarityName = getRarityName(nft);
   const rarityColor = getRarityColor(nft);
   const itemClass = getItemClass(nft);
@@ -205,6 +261,8 @@ export function deriveCardData(nft: NFT): NFTCardData {
     ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`
     : '—';
 
+  const market = marketMap?.get(nft.name);
+
   return {
     nft,
     rarityName,
@@ -220,5 +278,7 @@ export function deriveCardData(nft: NFT): NFTCardData {
     priceGun,
     priceDisplay,
     pnlDisplay,
+    marketListings: market?.listingCount ?? null,
+    marketFloor: market?.floorPriceGun ?? null,
   };
 }

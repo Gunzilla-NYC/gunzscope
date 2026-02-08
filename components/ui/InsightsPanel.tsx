@@ -27,7 +27,7 @@ export default function InsightsPanel({ insights, isLoading, onInsightClick }: I
 
   return (
     <div className="space-y-1.5">
-      <p className="font-mono text-[9px] tracking-widest uppercase text-[var(--gs-gray-4)]">
+      <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
         Insights
       </p>
       {insights.map((insight, idx) => (
@@ -43,7 +43,7 @@ export default function InsightsPanel({ insights, isLoading, onInsightClick }: I
             animation: `nft-card-fade-in 300ms ease-out ${idx * 100}ms forwards`,
           }}
         >
-          <span className="text-[11px] text-white/70 flex items-center gap-1.5">
+          <span className="text-data text-white/70 flex items-center gap-1.5">
             {/* Icon based on insight type */}
             {insight.type === 'best_performer' && (
               <svg className="w-3 h-3 text-[var(--gs-profit)]" fill="currentColor" viewBox="0 0 20 20">
@@ -61,7 +61,7 @@ export default function InsightsPanel({ insights, isLoading, onInsightClick }: I
             )}
           </span>
           <span
-            className={`text-[11px] font-mono font-medium ${
+            className={`text-data font-mono font-medium ${
               insight.isPositive ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'
             }`}
           >

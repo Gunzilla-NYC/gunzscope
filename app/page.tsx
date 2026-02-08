@@ -287,29 +287,31 @@ export default function HomePage() {
       <div className="scanlines" />
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 lg:px-10 h-16 flex items-center justify-between glass-effect border-b border-white/[0.06]">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-effect border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-full flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Logo size="md" variant="icon" />
           <span className="font-display font-bold text-lg tracking-wider uppercase">
             GUNZ<span className="text-[var(--gs-purple)]">scope</span>
           </span>
-          <span className="font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors">
+          <span className="font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors">
             Alpha
           </span>
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
-          <a href="#features" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-lime)] relative after:absolute after:bottom-[-4px] after:left-0 after:right-0 after:h-[1px] after:bg-[var(--gs-lime)]">
+          <a href="#features" className="font-mono text-data tracking-wider uppercase text-[var(--gs-lime)] relative after:absolute after:bottom-[-4px] after:left-0 after:right-0 after:h-[1px] after:bg-[var(--gs-lime)]">
             Features
           </a>
-          <a href="#preview" className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
+          <a href="#preview" className="font-mono text-data tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">
             Dashboard
           </a>
+        </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section ref={heroRef} className="relative min-h-screen flex flex-col justify-center pt-32 pb-24 px-6 lg:px-10 overflow-hidden">
+      <section ref={heroRef} className="relative min-h-screen flex flex-col justify-center pt-32 pb-24 overflow-hidden">
         {/* Background glows */}
         <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-[radial-gradient(circle,rgba(166,247,0,0.06)_0%,transparent_60%)] pointer-events-none" />
         <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(109,91,255,0.05)_0%,transparent_60%)] pointer-events-none" />
@@ -320,11 +322,12 @@ export default function HomePage() {
         <div className="crosshair crosshair-purple absolute top-[35%] right-[8%]" />
 
 
-        <div className="relative z-10 max-w-[900px]">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 w-full">
+        <div className="max-w-[900px]">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/5 mb-10 clip-corner-sm animate-fade-in-up">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse-dot" />
-            <span className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-lime)]">
+            <span className="font-mono text-data tracking-wider uppercase text-[var(--gs-lime)]">
               Powered by GUNZ Protocol
             </span>
           </div>
@@ -351,7 +354,7 @@ export default function HomePage() {
             {!accessUnlocked ? (
               /* Phase 1: Access Code */
               <div>
-                <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-2">
+                <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-2">
                   Early Access
                 </span>
                 <form onSubmit={handleAccessCodeSubmit} className="flex gap-2">
@@ -374,13 +377,13 @@ export default function HomePage() {
                   </button>
                 </form>
                 {accessError && (
-                  <p className="font-mono text-[11px] text-[var(--gs-loss)] mt-2">{accessError}</p>
+                  <p className="font-mono text-data text-[var(--gs-loss)] mt-2">{accessError}</p>
                 )}
               </div>
             ) : (
               /* Phase 2: Wallet Address */
               <div className="animate-fade-in-up">
-                <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-2">
+                <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-2">
                   Enter Wallet Address
                 </span>
                 <form onSubmit={handleWalletSubmit} className="flex gap-2">
@@ -393,7 +396,7 @@ export default function HomePage() {
                       className={`w-full py-3 pl-4 bg-[var(--gs-dark-2)] border border-white/[0.06] text-[var(--gs-white)] font-mono text-sm placeholder:text-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm ${walletChain ? 'pr-24' : 'pr-4'}`}
                     />
                     {walletAddress.trim() && walletChain && (
-                      <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm ${
+                      <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
                         walletChain === 'gunzchain'
                           ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
                           : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
@@ -411,11 +414,11 @@ export default function HomePage() {
                   </button>
                 </form>
                 {walletAddress.trim() && !walletChain && (
-                  <p className="font-mono text-[11px] text-[var(--gs-gray-4)] mt-2">
+                  <p className="font-mono text-data text-[var(--gs-gray-4)] mt-2">
                     Enter a valid GunzChain (0x...) or Solana address
                   </p>
                 )}
-                <p className="font-mono text-[11px] text-[var(--gs-gray-3)] mt-3">
+                <p className="font-mono text-data text-[var(--gs-gray-3)] mt-3">
                   or{' '}
                   <button
                     type="button"
@@ -429,11 +432,13 @@ export default function HomePage() {
             )}
           </div>
         </div>
+        </div>
 
         {/* Hero Stats Bar */}
-        <div className="absolute bottom-0 left-0 right-0 flex flex-wrap border-t border-white/[0.06] glass-effect z-10">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-white/[0.06] glass-effect z-10">
+          <div className="max-w-7xl mx-auto flex flex-wrap">
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0 bg-[var(--gs-lime)]/[0.03]">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-lime)] block mb-1">GUN Price</span>
+            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-lime)] block mb-1">GUN Price</span>
             <span className="font-display text-3xl font-bold text-[var(--gs-white)]">
               {gunPrice !== null ? (
                 <>$<span className="text-[var(--gs-lime)]">{gunPriceCountUp.displayValue}</span></>
@@ -443,7 +448,7 @@ export default function HomePage() {
             </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked Value</span>
+            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked Value</span>
             <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
               {siteStats?.portfolioValueUsd != null ? (
                 `$${portfolioValueCountUp.displayValue}`
@@ -453,7 +458,7 @@ export default function HomePage() {
             </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked P&L</span>
+            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked P&L</span>
             <span className={`font-display text-2xl font-bold ${
               siteStats?.unrealizedPnlUsd != null
                 ? siteStats.unrealizedPnlUsd >= 0
@@ -469,18 +474,20 @@ export default function HomePage() {
             </span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
-            <span className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total NFTs Tracked</span>
+            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total NFTs Tracked</span>
             <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
               {siteStats?.nftsTracked != null ? nftsCountUp.displayValue : (
                 <span className="skeleton-stat inline-block w-16 h-7" />
               )}
             </span>
           </div>
+          </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="features">
+      <section className="relative z-10 py-24 border-t border-white/[0.06]" id="features">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
         <div className="flex items-baseline gap-4 mb-10 observe">
           <span className="section-number">01</span>
           <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Core Features</h2>
@@ -504,17 +511,18 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+        </div>
       </section>
 
       {/* Social Proof Section */}
-      <section className="relative z-10 py-16 px-6 lg:px-10 border-t border-white/[0.06]">
-        <div className="max-w-6xl mx-auto">
+      <section className="relative z-10 py-16 border-t border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div ref={socialProofRef} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center observe">
             <div className="group" style={{ transitionDelay: '0ms' }}>
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-lime)] mb-2 transition-transform group-hover:scale-105">
                 {socialProofVisible && siteStats?.walletsTracked != null ? walletsCountUp.displayValue : (siteStats?.walletsTracked ?? '—')}
               </div>
-              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
                 Wallets Connected
               </div>
             </div>
@@ -522,7 +530,7 @@ export default function HomePage() {
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-purple-bright)] mb-2 transition-transform group-hover:scale-105">
                 {socialProofVisible && siteStats?.nftsTracked != null ? socialNftsCountUp.displayValue : (siteStats?.nftsTracked ?? '—')}
               </div>
-              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
                 NFTs Analyzed
               </div>
             </div>
@@ -530,7 +538,7 @@ export default function HomePage() {
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-white)] mb-2 transition-transform group-hover:scale-105">
                 2
               </div>
-              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
                 Chains Supported
               </div>
             </div>
@@ -538,7 +546,7 @@ export default function HomePage() {
               <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-profit)] mb-2 transition-transform group-hover:scale-105">
                 24/7
               </div>
-              <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
                 Live Tracking
               </div>
             </div>
@@ -549,7 +557,7 @@ export default function HomePage() {
             <blockquote className="font-body text-lg italic text-[var(--gs-gray-4)] max-w-2xl mx-auto">
               "Waiting for someone cool from the OTG Discord to put a testimonial here."
             </blockquote>
-            <cite className="block mt-4 font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+            <cite className="block mt-4 font-mono text-data tracking-wider uppercase text-[var(--gs-gray-3)]">
               — OTG Discord Cool Person
             </cite>
           </div>
@@ -557,7 +565,8 @@ export default function HomePage() {
       </section>
 
       {/* Dashboard Preview Section */}
-      <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="preview">
+      <section className="relative z-10 py-24 border-t border-white/[0.06]" id="preview">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
         <div className="flex items-baseline gap-4 mb-10 observe">
           <span className="section-number">03</span>
           <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Dashboard Preview</h2>
@@ -572,7 +581,7 @@ export default function HomePage() {
               <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
               <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
             </div>
-            <div className="font-mono text-[11px] text-[var(--gs-gray-3)] px-4 py-1 bg-[var(--gs-dark-3)] rounded border border-white/[0.06]">
+            <div className="font-mono text-data text-[var(--gs-gray-3)] px-4 py-1 bg-[var(--gs-dark-3)] rounded border border-white/[0.06]">
               gunzscope.xyz/portfolio
             </div>
             <div />
@@ -594,19 +603,19 @@ export default function HomePage() {
             {/* Stats row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-[1px] bg-white/[0.04] border border-white/[0.06] mb-10">
               <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">GUN Holdings</div>
+                <div className="font-mono text-label tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">GUN Holdings</div>
                 <div className="font-display text-lg font-bold text-[var(--gs-lime)]">12,450</div>
               </div>
               <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">GUN Value</div>
+                <div className="font-mono text-label tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">GUN Value</div>
                 <div className="font-display text-lg font-bold text-[var(--gs-white)]">$1,054.50</div>
               </div>
               <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">NFT Value</div>
+                <div className="font-mono text-label tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">NFT Value</div>
                 <div className="font-display text-lg font-bold text-[var(--gs-purple)]">$1,792.82</div>
               </div>
               <div className="px-6 py-4 bg-[var(--gs-dark-1)]">
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">Unrealized P&L</div>
+                <div className="font-mono text-label tracking-wider uppercase text-[var(--gs-gray-2)] mb-1">Unrealized P&L</div>
                 <div className="font-display text-lg font-bold text-[var(--gs-profit)]">+$412.50</div>
               </div>
             </div>
@@ -620,7 +629,7 @@ export default function HomePage() {
                 >
                   <div className="w-full aspect-square bg-[var(--gs-dark-4)] mb-3 relative flex items-center justify-center opacity-70 group-hover:opacity-90 transition-opacity overflow-hidden">
                     <span
-                      className={`absolute top-1.5 left-1.5 font-mono text-[8px] tracking-wide uppercase px-1.5 py-0.5 rounded-sm ${
+                      className={`absolute top-1.5 left-1.5 font-mono text-micro tracking-wide uppercase px-1.5 py-0.5 rounded-sm ${
                         nft.rarity === 'Epic' ? 'bg-[rgba(180,74,255,0.15)] text-[var(--gs-rarity-epic)] border border-[rgba(180,74,255,0.2)]' :
                         nft.rarity === 'Legendary' ? 'bg-[rgba(255,140,0,0.15)] text-[var(--gs-rarity-legendary)] border border-[rgba(255,140,0,0.2)]' :
                         nft.rarity === 'Classified' ? 'bg-[rgba(231,76,60,0.15)] text-[var(--gs-rarity-classified)] border border-[rgba(231,76,60,0.2)]' :
@@ -634,10 +643,10 @@ export default function HomePage() {
                     </span>
                   </div>
                   <div className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--gs-white)] mb-0.5 truncate">{nft.name}</div>
-                  <div className="font-mono text-[9px] uppercase tracking-wide text-[var(--gs-gray-3)] mb-3">{nft.type}</div>
+                  <div className="font-mono text-label uppercase tracking-wide text-[var(--gs-gray-3)] mb-3">{nft.type}</div>
                   <div className="flex justify-between items-baseline pt-3 border-t border-white/[0.06]">
-                    <span className="font-mono text-[11px] text-[var(--gs-white)]">{nft.price}</span>
-                    <span className={`font-mono text-[10px] ${nft.locked ? 'text-[var(--gs-gray-3)]' : nft.profit ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
+                    <span className="font-mono text-data text-[var(--gs-white)]">{nft.price}</span>
+                    <span className={`font-mono text-caption ${nft.locked ? 'text-[var(--gs-gray-3)]' : nft.profit ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
                       {nft.pnl}
                     </span>
                   </div>
@@ -645,6 +654,7 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        </div>
         </div>
       </section>
 

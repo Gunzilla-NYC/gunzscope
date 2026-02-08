@@ -20,7 +20,7 @@ export default function LockedWeaponIndicator() {
       </div>
       <div>
         <div className="text-sm font-medium text-red-400">Classified Weapon</div>
-        <p className="text-[11px] text-gray-500 mt-0.5">
+        <p className="text-data text-gray-500 mt-0.5">
           This weapon has a unique skin and cannot be modified
         </p>
       </div>

@@ -17,7 +17,7 @@ const NFTDetailModal = dynamic(() => import('../NFTDetailModal'), {
   loading: () => null, // Modal is hidden by default, no loading UI needed
 });
 
-export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset }: NFTGalleryProps) {
+export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset, marketMap, portfolioViewMode }: NFTGalleryProps) {
   const {
     searchQuery, setSearchQuery,
     sortBy, setSortBy,
@@ -28,7 +28,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     handleNFTClick, handleCloseModal,
     itemClasses, rarityCounts, filteredAndSortedNFTs,
     clearFilters, hasActiveFilters,
-  } = useNFTGalleryFilters(nfts);
+  } = useNFTGalleryFilters(nfts, marketMap);
 
   if (nfts.length === 0) {
     return (
@@ -53,7 +53,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           </Link>
           <button
             onClick={() => {
-              const input = document.getElementById('wallet-search-input');
+              const input = document.getElementById('wallet-search-input-portfolio') || document.getElementById('wallet-search-input');
               if (input) { input.scrollIntoView({ behavior: 'smooth' }); input.focus(); }
             }}
             className="inline-block font-display font-semibold text-sm uppercase px-6 py-3 border border-white/[0.06] text-[var(--gs-gray-3)] hover:border-white/20 hover:text-[var(--gs-white)] transition-colors cursor-pointer"
@@ -115,10 +115,11 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           {filteredAndSortedNFTs.map((nft) => (
             <NFTGalleryGridCard
               key={`${nft.chain}-${nft.tokenId}`}
-              cardData={deriveCardData(nft)}
+              cardData={deriveCardData(nft, marketMap)}
               viewMode={viewMode as 'small' | 'medium'}
               isEnriching={isEnriching}
               onClick={handleNFTClick}
+              portfolioViewMode={portfolioViewMode}
             />
           ))}
         </div>
@@ -130,9 +131,10 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
           {filteredAndSortedNFTs.map((nft) => (
             <NFTGalleryListRow
               key={`${nft.chain}-${nft.tokenId}`}
-              cardData={deriveCardData(nft)}
+              cardData={deriveCardData(nft, marketMap)}
               isEnriching={isEnriching}
               onClick={handleNFTClick}
+              portfolioViewMode={portfolioViewMode}
             />
           ))}
         </div>

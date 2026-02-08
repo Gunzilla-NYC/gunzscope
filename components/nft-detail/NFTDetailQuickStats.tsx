@@ -71,14 +71,14 @@ export function NFTDetailQuickStats({
         className="bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 p-3"
         style={{ borderLeftColor: 'var(--gs-gray-1)' }}
       >
-        <div className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
+        <div className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
           Cost Basis
         </div>
         <div className="font-display text-sm font-semibold text-[var(--gs-white)] tabular-nums">
           {formatUsd(costBasisUsd)}
         </div>
         {costBasisGun !== null && (
-          <div className="font-mono text-[10px] text-[var(--gs-gray-4)] tabular-nums mt-0.5">
+          <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
             {formatGun(costBasisGun)}
           </div>
         )}
@@ -89,14 +89,14 @@ export function NFTDetailQuickStats({
         className="bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 p-3"
         style={{ borderLeftColor: 'var(--gs-purple)' }}
       >
-        <div className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
+        <div className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
           Market Value
         </div>
         <div className="font-display text-sm font-semibold text-[var(--gs-white)] tabular-nums">
           {formatUsd(marketValueUsd)}
         </div>
         {marketValueGun !== null && (
-          <div className="font-mono text-[10px] text-[var(--gs-gray-4)] tabular-nums mt-0.5">
+          <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
             {formatGun(marketValueGun)}
           </div>
         )}
@@ -113,7 +113,7 @@ export function NFTDetailQuickStats({
               : 'var(--gs-gray-1)',
         }}
       >
-        <div className="font-mono text-[9px] uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
+        <div className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
           Unrealized
         </div>
         <div className={`font-display text-sm font-semibold tabular-nums ${getPnlColor()}`}>
@@ -124,7 +124,7 @@ export function NFTDetailQuickStats({
           ) : '—'}
         </div>
         {unrealizedPct !== null && (
-          <div className={`font-mono text-[10px] tabular-nums mt-0.5 ${getPnlColor()}`}>
+          <div className={`font-mono text-caption tabular-nums mt-0.5 ${getPnlColor()}`}>
             {formatPct(unrealizedPct)}
           </div>
         )}

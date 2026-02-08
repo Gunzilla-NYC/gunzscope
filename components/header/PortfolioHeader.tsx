@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from 'react';
 import WalletIdentity from './WalletIdentity';
-import PortfolioGlanceCard from './PortfolioGlanceCard';
 import { addPortfolioSnapshot } from '@/lib/utils/portfolioHistory';
 import {
   usePortfolioWallet,
@@ -12,8 +11,8 @@ import {
 } from '@/lib/contexts/PortfolioContext';
 
 /**
- * PortfolioHeader - Main header component for portfolio view.
- * Uses PortfolioContext for data access. P&L data is owned by PortfolioGlanceCard.
+ * PortfolioHeader - Wallet identity bar + portfolio history snapshot tracking.
+ * Uses PortfolioContext for data access.
  */
 export default function PortfolioHeader() {
   // Get data from context
@@ -60,29 +59,12 @@ export default function PortfolioHeader() {
   if (!walletData) return null;
 
   return (
-    <div className="space-y-4">
-      {/* Main Header Grid: 2 zones */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Zone A: Wallet Identity with GUN balance (left) */}
-        <div
-          className="lg:col-span-5 relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 overflow-hidden"
-          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
-        >
-          {/* Top accent line */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-          <WalletIdentity />
-        </div>
-
-        {/* Zone B: Portfolio Glance (right) - uses context directly */}
-        <div
-          className="lg:col-span-7 relative bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden"
-          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
-        >
-          {/* Top accent line */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-          <PortfolioGlanceCard />
-        </div>
-      </div>
+    <div
+      className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] px-4 py-2.5 overflow-hidden"
+      style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+    >
+      <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
+      <WalletIdentity />
     </div>
   );
 }
