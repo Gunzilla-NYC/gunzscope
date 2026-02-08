@@ -15,7 +15,7 @@ import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import { PortfolioProvider, PortfolioContextValue } from '@/lib/contexts/PortfolioContext';
-import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
+import PortfolioSummaryBar, { PortfolioViewMode } from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
@@ -55,6 +55,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
   const [searchAddress, setSearchAddress] = useState('');
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<PortfolioViewMode>('simple');
 
   // NFT enrichment hook - handles background enrichment with caching and progress
   const {
@@ -800,6 +801,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               isInitializing={isPortfolioInitializing}
               enrichmentProgress={enrichmentProgress}
               onRetryEnrichment={retryEnrichment}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
             />
 
             {/* Cross-sell: leaderboard */}
