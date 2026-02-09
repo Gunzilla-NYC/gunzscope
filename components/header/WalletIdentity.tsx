@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import {
   usePortfolioWallet,
 } from '@/lib/contexts/PortfolioContext';
 
 interface WalletIdentityProps {
   className?: string;
+  onDisconnect?: () => void;
 }
 
 interface PopoverPosition {
@@ -19,7 +21,7 @@ interface PopoverPosition {
  * WalletIdentity - Displays wallet address, network, and type information.
  * Now uses PortfolioContext instead of props for data access.
  */
-export default function WalletIdentity({ className = '' }: WalletIdentityProps) {
+export default function WalletIdentity({ className = '', onDisconnect }: WalletIdentityProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({ top: 0, left: 0 });
@@ -27,6 +29,9 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverId = 'wallet-details-popover';
+
+  // Dynamic Labs SDK for disconnect
+  const { handleLogOut } = useDynamicContext();
 
   // Get data from context
   const { walletData, address, networkInfo, walletType } = usePortfolioWallet();
@@ -203,6 +208,12 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
     setShowDetails(prev => !prev);
   };
 
+  const handleDisconnect = async () => {
+    setShowDetails(false);
+    await handleLogOut();
+    onDisconnect?.();
+  };
+
   // Popover content - contains all technical metadata
   const popoverContent = (
     <div
@@ -349,10 +360,19 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2.5 bg-white/[0.02] border-t border-white/[0.06]">
+      <div className="px-4 py-2.5 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between">
         <p className="text-[11px] text-[var(--gs-gray-2)]">
           Data from GunzChain RPC
         </p>
+        <button
+          onClick={handleDisconnect}
+          className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-[var(--gs-loss)] hover:text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 rounded transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Disconnect
+        </button>
       </div>
     </div>
   );
@@ -419,6 +439,18 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps) 
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Disconnect button */}
+        <button
+          onClick={handleDisconnect}
+          className="p-1 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 rounded transition-colors"
+          aria-label="Disconnect wallet"
+          title="Disconnect wallet"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
           </svg>
         </button>
       </div>

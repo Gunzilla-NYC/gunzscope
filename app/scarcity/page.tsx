@@ -123,7 +123,7 @@ function ScarcityContent() {
             onClick={() => setDataSource('opensea')}
             className={`flex items-center gap-2 px-5 py-2.5 font-mono text-caption uppercase tracking-widest transition-colors ${
               dataSource === 'opensea'
-                ? 'bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border-r border-white/[0.06]'
+                ? 'bg-[#2081E2]/10 text-[#2081E2] border-r border-white/[0.06]'
                 : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] border-r border-white/[0.06]'
             }`}
           >

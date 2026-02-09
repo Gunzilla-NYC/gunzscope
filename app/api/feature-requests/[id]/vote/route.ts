@@ -1,10 +1,10 @@
 /**
  * POST /api/feature-requests/[id]/vote - Vote on a feature request
- * Auth + 5+ NFTs required. Toggle behavior: same vote again removes it.
+ * Auth + 20+ NFTs required (admin exempt). Toggle behavior: same vote again removes it.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
+import { authenticateRequest, unauthorizedResponse, isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId } from '@/lib/services/userService';
 import { checkNFTEligibility } from '@/lib/services/nftEligibilityService';
 import { vote } from '@/lib/services/featureRequestService';
@@ -27,13 +27,15 @@ export async function POST(
       );
     }
 
-    // Check NFT eligibility
-    const eligibility = await checkNFTEligibility(profile.id);
-    if (!eligibility.eligible) {
-      return NextResponse.json(
-        { success: false, error: 'You need at least 5 OTG NFTs to vote' },
-        { status: 403 }
-      );
+    // Check NFT eligibility (admin exempt)
+    if (!isAdminWallet(authResult.user.walletAddress)) {
+      const eligibility = await checkNFTEligibility(profile.id);
+      if (!eligibility.eligible) {
+        return NextResponse.json(
+          { success: false, error: 'You need at least 20 OTG NFTs to vote' },
+          { status: 403 }
+        );
+      }
     }
 
     const { id: featureRequestId } = await params;

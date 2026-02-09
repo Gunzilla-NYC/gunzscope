@@ -823,7 +823,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           )}
 
           {/* Portfolio Header - uses PortfolioContext */}
-          <PortfolioHeader />
+          <PortfolioHeader onDisconnect={handleWalletDisconnect} />
 
           <div className="space-y-6 mt-4">
             {/* Portfolio Summary Bar */}

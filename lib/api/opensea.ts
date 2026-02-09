@@ -57,6 +57,83 @@ export interface ComparableSale {
 // Check if running in browser
 const isBrowser = typeof window !== 'undefined';
 
+// =============================================================================
+// GunzScan Token Metadata Resolution
+// =============================================================================
+
+const GUNZSCAN_API = 'https://gunzscan.io/api/v2';
+const RESOLVE_CONCURRENCY = 10;
+const RESOLVE_TIMEOUT_MS = 8000;
+const RESOLVE_BATCH_DELAY_MS = 50;
+
+/**
+ * Batch-resolve token IDs to names + images via GunzScan (Blockscout) API.
+ * Runs up to RESOLVE_CONCURRENCY requests in parallel with a small delay
+ * between batches to avoid rate limiting.
+ */
+async function resolveTokenMetadata(
+  contractAddress: string,
+  tokenIds: string[]
+): Promise<Map<string, { name: string; imageUrl: string | null }>> {
+  const result = new Map<string, { name: string; imageUrl: string | null }>();
+  if (tokenIds.length === 0) return result;
+
+  const contract = contractAddress.toLowerCase();
+  const startTime = Date.now();
+
+  // Process in batches of RESOLVE_CONCURRENCY
+  for (let i = 0; i < tokenIds.length; i += RESOLVE_CONCURRENCY) {
+    const batch = tokenIds.slice(i, i + RESOLVE_CONCURRENCY);
+
+    const settled = await Promise.allSettled(
+      batch.map(async (tokenId) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), RESOLVE_TIMEOUT_MS);
+
+        try {
+          const res = await fetch(
+            `${GUNZSCAN_API}/tokens/${contract}/instances/${tokenId}`,
+            { signal: controller.signal }
+          );
+          if (!res.ok) return null;
+
+          const data = await res.json();
+          const metadata = data?.metadata;
+          if (!metadata?.name) return null;
+
+          return {
+            tokenId,
+            name: metadata.name as string,
+            imageUrl: (metadata.image as string) || null,
+          };
+        } catch {
+          return null;
+        } finally {
+          clearTimeout(timeout);
+        }
+      })
+    );
+
+    for (const entry of settled) {
+      if (entry.status === 'fulfilled' && entry.value) {
+        result.set(entry.value.tokenId, {
+          name: entry.value.name,
+          imageUrl: entry.value.imageUrl,
+        });
+      }
+    }
+
+    // Small delay between batches to avoid rate limiting
+    if (i + RESOLVE_CONCURRENCY < tokenIds.length) {
+      await new Promise((r) => setTimeout(r, RESOLVE_BATCH_DELAY_MS));
+    }
+  }
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`[GunzScan] Resolved ${result.size}/${tokenIds.length} token names in ${elapsed}s`);
+  return result;
+}
+
 // Circuit breaker: cache failures to avoid spamming
 // Key: tokenKey, Value: { failedAt: timestamp, error: string }
 const failureCache = new Map<string, { failedAt: number; error: string }>();
@@ -881,7 +958,9 @@ export class OpenSeaService {
   ): Promise<Array<{ itemName: string; imageUrl: string | null; listingCount: number; floorPriceGun: number }>> {
     try {
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
-      const itemMap = new Map<string, { count: number; minPrice: number; imageUrl: string | null }>();
+
+      // Phase 1: Collect raw per-token listings from OpenSea
+      const rawListings: Array<{ tokenId: string; priceGun: number; name: string | null; imageUrl: string | null }> = [];
       let cursor: string | null = null;
       let page = 0;
 
@@ -908,23 +987,42 @@ export class OpenSeaService {
 
           const asset = listing.maker_asset_bundle?.assets?.[0];
           const tokenId = listing.protocol_data?.parameters?.offer?.[0]?.identifierOrCriteria;
-          const name = asset?.name || (tokenId ? `Token #${tokenId}` : null);
+          const name = asset?.name || null;
           const imageUrl = asset?.image_url || null;
 
-          if (priceGun > 0 && name) {
-            const existing = itemMap.get(name);
-            if (existing) {
-              existing.count++;
-              existing.minPrice = Math.min(existing.minPrice, priceGun);
-              if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
-            } else {
-              itemMap.set(name, { count: 1, minPrice: priceGun, imageUrl });
-            }
+          if (priceGun > 0 && tokenId) {
+            rawListings.push({ tokenId, priceGun, name, imageUrl });
           }
         }
 
         if (listings.length === 0) break;
       } while (cursor && page < maxPages);
+
+      // Phase 2: Resolve unresolved token IDs via GunzScan
+      const unresolvedTokenIds = [...new Set(
+        rawListings.filter((l) => !l.name).map((l) => l.tokenId)
+      )];
+
+      const nftContract = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
+      const resolvedMap = await resolveTokenMetadata(nftContract, unresolvedTokenIds);
+
+      // Phase 3: Group by resolved name
+      const itemMap = new Map<string, { count: number; minPrice: number; imageUrl: string | null }>();
+
+      for (const listing of rawListings) {
+        const resolved = resolvedMap.get(listing.tokenId);
+        const name = listing.name || resolved?.name || `Token #${listing.tokenId}`;
+        const imageUrl = listing.imageUrl || resolved?.imageUrl || null;
+
+        const existing = itemMap.get(name);
+        if (existing) {
+          existing.count++;
+          existing.minPrice = Math.min(existing.minPrice, listing.priceGun);
+          if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
+        } else {
+          itemMap.set(name, { count: 1, minPrice: listing.priceGun, imageUrl });
+        }
+      }
 
       return Array.from(itemMap.entries())
         .map(([itemName, data]) => ({

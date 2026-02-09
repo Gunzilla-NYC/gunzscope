@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
+import { authenticateRequest, unauthorizedResponse, isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId } from '@/lib/services/userService';
 import { checkNFTEligibility } from '@/lib/services/nftEligibilityService';
 
@@ -21,6 +21,11 @@ export async function GET(request: NextRequest) {
         { success: false, error: 'User profile not found' },
         { status: 404 }
       );
+    }
+
+    // Admin wallet always eligible
+    if (isAdminWallet(authResult.user.walletAddress)) {
+      return NextResponse.json({ success: true, eligible: true, nftCount: 0 });
     }
 
     const eligibility = await checkNFTEligibility(profile.id);

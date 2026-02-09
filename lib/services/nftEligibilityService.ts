@@ -1,7 +1,7 @@
 /**
  * NFT Eligibility Service
  *
- * Checks if a user has enough OTG NFTs (5+) to participate in feature requests.
+ * Checks if a user has enough OTG NFTs (20+) to participate in feature requests.
  * Uses PortfolioSnapshot data linked through user's wallets.
  */
 
@@ -13,7 +13,7 @@ export interface EligibilityResult {
 }
 
 /**
- * Check if a user has 5+ OTG NFTs across their linked wallets.
+ * Check if a user has 20+ OTG NFTs across their linked wallets.
  * Looks at the most recent PortfolioSnapshot for each wallet address.
  */
 export async function checkNFTEligibility(userId: string): Promise<EligibilityResult> {
@@ -41,7 +41,7 @@ export async function checkNFTEligibility(userId: string): Promise<EligibilityRe
   const totalNftCount = snapshots.reduce((sum, s) => sum + s.nftCount, 0);
 
   return {
-    eligible: totalNftCount >= 5,
+    eligible: totalNftCount >= 20,
     nftCount: totalNftCount,
   };
 }

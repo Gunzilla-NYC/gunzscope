@@ -14,7 +14,11 @@ import {
  * PortfolioHeader - Wallet identity bar + portfolio history snapshot tracking.
  * Uses PortfolioContext for data access.
  */
-export default function PortfolioHeader() {
+interface PortfolioHeaderProps {
+  onDisconnect?: () => void;
+}
+
+export default function PortfolioHeader({ onDisconnect }: PortfolioHeaderProps = {}) {
   // Get data from context
   const { walletData } = usePortfolioWallet();
   const { gunPrice = 0 } = usePortfolioGunPrice();
@@ -64,7 +68,7 @@ export default function PortfolioHeader() {
       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
     >
       <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-      <WalletIdentity />
+      <WalletIdentity onDisconnect={onDisconnect} />
     </div>
   );
 }

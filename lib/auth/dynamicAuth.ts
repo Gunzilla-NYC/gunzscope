@@ -212,6 +212,16 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthOut
 }
 
 /**
+ * Check if a wallet address is the admin wallet.
+ * Uses NEXT_PUBLIC_ADMIN_ADDRESS env var for comparison.
+ */
+export function isAdminWallet(walletAddress: string | undefined): boolean {
+  const adminAddress = process.env.NEXT_PUBLIC_ADMIN_ADDRESS;
+  if (!adminAddress || !walletAddress) return false;
+  return walletAddress.toLowerCase() === adminAddress.toLowerCase();
+}
+
+/**
  * Create a 401 Unauthorized response
  */
 export function unauthorizedResponse(error: AuthError): Response {

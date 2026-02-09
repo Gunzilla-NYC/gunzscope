@@ -143,6 +143,7 @@ model FeatureRequest {
   title       String
   description String
   status      String   @default("open") // open | planned | completed | declined
+  adminNote   String?  // optional admin reason for status change
   authorId    String
   author      UserProfile @relation(fields: [authorId], references: [id])
   votes       FeatureRequestVote[]

@@ -11,6 +11,7 @@ export interface FeatureRequestWithVotes {
   title: string;
   description: string;
   status: string;
+  adminNote: string | null;
   authorId: string;
   authorName: string | null;
   netVotes: number;
@@ -43,6 +44,7 @@ export async function getAll(userId?: string): Promise<FeatureRequestWithVotes[]
       title: r.title,
       description: r.description,
       status: r.status,
+      adminNote: r.adminNote ?? null,
       authorId: r.authorId,
       authorName: r.author.displayName,
       netVotes,
@@ -77,6 +79,7 @@ export async function create(
     title: request.title,
     description: request.description,
     status: request.status,
+    adminNote: null,
     authorId: request.authorId,
     authorName: request.author.displayName,
     netVotes: 0,
@@ -136,4 +139,34 @@ export async function vote(
   const userVote = allVotes.find((v) => v.userId === userId)?.value ?? null;
 
   return { netVotes, userVote };
+}
+
+/**
+ * Update the status of a feature request (admin only).
+ */
+export async function updateStatus(
+  featureRequestId: string,
+  status: 'open' | 'planned' | 'completed' | 'declined',
+  adminNote?: string | null
+): Promise<void> {
+  await prisma.featureRequest.update({
+    where: { id: featureRequestId },
+    data: {
+      status,
+      adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
+    },
+  });
+}
+
+/**
+ * Delete a feature request and its votes (admin only).
+ * Votes must be deleted first due to foreign key constraint.
+ */
+export async function deleteRequest(featureRequestId: string): Promise<void> {
+  await prisma.featureRequestVote.deleteMany({
+    where: { featureRequestId },
+  });
+  await prisma.featureRequest.delete({
+    where: { id: featureRequestId },
+  });
 }
