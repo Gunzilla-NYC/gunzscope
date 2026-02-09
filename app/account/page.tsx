@@ -180,16 +180,16 @@ function AccountContent() {
             </svg>
           </div>
           <h1 className="text-balance font-display font-bold text-2xl sm:text-3xl uppercase mb-3">
-            Connect to Manage Wallets
+            Login to Manage Wallets
           </h1>
           <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)] mb-8 max-w-md text-center">
-            Connect your wallet to track up to 5 wallets and manage your portfolio.
+            Login to track up to 5 wallets and manage your portfolio.
           </p>
           <button
             onClick={() => setShowAuthFlow(true)}
             className="font-display font-semibold text-sm uppercase px-8 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors"
           >
-            Connect Wallet
+            Login
           </button>
         </main>
         <Footer />
@@ -228,36 +228,59 @@ function AccountContent() {
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] gradient-accent-line" />
               <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                    Connected Wallet
-                  </p>
-                  <span className="flex items-center gap-1.5 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)]" />
-                    Live
-                  </span>
-                </div>
+                {primaryWallet ? (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                        Connected Wallet
+                      </p>
+                      <span className="flex items-center gap-1.5 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)]" />
+                        Live
+                      </span>
+                    </div>
 
-                <div className="flex items-center gap-3 mb-4">
-                  <p className="font-mono text-lg text-[var(--gs-lime)] tabular-nums">
-                    {truncateAddress(walletAddress)}
-                  </p>
-                  <button
-                    onClick={handleCopyAddress}
-                    className="p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
-                    aria-label="Copy address"
-                  >
-                    {copied ? (
-                      <svg className="w-4 h-4 text-[var(--gs-lime)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <p className="font-mono text-lg text-[var(--gs-lime)] tabular-nums">
+                        {truncateAddress(walletAddress)}
+                      </p>
+                      <button
+                        onClick={handleCopyAddress}
+                        className="p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                        aria-label="Copy address"
+                      >
+                        {copied ? (
+                          <svg className="w-4 h-4 text-[var(--gs-lime)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                        Account
+                      </p>
+                      <span className="flex items-center gap-1.5 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)]" />
+                        Active
+                      </span>
+                    </div>
+
+                    <p className="font-mono text-lg text-[var(--gs-lime)] mb-2">
+                      {profile?.email || 'Email User'}
+                    </p>
+                    <p className="font-mono text-data text-[var(--gs-gray-3)] mb-4">
+                      No wallet connected. Add your in&#8209;game wallet below to track your portfolio.
+                    </p>
+                  </>
+                )}
 
                 {profile && (
                   <p className="font-mono text-data text-[var(--gs-gray-3)]">
@@ -283,7 +306,15 @@ function AccountContent() {
                 </div>
 
                 {/* First-time guidance */}
-                {slotsUsed === 0 && (
+                {slotsUsed === 0 && !primaryWallet && (
+                  <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
+                    <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
+                      <strong className="text-[var(--gs-white)]">In&#8209;Game Player?</strong> Enter your
+                      GunzChain wallet address from Off The Grid to start tracking your NFTs and GUN tokens.
+                    </p>
+                  </div>
+                )}
+                {slotsUsed === 0 && primaryWallet && (
                   <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
                     <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
                       Your connected wallet is tracked automatically. Add up to {MAX_PORTFOLIO_WALLETS} extra wallets below to see a combined portfolio view.

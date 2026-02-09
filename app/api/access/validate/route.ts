@@ -1,48 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isWhitelisted } from '@/lib/services/whitelistService';
 
 /**
  * POST /api/access/validate
- * Validates an access code against the ACCESS_CODES environment variable.
- * Used to gate early access on the homepage.
+ * Checks if a wallet address is on the early-access whitelist.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { code } = body as { code?: string };
+    const { address } = body as { address?: string };
 
-    if (!code || typeof code !== 'string') {
+    if (!address || typeof address !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'Access code is required' },
+        { success: false, error: 'Wallet address is required' },
         { status: 400 }
       );
     }
 
-    const validCodes = (process.env.ACCESS_CODES ?? '')
-      .split(',')
-      .map((c) => c.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (validCodes.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'No access codes configured' },
-        { status: 500 }
-      );
-    }
-
-    const trimmedCode = code.trim();
-    const isValid = validCodes.includes(trimmedCode.toLowerCase());
+    const whitelisted = await isWhitelisted(address);
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 
-    if (!isValid) {
-      console.warn(`[ACCESS] FAILED attempt | code="${trimmedCode}" | ip=${ip} | ${new Date().toISOString()}`);
-      return NextResponse.json(
-        { success: false, error: 'Invalid access code' },
-        { status: 401 }
-      );
+    if (!whitelisted) {
+      console.warn(`[ACCESS] NOT WHITELISTED | address="${address}" | ip=${ip} | ${new Date().toISOString()}`);
+    } else {
+      console.info(`[ACCESS] WHITELISTED | address="${address}" | ip=${ip} | ${new Date().toISOString()}`);
     }
 
-    console.info(`[ACCESS] SUCCESS | code="${trimmedCode}" | ip=${ip} | ${new Date().toISOString()}`);
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: whitelisted });
   } catch {
     return NextResponse.json(
       { success: false, error: 'Invalid request' },

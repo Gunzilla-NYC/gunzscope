@@ -72,6 +72,7 @@ interface UseUserProfileReturn {
   profile: UserProfile | null;
   isLoading: boolean;
   isConnected: boolean;
+  isAuthenticated: boolean;
   error: string | null;
 
   // Actions
@@ -194,7 +195,7 @@ export function useUserProfile(): UseUserProfileReturn {
   // Auto-fetch profile when wallet connects
   useEffect(() => {
     const token = getAuthToken();
-    const currentUserId = primaryWallet?.address || null;
+    const currentUserId = primaryWallet?.address || user?.userId || null;
 
     // Skip if not authenticated
     if (!isAuthenticated || !token) {
@@ -213,7 +214,7 @@ export function useUserProfile(): UseUserProfileReturn {
     fetchedRef.current = true;
     lastUserIdRef.current = currentUserId;
     refreshProfile();
-  }, [isAuthenticated, primaryWallet?.address, refreshProfile]);
+  }, [isAuthenticated, primaryWallet?.address, user?.userId, refreshProfile]);
 
   // Update email
   const updateEmail = useCallback(async (email: string | null): Promise<boolean> => {
@@ -473,6 +474,7 @@ export function useUserProfile(): UseUserProfileReturn {
     profile,
     isLoading,
     isConnected: isAuthenticated && !!primaryWallet,
+    isAuthenticated,
     error,
     refreshProfile,
     updateEmail,

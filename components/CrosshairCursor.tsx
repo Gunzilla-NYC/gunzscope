@@ -29,7 +29,7 @@ export default function CrosshairCursor() {
     const el = elRef.current;
     if (!el) return;
 
-    const SMOOTHING = 0.25;
+    const SMOOTHING = 0.7;
     const INTERACTIVE_SELECTOR = 'a, button, [role="button"], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
 
     const onMouseMove = (e: MouseEvent) => {
@@ -103,19 +103,12 @@ export default function CrosshairCursor() {
         xmlns="http://www.w3.org/2000/svg"
         className="crosshair-reticle"
       >
-        <defs>
-          <filter id="reticle-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <g filter="url(#reticle-glow)" className="crosshair-scope">
-          {/* Vertical */}
+        <g className="crosshair-scope">
+          {/* Glow layer — static, no filter needed */}
+          <line x1="12" y1="0" x2="12" y2="24" stroke="rgba(166, 247, 0, 0.3)" strokeWidth="3" />
+          <line x1="0" y1="12" x2="24" y2="12" stroke="rgba(166, 247, 0, 0.3)" strokeWidth="3" />
+          {/* Sharp lines */}
           <line x1="12" y1="0" x2="12" y2="24" stroke="#A6F700" strokeWidth="1" />
-          {/* Horizontal */}
           <line x1="0" y1="12" x2="24" y2="12" stroke="#A6F700" strokeWidth="1" />
         </g>
       </svg>

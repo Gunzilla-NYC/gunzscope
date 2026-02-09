@@ -56,6 +56,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [searchAddress, setSearchAddress] = useState('');
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
   const [viewMode, setViewMode] = useState<PortfolioViewMode>('simple');
+  const [noWalletDetected, setNoWalletDetected] = useState(false);
 
   // NFT enrichment hook - handles background enrichment with caching and progress
   const {
@@ -99,10 +100,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   // Account gate — first search free, then require wallet connection
   const { canSearch, isGated, incrementSearch, getLastSearchedAddress } = useAccountGate();
-  const { setShowAuthFlow } = useDynamicContext();
+  const { setShowAuthFlow, primaryWallet } = useDynamicContext();
 
   // Get user profile for portfolio addresses (authenticated users only)
-  const { profile, isConnected, addTrackedAddress, addPortfolioAddress, isInPortfolio } = useUserProfile();
+  const { profile, isConnected, isAuthenticated, addTrackedAddress, addPortfolioAddress, isInPortfolio } = useUserProfile();
   const portfolioAddresses = profile?.portfolioAddresses ?? [];
 
   // Computed values for dropdown
@@ -416,9 +417,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       setLoading(false);
 
       // Track search for account gate (anonymous users only)
-      if (!isConnected) {
+      // Shared link loads (arriving via ?address= URL param) don't count against the limit
+      if (!isConnected && !isSharedLinkLoad.current) {
         incrementSearch(address);
       }
+      isSharedLinkLoad.current = false;
 
       // Clear search input after successful load
       // This prevents the search bar from showing the wallet address and triggering the dropdown
@@ -556,13 +559,49 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   // Auto-load wallet from URL query param (e.g. ?address=0x...)
   const initialAddressLoaded = useRef(false);
+  const isSharedLinkLoad = useRef(false);
   useEffect(() => {
     if (initialAddress && !initialAddressLoaded.current) {
       initialAddressLoaded.current = true;
+      isSharedLinkLoad.current = true;
       setSearchAddress(initialAddress);
       handleWalletSubmit(initialAddress, 'avalanche');
     }
   }, [initialAddress]);
+
+  // Auto-load connected wallet when visiting /portfolio without an address
+  const autoLoadRef = useRef(false);
+  useEffect(() => {
+    // Skip if already loaded, loading, or URL has an address param
+    if (walletData || loading || initialAddress || autoLoadRef.current) return;
+
+    if (primaryWallet?.address) {
+      // Connected wallet user — auto-load their portfolio
+      autoLoadRef.current = true;
+      setNoWalletDetected(false);
+      setSearchAddress(primaryWallet.address);
+      handleWalletSubmit(primaryWallet.address, 'avalanche');
+      return;
+    }
+
+    if (isAuthenticated && portfolioAddresses.length > 0) {
+      // Email-only user with portfolio addresses — auto-load first address
+      autoLoadRef.current = true;
+      setNoWalletDetected(false);
+      setSearchAddress(portfolioAddresses[0].address);
+      handleWalletSubmit(portfolioAddresses[0].address, 'avalanche');
+      return;
+    }
+
+    // No connected wallet — give Dynamic SDK time to initialize, then show CTA
+    const timer = setTimeout(() => {
+      if (!autoLoadRef.current) {
+        setNoWalletDetected(true);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryWallet?.address, isAuthenticated, portfolioAddresses, walletData, loading, initialAddress]);
 
   // Wallet search dropdown handlers
   const handleAddToWatchlist = async (address: string) => {
@@ -652,60 +691,54 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         onAddressSelect={handleTrackedAddressSelect}
       />
 
-      {/* Landing state - prompt to search or connect */}
+      {/* Transient state — waiting for wallet SDK or showing entry CTA */}
       {!walletData && !loading && (
-        <div className="max-w-2xl mx-auto py-24 px-4 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--gs-lime)]/10 border border-[var(--gs-lime)]/20 mb-6">
-            <span className="w-2 h-2 rounded-full bg-[var(--gs-lime)] animate-pulse" />
-            <span className="font-mono text-[11px] text-[var(--gs-lime)] tracking-wider uppercase">
-              Portfolio Tracker
-            </span>
-          </div>
-
-          <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--gs-white)] leading-tight mb-4">
-            Track Your <span className="text-[var(--gs-lime)]">Arsenal</span>
-          </h1>
-
-          <p className="text-[var(--gs-gray-4)] mb-8 max-w-md mx-auto">
-            Enter a wallet address or connect your wallet to view your portfolio.
-          </p>
-
-          {/* Search Bar */}
-          <form onSubmit={handleSearch} className="max-w-xl mx-auto mb-6">
-            <div className="relative group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-[var(--gs-lime)]/30 to-[var(--gs-purple)]/30 rounded-lg opacity-0 group-hover:opacity-100 blur transition-opacity" />
-              <div className="relative flex">
+        noWalletDetected ? (
+          <div className="max-w-lg mx-auto py-20 px-4">
+            <div
+              className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-6 overflow-hidden"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+            >
+              <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
+              <h2 className="font-display text-xl font-bold text-[var(--gs-white)] mb-1">View a Portfolio</h2>
+              <p className="font-mono text-caption text-[var(--gs-gray-3)] mb-5">
+                Enter a wallet address or connect your wallet to get started.
+              </p>
+              <form onSubmit={handleSearch} className="flex gap-2 mb-4">
                 <input
-                  id="wallet-search-input"
                   type="text"
                   value={searchAddress}
                   onChange={(e) => setSearchAddress(e.target.value)}
-                  placeholder={isGated ? 'Connect wallet to unlock unlimited tracking' : 'Enter wallet address...'}
-                  disabled={isGated}
-                  className="flex-1 px-5 py-4 text-base bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-l-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="0x... or Solana address"
+                  className="flex-1 bg-[var(--gs-dark-1)] border border-white/[0.08] px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/30 transition-colors"
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
                 />
                 <button
-                  type={isGated ? 'button' : 'submit'}
-                  onClick={isGated ? () => setShowAuthFlow(true) : undefined}
-                  disabled={!isGated && !searchAddress.trim()}
-                  className="px-8 py-4 bg-[var(--gs-lime)] text-black font-display font-bold text-sm rounded-r-lg hover:bg-[var(--gs-lime-bright)] transition-all disabled:opacity-50 disabled:cursor-not-allowed clip-corner-tr"
+                  type="submit"
+                  disabled={!searchAddress.trim()}
+                  className="px-4 py-2.5 bg-[var(--gs-lime)] text-black font-mono text-sm font-semibold uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-110 transition-all cursor-pointer"
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
                 >
-                  {isGated ? 'CONNECT' : 'TRACK'}
+                  View
+                </button>
+              </form>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-micro text-[var(--gs-gray-2)] uppercase tracking-wider">or</span>
+                <button
+                  onClick={() => setShowAuthFlow(true)}
+                  className="font-mono text-sm text-[var(--gs-lime)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
+                >
+                  Connect Wallet &rarr;
                 </button>
               </div>
             </div>
-          </form>
-
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Home
-          </Link>
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-24">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--gs-lime)]" />
+            <p className="mt-4 text-[var(--gs-gray-4)] font-mono text-sm">Loading portfolio\u2026</p>
+          </div>
+        )
       )}
 
       {/* Error state */}

@@ -451,6 +451,17 @@ body {
   to { opacity: 1; }
 }
 
+@keyframes modalEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 @keyframes bounce {
   0%, 100% {
     transform: translateY(0);
@@ -468,6 +479,10 @@ body {
 
 .animate-fade-in {
   animation: fadeIn 0.5s ease forwards;
+}
+
+.animate-modal-enter {
+  animation: modalEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Staggered delays */
@@ -790,6 +805,7 @@ body {
   transform: scale(1.05);
   box-shadow: 0 0 16px rgba(166, 247, 0, 0.15);
 }
+
 
 /* Brand card top accent */
 .brand-card::before {

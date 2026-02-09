@@ -239,8 +239,8 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 group">
+            {/* Logo — connected users stay on current page, anonymous users go home */}
+            <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center gap-2 group">
               <div className="relative transition-transform duration-300 group-hover:scale-105">
                 <Logo size="md" variant="full" />
                 <div className="absolute inset-0 bg-[var(--gs-lime)]/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -250,28 +250,30 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* Navigation Links + Wallet */}
+            {/* Navigation Links + Auth */}
             <div className="flex items-center gap-4">
-              {isInApp && (
-                <div className="hidden md:flex items-center gap-5">
-                  <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
-                  <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />
-                  <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />
-                  {isAnonymous ? (
-                    <button
-                      onClick={() => setShowAuthFlow(true)}
-                      className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                    >
-                      Connect
-                    </button>
-                  ) : (
-                    <ProfileDropdown isActive={isProfileActive} pathname={pathname} />
-                  )}
-                </div>
-              )}
+              <div className="hidden md:flex items-center gap-5">
+                {isInApp && (
+                  <>
+                    <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
+                    <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />
+                    <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />
+                  </>
+                )}
+                {isAnonymous ? (
+                  <button
+                    onClick={() => setShowAuthFlow(true)}
+                    className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                  >
+                    Login
+                  </button>
+                ) : (
+                  <ProfileDropdown isActive={isProfileActive} pathname={pathname} />
+                )}
+              </div>
 
-              {/* Mobile hamburger */}
-              {isInApp && (
+              {/* Mobile: hamburger when in-app or authenticated, Login button otherwise */}
+              {isInApp || !isAnonymous ? (
                 <button
                   onClick={() => setMobileMenuOpen(prev => !prev)}
                   className="md:hidden p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
@@ -285,15 +287,22 @@ export default function Navbar() {
                     )}
                   </svg>
                 </button>
+              ) : (
+                <button
+                  onClick={() => setShowAuthFlow(true)}
+                  className="md:hidden font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                >
+                  Login
+                </button>
               )}
             </div>
           </div>
         </div>
         {/* Mobile menu panel */}
-        {isInApp && mobileMenuOpen && (
+        {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/[0.06] bg-black/95 backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
-              {[
+              {isInApp && [
                 { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
                 { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
                 { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
@@ -310,14 +319,14 @@ export default function Navbar() {
                   {item.label}
                 </Link>
               ))}
-              {/* Profile group or Connect CTA */}
-              <div className="mt-1 pt-1 border-t border-white/[0.06]">
+              {/* Profile group or Login CTA */}
+              <div className={isInApp ? 'mt-1 pt-1 border-t border-white/[0.06]' : ''}>
                 {isAnonymous ? (
                   <button
                     onClick={() => { setShowAuthFlow(true); setMobileMenuOpen(false); }}
                     className="w-full font-display font-semibold text-body-sm uppercase tracking-wider px-3 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer mt-1"
                   >
-                    Connect Wallet
+                    Login
                   </button>
                 ) : (
                   <>

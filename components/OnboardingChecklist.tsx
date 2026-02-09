@@ -56,7 +56,7 @@ function saveState(state: OnboardingState) {
 
 export default function OnboardingChecklist() {
   const pathname = usePathname();
-  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
+  const { primaryWallet, user, setShowAuthFlow } = useDynamicContext();
   const [state, setState] = useState<OnboardingState>({ dismissed: false, visitedPages: [] });
   const [minimized, setMinimized] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -94,7 +94,7 @@ export default function OnboardingChecklist() {
   if (!mounted || !isInApp || state.dismissed) return null;
 
   // Calculate completed steps
-  const walletConnected = !!primaryWallet;
+  const walletConnected = !!primaryWallet || !!user;
   const completedSteps = [
     walletConnected,
     state.visitedPages.includes('/portfolio'),

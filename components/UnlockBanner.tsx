@@ -45,7 +45,7 @@ export default function UnlockBanner({ onConnect, searchCount }: UnlockBannerPro
         {searchCount !== undefined && searchCount > 0 && (
           <p className="font-body text-sm text-[var(--gs-gray-4)] mb-3">
             You&apos;ve explored {searchCount} portfolio{searchCount !== 1 ? 's' : ''} this session.
-            Connect your wallet to keep going.
+            Create an account to keep going.
           </p>
         )}
 
@@ -69,7 +69,7 @@ export default function UnlockBanner({ onConnect, searchCount }: UnlockBannerPro
             onClick={onConnect}
             className="font-display font-semibold text-sm uppercase px-6 py-2.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors shrink-0 clip-corner-sm"
           >
-            Connect Wallet
+            Create Account
           </button>
         </div>
 
@@ -87,11 +87,11 @@ export default function UnlockBanner({ onConnect, searchCount }: UnlockBannerPro
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            What happens when I connect?
+            What happens when I create an account?
           </button>
           {showTrust && (
             <p className="font-body text-xs text-[var(--gs-gray-3)] mt-2 ml-4.5 max-w-lg leading-relaxed">
-              We use Dynamic to connect your wallet read&#8209;only. We never request transaction signing or access to your funds. Your wallet address is only used to look up public blockchain data.
+              Creating an account links your wallet read&#8209;only via Dynamic. We never request transaction signing or access to your funds. Your wallet address is only used to look up public blockchain data.
             </p>
           )}
         </div>
