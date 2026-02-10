@@ -46,30 +46,33 @@ export function NFTGalleryControls({
   }, []);
 
   return (
-    <>
-      {/* Title — scrolls normally, not sticky */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-lg font-semibold text-[var(--gs-white)]">
-          Off The Grid Game Assets
-        </h3>
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="font-mono text-xs text-[var(--gs-lime)] hover:text-[var(--gs-purple)] transition"
-          >
-            Clear all
-          </button>
-        )}
-      </div>
+    <div
+      ref={controlsRef}
+      className={`sticky z-20 -mx-6 px-6 -mt-6 mb-4 bg-[var(--gs-dark-3)] transition-shadow duration-200 ${
+        isSticky ? 'shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-b border-white/[0.06]' : ''
+      }`}
+      style={{ top: stickyOffset ? `${stickyOffset}px` : '64px' }}
+    >
+      {/* Accent line at the top edge of the card */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line" />
 
-      {/* Sticky controls toolbar */}
-      <div
-        ref={controlsRef}
-        className={`sticky z-20 flex flex-col gap-3 mb-4 pb-3 -mx-6 px-6 pt-3 -mt-3 bg-[var(--gs-dark-3)] transition-shadow duration-200 ${
-          isSticky ? 'shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-b border-white/[0.06]' : ''
-        }`}
-        style={{ top: stickyOffset ? `${stickyOffset}px` : '64px' }}
-      >
+      <div className="pt-6 pb-3">
+        {/* Title */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-semibold text-[var(--gs-white)]">
+            Off The Grid Game Assets
+          </h3>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="font-mono text-xs text-[var(--gs-lime)] hover:text-[var(--gs-purple)] transition"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
         {/* Row 1: Search + Collections + Sort + View */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Inline Search */}
@@ -299,7 +302,8 @@ export function NFTGalleryControls({
             </span>
           )}
         </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

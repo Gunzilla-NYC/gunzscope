@@ -367,14 +367,13 @@ function ScarcityContent() {
 
             {/* Marketplace Listings Section */}
             <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] clip-corner">
-              <div className="h-[2px] gradient-accent-line" />
-
-              {/* Sticky header zone — pins search, filters, table column headers */}
+              {/* Sticky header zone — includes accent line so it stays visible when pinned */}
               <div
                 className={`sticky top-[64px] z-20 bg-[var(--gs-dark-2)] px-4 pt-4 transition-shadow duration-200 ${
                   isSticky ? 'shadow-[0_4px_16px_rgba(0,0,0,0.6)] border-b border-white/[0.06]' : ''
                 }`}
               >
+                <div className="h-[2px] gradient-accent-line -mx-4 -mt-4" />
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">

@@ -66,7 +66,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   }
 
   return (
-    <div className="bg-[var(--gs-dark-3)] p-6 rounded-lg border border-white/[0.06]">
+    <div className="bg-[var(--gs-dark-3)]/90 p-6 border border-white/[0.06] clip-corner backdrop-blur-sm">
       {/* Sticky Controls Bar */}
       <NFTGalleryControls
         searchQuery={searchQuery}

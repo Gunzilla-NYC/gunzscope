@@ -228,7 +228,7 @@ export default function PortfolioSummaryBar({
   return (
     <div
       data-view={viewMode}
-      className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden"
+      className="bg-[var(--gs-dark-2)]/90 border border-white/[0.06] overflow-hidden backdrop-blur-sm"
       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
     >
       {/* ================================================================= */}
@@ -338,14 +338,32 @@ export default function PortfolioSummaryBar({
                   </div>
                 )}
 
-                {/* View mode toggle */}
+                {/* Insanity Mode toggle */}
                 {!isInitializing && (
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleViewMode(); }}
-                    className="font-mono text-micro tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors px-2 py-1 border border-white/[0.06] hover:border-[var(--gs-lime)]/20 cursor-pointer whitespace-nowrap"
-                    style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+                    className="flex items-center gap-2 cursor-pointer group/toggle"
+                    aria-pressed={viewMode === 'detailed'}
+                    title={viewMode === 'detailed' ? 'Insanity Mode: ON — showing full enrichment data' : 'Insanity Mode: OFF — clean summary view'}
                   >
-                    {viewMode === 'simple' ? '\u25C9 Detailed' : '\u25CF Simple'}
+                    <span className={`font-mono text-micro tracking-wider uppercase whitespace-nowrap transition-colors ${
+                      viewMode === 'detailed' ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-gray-3)] group-hover/toggle:text-[var(--gs-gray-4)]'
+                    }`}>
+                      Insanity Mode
+                    </span>
+                    {/* Track */}
+                    <div className={`relative w-7 h-3.5 rounded-full transition-colors duration-200 ${
+                      viewMode === 'detailed'
+                        ? 'bg-[var(--gs-lime)]/30 border border-[var(--gs-lime)]/40'
+                        : 'bg-white/[0.08] border border-white/[0.12] group-hover/toggle:border-white/[0.2]'
+                    }`}>
+                      {/* Thumb */}
+                      <div className={`absolute top-[2px] w-2 h-2 rounded-full transition-all duration-200 ${
+                        viewMode === 'detailed'
+                          ? 'left-[13px] bg-[var(--gs-lime)] shadow-[0_0_6px_rgba(166,247,0,0.4)]'
+                          : 'left-[2px] bg-[var(--gs-gray-3)]'
+                      }`} />
+                    </div>
                   </button>
                 )}
 

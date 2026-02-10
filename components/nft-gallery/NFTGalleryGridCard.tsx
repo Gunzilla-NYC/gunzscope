@@ -41,7 +41,10 @@ export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, p
         style={{ background: `linear-gradient(90deg, ${rarityColor}, transparent)` }}
       />
       {/* Image Container */}
-      <div className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden">
+      <div
+        className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden"
+        style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+      >
         {/* Quality Badge - Top Left with corner cut */}
         <span
           className="absolute top-1.5 left-1.5 z-10 font-mono text-micro tracking-wide uppercase px-1.5 py-0.5 border"
