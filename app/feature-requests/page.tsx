@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -261,16 +261,65 @@ function RequestCard({
 // Submit Form
 // =============================================================================
 
+// Stop words excluded from similarity matching
+const STOP_WORDS = new Set([
+  'a', 'an', 'the', 'is', 'it', 'to', 'in', 'for', 'of', 'and', 'or', 'on',
+  'be', 'i', 'me', 'my', 'we', 'can', 'do', 'so', 'up', 'if', 'no', 'not',
+  'add', 'make', 'want', 'would', 'should', 'could', 'have', 'with', 'this',
+  'that', 'from', 'but', 'are', 'was', 'has', 'more', 'like', 'also', 'get',
+]);
+
+function tokenize(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w) => w.length > 1 && !STOP_WORDS.has(w))
+  );
+}
+
+function similarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let overlap = 0;
+  for (const word of a) {
+    if (b.has(word)) overlap++;
+  }
+  return overlap / Math.min(a.size, b.size);
+}
+
 function SubmitForm({
   onSubmit,
   isSubmitting,
+  existingRequests,
+  onVote,
+  canVote,
 }: {
   onSubmit: (title: string, description: string) => Promise<boolean>;
   isSubmitting: boolean;
+  existingRequests: FeatureRequest[];
+  onVote: (id: string, value: 1 | -1) => void;
+  canVote: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+
+  const similarRequests = useMemo(() => {
+    const trimmed = title.trim();
+    if (trimmed.length < 3) return [];
+    const inputTokens = tokenize(trimmed);
+    if (inputTokens.size === 0) return [];
+
+    return existingRequests
+      .map((r) => {
+        const titleTokens = tokenize(r.title);
+        const descTokens = tokenize(r.description);
+        const titleScore = similarity(inputTokens, titleTokens);
+        const descScore = similarity(inputTokens, descTokens) * 0.5;
+        return { request: r, score: Math.max(titleScore, descScore) };
+      })
+      .filter((m) => m.score >= 0.4)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((m) => m.request);
+  }, [title, existingRequests]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,6 +374,47 @@ function SubmitForm({
           <span className="font-mono text-caption text-[var(--gs-gray-2)] mt-0.5 block text-right">
             {title.length}/100
           </span>
+
+          {/* Similar requests hint */}
+          {similarRequests.length > 0 && (
+            <div className="mt-2 border border-[var(--gs-purple)]/20 bg-[var(--gs-dark-1)]">
+              <div className="px-3 py-1.5 border-b border-white/[0.04]">
+                <span className="font-mono text-label uppercase tracking-wider text-[var(--gs-purple)]">
+                  Similar requests already exist
+                </span>
+              </div>
+              <div className="divide-y divide-white/[0.04]">
+                {similarRequests.map((r) => {
+                  const status = STATUS_STYLES[r.status] || STATUS_STYLES.open;
+                  return (
+                    <div key={r.id} className="px-3 py-2 flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-body text-xs text-[var(--gs-white)] truncate">{r.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`font-mono text-label ${status.text}`}>{status.label}</span>
+                          <span className="font-mono text-label text-[var(--gs-gray-2)]">&middot; {r.netVotes} vote{r.netVotes !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                      {canVote && r.userVote !== 1 && (
+                        <button
+                          type="button"
+                          onClick={() => onVote(r.id, 1)}
+                          className="shrink-0 font-mono text-label uppercase tracking-wider text-[var(--gs-lime)] hover:text-[var(--gs-lime)]/80 transition-colors cursor-pointer px-2 py-1 border border-[var(--gs-lime)]/20 hover:border-[var(--gs-lime)]/40"
+                        >
+                          Upvote
+                        </button>
+                      )}
+                      {canVote && r.userVote === 1 && (
+                        <span className="shrink-0 font-mono text-label uppercase tracking-wider text-[var(--gs-gray-3)] px-2 py-1">
+                          Voted
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <div>
           <label className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">
@@ -422,7 +512,13 @@ function RequestSections({
         <SectionHeader label="Requested" count={activeRequests.length} color="bg-[var(--gs-lime)]" />
         {canSubmit && (
           <div className="mb-3">
-            <SubmitForm onSubmit={onSubmit} isSubmitting={isSubmitting} />
+            <SubmitForm
+              onSubmit={onSubmit}
+              isSubmitting={isSubmitting}
+              existingRequests={requests}
+              onVote={onVote}
+              canVote={canVote}
+            />
           </div>
         )}
         {activeRequests.length > 0 ? (

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
-import { upsertUserProfile, getProfileByDynamicId } from '@/lib/services/userService';
+import { upsertUserProfileWithRecovery } from '@/lib/services/userService';
 
 export async function GET(request: NextRequest) {
   // Authenticate the request
@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get or create profile (upsert on first request)
-    const profile = await upsertUserProfile(authResult.user);
+    // Get or create profile (with wallet-based recovery for re-login scenarios)
+    const profile = await upsertUserProfileWithRecovery(authResult.user);
 
     return NextResponse.json({
       success: true,

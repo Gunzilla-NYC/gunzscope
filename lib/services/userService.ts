@@ -95,6 +95,12 @@ export async function upsertUserProfile(dynamicUser: DynamicUser): Promise<UserP
   // If wallet address is provided, upsert the wallet
   if (dynamicUser.walletAddress) {
     const chain = dynamicUser.chain || 'avalanche';
+
+    // Only set isPrimary: true on create if no other wallet is already primary
+    const existingPrimary = await prisma.wallet.findFirst({
+      where: { userProfileId: profile.id, isPrimary: true },
+    });
+
     await prisma.wallet.upsert({
       where: {
         userProfileId_address_chain: {
@@ -108,7 +114,7 @@ export async function upsertUserProfile(dynamicUser: DynamicUser): Promise<UserP
         userProfileId: profile.id,
         address: dynamicUser.walletAddress.toLowerCase(),
         chain,
-        isPrimary: true, // First wallet is primary
+        isPrimary: !existingPrimary, // Only primary if no existing primary wallet
       },
     });
   }
@@ -213,6 +219,74 @@ export async function updateDisplayName(profileId: string, displayName: string |
     where: { id: profileId },
     data: { displayName },
   });
+}
+
+/**
+ * Look up a user profile by any linked wallet address.
+ * Uses the @@index([address]) on the Wallet model.
+ */
+export async function getProfileByWalletAddress(address: string): Promise<UserProfileWithRelations | null> {
+  const wallet = await prisma.wallet.findFirst({
+    where: { address: address.toLowerCase() },
+    select: { userProfileId: true },
+  });
+  if (!wallet) return null;
+
+  try {
+    return await getFullProfile(wallet.userProfileId);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Set a wallet as primary for a user profile.
+ * Clears isPrimary on all other wallets for the profile in a transaction.
+ */
+export async function setPrimaryWallet(userId: string, walletAddress: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.wallet.updateMany({
+      where: { userProfileId: userId },
+      data: { isPrimary: false },
+    }),
+    prisma.wallet.updateMany({
+      where: {
+        userProfileId: userId,
+        address: walletAddress.toLowerCase(),
+      },
+      data: { isPrimary: true },
+    }),
+  ]);
+}
+
+/**
+ * Upsert user profile with wallet-based recovery.
+ * If the dynamicUserId is new but the wallet already belongs to an existing profile,
+ * migrate the existing profile to the new dynamicUserId instead of creating an orphan.
+ */
+export async function upsertUserProfileWithRecovery(dynamicUser: DynamicUser): Promise<UserProfileWithRelations> {
+  // 1. Normal lookup by dynamicUserId
+  const existingByDynamic = await getProfileByDynamicId(dynamicUser.userId);
+  if (existingByDynamic) {
+    return upsertUserProfile(dynamicUser);
+  }
+
+  // 2. No profile for this dynamicUserId — check if wallet belongs to another profile
+  if (dynamicUser.walletAddress) {
+    const existingByWallet = await getProfileByWalletAddress(dynamicUser.walletAddress);
+    if (existingByWallet) {
+      // Recovery: migrate the existing profile to the new dynamicUserId
+      await prisma.userProfile.update({
+        where: { id: existingByWallet.id },
+        data: { dynamicUserId: dynamicUser.userId },
+      });
+      // Re-fetch with updated dynamicUserId
+      return getFullProfile(existingByWallet.id);
+    }
+  }
+
+  // 3. Truly new user — create fresh
+  return upsertUserProfile(dynamicUser);
 }
 
 // =============================================================================

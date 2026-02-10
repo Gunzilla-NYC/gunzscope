@@ -83,6 +83,7 @@ function AccountContent() {
     addPortfolioAddress,
     removePortfolioAddress,
     updateEmail,
+    setPrimaryWallet,
     refreshProfile,
   } = useUserProfile();
 
@@ -104,6 +105,7 @@ function AccountContent() {
   const [copied, setCopied] = useState(false);
   const [alertConfigs, setAlertConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [togglingAlert, setTogglingAlert] = useState<string | null>(null);
+  const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
 
   // Sync email from profile on first load
   if (profile && !emailLoaded) {
@@ -167,6 +169,17 @@ function AccountContent() {
       toast.error('Failed to update email');
     }
   }, [email, updateEmail]);
+
+  const handleSetPrimary = useCallback(async (address: string) => {
+    setSettingPrimary(address);
+    const success = await setPrimaryWallet(address);
+    setSettingPrimary(null);
+    if (success) {
+      toast.success('Primary wallet updated');
+    } else {
+      toast.error('Failed to update primary wallet');
+    }
+  }, [setPrimaryWallet]);
 
   // Gate: require authentication (use `user` not `primaryWallet` — wallet can lag behind SDK init)
   if (!user) {
@@ -232,7 +245,7 @@ function AccountContent() {
                   <>
                     <div className="flex items-center justify-between mb-4">
                       <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                        Connected Wallet
+                        Connected Wallets
                       </p>
                       <span className="flex items-center gap-1.5 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)]" />
@@ -240,26 +253,75 @@ function AccountContent() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 mb-4">
-                      <p className="font-mono text-lg text-[var(--gs-lime)] tabular-nums">
-                        {truncateAddress(walletAddress)}
-                      </p>
-                      <button
-                        onClick={handleCopyAddress}
-                        className="p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
-                        aria-label="Copy address"
-                      >
-                        {copied ? (
-                          <svg className="w-4 h-4 text-[var(--gs-lime)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
+                    {/* Wallet list from profile */}
+                    {profile && profile.wallets.length > 0 ? (
+                      <div className="space-y-0 mb-4">
+                        {profile.wallets.map((wallet) => (
+                          <div
+                            key={wallet.id}
+                            className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-b-0"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
+                                {truncateAddress(wallet.address)}
+                              </span>
+                              {wallet.isPrimary && (
+                                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5 shrink-0">
+                                  Primary
+                                </span>
+                              )}
+                              <span className="font-mono text-caption text-[var(--gs-gray-2)]">
+                                {wallet.chain}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {!wallet.isPrimary && (
+                                <button
+                                  onClick={() => handleSetPrimary(wallet.address)}
+                                  disabled={settingPrimary === wallet.address}
+                                  className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors disabled:opacity-50"
+                                >
+                                  {settingPrimary === wallet.address ? 'Setting\u2026' : 'Set Primary'}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(wallet.address);
+                                  toast.success('Address copied');
+                                }}
+                                className="p-1 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                                aria-label="Copy address"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 mb-4">
+                        <p className="font-mono text-lg text-[var(--gs-lime)] tabular-nums">
+                          {truncateAddress(walletAddress)}
+                        </p>
+                        <button
+                          onClick={handleCopyAddress}
+                          className="p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                          aria-label="Copy address"
+                        >
+                          {copied ? (
+                            <svg className="w-4 h-4 text-[var(--gs-lime)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

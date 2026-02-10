@@ -97,6 +97,9 @@ interface UseUserProfileReturn {
   removeFavorite: (id: string) => Promise<boolean>;
   isFavorited: (type: FavoriteItem['type'], refId: string) => boolean;
 
+  // Wallets
+  setPrimaryWallet: (address: string) => Promise<boolean>;
+
   // Settings
   updateSettings: (updates: Partial<UserSettings>) => Promise<UserSettings | null>;
 
@@ -442,6 +445,37 @@ export function useUserProfile(): UseUserProfileReturn {
     [profile]
   );
 
+  // Set primary wallet
+  const setPrimaryWallet = useCallback(async (address: string): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth(
+      '/api/me/primary-wallet',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ address }),
+      },
+      token
+    );
+
+    if (result.success) {
+      // Optimistic update: mark selected wallet as primary
+      setProfile((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          wallets: prev.wallets.map((w) => ({
+            ...w,
+            isPrimary: w.address.toLowerCase() === address.toLowerCase(),
+          })),
+        };
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
   // Update settings
   const updateSettings = useCallback(
     async (updates: Partial<UserSettings>): Promise<UserSettings | null> => {
@@ -483,6 +517,7 @@ export function useUserProfile(): UseUserProfileReturn {
     addPortfolioAddress,
     removePortfolioAddress,
     isInPortfolio,
+    setPrimaryWallet,
     addFavorite,
     removeFavorite,
     isFavorited,
