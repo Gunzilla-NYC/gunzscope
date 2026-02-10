@@ -12,12 +12,23 @@ interface OnboardingState {
   visitedPages: string[];
 }
 
-const STEPS = [
+// Step definition with optional action and locked flag
+interface Step {
+  id: string;
+  label: string;
+  description: string;
+  href?: string;
+  action?: 'auth';
+  locked?: boolean;
+}
+
+// Wallet-connected user steps (original flow)
+const WALLET_STEPS: Step[] = [
   {
     id: 'connect-wallet',
     label: 'Connect your wallet',
     description: 'Link a GunzChain wallet to get started',
-    href: undefined as string | undefined,
+    action: 'auth',
   },
   {
     id: 'view-portfolio',
@@ -37,7 +48,34 @@ const STEPS = [
     description: 'Add extra wallets for a combined view',
     href: '/account',
   },
-] as const;
+];
+
+// Email-only user steps (browse mode → upgrade path)
+const EMAIL_STEPS: Step[] = [
+  {
+    id: 'create-account',
+    label: 'Create your account',
+    description: 'Sign up with email to get started',
+  },
+  {
+    id: 'search-portfolio',
+    label: 'Search a portfolio',
+    description: 'Look up any wallet by address',
+    href: '/portfolio',
+  },
+  {
+    id: 'connect-wallet',
+    label: 'Connect a wallet',
+    description: 'Link a GunzChain wallet to unlock all features',
+    action: 'auth',
+  },
+  {
+    id: 'unlock-features',
+    label: 'Unlock full features',
+    description: 'Leaderboard, scarcity, and more',
+    locked: true,
+  },
+];
 
 function loadState(): OnboardingState {
   if (typeof window === 'undefined') return { dismissed: false, visitedPages: [] };
@@ -93,16 +131,29 @@ export default function OnboardingChecklist() {
   const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/account';
   if (!mounted || !isInApp || state.dismissed) return null;
 
-  // Calculate completed steps
-  const walletConnected = !!primaryWallet || !!user;
-  const completedSteps = [
-    walletConnected,
-    state.visitedPages.includes('/portfolio'),
-    state.visitedPages.includes('/leaderboard'),
-    state.visitedPages.includes('/account'),
-  ];
+  // Determine user type
+  const hasWallet = !!primaryWallet?.address;
+  const hasUser = !!user;
+  const isEmailOnly = hasUser && !hasWallet;
+
+  // Select steps and calculate completion
+  const steps = isEmailOnly ? EMAIL_STEPS : WALLET_STEPS;
+  const completedSteps = isEmailOnly
+    ? [
+        hasUser,                                       // create-account: auto-complete
+        state.visitedPages.includes('/portfolio'),     // search-portfolio
+        hasWallet,                                     // connect-wallet: false until linked
+        hasWallet,                                     // unlock-features: same
+      ]
+    : [
+        hasWallet || hasUser,                          // connect-wallet
+        state.visitedPages.includes('/portfolio'),     // view-portfolio
+        state.visitedPages.includes('/leaderboard'),   // explore-leaderboard
+        state.visitedPages.includes('/account'),       // manage-wallets
+      ];
+
   const completedCount = completedSteps.filter(Boolean).length;
-  const allDone = completedCount === STEPS.length;
+  const allDone = completedCount === steps.length;
 
   // Auto-dismiss 3s after all steps complete
   if (allDone) {
@@ -118,7 +169,7 @@ export default function OnboardingChecklist() {
       >
         <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse" />
         <span className="font-mono text-caption tracking-wide text-[var(--gs-gray-3)]">
-          {completedCount}/{STEPS.length}
+          {completedCount}/{steps.length}
         </span>
       </button>
     );
@@ -139,7 +190,7 @@ export default function OnboardingChecklist() {
           <div className="mt-1.5 h-[2px] w-24 bg-[var(--gs-dark-4)] overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)] transition-all duration-500 ease-out"
-              style={{ width: `${(completedCount / STEPS.length) * 100}%` }}
+              style={{ width: `${(completedCount / steps.length) * 100}%` }}
             />
           </div>
         </div>
@@ -167,8 +218,29 @@ export default function OnboardingChecklist() {
 
       {/* Steps */}
       <div className="px-4 py-3 space-y-2.5">
-        {STEPS.map((step, i) => {
+        {steps.map((step, i) => {
           const done = completedSteps[i];
+          const isLocked = step.locked && !done;
+
+          // Locked step — grayed out, non-interactive
+          if (isLocked) {
+            return (
+              <div key={step.id} className="-mx-1 px-1 py-1 opacity-40 cursor-not-allowed">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-4 h-4 shrink-0 border border-[var(--gs-gray-1)] flex items-center justify-center">
+                    <svg className="w-2.5 h-2.5 text-[var(--gs-gray-2)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-mono text-data leading-tight text-[var(--gs-gray-2)]">{step.label}</p>
+                    <p className="font-body text-caption text-[var(--gs-gray-1)] mt-0.5 leading-snug">{step.description}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
           const inner = (
             <div className="flex items-start gap-3 group">
               {/* Checkbox */}
@@ -199,8 +271,8 @@ export default function OnboardingChecklist() {
             </div>
           );
 
-          // Connect wallet step — trigger auth flow on click
-          if (step.id === 'connect-wallet' && !done) {
+          // Auth action step — trigger auth flow on click
+          if (step.action === 'auth' && !done) {
             return (
               <button
                 key={step.id}

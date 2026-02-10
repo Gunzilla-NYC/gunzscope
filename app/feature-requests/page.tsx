@@ -5,6 +5,7 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useFeatureRequests, type FeatureRequest } from '@/lib/hooks/useFeatureRequests';
+import WalletRequiredGate from '@/components/WalletRequiredGate';
 
 function truncateAddress(addr: string): string {
   if (addr.length <= 12) return addr;
@@ -596,6 +597,7 @@ function FeatureRequestsContent() {
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)] flex flex-col">
       <Navbar />
 
+      <WalletRequiredGate feature="Feature Requests">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
         {/* Header */}
         <div className="mb-8">
@@ -684,6 +686,7 @@ function FeatureRequestsContent() {
           />
         )}
       </main>
+      </WalletRequiredGate>
 
       <Footer />
     </div>

@@ -3,10 +3,57 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext, getAuthToken } from '@dynamic-labs/sdk-react-core';
 import Logo from './Logo';
 
 const GLITCH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&!';
+
+/**
+ * Global auto-login: ensures /api/me is called once when the user authenticates,
+ * creating their profile in the database regardless of which page they're on.
+ * Retries briefly if the auth token isn't ready yet (Dynamic SDK timing).
+ */
+function useAutoLogin(isAuthenticated: boolean) {
+  const calledRef = useRef(false);
+  const lastUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      calledRef.current = false;
+      lastUserRef.current = null;
+      return;
+    }
+
+    const tryLogin = (attempt: number) => {
+      const token = getAuthToken();
+      if (!token) {
+        // Token not ready yet — retry up to 5 times with 500ms delay
+        if (attempt < 5) {
+          setTimeout(() => tryLogin(attempt + 1), 500);
+        }
+        return;
+      }
+
+      // Deduplicate: skip if we already called for this token
+      if (calledRef.current && lastUserRef.current === token.slice(0, 20)) return;
+      calledRef.current = true;
+      lastUserRef.current = token.slice(0, 20);
+
+      fetch('/api/me', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      }).catch(() => {
+        // Silent fail — profile creation will retry on next page that uses useUserProfile
+        calledRef.current = false;
+      });
+    };
+
+    tryLogin(0);
+  }, [isAuthenticated]);
+}
 
 function truncateAddress(address: string): string {
   if (address.length <= 10) return address;
@@ -395,7 +442,6 @@ function ProfileDropdown({ isActive, pathname }: { isActive: boolean; pathname: 
 
   const items = [
     { href: '/account', label: 'Wallets', active: pathname === '/account' },
-    { href: '/feature-requests', label: 'Feature Requests', active: pathname === '/feature-requests' },
   ];
 
   const showBrackets = hovered || isActive || open;
@@ -456,11 +502,41 @@ export default function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, primaryWallet, setShowAuthFlow, handleLogOut } = useDynamicContext();
+
+  // Global auto-login: create profile as soon as wallet connects on ANY page
+  useAutoLogin(!!user);
+
+  // Validate wallet against whitelist when a new wallet is linked (e.g., email user connects wallet)
+  const validatedWalletRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!primaryWallet?.address || !user) return;
+    const addr = primaryWallet.address.toLowerCase();
+    if (validatedWalletRef.current === addr) return; // already validated
+    validatedWalletRef.current = addr;
+
+    fetch('/api/access/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: primaryWallet.address }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) {
+          handleLogOut();
+        }
+      })
+      .catch(() => {
+        // Network error — fail closed
+        handleLogOut();
+      });
+  }, [primaryWallet?.address, user, handleLogOut]);
+
   const activeAddress = searchParams.get('address');
   const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/scarcity' || pathname === '/account' || pathname === '/feature-requests';
   const isProfileActive = pathname === '/account' || pathname === '/feature-requests';
   const isAnonymous = !user;
   const isConnected = !!primaryWallet?.address;
+  const hasWallet = isConnected; // email-only users: false → gates leaderboard/scarcity/feature-requests
   const walletAddress = primaryWallet?.address || '';
   const connectorName = primaryWallet?.connector?.name || '';
   const [isScrolled, setIsScrolled] = useState(false);
@@ -517,8 +593,8 @@ export default function Navbar() {
                 {isInApp && (
                   <>
                     <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
-                    <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />
-                    <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />
+                    {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
+                    {hasWallet && <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />}
                   </>
                 )}
                 {isAnonymous ? (
@@ -574,8 +650,10 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
               {isInApp && [
                 { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
-                { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
-                { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
+                ...(hasWallet ? [
+                  { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
+                  { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
+                ] : []),
               ].map(item => (
                 <Link
                   key={item.href}
@@ -620,7 +698,7 @@ export default function Navbar() {
                     </p>
                     {[
                       { href: '/account', label: 'Wallets', active: pathname === '/account' },
-                      { href: '/feature-requests', label: 'Feature Requests', active: pathname === '/feature-requests' },
+                      ...(hasWallet ? [{ href: '/feature-requests', label: 'Feature Requests', active: pathname === '/feature-requests' }] : []),
                     ].map(item => (
                       <Link
                         key={item.href}

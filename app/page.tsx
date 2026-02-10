@@ -202,9 +202,8 @@ export default function HomePage() {
           setGateError('Failed to validate access. Please try again.');
         });
     } else if (user) {
-      // Email-only user with no wallet — disconnect, they need to enter an address
-      handleLogOut();
-      setGateError('Please enter a whitelisted wallet address to continue.');
+      // Email-only user with no wallet — redirect to portfolio browse mode
+      router.push('/portfolio');
     }
   }, [primaryWallet?.address, user, router, handleLogOut]);
 

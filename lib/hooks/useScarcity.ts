@@ -1,11 +1,17 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import type { ScarcityTraitStats, MarketplaceListing, ScarcityPageData } from '@/lib/types';
 
 export type ScarcitySortField = 'listingCount' | 'floorPriceGun' | 'recentSales' | 'itemName';
 
 type SortOrder = 'asc' | 'desc';
+
+export interface TraitFilter {
+  type: 'weapon' | 'quality';
+  value: string;
+}
 
 export interface UseScarcityResult {
   traitStats: ScarcityTraitStats | null;
@@ -20,17 +26,61 @@ export interface UseScarcityResult {
   setSearchQuery: (q: string) => void;
   lastUpdated: string | null;
   refetch: () => void;
+  traitFilter: TraitFilter | null;
+  setTraitFilter: (filter: TraitFilter | null) => void;
+  resultCount: number;
+  totalCount: number;
+}
+
+/** Returns "2m ago", "1h ago", "3d ago" etc. */
+export function getRelativeTime(dateString: string): string {
+  const now = Date.now();
+  const then = new Date(dateString).getTime();
+  const diffMs = now - then;
+  if (diffMs < 0) return 'just now';
+
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 export function useScarcity(): UseScarcityResult {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [traitStats, setTraitStats] = useState<ScarcityTraitStats | null>(null);
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<ScarcitySortField>('listingCount');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+
+  // Initialize from URL params
+  const [sortField, setSortField] = useState<ScarcitySortField>(
+    (searchParams.get('sort') as ScarcitySortField) || 'listingCount'
+  );
+  const [sortOrder, setSortOrder] = useState<SortOrder>(
+    (searchParams.get('order') as SortOrder) || 'asc'
+  );
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [traitFilter, setTraitFilter] = useState<TraitFilter | null>(null);
+
+  // Persist state to URL params
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (sortField !== 'listingCount') params.set('sort', sortField);
+    if (sortOrder !== 'asc') params.set('order', sortOrder);
+    if (searchQuery) params.set('q', searchQuery);
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : '/scarcity', { scroll: false });
+  }, [sortField, sortOrder, searchQuery, router]);
 
   const fetchScarcity = useCallback(async () => {
     setError(null);
@@ -59,7 +109,6 @@ export function useScarcity(): UseScarcityResult {
         setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
       } else {
         setSortField(field);
-        // Default to ascending for listing count (rarest first), descending for others
         setSortOrder(field === 'listingCount' ? 'asc' : 'desc');
       }
     },
@@ -72,7 +121,13 @@ export function useScarcity(): UseScarcityResult {
     // Apply search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      filtered = listings.filter((l) => l.itemName.toLowerCase().includes(q));
+      filtered = filtered.filter((l) => l.itemName.toLowerCase().includes(q));
+    }
+
+    // Apply trait filter (name-based matching — listings don't carry structured trait fields)
+    if (traitFilter) {
+      const val = traitFilter.value.toLowerCase();
+      filtered = filtered.filter((l) => l.itemName.toLowerCase().includes(val));
     }
 
     // Sort
@@ -87,7 +142,7 @@ export function useScarcity(): UseScarcityResult {
     });
 
     return sorted;
-  }, [listings, sortField, sortOrder, searchQuery]);
+  }, [listings, sortField, sortOrder, searchQuery, traitFilter]);
 
   return {
     traitStats,
@@ -102,5 +157,9 @@ export function useScarcity(): UseScarcityResult {
     setSearchQuery,
     lastUpdated,
     refetch: fetchScarcity,
+    traitFilter,
+    setTraitFilter,
+    resultCount: sortedListings.length,
+    totalCount: listings.length,
   };
 }

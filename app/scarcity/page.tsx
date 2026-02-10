@@ -1,9 +1,13 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { useScarcity, type ScarcitySortField } from '@/lib/hooks/useScarcity';
+import { useScarcity, getRelativeTime, type ScarcitySortField, type TraitFilter } from '@/lib/hooks/useScarcity';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useState } from 'react';
+import WalletRequiredGate from '@/components/WalletRequiredGate';
+import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -66,10 +70,28 @@ type DataSource = 'opensea' | 'onchain';
 
 function ScarcityContent() {
   const [dataSource, setDataSource] = useState<DataSource>('opensea');
+  const hasAnimatedRef = useRef(false);
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // Sticky header detection
+  const [isSticky, setIsSticky] = useState(false);
+  const stickysentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = stickysentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsSticky(!entry.isIntersecting),
+      { threshold: 0, rootMargin: '-65px 0px 0px 0px' }  // navbar height
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   const {
     traitStats,
     sortedListings,
+    listings,
     isLoading,
     error,
     sortField,
@@ -79,12 +101,29 @@ function ScarcityContent() {
     setSearchQuery,
     lastUpdated,
     refetch,
+    traitFilter,
+    setTraitFilter,
+    resultCount,
+    totalCount,
   } = useScarcity();
 
-  // Compute summary stats
-  const totalListed = sortedListings.reduce((sum, l) => sum + l.listingCount, 0);
-  const uniqueItems = sortedListings.length;
-  const totalSales7d = sortedListings.reduce((sum, l) => sum + l.recentSales, 0);
+  // Virtualized row rendering for 800+ items
+  const rowVirtualizer = useVirtualizer({
+    count: sortedListings.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 48,
+    overscan: 10,
+  });
+
+  // Mark first render as animated
+  if (!isLoading && sortedListings.length > 0 && !hasAnimatedRef.current) {
+    hasAnimatedRef.current = true;
+  }
+
+  // Compute summary stats from full (unfiltered) listings
+  const totalListed = listings.reduce((sum, l) => sum + l.listingCount, 0);
+  const uniqueItems = listings.length;
+  const totalSales7d = listings.reduce((sum, l) => sum + l.recentSales, 0);
 
   // Weapon type distribution (sorted by count ascending = rarest first)
   const weaponTypeSorted = traitStats
@@ -97,10 +136,13 @@ function ScarcityContent() {
   const qualityColors: Record<string, string> = { Epic: '#cc44ff', Rare: '#4488ff', Uncommon: '#44ff44', Common: '#888888' };
   const maxQualityCount = traitStats ? Math.max(...Object.values(traitStats.qualities)) : 0;
 
+  const isFiltered = !!(searchQuery || traitFilter);
+
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
       <Navbar />
 
+      <WalletRequiredGate feature="Scarcity">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Page Header */}
         <div className="mb-8">
@@ -118,10 +160,12 @@ function ScarcityContent() {
         </div>
 
         {/* Data Source Toggle */}
-        <div className="flex items-center gap-0 mb-6 border border-white/[0.06] w-fit clip-corner-sm">
+        <div role="tablist" aria-label="Data source" className="flex items-center gap-0 mb-6 border border-white/[0.06] w-fit clip-corner-sm">
           <button
+            role="tab"
+            aria-selected={dataSource === 'opensea'}
             onClick={() => setDataSource('opensea')}
-            className={`flex items-center gap-2 px-5 py-2.5 font-mono text-caption uppercase tracking-widest transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2.5 font-mono text-caption uppercase tracking-widest transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gs-lime)] ${
               dataSource === 'opensea'
                 ? 'bg-[#2081E2]/10 text-[#2081E2] border-r border-white/[0.06]'
                 : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] border-r border-white/[0.06]'
@@ -133,8 +177,10 @@ function ScarcityContent() {
             OpenSea Data
           </button>
           <button
+            role="tab"
+            aria-selected={dataSource === 'onchain'}
             onClick={() => setDataSource('onchain')}
-            className={`flex items-center gap-2 px-5 py-2.5 font-mono text-caption uppercase tracking-widest transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2.5 font-mono text-caption uppercase tracking-widest transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gs-lime)] ${
               dataSource === 'onchain'
                 ? 'bg-[var(--gs-purple)]/10 text-[var(--gs-purple)]'
                 : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)]'
@@ -168,7 +214,7 @@ function ScarcityContent() {
               {[
                 { label: 'Per&#8209;Item Supply', desc: 'Exact count of how many of each item exist on&#8209;chain' },
                 { label: 'Mint Tracking', desc: 'Real&#8209;time tracking of new mints and supply changes' },
-                { label: '"X of Y" Badges', desc: 'Show mint rarity like "1 of 48" on your NFT cards' },
+                { label: '&quot;X of Y&quot; Badges', desc: 'Show mint rarity like &quot;1 of 48&quot; on your NFT cards' },
               ].map((feature) => (
                 <div key={feature.label} className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner text-left">
                   <div className="h-[2px] bg-gradient-to-r from-[var(--gs-purple)]/60 to-transparent" />
@@ -189,7 +235,7 @@ function ScarcityContent() {
           <div className="mb-6 px-4 py-3 bg-[var(--gs-loss)]/[0.08] border border-[var(--gs-loss)]/20 clip-corner-sm">
             <div className="flex items-center justify-between">
               <p className="font-mono text-data text-[var(--gs-loss)]">{error}</p>
-              <button onClick={refetch} className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">
+              <button onClick={refetch} className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]">
                 Retry
               </button>
             </div>
@@ -222,7 +268,7 @@ function ScarcityContent() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Stats Bar */}
+            {/* Stats Bar — staggered animation via stat-cell-animate nth-child delays */}
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden stat-cell-animate clip-corner">
                 <div className="h-[2px] gradient-accent-line" />
@@ -250,7 +296,7 @@ function ScarcityContent() {
             {/* Trait Distribution Cards */}
             {traitStats && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Weapon Types */}
+                {/* Weapon Types — clickable bars */}
                 <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
                   <div className="h-[2px] gradient-accent-line" />
                   <div className="p-4">
@@ -259,19 +305,29 @@ function ScarcityContent() {
                     </p>
                     <div className="space-y-0">
                       {weaponTypeSorted.map(([type, count]) => (
-                        <TraitBar
+                        <button
                           key={type}
-                          label={type}
-                          count={count}
-                          maxCount={maxWeaponCount}
-                          color="var(--gs-lime)"
-                        />
+                          onClick={() => setTraitFilter(
+                            traitFilter?.value === type && traitFilter?.type === 'weapon' ? null : { type: 'weapon', value: type }
+                          )}
+                          className={`w-full text-left cursor-pointer hover:bg-white/[0.03] -mx-2 px-2 rounded transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)] ${
+                            traitFilter?.value === type && traitFilter?.type === 'weapon' ? 'bg-white/[0.06] ring-1 ring-[var(--gs-lime)]/20' : ''
+                          }`}
+                          aria-pressed={traitFilter?.value === type && traitFilter?.type === 'weapon'}
+                        >
+                          <TraitBar
+                            label={type}
+                            count={count}
+                            maxCount={maxWeaponCount}
+                            color="var(--gs-lime)"
+                          />
+                        </button>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Quality Distribution */}
+                {/* Quality Distribution — clickable bars */}
                 <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
                   <div className="h-[2px] gradient-accent-line" />
                   <div className="p-4">
@@ -282,13 +338,23 @@ function ScarcityContent() {
                       {qualityOrder
                         .filter((q) => traitStats.qualities[q])
                         .map((quality) => (
-                          <TraitBar
+                          <button
                             key={quality}
-                            label={quality}
-                            count={traitStats.qualities[quality]}
-                            maxCount={maxQualityCount}
-                            color={qualityColors[quality] || '#888'}
-                          />
+                            onClick={() => setTraitFilter(
+                              traitFilter?.value === quality && traitFilter?.type === 'quality' ? null : { type: 'quality', value: quality }
+                            )}
+                            className={`w-full text-left cursor-pointer hover:bg-white/[0.03] -mx-2 px-2 rounded transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)] ${
+                              traitFilter?.value === quality && traitFilter?.type === 'quality' ? 'bg-white/[0.06] ring-1 ring-[var(--gs-lime)]/20' : ''
+                            }`}
+                            aria-pressed={traitFilter?.value === quality && traitFilter?.type === 'quality'}
+                          >
+                            <TraitBar
+                              label={quality}
+                              count={traitStats.qualities[quality]}
+                              maxCount={maxQualityCount}
+                              color={qualityColors[quality] || '#888'}
+                            />
+                          </button>
                         ))}
                     </div>
                   </div>
@@ -296,46 +362,98 @@ function ScarcityContent() {
               </div>
             )}
 
+            {/* Sticky sentinel — goes invisible above the sticky zone */}
+            <div ref={stickysentinelRef} className="h-0" />
+
             {/* Marketplace Listings Section */}
-            <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
+            <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] clip-corner">
               <div className="h-[2px] gradient-accent-line" />
-              <div className="p-4">
+
+              {/* Sticky header zone — pins search, filters, table column headers */}
+              <div
+                className={`sticky top-[64px] z-20 bg-[var(--gs-dark-2)] px-4 pt-4 transition-shadow duration-200 ${
+                  isSticky ? 'shadow-[0_4px_16px_rgba(0,0,0,0.6)] border-b border-white/[0.06]' : ''
+                }`}
+              >
                 <div className="flex items-center justify-between mb-4">
-                  <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
-                    Marketplace Listings
-                  </p>
-                  {lastUpdated && (
-                    <p className="font-mono text-label text-[var(--gs-gray-2)] tabular-nums">
-                      Updated {new Date(lastUpdated).toLocaleTimeString()}
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
+                      Marketplace Listings
                     </p>
-                  )}
+                    <span className="font-mono text-label text-[var(--gs-gray-2)] tabular-nums">
+                      {isFiltered
+                        ? `${resultCount} of ${totalCount}`
+                        : resultCount} items
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {lastUpdated && (
+                      <p className="font-mono text-label text-[var(--gs-gray-2)] tabular-nums">
+                        Updated {getRelativeTime(lastUpdated)}
+                      </p>
+                    )}
+                    <button
+                      onClick={refetch}
+                      aria-label="Refresh data"
+                      className="ml-1 text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
+                {/* Active filter pill */}
+                {traitFilter && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="font-mono text-caption uppercase text-[var(--gs-gray-4)]">Filtered by:</span>
+                    <button
+                      onClick={() => setTraitFilter(null)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--gs-lime)]/10 border border-[var(--gs-lime)]/20 font-mono text-caption uppercase text-[var(--gs-lime)] clip-corner-sm hover:bg-[var(--gs-lime)]/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                    >
+                      {traitFilter.value}
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Search */}
-                <div className="mb-4">
+                <div role="search" className="mb-4">
                   <input
-                    type="text"
+                    type="search"
+                    aria-label="Search items by name"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search items..."
-                    className="w-full max-w-xs px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm"
+                    className="w-full max-w-xs px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gs-lime)]"
                   />
                 </div>
 
-                {/* Desktop Table */}
-                <div className="hidden md:block overflow-x-auto">
+                {/* Desktop table column headers — inside sticky zone */}
+                <div className="hidden md:block">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-white/[0.06]">
                         <th className="text-left font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2 w-8">#</th>
                         <th className="text-left font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
-                          <button onClick={() => handleSort('itemName')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors">
+                          <button
+                            onClick={() => handleSort('itemName')}
+                            aria-label={`Sort by item name, currently ${sortField === 'itemName' ? sortOrder : 'none'}`}
+                            aria-sort={sortField === 'itemName' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                            className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                          >
                             Item
                             <SortArrow active={sortField === 'itemName'} order={sortOrder} />
                           </button>
                         </th>
                         <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
-                          <button onClick={() => handleSort('listingCount')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto">
+                          <button
+                            onClick={() => handleSort('listingCount')}
+                            aria-label={`Sort by listing count, currently ${sortField === 'listingCount' ? sortOrder : 'none'}`}
+                            aria-sort={sortField === 'listingCount' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                            className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                          >
                             Listed
                             <SortArrow active={sortField === 'listingCount'} order={sortOrder} />
                           </button>
@@ -344,13 +462,23 @@ function ScarcityContent() {
                           Scarcity
                         </th>
                         <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
-                          <button onClick={() => handleSort('floorPriceGun')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto">
+                          <button
+                            onClick={() => handleSort('floorPriceGun')}
+                            aria-label={`Sort by floor price, currently ${sortField === 'floorPriceGun' ? sortOrder : 'none'}`}
+                            aria-sort={sortField === 'floorPriceGun' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                            className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                          >
                             Floor (GUN)
                             <SortArrow active={sortField === 'floorPriceGun'} order={sortOrder} />
                           </button>
                         </th>
                         <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
-                          <button onClick={() => handleSort('recentSales')} className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto">
+                          <button
+                            onClick={() => handleSort('recentSales')}
+                            aria-label={`Sort by 7-day sales, currently ${sortField === 'recentSales' ? sortOrder : 'none'}`}
+                            aria-sort={sortField === 'recentSales' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                            className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                          >
                             7d Sales
                             <SortArrow active={sortField === 'recentSales'} order={sortOrder} />
                           </button>
@@ -360,59 +488,107 @@ function ScarcityContent() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {sortedListings.map((listing, idx) => {
+                  </table>
+                </div>
+              </div>
+              {/* End sticky header zone */}
+
+              <div className="px-4 pb-4">
+                {/* Desktop Table — Virtualized */}
+                <div className="hidden md:block">
+                  {/* Virtualized scroll container */}
+                  <div
+                    ref={parentRef}
+                    className="max-h-[70vh] overflow-auto scrollbar-premium"
+                  >
+                    <div
+                      style={{
+                        height: `${rowVirtualizer.getTotalSize()}px`,
+                        width: '100%',
+                        position: 'relative',
+                      }}
+                    >
+                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const listing = sortedListings[virtualRow.index];
                         const scarcityColor = getListingScarcityColor(listing.listingCount);
                         const scarcityLabel = getListingScarcityLabel(listing.listingCount);
+                        const isUnresolved = listing.itemName.startsWith('Token #');
+                        const shouldAnimate = !hasAnimatedRef.current;
+
                         return (
-                          <tr
+                          <div
                             key={listing.itemName}
-                            className="border-b border-white/[0.03] hover:bg-[var(--gs-lime)]/[0.03] transition-colors"
+                            data-index={virtualRow.index}
+                            ref={rowVirtualizer.measureElement}
+                            className={`absolute left-0 w-full ${shouldAnimate ? 'scarcity-row-enter' : ''}`}
+                            style={{
+                              top: `${virtualRow.start}px`,
+                              ...(shouldAnimate ? { animationDelay: `${Math.min(virtualRow.index * 15, 300)}ms` } : {}),
+                            }}
                           >
-                            <td className="py-3 px-2 font-mono text-data tabular-nums text-[var(--gs-gray-3)]">
-                              {idx + 1}
-                            </td>
-                            <td className="py-3 px-2">
-                              <div className="flex items-center gap-2.5">
-                                {listing.imageUrl && (
-                                  <img
-                                    src={listing.imageUrl}
-                                    alt=""
-                                    className="w-8 h-8 object-cover bg-black/50"
-                                    style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
-                                    loading="lazy"
-                                  />
-                                )}
-                                <span className="font-mono text-sm text-[var(--gs-white)] truncate max-w-[250px]">
-                                  {listing.itemName}
+                            <div
+                              className={`flex items-center border-b border-white/[0.03] hover:bg-[var(--gs-lime)]/[0.03] hover:border-l-2 hover:border-l-[var(--gs-lime)]/40 transition-colors cursor-default ${
+                                isUnresolved ? 'opacity-40' : ''
+                              }`}
+                            >
+                              {/* # */}
+                              <div className="py-3 px-2 w-8 shrink-0 font-mono text-data tabular-nums text-[var(--gs-gray-3)]">
+                                {virtualRow.index + 1}
+                              </div>
+                              {/* Item */}
+                              <div className="py-3 px-2 flex-1 min-w-0">
+                                <div className="flex items-center gap-2.5">
+                                  {listing.imageUrl && (
+                                    <img
+                                      src={listing.imageUrl}
+                                      alt=""
+                                      className="w-8 h-8 object-cover bg-black/50 shrink-0"
+                                      style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+                                      loading="lazy"
+                                    />
+                                  )}
+                                  <span className="font-mono text-sm text-[var(--gs-white)] truncate max-w-[250px]">
+                                    {listing.itemName}
+                                  </span>
+                                </div>
+                              </div>
+                              {/* Listed */}
+                              <div className={`py-3 px-2 w-20 text-right font-mono text-sm tabular-nums shrink-0 ${
+                                sortField === 'listingCount' ? 'text-[var(--gs-white)] bg-white/[0.02]' : ''
+                              }`} style={sortField !== 'listingCount' ? { color: scarcityColor } : { color: scarcityColor }}>
+                                {listing.listingCount}
+                              </div>
+                              {/* Scarcity */}
+                              <div className="py-3 px-2 w-32 text-center shrink-0">
+                                <span
+                                  className="inline-block font-mono text-label uppercase tracking-wider whitespace-nowrap px-2 py-0.5 border clip-corner-sm"
+                                  style={{ color: scarcityColor, borderColor: scarcityColor + '40' }}
+                                >
+                                  {scarcityLabel}
                                 </span>
                               </div>
-                            </td>
-                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums" style={{ color: scarcityColor }}>
-                              {listing.listingCount}
-                            </td>
-                            <td className="py-3 px-2 text-center">
-                              <span
-                                className="inline-block font-mono text-label uppercase tracking-wider px-2 py-0.5 border clip-corner-sm"
-                                style={{ color: scarcityColor, borderColor: scarcityColor + '40' }}
-                              >
-                                {scarcityLabel}
-                              </span>
-                            </td>
-                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)]">
-                              {listing.floorPriceGun > 0 ? formatGun(listing.floorPriceGun) : '\u2014'}
-                            </td>
-                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)]">
-                              {listing.recentSales > 0 ? listing.recentSales : '\u2014'}
-                            </td>
-                            <td className="py-3 px-2 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)]">
-                              {listing.avgSalePriceGun ? formatGun(listing.avgSalePriceGun) : '\u2014'}
-                            </td>
-                          </tr>
+                              {/* Floor */}
+                              <div className={`py-3 px-2 w-24 text-right font-mono text-sm tabular-nums shrink-0 ${
+                                sortField === 'floorPriceGun' ? 'text-[var(--gs-white)] bg-white/[0.02]' : 'text-[var(--gs-gray-4)]'
+                              }`}>
+                                {listing.floorPriceGun > 0 ? formatGun(listing.floorPriceGun) : '\u2014'}
+                              </div>
+                              {/* 7d Sales */}
+                              <div className={`py-3 px-2 w-20 text-right font-mono text-sm tabular-nums shrink-0 ${
+                                sortField === 'recentSales' ? 'text-[var(--gs-white)] bg-white/[0.02]' : 'text-[var(--gs-gray-4)]'
+                              }`}>
+                                {listing.recentSales > 0 ? listing.recentSales : '\u2014'}
+                              </div>
+                              {/* Avg Sale */}
+                              <div className="py-3 px-2 w-24 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)] shrink-0">
+                                {listing.avgSalePriceGun ? formatGun(listing.avgSalePriceGun) : '\u2014'}
+                              </div>
+                            </div>
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
 
                   {sortedListings.length === 0 && (
                     <div className="py-12 text-center">
@@ -427,13 +603,15 @@ function ScarcityContent() {
                 <div className="md:hidden space-y-0">
                   {/* Mobile sort dropdown */}
                   <div className="mb-3">
+                    <label className="sr-only" htmlFor="scarcity-sort">Sort by</label>
                     <select
+                      id="scarcity-sort"
                       value={`${sortField}-${sortOrder}`}
                       onChange={(e) => {
-                        const [field, order] = e.target.value.split('-') as [ScarcitySortField, 'asc' | 'desc'];
+                        const [field] = e.target.value.split('-') as [ScarcitySortField, 'asc' | 'desc'];
                         handleSort(field);
                       }}
-                      className="w-full px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] focus:outline-none focus:border-[var(--gs-lime)]/40 clip-corner-sm"
+                      className="w-full px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] focus:outline-none focus:border-[var(--gs-lime)]/40 clip-corner-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
                     >
                       <option value="listingCount-asc">Scarcest First</option>
                       <option value="floorPriceGun-desc">Highest Floor</option>
@@ -446,10 +624,11 @@ function ScarcityContent() {
                   {sortedListings.map((listing, idx) => {
                     const scarcityColor = getListingScarcityColor(listing.listingCount);
                     const scarcityLabel = getListingScarcityLabel(listing.listingCount);
+                    const isUnresolved = listing.itemName.startsWith('Token #');
                     return (
                       <div
                         key={listing.itemName}
-                        className="flex items-center gap-3 py-3 border-b border-white/[0.04]"
+                        className={`flex items-center gap-3 py-3 border-b border-white/[0.04] ${isUnresolved ? 'opacity-40' : ''}`}
                       >
                         <span className="font-mono text-caption tabular-nums text-[var(--gs-gray-2)] w-6 shrink-0">{idx + 1}</span>
                         {listing.imageUrl && (
@@ -501,6 +680,8 @@ function ScarcityContent() {
         )}
         </>)}
       </main>
+      </WalletRequiredGate>
+      <ScrollToTopButton />
       <Footer />
     </div>
   );

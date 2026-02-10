@@ -558,9 +558,14 @@ function AccountContent() {
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] gradient-accent-line" />
               <div className="p-6">
-                <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-2">
-                  Notifications
-                </p>
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                    Notifications
+                  </p>
+                  <span className="font-mono text-micro tracking-widest uppercase px-2 py-1 border border-[var(--gs-warning)]/40 text-[var(--gs-warning)] bg-[var(--gs-warning)]/5 clip-corner-sm">
+                    Experimental
+                  </span>
+                </div>
                 <p className="font-mono text-data text-[var(--gs-gray-3)] mb-5">
                   Email alerts for portfolio events. Requires a saved email address.
                 </p>

@@ -8,6 +8,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useLeaderboard, type SortField } from '@/lib/hooks/useLeaderboard';
 import { formatUsd } from '@/lib/portfolio/calcPortfolio';
+import WalletRequiredGate from '@/components/WalletRequiredGate';
 
 function truncateAddress(addr: string): string {
   if (addr.length <= 12) return addr;
@@ -73,6 +74,7 @@ function LeaderboardContent() {
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
       <Navbar />
 
+      <WalletRequiredGate feature="Leaderboard">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
         <div className="mb-8">
@@ -82,6 +84,9 @@ function LeaderboardContent() {
                 <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase">
                   Leaderboard
                 </h1>
+                <span className="font-mono text-micro tracking-widest uppercase px-2 py-1 border border-[var(--gs-warning)]/40 text-[var(--gs-warning)] bg-[var(--gs-warning)]/5 clip-corner-sm">
+                  Experimental
+                </span>
               </div>
               <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
                 Top GunzChain wallets ranked by portfolio value
@@ -473,6 +478,7 @@ function LeaderboardContent() {
           </>
         )}
       </main>
+      </WalletRequiredGate>
 
       <Footer />
     </div>

@@ -16,6 +16,7 @@
     "@playwright/test": "^1.58.2",
     "@prisma/adapter-better-sqlite3": "^7.2.0",
     "@solana/web3.js": "^1.98.4",
+    "@tanstack/react-virtual": "^3.13.18",
     "axios": "^1.13.2",
     "better-sqlite3": "^12.6.2",
     "ethers": "^6.16.0",
