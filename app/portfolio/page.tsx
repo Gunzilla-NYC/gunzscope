@@ -28,6 +28,8 @@ import { useWalletDataFetcher } from '@/lib/hooks/useWalletDataFetcher';
 import { useAccountGate } from '@/lib/hooks/useAccountGate';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import UnlockBanner from '@/components/UnlockBanner';
+import { createEnrichmentUpdater } from '@/lib/utils/mergeEnrichedNFTs';
+import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -56,9 +58,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [searchAddress, setSearchAddress] = useState('');
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
   const [viewMode, setViewMode] = useState<PortfolioViewMode>('simple');
-  const [noWalletDetected, setNoWalletDetected] = useState(false);
-  const [sdkInitPhase, setSdkInitPhase] = useState(0);
-  const [showFoundMessage, setShowFoundMessage] = useState(false);
+  // noWalletDetected, sdkInitPhase, showFoundMessage — owned by usePortfolioAutoLoad below
 
   // Slide-down unlock banner state
   const [showUnlockBanner, setShowUnlockBanner] = useState(false);
@@ -152,26 +152,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [loading]);
 
-  // SDK init loading messages — cycle while waiting for wallet SDK to resolve
+  // SDK init loading messages — displayed while waiting for wallet SDK to resolve
   const SDK_INIT_MESSAGES = [
     'I swear if this takes one more second to load...',
     'I will lose my fucking mind...',
   ];
-  const isWaitingForSdk = !walletData && !loading && !noWalletDetected && !showFoundMessage;
-  useEffect(() => {
-    if (!isWaitingForSdk) { setSdkInitPhase(0); return; }
-    const t = setTimeout(() => setSdkInitPhase(1), 2000);
-    return () => clearTimeout(t);
-  }, [isWaitingForSdk]);
-
-  // Brief "found it" message when SDK resolves to no-wallet state
-  useEffect(() => {
-    if (noWalletDetected && !walletData && !loading) {
-      setShowFoundMessage(true);
-      const t = setTimeout(() => setShowFoundMessage(false), 2000);
-      return () => clearTimeout(t);
-    }
-  }, [noWalletDetected, walletData, loading]);
 
   // Transition out of initializing state when we have valid NFT price data OR after timeout
   // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
@@ -307,32 +292,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           avalancheService,
           marketplaceConfigured ? marketplaceServiceRef.current : null,
           (enrichedNFTs: NFT[]) => {
-            setWalletData(prev => {
-              if (!prev) return prev;
-              // Merge enriched NFTs back, preserving floor prices
-              const existingNFTs = prev.avalanche.nfts;
-              const enrichedMap = new Map(
-                enrichedNFTs.map(nft => [nft.tokenIds?.[0] || nft.tokenId, nft])
-              );
-              const updatedNFTs = existingNFTs.map(existingNft => {
-                const key = existingNft.tokenIds?.[0] || existingNft.tokenId;
-                const enriched = enrichedMap.get(key);
-                if (!enriched) return existingNft;
-                // Spread existing first (preserves floorPrice), then overlay enriched data
-                return {
-                  ...existingNft,
-                  ...enriched,
-                  floorPrice: enriched.floorPrice ?? existingNft.floorPrice,
-                };
-              });
-              return {
-                ...prev,
-                avalanche: {
-                  ...prev.avalanche,
-                  nfts: updatedNFTs,
-                },
-              };
-            });
+            setWalletData(createEnrichmentUpdater(enrichedNFTs));
           }
         );
       } else {
@@ -466,33 +426,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         avalancheService,
         marketplaceConfigured ? marketplaceService : null,
         (enrichedNFTs) => {
-          setWalletData(prev => {
-            if (!prev || prev.address !== address) return prev;
-            // MERGE enriched data with current state to preserve floor prices
-            // (floor price fetch runs concurrently and may complete first)
-            const enrichedMap = new Map(
-              enrichedNFTs.map(nft => [nft.tokenIds?.[0] || nft.tokenId, nft])
-            );
-            const mergedNFTs = prev.avalanche.nfts.map(existingNft => {
-              const key = existingNft.tokenIds?.[0] || existingNft.tokenId;
-              const enriched = enrichedMap.get(key);
-              if (!enriched) return existingNft;
-              // Spread existing first (preserves floorPrice), then overlay enriched data
-              return {
-                ...existingNft,
-                ...enriched,
-                // Preserve floorPrice from existing if enriched doesn't have it
-                floorPrice: enriched.floorPrice ?? existingNft.floorPrice,
-              };
-            });
-            return {
-              ...prev,
-              avalanche: {
-                ...prev.avalanche,
-                nfts: mergedNFTs,
-              },
-            };
-          });
+          setWalletData(createEnrichmentUpdater(enrichedNFTs, address));
         }
       );
 
@@ -597,22 +531,21 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     });
   };
 
-  // React to wallet disconnect from ANY source (Navbar, WalletIdentity, etc.)
-  // This is the reactive counterpart to the handleWalletDisconnect callback —
-  // it catches disconnects that don't go through the callback (e.g. Navbar logout).
-  const prevWalletRef = useRef(primaryWallet?.address);
-  useEffect(() => {
-    const prev = prevWalletRef.current;
-    const curr = primaryWallet?.address;
-    prevWalletRef.current = curr;
-
-    // Wallet was connected before, now it's gone → user disconnected
-    if (prev && !curr && walletData) {
-      handleWalletDisconnect();
-      autoLoadRef.current = false; // Allow re-loading if they reconnect
-      setNoWalletDetected(true);
-    }
-  }, [primaryWallet?.address]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Auto-load, disconnect detection, SDK init, and "found it" message — consolidated hook
+  const {
+    noWalletDetected, setNoWalletDetected,
+    showFoundMessage, sdkInitPhase, isSharedLinkLoad,
+  } = usePortfolioAutoLoad({
+    initialAddress,
+    primaryWalletAddress: primaryWallet?.address,
+    isAuthenticated,
+    portfolioAddresses,
+    walletData,
+    loading,
+    onSubmit: (addr) => handleWalletSubmit(addr, 'avalanche'),
+    onDisconnect: handleWalletDisconnect,
+    onSetSearchAddress: setSearchAddress,
+  });
 
   // Handle selecting a tracked address from account panel
   const handleTrackedAddressSelect = useCallback((address: string) => {
@@ -626,52 +559,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       handleWalletSubmit(primaryWallet.address, 'avalanche');
     }
   }, [primaryWallet?.address]);
-
-  // Auto-load wallet from URL query param (e.g. ?address=0x...)
-  const initialAddressLoaded = useRef(false);
-  const isSharedLinkLoad = useRef(false);
-  useEffect(() => {
-    if (initialAddress && !initialAddressLoaded.current) {
-      initialAddressLoaded.current = true;
-      isSharedLinkLoad.current = true;
-      setSearchAddress(initialAddress);
-      handleWalletSubmit(initialAddress, 'avalanche');
-    }
-  }, [initialAddress]);
-
-  // Auto-load connected wallet when visiting /portfolio without an address
-  const autoLoadRef = useRef(false);
-  useEffect(() => {
-    // Skip if already loaded, loading, or URL has an address param
-    if (walletData || loading || initialAddress || autoLoadRef.current) return;
-
-    if (primaryWallet?.address) {
-      // Connected wallet user — auto-load their portfolio
-      autoLoadRef.current = true;
-      setNoWalletDetected(false);
-      setSearchAddress(primaryWallet.address);
-      handleWalletSubmit(primaryWallet.address, 'avalanche');
-      return;
-    }
-
-    if (isAuthenticated && portfolioAddresses.length > 0) {
-      // Email-only user with portfolio addresses — auto-load first address
-      autoLoadRef.current = true;
-      setNoWalletDetected(false);
-      setSearchAddress(portfolioAddresses[0].address);
-      handleWalletSubmit(portfolioAddresses[0].address, 'avalanche');
-      return;
-    }
-
-    // No connected wallet — give Dynamic SDK time to initialize, then show CTA
-    const timer = setTimeout(() => {
-      if (!autoLoadRef.current) {
-        setNoWalletDetected(true);
-      }
-    }, 2000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primaryWallet?.address, isAuthenticated, portfolioAddresses, walletData, loading, initialAddress]);
 
   // Close unlock banner on outside click
   useEffect(() => {
