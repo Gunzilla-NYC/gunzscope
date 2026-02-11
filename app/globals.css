@@ -169,6 +169,13 @@ body {
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
 }
 
+/* NFT card hover — pure CSS, no JS state updates.
+   Set --rarity-border and --rarity-glow via inline style. */
+.nft-card-hover:hover {
+  border-color: var(--rarity-border, rgba(255,255,255,0.06)) !important;
+  box-shadow: var(--rarity-glow, none);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Gradient Patterns
    ══════════════════════════════════════════════════════════════════════════ */

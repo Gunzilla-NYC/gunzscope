@@ -135,16 +135,6 @@ export default function WaffleChart({
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (tooltip.visible && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setTooltip(prev => ({
-        ...prev,
-        x: e.clientX - rect.left,
-      }));
-    }
-  };
-
   const handleMouseLeave = () => {
     setTooltip(prev => ({ ...prev, visible: false, content: null }));
   };
@@ -278,7 +268,6 @@ export default function WaffleChart({
               onMouseEnter={(e) => {
                 if (!isEmpty) handleBlockHover(e, cellType as 'gun' | 'nft');
               }}
-              onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
             />
           );

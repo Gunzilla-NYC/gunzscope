@@ -228,7 +228,7 @@ export default function PortfolioSummaryBar({
   return (
     <div
       data-view={viewMode}
-      className="bg-[var(--gs-dark-2)]/90 border border-white/[0.06] overflow-hidden backdrop-blur-sm"
+      className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden"
       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
     >
       {/* ================================================================= */}

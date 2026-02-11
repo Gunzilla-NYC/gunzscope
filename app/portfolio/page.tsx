@@ -696,7 +696,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         noWalletDetected ? (
           <div className="max-w-lg mx-auto py-20 px-4">
             <div
-              className="relative bg-[var(--gs-dark-2)]/90 border border-white/[0.06] p-6 overflow-hidden backdrop-blur-sm"
+              className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-6 overflow-hidden"
               style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
             >
               <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
@@ -841,7 +841,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
             {/* Cross-sell: leaderboard */}
             {searchAddress && (
-              <div className="flex items-center px-4 py-2 border border-white/[0.06] bg-[var(--gs-dark-2)]/90 backdrop-blur-sm">
+              <div className="flex items-center px-4 py-2 border border-white/[0.06] bg-[var(--gs-dark-2)]">
                 <Link
                   href={`/leaderboard?address=${searchAddress}`}
                   className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
@@ -853,7 +853,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
             {/* Wallet hint — shown to connected users with < 2 portfolio wallets */}
             {isConnected && portfolioAddresses.length < 2 && !walletHintDismissed && (
-              <div className="flex items-center justify-between px-4 py-2.5 border border-white/[0.06] bg-[var(--gs-dark-2)]/90 backdrop-blur-sm">
+              <div className="flex items-center justify-between px-4 py-2.5 border border-white/[0.06] bg-[var(--gs-dark-2)]">
                 <p className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)]">
                   Track up to 5 wallets in one view{' \u2192 '}
                   <Link href="/account" className="text-[var(--gs-lime)] hover:underline">

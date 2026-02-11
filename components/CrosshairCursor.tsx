@@ -21,6 +21,7 @@ export default function CrosshairCursor() {
   const visibleRef = useRef(false);
   const interactiveRef = useRef(false);
   const rafRef = useRef<number>(0);
+  const idleRef = useRef(true);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -30,7 +31,31 @@ export default function CrosshairCursor() {
     if (!el) return;
 
     const SMOOTHING = 0.7;
+    const IDLE_THRESHOLD = 0.1; // px — stop rAF when cursor is essentially still
     const INTERACTIVE_SELECTOR = 'a, button, [role="button"], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+
+    const animate = () => {
+      const cur = currentRef.current;
+      const tgt = targetRef.current;
+      const dx = tgt.x - cur.x;
+      const dy = tgt.y - cur.y;
+      cur.x += dx * SMOOTHING;
+      cur.y += dy * SMOOTHING;
+      el.style.transform = `translate(${cur.x - HALF_SIZE}px, ${cur.y - HALF_SIZE}px)`;
+
+      // Go idle when close enough — saves CPU/GPU when mouse is still
+      if (Math.abs(dx) < IDLE_THRESHOLD && Math.abs(dy) < IDLE_THRESHOLD) {
+        idleRef.current = true;
+        return;
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    const wakeLoop = () => {
+      if (!idleRef.current) return;
+      idleRef.current = false;
+      rafRef.current = requestAnimationFrame(animate);
+    };
 
     const onMouseMove = (e: MouseEvent) => {
       targetRef.current.x = e.clientX;
@@ -39,6 +64,8 @@ export default function CrosshairCursor() {
         visibleRef.current = true;
         el.style.opacity = '1';
       }
+
+      wakeLoop();
 
       // Detect clickable elements — toggle contract animation
       const target = e.target as Element;
@@ -57,21 +84,13 @@ export default function CrosshairCursor() {
     const onMouseEnter = () => {
       visibleRef.current = true;
       el.style.opacity = '1';
-    };
-
-    const animate = () => {
-      const cur = currentRef.current;
-      const tgt = targetRef.current;
-      cur.x += (tgt.x - cur.x) * SMOOTHING;
-      cur.y += (tgt.y - cur.y) * SMOOTHING;
-      el.style.transform = `translate(${cur.x - HALF_SIZE}px, ${cur.y - HALF_SIZE}px)`;
-      rafRef.current = requestAnimationFrame(animate);
+      wakeLoop();
     };
 
     window.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseleave', onMouseLeave);
     document.addEventListener('mouseenter', onMouseEnter);
-    rafRef.current = requestAnimationFrame(animate);
+    wakeLoop();
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove);

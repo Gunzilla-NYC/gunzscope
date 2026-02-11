@@ -21,68 +21,32 @@ export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, p
 
   return (
     <div
-      className="group bg-[var(--gs-dark-3)] border border-white/[0.06] p-3 transition-all duration-200 cursor-pointer hover:-translate-y-1 relative overflow-hidden"
+      className="nft-card-hover group bg-[var(--gs-dark-3)] border border-white/[0.06] p-3 transition-[transform,border-color,box-shadow] duration-200 cursor-pointer hover:-translate-y-1 relative overflow-hidden"
       style={{
         clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-      }}
+        '--rarity-border': `${rarityColor}40`,
+        '--rarity-glow': `0 8px 20px ${rarityColor}15`,
+      } as React.CSSProperties}
       onClick={() => onClick(nft)}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}40`;
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 20px ${rarityColor}15`;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)';
-        (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-      }}
     >
       {/* Bottom accent line - reveals rarity color on hover */}
       <div
         className="absolute bottom-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{ background: `linear-gradient(90deg, ${rarityColor}, transparent)` }}
       />
-      {/* Image Container */}
+      {/* Image Container — clean, no overlapping badges */}
       <div
         className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden"
-        style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+        style={{
+          clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+          boxShadow: `inset 0 0 0 1px ${rarityColor}20`,
+        }}
       >
-        {/* Quality Badge - Top Left with corner cut */}
-        <span
-          className="absolute top-1.5 left-1.5 z-10 font-mono text-micro tracking-wide uppercase px-1.5 py-0.5 border"
-          style={{
-            backgroundColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.15)' : `${rarityColor}15`,
-            color: nft.quantity && nft.quantity > 1 ? 'var(--gs-purple)' : rarityColor,
-            borderColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.30)' : `${rarityColor}30`,
-            clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-          }}
-        >
-          {nft.quantity && nft.quantity > 1 ? 'MULTIPLE' : (rarityName === 'Unknown' ? 'N/A' : rarityName)}
-        </span>
-
-        {/* Market Scarcity Badge - Top Right */}
-        {marketListings !== null && (
-          <span
-            className="absolute top-1.5 right-1.5 z-10 font-mono text-[7px] tracking-wide uppercase px-1 py-0.5 border"
-            style={{
-              backgroundColor: `${getMarketScarcityColor(marketListings)}15`,
-              color: getMarketScarcityColor(marketListings),
-              borderColor: `${getMarketScarcityColor(marketListings)}30`,
-              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-            }}
-            title={`${marketListings} listed on market`}
-          >
-            {marketListings === 0 ? 'UNLISTED' : `${marketListings} LISTED`}
-          </span>
-        )}
-
-        {/* Quantity Badge - Bottom Right with corner cut */}
-        {nft.quantity && nft.quantity > 1 && (
-          <span
-            className="absolute bottom-1.5 right-1.5 z-10 font-mono text-label font-bold px-1.5 py-0.5 bg-[var(--gs-purple)] text-black"
-            style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
-          >
-            ×{nft.quantity}
-          </span>
-        )}
+        {/* Rarity accent — 2px left edge stripe */}
+        <div
+          className="absolute top-0 left-0 bottom-0 w-[2px] z-10"
+          style={{ backgroundColor: rarityColor }}
+        />
 
         {/* Image or Placeholder */}
         {nft.image ? (
@@ -117,12 +81,23 @@ export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, p
         {nft.name}
       </p>
 
-      {/* Item Type - Uses specific weapon type from typeSpec */}
-      <p className={`font-mono uppercase tracking-wide text-[var(--gs-gray-3)] truncate ${
+      {/* Item Type + Rarity/Quantity inline */}
+      <div className={`flex items-center gap-1.5 font-mono uppercase tracking-wide ${
         viewMode === 'small' ? 'text-micro' : 'text-label'
       }`}>
-        {getSpecificItemType(nft) || nft.collection}
-      </p>
+        <span className="text-[var(--gs-gray-3)] truncate">
+          {getSpecificItemType(nft) || nft.collection}
+        </span>
+        {nft.quantity && nft.quantity > 1 ? (
+          <span className="shrink-0 text-[var(--gs-purple)]">
+            \u00d7{nft.quantity}
+          </span>
+        ) : rarityName !== 'Unknown' && (
+          <span className="shrink-0" style={{ color: rarityColor }}>
+            {rarityName}
+          </span>
+        )}
+      </div>
 
       {/* Detailed mode: Cost basis + enrichment indicator */}
       {portfolioViewMode === 'detailed' && (
@@ -196,6 +171,23 @@ export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, p
           <span style={{ color: rarityColor }}>{mintDisplay}</span>
         )}
       </p>
+
+      {/* Market Scarcity — relocated from image badge */}
+      {marketListings !== null && (
+        <div className={`flex items-center justify-between mt-1 ${
+          viewMode === 'small' ? 'text-label' : 'text-caption'
+        }`}>
+          <span className="font-mono uppercase tracking-wide text-[var(--gs-gray-2)]">
+            {marketListings === 0 ? 'Unlisted' : `${marketListings} listed`}
+          </span>
+          <span
+            className="font-mono"
+            style={{ color: getMarketScarcityColor(marketListings) }}
+          >
+            {'\u25CF'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

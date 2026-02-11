@@ -20,16 +20,12 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioVie
 
   return (
     <div
-      className="group bg-[var(--gs-dark-3)] border border-white/[0.06] overflow-hidden transition-all duration-200 cursor-pointer flex items-center gap-4 p-3 hover:-translate-y-0.5 relative"
+      className="nft-card-hover group bg-[var(--gs-dark-3)] border border-white/[0.06] overflow-hidden transition-[transform,border-color,box-shadow] duration-200 cursor-pointer flex items-center gap-4 p-3 hover:-translate-y-0.5 relative"
+      style={{
+        '--rarity-border': `${rarityColor}40`,
+        '--rarity-glow': `0 4px 12px ${rarityColor}10`,
+      } as React.CSSProperties}
       onClick={() => onClick(nft)}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = `${rarityColor}40`;
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${rarityColor}10`;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)';
-        (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-      }}
     >
       {/* Left accent line - reveals rarity color on hover */}
       <div

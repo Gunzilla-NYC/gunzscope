@@ -106,6 +106,12 @@ function RequestCard({
 
   const isClosedStatus = request.status === 'completed' || request.status === 'declined';
 
+  // Progressive transparency — unpopular/downvoted or older requests fade out
+  const ageDays = (Date.now() - new Date(request.createdAt).getTime()) / 86_400_000;
+  const ageFactor = Math.max(0, 1 - ageDays / 90);        // 0 days → 1, 90+ days → 0
+  const voteFactor = Math.max(0, Math.min(1, (request.netVotes + 5) / 10)); // −5 → 0, +5 → 1
+  const cardOpacity = 0.35 + 0.65 * (voteFactor * 0.6 + ageFactor * 0.4);
+
   const handleDelete = () => {
     if (window.confirm('Delete this feature request? This cannot be undone.')) {
       onDelete(request.id);
@@ -125,7 +131,10 @@ function RequestCard({
   };
 
   return (
-    <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
+    <div
+      className="bg-[var(--gs-dark-2)] border border-white/[0.06] clip-corner-sm"
+      style={{ opacity: cardOpacity }}
+    >
       {/* Top accent line */}
       <div className="h-px bg-gradient-to-r from-[var(--gs-lime)]/20 via-[var(--gs-purple)]/10 to-transparent" />
 
@@ -339,7 +348,7 @@ function SubmitForm({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 text-left hover:border-[var(--gs-lime)]/20 transition-colors group cursor-pointer"
+        className="w-full bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 text-left hover:border-[var(--gs-lime)]/20 transition-colors group cursor-pointer clip-corner-sm"
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 flex items-center justify-center border border-[var(--gs-lime)]/30 text-[var(--gs-lime)] group-hover:bg-[var(--gs-lime)]/10 transition-colors">
@@ -356,7 +365,7 @@ function SubmitForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-[var(--gs-dark-2)] border border-[var(--gs-lime)]/20 overflow-hidden">
+    <form onSubmit={handleSubmit} className="bg-[var(--gs-dark-2)] border border-[var(--gs-lime)]/20 clip-corner-sm">
       <div className="h-px bg-gradient-to-r from-[var(--gs-lime)]/40 via-[var(--gs-purple)]/20 to-transparent" />
       <div className="p-4 space-y-3">
         <div>
@@ -529,7 +538,7 @@ function RequestSections({
             ))}
           </div>
         ) : (
-          <div className="border border-white/[0.04] py-6 text-center">
+          <div className="border border-white/[0.04] py-6 text-center clip-corner-sm">
             <p className="font-mono text-caption text-[var(--gs-gray-2)]">No open requests</p>
           </div>
         )}
@@ -545,7 +554,7 @@ function RequestSections({
             ))}
           </div>
         ) : (
-          <div className="border border-white/[0.04] py-6 text-center">
+          <div className="border border-white/[0.04] py-6 text-center clip-corner-sm">
             <p className="font-mono text-caption text-[var(--gs-gray-2)]">None yet</p>
           </div>
         )}
@@ -561,7 +570,7 @@ function RequestSections({
             ))}
           </div>
         ) : (
-          <div className="border border-white/[0.04] py-6 text-center">
+          <div className="border border-white/[0.04] py-6 text-center clip-corner-sm">
             <p className="font-mono text-caption text-[var(--gs-gray-2)]">None yet</p>
           </div>
         )}
