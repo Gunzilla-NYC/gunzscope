@@ -47,8 +47,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${chakraPetch.variable} ${outfit.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased font-body bg-gunzscope">
+        <CrosshairCursor />
         <DynamicProvider>
-          <CrosshairCursor />
           <div id="app-content" className="relative z-10">
             {children}
           </div>

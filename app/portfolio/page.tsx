@@ -551,6 +551,23 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     });
   };
 
+  // React to wallet disconnect from ANY source (Navbar, WalletIdentity, etc.)
+  // This is the reactive counterpart to the handleWalletDisconnect callback —
+  // it catches disconnects that don't go through the callback (e.g. Navbar logout).
+  const prevWalletRef = useRef(primaryWallet?.address);
+  useEffect(() => {
+    const prev = prevWalletRef.current;
+    const curr = primaryWallet?.address;
+    prevWalletRef.current = curr;
+
+    // Wallet was connected before, now it's gone → user disconnected
+    if (prev && !curr && walletData) {
+      handleWalletDisconnect();
+      autoLoadRef.current = false; // Allow re-loading if they reconnect
+      setNoWalletDetected(true);
+    }
+  }, [primaryWallet?.address]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle selecting a tracked address from account panel
   const handleTrackedAddressSelect = useCallback((address: string) => {
     setSearchAddress(address);

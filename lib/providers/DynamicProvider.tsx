@@ -160,6 +160,207 @@ const cssOverrides = `
   .modal-card * {
     border-radius: 0 !important;
   }
+
+  /* ════════════════════════════════════════════════
+     Network Switch — visibility & spacing
+
+     DOM structure (from SDK source):
+       .network-switch-control__container  → button
+       .popper-content → .dropdown → .network-action → .network
+       .network-not-supported  → full "wrong network" panel
+
+     The dropdown renders via Popper portal OUTSIDE
+     .modal-card, so we must target .dropdown directly.
+     Brand alert color: #FF5555 (--gs-loss).
+     ════════════════════════════════════════════════ */
+
+  /* ── "Switch Network" button ── */
+  .network-switch-control__container {
+    background: rgba(22, 22, 22, 0.9) !important;
+    border: 1px solid rgba(166, 247, 0, 0.3) !important;
+    color: #F0F0F0 !important;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    gap: 8px !important;
+  }
+
+  .network-switch-control__container:hover {
+    border-color: rgba(166, 247, 0, 0.5) !important;
+    background: rgba(36, 36, 36, 0.95) !important;
+  }
+
+  .network-switch-control__container--error {
+    border-color: rgba(255, 85, 85, 0.4) !important;
+  }
+
+  .network-switch-control__network-name,
+  .evm-network-control__network-name {
+    color: #F0F0F0 !important;
+    font-size: 13px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+  }
+
+  .network-switch-control__arrow-icon,
+  .network-switch-control__arrow-icon--active {
+    color: rgba(166, 247, 0, 0.6) !important;
+  }
+
+  /* ── Dropdown container (Popper portal) ── */
+  .dropdown {
+    background: #141414 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7) !important;
+  }
+
+  /* ── Network list rows inside dropdown ── */
+  .network-action {
+    padding: 12px 16px !important;
+    color: #F0F0F0 !important;
+    font-size: 14px !important;
+    background: #141414 !important;
+  }
+
+  .network-action:not(.network--not-supported):hover {
+    background: rgba(166, 247, 0, 0.06) !important;
+  }
+
+  /* ── Network item content ── */
+  .network {
+    color: #F0F0F0 !important;
+  }
+
+  /* Row that holds icon + title — force gap */
+  .network .network__container {
+    gap: 12px !important;
+    align-items: center !important;
+  }
+
+  /* Icon (exclamation) — larger, brighter */
+  .network__title-icon {
+    color: #FF5555 !important;
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    margin-right: 12px !important;
+    flex-shrink: 0 !important;
+    filter: drop-shadow(0 0 6px rgba(255, 85, 85, 0.6)) !important;
+  }
+
+  .network__title-icon svg,
+  .network__title-icon img {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  /* Network name text */
+  .network__title-copy {
+    color: #F0F0F0 !important;
+    font-size: 14px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+  }
+
+  /* Status dot */
+  .network .network__status-container {
+    color: rgba(166, 247, 0, 0.7) !important;
+  }
+
+  .network .network__status-container--active {
+    background-color: #A6F700 !important;
+  }
+
+  /* ── "Update Network" panel ── */
+  .network-not-supported {
+    padding: 24px 20px !important;
+    gap: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .network-not-supported__content-container,
+  .network-not-supported__content-container--error {
+    color: #CCCCCC !important;
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    gap: 12px !important;
+  }
+
+  .network-not-supported__welcome-container {
+    color: #F0F0F0 !important;
+    font-family: 'Chakra Petch', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 16px !important;
+  }
+
+  .network-not-supported__error--not-supported {
+    color: #FF5555 !important;
+  }
+
+  .network-not-supported__network-container {
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .network-not-supported__network-picker {
+    width: 100% !important;
+  }
+
+  .network-not-supported__network-picker-button,
+  .select-network-button {
+    background: rgba(22, 22, 22, 0.9) !important;
+    border: 1px solid rgba(166, 247, 0, 0.3) !important;
+    color: #F0F0F0 !important;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+  }
+
+  .network-not-supported__network-picker-button:hover,
+  .select-network-button:hover {
+    border-color: rgba(166, 247, 0, 0.5) !important;
+    background: rgba(36, 36, 36, 0.95) !important;
+  }
+
+  /* ── Pending connect / signature views — match modal transparency ──
+     DOM: .modal-card → .prompt-modal → .default-prompt-modal
+     All intermediate wrappers must be transparent so the
+     modal-card glass bg shows through.
+     ──────────────────────────────────────────────────────── */
+  .prompt-modal,
+  .default-prompt-modal,
+  .default-prompt-modal__content,
+  .default-prompt-modal__icon-with-spinner,
+  .pending-connect__container,
+  .pending-signature__container {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  .pending-connect__copy-text,
+  .pending-signature__copy,
+  .default-prompt-modal__content {
+    color: #CCCCCC !important;
+  }
+
+  /* ── Manual switch view ── */
+  .network-not-supported-switch-manual {
+    padding: 24px 20px !important;
+    gap: 16px !important;
+  }
+
+  .network-not-supported-switch-manual__title {
+    color: #F0F0F0 !important;
+    font-family: 'Chakra Petch', sans-serif !important;
+    font-weight: 600 !important;
+  }
+
+  .network-not-supported-switch-manual__content {
+    color: #CCCCCC !important;
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+  }
 `;
 
 /**
