@@ -630,7 +630,7 @@ function FeatureRequestsContent() {
               </div>
               <div className="flex-1">
                 <p className="font-body text-sm text-[var(--gs-white)] font-medium mb-0.5">
-                  Connect your wallet to participate
+                  Create an account to participate
                 </p>
                 <p className="font-mono text-caption text-[var(--gs-gray-3)]">
                   You need a connected wallet with 20+ OTG NFTs to submit and vote.
@@ -641,7 +641,7 @@ function FeatureRequestsContent() {
                 onClick={() => setShowAuthFlow(true)}
                 className="font-display font-semibold text-xs tracking-wider uppercase px-4 py-2 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[#B8FF33] transition-all clip-corner shrink-0 cursor-pointer"
               >
-                Connect
+                Create Account
               </button>
             </div>
           </div>

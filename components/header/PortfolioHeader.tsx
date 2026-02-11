@@ -9,16 +9,32 @@ import {
   usePortfolioResult,
   usePortfolioNFTs,
 } from '@/lib/contexts/PortfolioContext';
+import { PortfolioAddress } from '@/lib/hooks/useUserProfile';
 
 /**
  * PortfolioHeader - Wallet identity bar + portfolio history snapshot tracking.
  * Uses PortfolioContext for data access.
+ *
+ * Hides entirely when WalletIdentity would render in "hidden" mode
+ * (own wallet, no portfolio addresses, authenticated).
  */
 interface PortfolioHeaderProps {
-  onDisconnect?: () => void;
+  portfolioAddresses?: PortfolioAddress[];
+  aggregatedAddresses?: string[];
+  primaryWalletAddress?: string | null;
+  isAuthenticated?: boolean;
+  onSwitchWallet?: (address: string) => void;
+  onBackToOwnWallet?: () => void;
 }
 
-export default function PortfolioHeader({ onDisconnect }: PortfolioHeaderProps = {}) {
+export default function PortfolioHeader({
+  portfolioAddresses = [],
+  aggregatedAddresses = [],
+  primaryWalletAddress,
+  isAuthenticated = false,
+  onSwitchWallet,
+  onBackToOwnWallet,
+}: PortfolioHeaderProps = {}) {
   // Get data from context
   const { walletData } = usePortfolioWallet();
   const { gunPrice = 0 } = usePortfolioGunPrice();
@@ -59,8 +75,19 @@ export default function PortfolioHeader({ onDisconnect }: PortfolioHeaderProps =
     }
   }, [walletData?.address, totalTokenValue]);
 
-  // Early return if no wallet data (after all hooks)
-  if (!walletData) return null;
+  // Determine if WalletIdentity would render in "hidden" mode
+  const isOwnWallet = useMemo(() => {
+    if (!walletData?.address || !primaryWalletAddress) return false;
+    const viewed = walletData.address.toLowerCase();
+    const primary = primaryWalletAddress.toLowerCase();
+    if (viewed === primary) return true;
+    return aggregatedAddresses.some(a => a.toLowerCase() === viewed);
+  }, [walletData?.address, primaryWalletAddress, aggregatedAddresses]);
+
+  const shouldHide = !walletData || (isOwnWallet && portfolioAddresses.length === 0 && isAuthenticated);
+
+  // Early return if no wallet data or hidden mode
+  if (shouldHide) return null;
 
   return (
     <div
@@ -68,7 +95,14 @@ export default function PortfolioHeader({ onDisconnect }: PortfolioHeaderProps =
       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
     >
       <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-      <WalletIdentity onDisconnect={onDisconnect} />
+      <WalletIdentity
+        portfolioAddresses={portfolioAddresses}
+        aggregatedAddresses={aggregatedAddresses}
+        primaryWalletAddress={primaryWalletAddress}
+        isAuthenticated={isAuthenticated}
+        onSwitchWallet={onSwitchWallet}
+        onBackToOwnWallet={onBackToOwnWallet}
+      />
     </div>
   );
 }

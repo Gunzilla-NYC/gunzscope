@@ -218,7 +218,7 @@ function AccountContent() {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase mb-2">
-            Wallets
+            Profile
           </h1>
           <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
             Manage your identity and portfolio wallets

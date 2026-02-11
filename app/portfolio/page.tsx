@@ -60,6 +60,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [sdkInitPhase, setSdkInitPhase] = useState(0);
   const [showFoundMessage, setShowFoundMessage] = useState(false);
 
+  // Slide-down unlock banner state
+  const [showUnlockBanner, setShowUnlockBanner] = useState(false);
+  const unlockBannerRef = useRef<HTMLDivElement>(null);
+
   // NFT enrichment hook - handles background enrichment with caching and progress
   const {
     progress: enrichmentProgress,
@@ -616,6 +620,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     handleWalletSubmit(address, 'avalanche');
   }, []);
 
+  // Handle "Back to My Wallet" from wallet identity bar
+  const handleBackToOwnWallet = useCallback(() => {
+    if (primaryWallet?.address) {
+      handleWalletSubmit(primaryWallet.address, 'avalanche');
+    }
+  }, [primaryWallet?.address]);
+
   // Auto-load wallet from URL query param (e.g. ?address=0x...)
   const initialAddressLoaded = useRef(false);
   const isSharedLinkLoad = useRef(false);
@@ -661,6 +672,18 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [primaryWallet?.address, isAuthenticated, portfolioAddresses, walletData, loading, initialAddress]);
+
+  // Close unlock banner on outside click
+  useEffect(() => {
+    if (!showUnlockBanner) return;
+    function handleClick(e: MouseEvent) {
+      if (unlockBannerRef.current && !unlockBannerRef.current.contains(e.target as Node)) {
+        setShowUnlockBanner(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showUnlockBanner]);
 
   // Wallet search dropdown handlers
   const handleAddToWatchlist = async (address: string) => {
@@ -741,7 +764,22 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   return (
     <PortfolioProvider value={contextValue}>
     <div className="min-h-screen bg-gunzscope">
-      <Navbar />
+      <Navbar onSwitchWallet={handleTrackedAddressSelect} />
+
+      {/* Slide-down UnlockBanner — replaces inline banner when gated */}
+      {isGated && (
+        <div
+          className="fixed top-16 left-0 right-0 z-40 overflow-hidden transition-all duration-300 ease-out"
+          style={{
+            maxHeight: showUnlockBanner ? '400px' : '0px',
+            opacity: showUnlockBanner ? 1 : 0,
+          }}
+        >
+          <div ref={unlockBannerRef} className="px-4 sm:px-6 lg:px-8 pt-4 pb-2 max-w-4xl mx-auto">
+            <UnlockBanner onConnect={() => { setShowAuthFlow(true); setShowUnlockBanner(false); }} />
+          </div>
+        </div>
+      )}
 
       {/* Account Panel */}
       <AccountPanel
@@ -845,7 +883,37 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           {/* Search / Unlock section */}
           {isGated ? (
             <div className="mb-6">
-              <UnlockBanner onConnect={() => setShowAuthFlow(true)} />
+              <button
+                onClick={() => setShowUnlockBanner(prev => !prev)}
+                className="group flex items-center gap-2.5 px-4 py-2.5 bg-[var(--gs-dark-2)] border border-white/[0.06] hover:border-[var(--gs-lime)]/30 transition-all duration-200 clip-corner-sm cursor-pointer"
+              >
+                <svg
+                  className="size-4 text-[var(--gs-lime)]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                  />
+                </svg>
+                <span className="font-mono text-caption uppercase tracking-widest text-[var(--gs-gray-3)] group-hover:text-[var(--gs-lime)] transition-colors">
+                  {showUnlockBanner ? 'Hide' : 'Create Account to Unlock Full Access'}
+                </span>
+                <svg
+                  className={`w-3 h-3 text-[var(--gs-gray-3)] transition-transform duration-200 ${showUnlockBanner ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-4 mb-6">
@@ -893,20 +961,18 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   <span>Loading details...</span>
                 </div>
               )}
-              {/* Aggregation indicator */}
-              {aggregatedAddresses.length > 1 && (
-                <div className="flex items-center gap-2 text-xs text-[var(--gs-purple)]">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  <span>{aggregatedAddresses.length} wallets combined</span>
-                </div>
-              )}
             </div>
           )}
 
           {/* Portfolio Header - uses PortfolioContext */}
-          <PortfolioHeader onDisconnect={handleWalletDisconnect} />
+          <PortfolioHeader
+            portfolioAddresses={portfolioAddresses}
+            aggregatedAddresses={aggregatedAddresses}
+            primaryWalletAddress={primaryWallet?.address ?? null}
+            isAuthenticated={isAuthenticated}
+            onSwitchWallet={handleTrackedAddressSelect}
+            onBackToOwnWallet={handleBackToOwnWallet}
+          />
 
           <div className="space-y-6 mt-4">
             {/* Portfolio Summary Bar */}

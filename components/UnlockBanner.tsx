@@ -8,6 +8,7 @@ interface UnlockBannerProps {
 }
 
 const FEATURES = [
+  'Search multiple wallets per session',
   'Save tracked wallets permanently',
   'Combine up to 5 wallets in one view',
   'Get your leaderboard ranking',

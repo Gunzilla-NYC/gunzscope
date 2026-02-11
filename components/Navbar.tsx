@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useDynamicContext, getAuthToken } from '@dynamic-labs/sdk-react-core';
 import Logo from './Logo';
+import { usePortfolioWallet } from '@/lib/contexts/PortfolioContext';
+import { useUserProfile } from '@/lib/hooks/useUserProfile';
 
 const GLITCH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&!';
 
@@ -145,12 +147,14 @@ function WalletDropdown({
   isActive,
   pathname,
   onDisconnect,
+  onSwitchWallet,
 }: {
   walletAddress: string;
   connectorName: string;
   isActive: boolean;
   pathname: string;
   onDisconnect: () => void;
+  onSwitchWallet?: (address: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const displayLabel = truncateAddress(walletAddress).toUpperCase();
@@ -161,6 +165,17 @@ function WalletDropdown({
   const iterRef = useRef(0);
   const lastTickRef = useRef(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Wallet details — only available on portfolio page (inside PortfolioProvider)
+  const { walletData, networkInfo, walletType } = usePortfolioWallet();
+  const { profile } = useUserProfile();
+  const portfolioAddresses = profile?.portfolioAddresses ?? [];
+
+  const chainId = networkInfo?.chainId ?? null;
+  const networkLabel = networkInfo?.environment === 'testnet' ? 'GunzChain Testnet' : 'GunzChain Mainnet';
+  const walletTypeLabel = walletType === 'in-game' ? 'In\u2011Game' : walletType === 'external' ? 'External (Self\u2011Custody)' : null;
+  const lastUpdated = walletData?.lastUpdated ? new Date(walletData.lastUpdated) : null;
+  const viewedAddress = walletData?.address ?? null;
 
   // Glitch scramble — skips the ellipsis character
   const scramble = useCallback(() => {
@@ -226,7 +241,7 @@ function WalletDropdown({
   }, [walletAddress]);
 
   const navItems = [
-    { href: '/account', label: 'Wallets', active: pathname === '/account' },
+    { href: '/account', label: 'Profile', active: pathname === '/account' },
     { href: '/feature-requests', label: 'Feature Requests', active: pathname === '/feature-requests' },
   ];
 
@@ -261,7 +276,7 @@ function WalletDropdown({
 
       {/* Rich popover panel */}
       {open && (
-        <div className="absolute top-full right-0 mt-2 w-[280px] bg-[var(--gs-dark-2)] border border-white/[0.08] shadow-xl shadow-black/40 z-50 overflow-hidden">
+        <div className="absolute top-full right-0 mt-2 w-[320px] bg-[var(--gs-dark-2)] border border-white/[0.08] shadow-xl shadow-black/40 z-50 overflow-hidden">
           {/* Accent gradient line */}
           <div className="h-[2px] bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)]" />
 
@@ -301,6 +316,41 @@ function WalletDropdown({
             )}
           </div>
 
+          {/* Wallet details — only on portfolio page when wallet data is loaded */}
+          {walletData && (
+            <div className="px-4 py-2.5 border-b border-white/[0.06] space-y-1.5">
+              {chainId && (
+                <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Chain ID</span>
+                  <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">{chainId}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Network</span>
+                <span className="font-mono text-data text-[var(--gs-white)] flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] flex-shrink-0" />
+                  {networkLabel}
+                </span>
+              </div>
+              {walletTypeLabel && (
+                <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Wallet Type</span>
+                  <span className="font-mono text-data font-semibold text-[var(--gs-white)]">{walletTypeLabel}</span>
+                </div>
+              )}
+              {lastUpdated && (
+                <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Last Updated</span>
+                  <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">
+                    {lastUpdated.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })},{' '}
+                    {lastUpdated.toLocaleTimeString()}
+                  </span>
+                </div>
+              )}
+              <span className="font-mono text-[9px] text-[var(--gs-gray-2)] block pt-0.5">Data from GunzChain RPC</span>
+            </div>
+          )}
+
           {/* Navigation links */}
           <div className="py-1">
             {navItems.map((item) => (
@@ -317,6 +367,55 @@ function WalletDropdown({
               </Link>
             ))}
           </div>
+
+          {/* Portfolio wallets — shown when user has portfolio addresses */}
+          {portfolioAddresses.length > 0 && (
+            <div className="border-t border-white/[0.06]">
+              <div className="flex items-center justify-between px-4 pt-2.5 pb-1">
+                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Portfolio Wallets</span>
+                <span className="font-mono text-[9px] text-[var(--gs-gray-2)] tabular-nums">{portfolioAddresses.length}/5</span>
+              </div>
+              {portfolioAddresses.map((pa) => {
+                const isViewed = viewedAddress?.toLowerCase() === pa.address.toLowerCase();
+                return (
+                  <button
+                    key={pa.id}
+                    onClick={() => {
+                      setOpen(false);
+                      if (onSwitchWallet) {
+                        onSwitchWallet(pa.address);
+                      } else {
+                        window.location.href = `/portfolio?address=${pa.address}`;
+                      }
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left transition-colors cursor-pointer ${
+                      isViewed
+                        ? 'bg-[var(--gs-lime)]/[0.05] border-l-2 border-l-[var(--gs-lime)]'
+                        : 'hover:bg-white/[0.03] border-l-2 border-l-transparent'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isViewed ? 'bg-[var(--gs-lime)]' : 'bg-[var(--gs-gray-2)]'}`} />
+                    <span className="font-mono text-data text-[var(--gs-white)] tracking-wider">
+                      {pa.address.slice(0, 6)}&hellip;{pa.address.slice(-4)}
+                    </span>
+                    {pa.label && (
+                      <span className="font-mono text-[9px] text-[var(--gs-gray-3)] ml-auto truncate max-w-[80px]">{pa.label}</span>
+                    )}
+                  </button>
+                );
+              })}
+              <Link
+                href="/account"
+                className="flex items-center gap-1.5 px-4 py-2 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] hover:text-[var(--gs-purple)] transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Manage Wallets
+              </Link>
+            </div>
+          )}
 
           {/* Disconnect */}
           <div className="border-t border-white/[0.06] px-4 py-2.5">
@@ -441,7 +540,7 @@ function ProfileDropdown({ isActive, pathname }: { isActive: boolean; pathname: 
   useEffect(() => { setOpen(false); }, [pathname]);
 
   const items = [
-    { href: '/account', label: 'Wallets', active: pathname === '/account' },
+    { href: '/account', label: 'Profile', active: pathname === '/account' },
   ];
 
   const showBrackets = hovered || isActive || open;
@@ -498,7 +597,7 @@ function ProfileDropdown({ isActive, pathname }: { isActive: boolean; pathname: 
 // Navbar — main navigation bar
 // =============================================================================
 
-export default function Navbar() {
+export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: string) => void } = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, primaryWallet, setShowAuthFlow, handleLogOut } = useDynamicContext();
@@ -615,6 +714,7 @@ export default function Navbar() {
                     isActive={isProfileActive}
                     pathname={pathname}
                     onDisconnect={handleDisconnect}
+                    onSwitchWallet={onSwitchWallet}
                   />
                 ) : (
                   <ProfileDropdown isActive={isProfileActive} pathname={pathname} />
@@ -701,7 +801,7 @@ export default function Navbar() {
                       Account
                     </p>
                     {[
-                      { href: '/account', label: 'Wallets', active: pathname === '/account' },
+                      { href: '/account', label: 'Profile', active: pathname === '/account' },
                       ...(hasWallet ? [{ href: '/feature-requests', label: 'Feature Requests', active: pathname === '/feature-requests' }] : []),
                     ].map(item => (
                       <Link
