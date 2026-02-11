@@ -7,21 +7,19 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should render GUN and NFT cells', () => {
       render(
         <WaffleChart
-          gunPercent={50}
-          nftPercent={50}
+          composition={{ gunPercent: 50, nftPercent: 50 }}
         />
       );
 
-      // With underlying grid, there are multiple cells of each type
       const gunCells = screen.getAllByTestId('waffle-cell-gun');
       const nftCells = screen.getAllByTestId('waffle-cell-nft');
 
-      expect(gunCells.length).toBe(50); // 50% = 50 cells
-      expect(nftCells.length).toBe(50); // 50% = 50 cells
+      expect(gunCells.length).toBe(50);
+      expect(nftCells.length).toBe(50);
     });
 
     it('should render only GUN cells when 100% GUN', () => {
-      render(<WaffleChart gunPercent={100} nftPercent={0} />);
+      render(<WaffleChart composition={{ gunPercent: 100, nftPercent: 0 }} />);
 
       const gunCells = screen.getAllByTestId('waffle-cell-gun');
       expect(gunCells.length).toBe(100);
@@ -29,7 +27,7 @@ describe('WaffleChart (Composition Heatmap)', () => {
     });
 
     it('should render only NFT cells when 100% NFTs', () => {
-      render(<WaffleChart gunPercent={0} nftPercent={100} />);
+      render(<WaffleChart composition={{ gunPercent: 0, nftPercent: 100 }} />);
 
       const nftCells = screen.getAllByTestId('waffle-cell-nft');
       expect(nftCells.length).toBe(100);
@@ -37,7 +35,7 @@ describe('WaffleChart (Composition Heatmap)', () => {
     });
 
     it('should render empty state when no data', () => {
-      render(<WaffleChart gunPercent={0} nftPercent={0} />);
+      render(<WaffleChart composition={{ gunPercent: 0, nftPercent: 0 }} />);
 
       expect(screen.getByTestId('waffle-cell-empty')).toBeInTheDocument();
       expect(screen.getByText('No data')).toBeInTheDocument();
@@ -46,9 +44,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should render with custom size', () => {
       const { container } = render(
         <WaffleChart
-          gunPercent={50}
-          nftPercent={50}
-          size={200}
+          composition={{ gunPercent: 50, nftPercent: 50 }}
+          display={{ size: 200 }}
         />
       );
 
@@ -59,15 +56,13 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should allocate cells accurately for small percentages', () => {
       render(
         <WaffleChart
-          gunPercent={99}
-          nftPercent={1}
+          composition={{ gunPercent: 99, nftPercent: 1 }}
         />
       );
 
       const gunCells = screen.getAllByTestId('waffle-cell-gun');
       const nftCells = screen.getAllByTestId('waffle-cell-nft');
 
-      // 99% = 99 cells, 1% = 1 cell - accurate representation
       expect(gunCells.length).toBe(99);
       expect(nftCells.length).toBe(1);
     });
@@ -77,10 +72,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should show tooltip on GUN cell hover', async () => {
       render(
         <WaffleChart
-          gunPercent={50}
-          nftPercent={50}
-          gunValueUsd={1000}
-          nftValueUsd={1000}
+          composition={{ gunPercent: 50, nftPercent: 50 }}
+          values={{ gunValueUsd: 1000, nftValueUsd: 1000 }}
         />
       );
 
@@ -93,11 +86,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should show NFT Holdings in NFT tooltip', async () => {
       render(
         <WaffleChart
-          gunPercent={20}
-          nftPercent={80}
-          gunValueUsd={200}
-          nftValueUsd={800}
-          nftCount={5}
+          composition={{ gunPercent: 20, nftPercent: 80, nftCount: 5 }}
+          values={{ gunValueUsd: 200, nftValueUsd: 800 }}
         />
       );
 
@@ -111,9 +101,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should hide tooltip on mouse leave', async () => {
       render(
         <WaffleChart
-          gunPercent={50}
-          nftPercent={50}
-          gunValueUsd={500}
+          composition={{ gunPercent: 50, nftPercent: 50 }}
+          values={{ gunValueUsd: 500, nftValueUsd: 0 }}
         />
       );
 
@@ -130,9 +119,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should show legend with GUN and NFTs when showLegend is true', () => {
       render(
         <WaffleChart
-          gunPercent={40}
-          nftPercent={60}
-          showLegend={true}
+          composition={{ gunPercent: 40, nftPercent: 60 }}
+          display={{ showLegend: true }}
         />
       );
 
@@ -143,9 +131,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should hide legend when showLegend is false', () => {
       render(
         <WaffleChart
-          gunPercent={50}
-          nftPercent={50}
-          showLegend={false}
+          composition={{ gunPercent: 50, nftPercent: 50 }}
+          display={{ showLegend: false }}
         />
       );
 
@@ -155,9 +142,8 @@ describe('WaffleChart (Composition Heatmap)', () => {
     it('should only show GUN in legend when no NFTs', () => {
       render(
         <WaffleChart
-          gunPercent={100}
-          nftPercent={0}
-          showLegend={true}
+          composition={{ gunPercent: 100, nftPercent: 0 }}
+          display={{ showLegend: true }}
         />
       );
 

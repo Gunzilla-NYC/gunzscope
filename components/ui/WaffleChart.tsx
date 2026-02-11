@@ -6,23 +6,41 @@ import { useMemo, useState, useRef } from 'react';
 // Types
 // =============================================================================
 
-interface CompositionChartProps {
+/** Core composition percentages */
+interface CompositionData {
   gunPercent: number;
   nftPercent: number;
-  gunValueUsd?: number;
-  nftValueUsd?: number;
   nftCount?: number;
-  size?: number;
-  showLegend?: boolean;
-  className?: string;
-  isLoading?: boolean;
-  // Cost basis & P/L
+}
+
+/** Dollar values for gun and nft holdings */
+interface ValuesData {
+  gunValueUsd: number;
+  nftValueUsd: number;
+}
+
+/** Optional cost basis + P&L overlay */
+interface CostBasisData {
   gunCostBasis?: number | null;
   nftCostBasis?: number | null;
   gunPnl?: number | null;
   nftPnl?: number | null;
-  // Total GUN spent on NFTs
   totalGunSpent?: number;
+}
+
+/** Display / layout options */
+interface DisplayOptions {
+  size?: number;
+  showLegend?: boolean;
+  className?: string;
+  isLoading?: boolean;
+}
+
+interface CompositionChartProps {
+  composition: CompositionData;
+  values?: ValuesData;
+  costBasis?: CostBasisData;
+  display?: DisplayOptions;
 }
 
 interface TooltipState {
@@ -52,21 +70,16 @@ const NFT_COLOR = '#6D5BFF'; // var(--gs-purple)
 // =============================================================================
 
 export default function WaffleChart({
-  gunPercent,
-  nftPercent,
-  gunValueUsd = 0,
-  nftValueUsd = 0,
-  nftCount,
-  size = 160,
-  showLegend = false,
-  className = '',
-  isLoading = false,
-  gunCostBasis,
-  nftCostBasis,
-  gunPnl,
-  nftPnl,
-  totalGunSpent,
+  composition,
+  values,
+  costBasis,
+  display,
 }: CompositionChartProps) {
+  const { gunPercent, nftPercent, nftCount } = composition;
+  const gunValueUsd = values?.gunValueUsd ?? 0;
+  const nftValueUsd = values?.nftValueUsd ?? 0;
+  const { size = 160, showLegend = false, className = '', isLoading = false } = display ?? {};
+  const { gunPnl, nftPnl, totalGunSpent } = costBasis ?? {};
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
     visible: false,
@@ -364,12 +377,4 @@ export default function WaffleChart({
   );
 }
 
-// Re-export types for backwards compatibility
-export type { CompositionChartProps as WaffleChartProps };
-export interface WaffleCollection {
-  name: string;
-  percentOfNfts: number;
-  color: string;
-  valueUsd: number;
-  count: number;
-}
+export type { CompositionChartProps as WaffleChartProps, CompositionData, ValuesData, CostBasisData, DisplayOptions };
