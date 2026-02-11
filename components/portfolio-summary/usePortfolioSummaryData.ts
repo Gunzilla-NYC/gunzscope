@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
-import { calculatePortfolioChanges, getSparklineValues, PortfolioChanges } from '@/lib/utils/portfolioHistory';
+import { calculatePortfolioChanges, getSparklineValues, getSparklineSpanDays, PortfolioChanges } from '@/lib/utils/portfolioHistory';
 import { generateInsights } from '@/lib/portfolio/portfolioInsights';
 import { NftPnL, AcquisitionBreakdown } from './types';
 import { formatChangeDisplay } from './utils';
@@ -96,10 +96,16 @@ export function usePortfolioSummaryData(
     return calculatePortfolioChanges(walletAddress, portfolioResult?.totalUsd ?? 0);
   }, [walletAddress, portfolioResult?.totalUsd]);
 
-  // Sparkline values from portfolio history
+  // Sparkline values from portfolio history (up to 90 evenly-sampled points across full history)
   const sparklineValues = useMemo(() => {
     if (!walletAddress) return [];
-    return getSparklineValues(walletAddress, 24);
+    return getSparklineValues(walletAddress, 90);
+  }, [walletAddress]);
+
+  // How many days the sparkline spans (for hover tooltip)
+  const sparklineSpanDays = useMemo(() => {
+    if (!walletAddress) return 0;
+    return getSparklineSpanDays(walletAddress);
   }, [walletAddress]);
 
   // Portfolio insights
@@ -139,7 +145,7 @@ export function usePortfolioSummaryData(
   return {
     nftPnL, acquisitionBreakdown, totalPnLPct,
     change24h, changePercent24h, change7d, changePercent7d,
-    sparklineValues, insights,
+    sparklineValues, sparklineSpanDays, insights,
     totalValue, gunHoldings, gunValue, totalGunSpent, nftCount,
     nftFloorValueUsd, gunPct, nftPct,
     isEnriching, isEnrichmentComplete, hasFailures, progressPct,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
@@ -51,11 +51,30 @@ export default function PortfolioSummaryBar({
   const [holdingsExpanded, setHoldingsExpanded] = useState(false);
   const [performanceExpanded, setPerformanceExpanded] = useState(false);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [showNftOverlay, setShowNftOverlay] = useState(false);
+  const [showGunOverlay, setShowGunOverlay] = useState(false);
 
   const toggleTop = useCallback(() => setTopExpanded(prev => !prev), []);
   const toggleHoldings = useCallback(() => setHoldingsExpanded(prev => !prev), []);
   const togglePerformance = useCallback(() => setPerformanceExpanded(prev => !prev), []);
   const toggleBreakdown = useCallback(() => setBreakdownOpen(prev => !prev), []);
+  const toggleNftOverlay = useCallback(() => setShowNftOverlay(prev => !prev), []);
+  const toggleGunOverlay = useCallback(() => setShowGunOverlay(prev => !prev), []);
+
+  // Derive overlay sparkline values by applying current ratio to total sparkline
+  const nftSparklineValues = useMemo(() => {
+    if (data.sparklineValues.length < 2 || data.totalValue <= 0) return [];
+    const nftRatio = (data.nftFloorValueUsd ?? 0) / data.totalValue;
+    return data.sparklineValues.map(v => v * nftRatio);
+  }, [data.sparklineValues, data.nftFloorValueUsd, data.totalValue]);
+
+  const gunSparklineValues = useMemo(() => {
+    if (data.sparklineValues.length < 2 || data.totalValue <= 0) return [];
+    const gunRatio = data.gunValue / data.totalValue;
+    return data.sparklineValues.map(v => v * gunRatio);
+  }, [data.sparklineValues, data.gunValue, data.totalValue]);
+
+  const hasSparklineData = data.sparklineValues.length >= 2;
 
   const toggleViewMode = useCallback(() => {
     const next = viewMode === 'simple' ? 'detailed' : 'simple';
@@ -90,6 +109,7 @@ export default function PortfolioSummaryBar({
         change7d={data.change7d}
         changePercent7d={data.changePercent7d}
         sparklineValues={data.sparklineValues}
+        sparklineSpanDays={data.sparklineSpanDays}
         totalValue={data.totalValue}
         gunHoldings={data.gunHoldings}
         gunValue={data.gunValue}
@@ -107,6 +127,10 @@ export default function PortfolioSummaryBar({
         isProfit={data.isProfit}
         isLoss={data.isLoss}
         onToggleViewMode={toggleViewMode}
+        showNftOverlay={showNftOverlay}
+        nftSparklineValues={nftSparklineValues}
+        showGunOverlay={showGunOverlay}
+        gunSparklineValues={gunSparklineValues}
       />
 
       {/* Breakdown Drawer (detailed mode only) */}
@@ -134,6 +158,11 @@ export default function PortfolioSummaryBar({
           gunValue={data.gunValue}
           nftFloorValueUsd={data.nftFloorValueUsd}
           nftPnL={data.nftPnL}
+          showNftOverlay={showNftOverlay}
+          onToggleNftOverlay={toggleNftOverlay}
+          showGunOverlay={showGunOverlay}
+          onToggleGunOverlay={toggleGunOverlay}
+          hasSparklineData={hasSparklineData}
         />
       )}
 

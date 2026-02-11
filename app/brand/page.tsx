@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
+import SparklineConcepts from './SparklineConcepts';
 
 // Color swatches data
 const colorSwatches = [
@@ -1174,6 +1175,17 @@ export default function BrandPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Sparkline Concepts Section */}
+      <section className="relative z-10 py-24 px-6 lg:px-10 border-t border-white/[0.06]" id="sparkline-concepts">
+        <div className="flex items-baseline gap-4 mb-10 observe">
+          <span className="section-number">04</span>
+          <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Sparkline Concepts</h2>
+          <div className="section-line" />
+        </div>
+
+        <SparklineConcepts />
       </section>
 
       {/* Footer */}

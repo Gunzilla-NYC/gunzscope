@@ -6,7 +6,7 @@
  */
 
 const STORAGE_KEY = 'gunzscope:portfolio:history';
-const MAX_POINTS = 168; // 7 days at 1 point per hour
+const MAX_POINTS = 2160; // ~90 days at 1 point per hour
 const MIN_INTERVAL_MS = 5 * 60 * 1000; // Minimum 5 minutes between points
 
 export interface PortfolioSnapshot {
@@ -159,16 +159,31 @@ export function calculatePortfolioChanges(
 }
 
 /**
- * Get sparkline values (last N points normalized for display)
+ * Get sparkline values — evenly sampled across the full history.
+ * If fewer points exist than requested, all points are returned.
  */
-export function getSparklineValues(address: string, count: number = 24): number[] {
+export function getSparklineValues(address: string, count: number = 90): number[] {
   const points = getPortfolioHistory(address);
 
   if (points.length === 0) return [];
+  if (points.length <= count) return points.map(p => p.v);
 
-  // Get the last `count` points
-  const recentPoints = points.slice(-count);
-  return recentPoints.map(p => p.v);
+  // Evenly sample `count` points spanning the entire history
+  const result: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const srcIdx = Math.round((i / (count - 1)) * (points.length - 1));
+    result.push(points[srcIdx].v);
+  }
+  return result;
+}
+
+/**
+ * Get the time span of stored history in days.
+ */
+export function getSparklineSpanDays(address: string): number {
+  const points = getPortfolioHistory(address);
+  if (points.length < 2) return 0;
+  return (points[points.length - 1].t - points[0].t) / (24 * 60 * 60 * 1000);
 }
 
 /**
