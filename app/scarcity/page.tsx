@@ -1,70 +1,15 @@
 'use client';
 
-import { Suspense, useRef, useEffect } from 'react';
+import { Suspense, useRef, useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { useScarcity, getRelativeTime, type ScarcitySortField, type TraitFilter } from '@/lib/hooks/useScarcity';
+import { useScarcity, getRelativeTime, type ScarcitySortField } from '@/lib/hooks/useScarcity';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useState } from 'react';
 import WalletRequiredGate from '@/components/WalletRequiredGate';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString();
-}
-
-function formatGun(n: number): string {
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  if (n >= 1) return n.toFixed(0);
-  return n.toFixed(2);
-}
-
-function getListingScarcityColor(count: number): string {
-  if (count <= 2) return '#ff44ff';
-  if (count <= 5) return '#ff8800';
-  if (count <= 15) return '#4488ff';
-  return '#888888';
-}
-
-function getListingScarcityLabel(count: number): string {
-  if (count === 0) return 'Unlisted';
-  if (count <= 2) return 'Very Scarce';
-  if (count <= 5) return 'Limited';
-  if (count <= 15) return 'Moderate';
-  return 'Available';
-}
-
-function SortArrow({ active, order }: { active: boolean; order: 'asc' | 'desc' }) {
-  if (!active) return <span className="text-white/20 ml-1">&uarr;</span>;
-  return (
-    <span className="text-[var(--gs-lime)] ml-1">
-      {order === 'desc' ? '\u2193' : '\u2191'}
-    </span>
-  );
-}
-
-const SORT_COLUMNS: { field: ScarcitySortField; label: string; shortLabel: string }[] = [
-  { field: 'listingCount', label: 'Listed', shortLabel: 'Listed' },
-  { field: 'floorPriceGun', label: 'Floor (GUN)', shortLabel: 'Floor' },
-  { field: 'recentSales', label: '7d Sales', shortLabel: 'Sales' },
-  { field: 'itemName', label: 'Item Name', shortLabel: 'Name' },
-];
-
-// Horizontal bar for trait distribution
-function TraitBar({ label, count, maxCount, color }: { label: string; count: number; maxCount: number; color: string }) {
-  const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
-  return (
-    <div className="flex items-center gap-3 py-1.5">
-      <span className="font-mono text-data text-[var(--gs-gray-4)] w-28 shrink-0 truncate">{label}</span>
-      <div className="flex-1 h-4 bg-white/[0.03] overflow-hidden" style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}>
-        <div className="h-full transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: color, opacity: 0.7 }} />
-      </div>
-      <span className="font-mono text-data tabular-nums text-[var(--gs-gray-3)] w-16 text-right shrink-0">{formatNumber(count)}</span>
-    </div>
-  );
-}
+import { formatGun, getListingScarcityColor, getListingScarcityLabel } from './utils';
+import { SortArrow } from './components/SortArrow';
+import { TraitBar } from './components/TraitBar';
 
 type DataSource = 'opensea' | 'onchain';
 
