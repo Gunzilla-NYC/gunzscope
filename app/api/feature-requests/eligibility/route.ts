@@ -3,10 +3,11 @@
  * Returns eligible status and NFT count.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse, isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId } from '@/lib/services/userService';
 import { checkNFTEligibility } from '@/lib/services/nftEligibilityService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 export async function GET(request: NextRequest) {
   const authResult = await authenticateRequest(request);
@@ -17,25 +18,19 @@ export async function GET(request: NextRequest) {
   try {
     const profile = await getProfileByDynamicId(authResult.user.userId);
     if (!profile) {
-      return NextResponse.json(
-        { success: false, error: 'User profile not found' },
-        { status: 404 }
-      );
+      return jsonError('User profile not found', 404);
     }
 
     // Admin wallet always eligible
     if (isAdminWallet(authResult.user.walletAddress)) {
-      return NextResponse.json({ success: true, eligible: true, nftCount: 0 });
+      return jsonSuccess({ eligible: true, nftCount: 0 });
     }
 
     const eligibility = await checkNFTEligibility(profile.id);
 
-    return NextResponse.json({ success: true, ...eligibility });
+    return jsonSuccess({ ...eligibility });
   } catch (error) {
     console.error('Error checking eligibility:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to check eligibility' },
-      { status: 500 }
-    );
+    return jsonError('Failed to check eligibility');
   }
 }

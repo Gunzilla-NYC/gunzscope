@@ -3,9 +3,10 @@
  * DELETE /api/feature-requests/[id] - Delete request (admin only)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse, isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { updateStatus, deleteRequest } from '@/lib/services/featureRequestService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 const VALID_STATUSES = ['open', 'planned', 'completed', 'declined'] as const;
 type ValidStatus = (typeof VALID_STATUSES)[number];
@@ -20,10 +21,7 @@ export async function PATCH(
   }
 
   if (!isAdminWallet(authResult.user.walletAddress)) {
-    return NextResponse.json(
-      { success: false, error: 'Admin access required' },
-      { status: 403 }
-    );
+    return jsonError('Admin access required', 403);
   }
 
   try {
@@ -32,23 +30,17 @@ export async function PATCH(
     const { status, adminNote } = body;
 
     if (!status || !VALID_STATUSES.includes(status as ValidStatus)) {
-      return NextResponse.json(
-        { success: false, error: `Status must be one of: ${VALID_STATUSES.join(', ')}` },
-        { status: 400 }
-      );
+      return jsonError(`Status must be one of: ${VALID_STATUSES.join(', ')}`, 400);
     }
 
     // When reopening, clear the admin note
     const note = status === 'open' ? null : adminNote;
     await updateStatus(id, status as ValidStatus, note);
 
-    return NextResponse.json({ success: true });
+    return jsonSuccess({});
   } catch (error) {
     console.error('Error updating feature request status:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to update status' },
-      { status: 500 }
-    );
+    return jsonError('Failed to update status');
   }
 }
 
@@ -62,22 +54,16 @@ export async function DELETE(
   }
 
   if (!isAdminWallet(authResult.user.walletAddress)) {
-    return NextResponse.json(
-      { success: false, error: 'Admin access required' },
-      { status: 403 }
-    );
+    return jsonError('Admin access required', 403);
   }
 
   try {
     const { id } = await params;
     await deleteRequest(id);
 
-    return NextResponse.json({ success: true });
+    return jsonSuccess({});
   } catch (error) {
     console.error('Error deleting feature request:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to delete request' },
-      { status: 500 }
-    );
+    return jsonError('Failed to delete request');
   }
 }

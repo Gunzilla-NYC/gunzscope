@@ -7,9 +7,10 @@
  * Requires: Bearer token from Dynamic auth
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId, addTrackedAddress } from '@/lib/services/userService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 // Basic address validation (non-empty, looks like an address)
 function isValidAddress(address: unknown): address is string {
@@ -40,33 +41,21 @@ export async function POST(request: NextRequest) {
 
     // Validate address
     if (!isValidAddress(address)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid address format' },
-        { status: 400 }
-      );
+      return jsonError('Invalid address format', 400);
     }
 
     // Validate optional fields
     if (chain !== undefined && typeof chain !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Chain must be a string' },
-        { status: 400 }
-      );
+      return jsonError('Chain must be a string', 400);
     }
     if (label !== undefined && typeof label !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Label must be a string' },
-        { status: 400 }
-      );
+      return jsonError('Label must be a string', 400);
     }
 
     // Get profile
     const profile = await getProfileByDynamicId(authResult.user.userId);
     if (!profile) {
-      return NextResponse.json(
-        { success: false, error: 'Profile not found. Please call GET /api/me first.' },
-        { status: 404 }
-      );
+      return jsonError('Profile not found. Please call GET /api/me first.', 404);
     }
 
     // Add tracked address
@@ -76,15 +65,9 @@ export async function POST(request: NextRequest) {
       label,
     });
 
-    return NextResponse.json({
-      success: true,
-      trackedAddress: tracked,
-    });
+    return jsonSuccess({ trackedAddress: tracked });
   } catch (error) {
     console.error('Error adding tracked address:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to add tracked address' },
-      { status: 500 }
-    );
+    return jsonError('Failed to add tracked address');
   }
 }

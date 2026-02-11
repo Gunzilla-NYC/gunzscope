@@ -5,9 +5,10 @@
  * Requires: Bearer token from Dynamic auth
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
 import { upsertUserProfileWithRecovery } from '@/lib/services/userService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 export async function GET(request: NextRequest) {
   // Authenticate the request
@@ -20,15 +21,9 @@ export async function GET(request: NextRequest) {
     // Get or create profile (with wallet-based recovery for re-login scenarios)
     const profile = await upsertUserProfileWithRecovery(authResult.user);
 
-    return NextResponse.json({
-      success: true,
-      profile,
-    });
+    return jsonSuccess({ profile });
   } catch (error) {
     console.error('Error fetching user profile:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch profile' },
-      { status: 500 }
-    );
+    return jsonError('Failed to fetch profile');
   }
 }

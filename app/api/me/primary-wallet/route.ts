@@ -3,9 +3,10 @@
  * Requires authentication. Wallet must belong to the user's profile.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId, setPrimaryWallet } from '@/lib/services/userService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 export async function PUT(request: NextRequest) {
   const authResult = await authenticateRequest(request);
@@ -16,18 +17,12 @@ export async function PUT(request: NextRequest) {
   try {
     const { address } = await request.json();
     if (!address || typeof address !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Address required' },
-        { status: 400 }
-      );
+      return jsonError('Address required', 400);
     }
 
     const profile = await getProfileByDynamicId(authResult.user.userId);
     if (!profile) {
-      return NextResponse.json(
-        { success: false, error: 'Profile not found' },
-        { status: 404 }
-      );
+      return jsonError('Profile not found', 404);
     }
 
     // Verify wallet belongs to this profile
@@ -35,20 +30,14 @@ export async function PUT(request: NextRequest) {
       (w) => w.address.toLowerCase() === address.toLowerCase()
     );
     if (!owns) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet not linked to this profile' },
-        { status: 403 }
-      );
+      return jsonError('Wallet not linked to this profile', 403);
     }
 
     await setPrimaryWallet(profile.id, address);
 
-    return NextResponse.json({ success: true });
+    return jsonSuccess({});
   } catch (error) {
     console.error('Error setting primary wallet:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to set primary wallet' },
-      { status: 500 }
-    );
+    return jsonError('Failed to set primary wallet');
   }
 }

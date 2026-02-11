@@ -3,11 +3,12 @@
  * POST /api/feature-requests - Create a new feature request (auth + 20+ NFTs required, admin exempt)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse, isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId } from '@/lib/services/userService';
 import { checkNFTEligibility } from '@/lib/services/nftEligibilityService';
 import { getAll, create } from '@/lib/services/featureRequestService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,13 +27,10 @@ export async function GET(request: NextRequest) {
     // Sort by net votes descending
     requests.sort((a, b) => b.netVotes - a.netVotes);
 
-    return NextResponse.json({ success: true, requests });
+    return jsonSuccess({ requests });
   } catch (error) {
     console.error('Error fetching feature requests:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch feature requests' },
-      { status: 500 }
-    );
+    return jsonError('Failed to fetch feature requests');
   }
 }
 
@@ -45,20 +43,14 @@ export async function POST(request: NextRequest) {
   try {
     const profile = await getProfileByDynamicId(authResult.user.userId);
     if (!profile) {
-      return NextResponse.json(
-        { success: false, error: 'User profile not found' },
-        { status: 404 }
-      );
+      return jsonError('User profile not found', 404);
     }
 
     // Check NFT eligibility (admin exempt)
     if (!isAdminWallet(authResult.user.walletAddress)) {
       const eligibility = await checkNFTEligibility(profile.id);
       if (!eligibility.eligible) {
-        return NextResponse.json(
-          { success: false, error: 'You need at least 20 OTG NFTs to submit feature requests', nftCount: eligibility.nftCount },
-          { status: 403 }
-        );
+        return jsonError('You need at least 20 OTG NFTs to submit feature requests', 403);
       }
     }
 
@@ -67,38 +59,23 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Title is required' },
-        { status: 400 }
-      );
+      return jsonError('Title is required', 400);
     }
     if (title.trim().length > 100) {
-      return NextResponse.json(
-        { success: false, error: 'Title must be 100 characters or less' },
-        { status: 400 }
-      );
+      return jsonError('Title must be 100 characters or less', 400);
     }
     if (!description || typeof description !== 'string' || description.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Description is required' },
-        { status: 400 }
-      );
+      return jsonError('Description is required', 400);
     }
     if (description.trim().length > 500) {
-      return NextResponse.json(
-        { success: false, error: 'Description must be 500 characters or less' },
-        { status: 400 }
-      );
+      return jsonError('Description must be 500 characters or less', 400);
     }
 
     const featureRequest = await create(profile.id, title, description);
 
-    return NextResponse.json({ success: true, request: featureRequest }, { status: 201 });
+    return jsonSuccess({ request: featureRequest }, 201);
   } catch (error) {
     console.error('Error creating feature request:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to create feature request' },
-      { status: 500 }
-    );
+    return jsonError('Failed to create feature request');
   }
 }

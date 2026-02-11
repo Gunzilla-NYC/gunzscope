@@ -7,13 +7,14 @@
  * Requires: Bearer token from Dynamic auth
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
 import {
   getProfileByDynamicId,
   addPortfolioAddress,
   getPortfolioAddressCount,
 } from '@/lib/services/userService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 const MAX_PORTFOLIO_ADDRESSES = 5;
 
@@ -46,36 +47,24 @@ export async function POST(request: NextRequest) {
 
     // Validate address
     if (!isValidAddress(address)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid address format' },
-        { status: 400 }
-      );
+      return jsonError('Invalid address format', 400);
     }
 
     // Validate optional label
     if (label !== undefined && typeof label !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Label must be a string' },
-        { status: 400 }
-      );
+      return jsonError('Label must be a string', 400);
     }
 
     // Get profile
     const profile = await getProfileByDynamicId(authResult.user.userId);
     if (!profile) {
-      return NextResponse.json(
-        { success: false, error: 'Profile not found. Please call GET /api/me first.' },
-        { status: 404 }
-      );
+      return jsonError('Profile not found. Please call GET /api/me first.', 404);
     }
 
     // Check portfolio address limit
     const count = await getPortfolioAddressCount(profile.id);
     if (count >= MAX_PORTFOLIO_ADDRESSES) {
-      return NextResponse.json(
-        { success: false, error: 'Portfolio limit reached (5 wallets maximum)' },
-        { status: 403 }
-      );
+      return jsonError('Portfolio limit reached (5 wallets maximum)', 403);
     }
 
     // Add portfolio address
@@ -84,15 +73,9 @@ export async function POST(request: NextRequest) {
       label,
     });
 
-    return NextResponse.json({
-      success: true,
-      portfolioAddress,
-    });
+    return jsonSuccess({ portfolioAddress });
   } catch (error) {
     console.error('Error adding portfolio address:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to add portfolio address' },
-      { status: 500 }
-    );
+    return jsonError('Failed to add portfolio address');
   }
 }

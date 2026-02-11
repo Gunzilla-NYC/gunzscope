@@ -5,9 +5,10 @@
  * Requires: Bearer token from Dynamic auth
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId, updateUserEmail } from '@/lib/services/userService';
+import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 export async function POST(request: NextRequest) {
   // Authenticate
@@ -24,41 +25,26 @@ export async function POST(request: NextRequest) {
     // Basic email validation (null is allowed to clear)
     if (email !== null && email !== undefined) {
       if (typeof email !== 'string') {
-        return NextResponse.json(
-          { success: false, error: 'Email must be a string or null' },
-          { status: 400 }
-        );
+        return jsonError('Email must be a string or null', 400);
       }
       // Simple email format check (not comprehensive)
       if (email && !email.includes('@')) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid email format' },
-          { status: 400 }
-        );
+        return jsonError('Invalid email format', 400);
       }
     }
 
     // Get profile
     const profile = await getProfileByDynamicId(authResult.user.userId);
     if (!profile) {
-      return NextResponse.json(
-        { success: false, error: 'Profile not found' },
-        { status: 404 }
-      );
+      return jsonError('Profile not found', 404);
     }
 
     // Update email
     await updateUserEmail(profile.id, email || null);
 
-    return NextResponse.json({
-      success: true,
-      email: email || null,
-    });
+    return jsonSuccess({ email: email || null });
   } catch (error) {
     console.error('Error updating email:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to update email' },
-      { status: 500 }
-    );
+    return jsonError('Failed to update email');
   }
 }
