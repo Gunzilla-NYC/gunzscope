@@ -511,33 +511,113 @@ export default function BrandPage() {
             <div className="flex items-center gap-2 mb-6 component-label">
               <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">Confidence Indicator</span>
             </div>
-            <div className="space-y-4">
-              {/* High */}
+            <div className="space-y-3">
+              {/* Section: Active — blink speed scales with proximity to next tier */}
+              <span className="font-mono text-label uppercase tracking-wider text-[var(--gs-gray-4)] block mb-1">Active (blink speed scales near thresholds)</span>
+              {/* Low 10% — slow blink (far from 50%) */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)]" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)]" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)]" />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FF4444', animation: 'confidence-blink 2.92s ease-in-out infinite' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                 </div>
-                <span className="font-mono text-caption text-[var(--gs-gray-3)]">High (&ge;80%)</span>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Low (10%) &mdash; slow pulse <span className="text-[var(--gs-gray-2)]">2.92s</span></span>
               </div>
-              {/* Medium */}
+              {/* Low 45% — fast blink (close to 50%) */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#f5a623]" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#f5a623]" />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FA7534', animation: 'confidence-blink 0.89s ease-in-out infinite' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                   <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                 </div>
-                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Medium (&ge;50%)</span>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Low (45%) &mdash; rapid pulse <span className="text-[var(--gs-gray-2)]">0.89s</span></span>
               </div>
-              {/* Low */}
+              {/* Medium 55% — slow blink (just entered, far from 80%) */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--gs-loss)]" />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#f5a623' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#f5a623', animation: 'confidence-blink 3.02s ease-in-out infinite' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Medium (55%) &mdash; slow pulse <span className="text-[var(--gs-gray-2)]">3.02s</span></span>
+              </div>
+              {/* Medium 78% — fast blink (close to 80%) */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#7BD056' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#7BD056', animation: 'confidence-blink 0.79s ease-in-out infinite' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Medium (78%) &mdash; rapid pulse <span className="text-[var(--gs-gray-2)]">0.79s</span></span>
+              </div>
+              {/* High 85% — slow blink (far from 100%) */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88', animation: 'confidence-blink 2.78s ease-in-out infinite' }} />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">High (85%) &mdash; slow pulse <span className="text-[var(--gs-gray-2)]">2.78s</span></span>
+              </div>
+              {/* High 97% — fast blink (almost complete) */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88', animation: 'confidence-blink 1.04s ease-in-out infinite' }} />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">High (97%) &mdash; rapid pulse <span className="text-[var(--gs-gray-2)]">1.04s</span></span>
+              </div>
+
+              {/* Section: Settled (scan complete, incomplete data) */}
+              <span className="font-mono text-label uppercase tracking-wider text-[var(--gs-gray-4)] block mt-5 mb-1">Settled (scan done, this is final)</span>
+              {/* Low settled — dot 1 at 35% opacity */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FF4444', opacity: 0.35 }} />
                   <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                   <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                 </div>
-                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Low (&gt;0%)</span>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Low settled (25%) &mdash; dot 1 faded</span>
+              </div>
+              {/* Low settled near threshold — red→amber blend at 35% opacity */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'rgb(250,117,52)', opacity: 0.35 }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Low settled (45%) &mdash; red&rarr;amber blend, faded</span>
+              </div>
+              {/* Medium settled — dot 2 at 35% opacity */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#f5a623' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#f5a623', opacity: 0.35 }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Medium settled (60%) &mdash; dot 2 faded</span>
+              </div>
+              {/* High settled — dot 3 at 50% opacity */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88', opacity: 0.35 }} />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">High settled (90%) &mdash; dot 3 faded</span>
+              </div>
+
+              {/* Section: Complete */}
+              <span className="font-mono text-label uppercase tracking-wider text-[var(--gs-gray-4)] block mt-5 mb-1">Complete</span>
+              {/* 100% — all solid, no blink */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00FF88' }} />
+                </div>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">Complete (100%) &mdash; all solid green</span>
               </div>
               {/* None */}
               <div className="flex items-center gap-4">
@@ -546,13 +626,13 @@ export default function BrandPage() {
                   <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                   <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                 </div>
-                <span className="font-mono text-caption text-[var(--gs-gray-3)]">None (hidden)</span>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">None (0%) &mdash; hidden in production</span>
               </div>
             </div>
             <p className="text-data text-[var(--gs-gray-2)] mt-6 leading-relaxed">
               Source: <code className="text-[var(--gs-gray-3)]">components/ui/ConfidenceIndicator.tsx</code>
               <br />
-              3-dot indicator next to &ldquo;Total Portfolio Value&rdquo; label. Shows how much NFT data backs the total. Green 3/3, yellow 2/3, red 1/3.
+              Percentage-driven 3-dot indicator. While scanning, the <strong>last filled dot blinks</strong>. Once settled, it stops blinking and fades to <strong>50% opacity</strong> to signal &ldquo;this is as good as it gets.&rdquo; At 100%, all dots go solid green.
             </p>
           </div>
 

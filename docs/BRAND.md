@@ -231,6 +231,33 @@ Spinner:    32px, 2px border gray-1, border-top lime, rotate animation
 Dots:       3x 6px circles in lime, staggered bounce animation (0s, 0.2s, 0.4s)
 ```
 
+### Confidence Indicator
+
+Three 6px dots showing data completeness. Percentage-driven — the **last filled dot** blinks until the next tier is reached. Colors smoothly blend near tier boundaries.
+
+| State | Dots | Color | Animation |
+|-------|------|-------|-----------|
+| **Low** (1–49%) | dot 1 filled | red (#FF4444) | dot 1 blinks |
+| **Medium** (50–79%) | dots 1–2 filled | amber (#f5a623) | dot 2 blinks |
+| **High** (80–99%) | dots 1–3 filled | green (#00FF88) | dot 3 blinks |
+| **Complete** (100%) | dots 1–3 filled | green (#00FF88) | none — all solid |
+| **None** (0%) | hidden | — | — |
+
+**Color transitions**: Near tier boundaries, the dot color smoothly interpolates between tiers:
+- 40–50%: red → amber gradient
+- 70–80%: amber → green gradient
+
+All filled dots share the same computed color at any given percentage. Unfilled dots: `bg-white/20`.
+
+```css
+@keyframes confidence-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+```
+
+Component: `components/ui/ConfidenceIndicator.tsx` — blinking is automatic based on percentage, no props needed.
+
 ---
 
 ## Logo

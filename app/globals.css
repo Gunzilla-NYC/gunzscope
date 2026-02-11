@@ -739,6 +739,12 @@ body {
   transform: scale(0.65);
 }
 
+/* Confidence dot slow blink — full opacity to near-invisible */
+@keyframes confidence-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+
 /* Section number styling */
 .section-number {
   font-family: var(--font-mono);

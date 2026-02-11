@@ -578,9 +578,8 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Logo — connected users stay on current page, anonymous users go home */}
             <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center gap-2 group">
-              <div className="relative transition-transform duration-300 group-hover:scale-105">
-                <Logo size="md" variant="full" />
-                <div className="absolute inset-0 bg-[var(--gs-lime)]/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <Logo size="md" variant="full" glitchOnHover />
               </div>
               <span className="font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors">
                 Alpha
@@ -590,20 +589,25 @@ export default function Navbar() {
             {/* Navigation Links + Auth */}
             <div className="flex items-center gap-4">
               <div className="hidden md:flex items-center gap-5">
-                {isInApp && (
+                {isInApp && !isAnonymous && (
                   <>
                     <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
                     {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
                     {hasWallet && <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />}
                   </>
                 )}
+                {isAnonymous && isInApp && (
+                  <GlitchLink href="/" label="Home" isActive={false} />
+                )}
                 {isAnonymous ? (
-                  <button
-                    onClick={() => setShowAuthFlow(true)}
-                    className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                  >
-                    Login
-                  </button>
+                  !isInApp ? (
+                    <button
+                      onClick={() => setShowAuthFlow(true)}
+                      className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                    >
+                      Login
+                    </button>
+                  ) : null
                 ) : isConnected ? (
                   <WalletDropdown
                     walletAddress={walletAddress}
@@ -617,8 +621,8 @@ export default function Navbar() {
                 )}
               </div>
 
-              {/* Mobile: hamburger when in-app or authenticated, Login button otherwise */}
-              {isInApp || !isAnonymous ? (
+              {/* Mobile: hamburger when authenticated, Login when anonymous + not in app */}
+              {!isAnonymous ? (
                 <button
                   onClick={() => setMobileMenuOpen(prev => !prev)}
                   className="md:hidden p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
@@ -632,14 +636,14 @@ export default function Navbar() {
                     )}
                   </svg>
                 </button>
-              ) : (
+              ) : !isInApp ? (
                 <button
                   onClick={() => setShowAuthFlow(true)}
                   className="md:hidden font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
                 >
                   Login
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -648,7 +652,7 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/[0.06] bg-black/95 backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
-              {isInApp && [
+              {isInApp && !isAnonymous && [
                 { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
                 ...(hasWallet ? [
                   { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },

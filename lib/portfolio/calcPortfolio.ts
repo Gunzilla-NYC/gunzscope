@@ -101,6 +101,7 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   let nftsUsd = 0;
   let nftsWithPrice = 0;
   let nftsWithoutPrice = 0;
+  let nftsFreeTransfer = 0;
   let totalNftQuantity = 0;
   let totalGunSpent = 0;
 
@@ -116,6 +117,9 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
       } else {
         nftsWithoutPrice += quantity;
       }
+    } else if (nft.isFreeTransfer || nft.acquisitionVenue) {
+      // Known acquisition (free transfer, zero-cost mint, etc.) — count as resolved data
+      nftsFreeTransfer += quantity;
     } else {
       nftsWithoutPrice += quantity;
     }
@@ -205,8 +209,10 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   // ==========================================================================
   // 5. Calculate confidence score
   // ==========================================================================
+  // Free transfers have known cost (zero) — include them as resolved data
+  const nftsWithKnownCost = nftsWithPrice + nftsFreeTransfer;
   const confidencePercentage = totalNftQuantity > 0
-    ? Math.round((nftsWithPrice / totalNftQuantity) * 100)
+    ? Math.round((nftsWithKnownCost / totalNftQuantity) * 100)
     : 0;
 
   const confidence: ConfidenceScore = {

@@ -57,6 +57,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
   const [viewMode, setViewMode] = useState<PortfolioViewMode>('simple');
   const [noWalletDetected, setNoWalletDetected] = useState(false);
+  const [sdkInitPhase, setSdkInitPhase] = useState(0);
+  const [showFoundMessage, setShowFoundMessage] = useState(false);
 
   // NFT enrichment hook - handles background enrichment with caching and progress
   const {
@@ -145,6 +147,27 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     const t2 = setTimeout(() => setLoadingPhase(2), 4000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [loading]);
+
+  // SDK init loading messages — cycle while waiting for wallet SDK to resolve
+  const SDK_INIT_MESSAGES = [
+    'I swear if this takes one more second to load...',
+    'I will lose my fucking mind...',
+  ];
+  const isWaitingForSdk = !walletData && !loading && !noWalletDetected && !showFoundMessage;
+  useEffect(() => {
+    if (!isWaitingForSdk) { setSdkInitPhase(0); return; }
+    const t = setTimeout(() => setSdkInitPhase(1), 2000);
+    return () => clearTimeout(t);
+  }, [isWaitingForSdk]);
+
+  // Brief "found it" message when SDK resolves to no-wallet state
+  useEffect(() => {
+    if (noWalletDetected && !walletData && !loading) {
+      setShowFoundMessage(true);
+      const t = setTimeout(() => setShowFoundMessage(false), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [noWalletDetected, walletData, loading]);
 
   // Transition out of initializing state when we have valid NFT price data OR after timeout
   // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
@@ -514,6 +537,25 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     e.preventDefault();
     if (!searchAddress.trim()) return;
     if (!canSearch) return;
+    setNoWalletDetected(false);
+    handleWalletSubmit(searchAddress.trim(), 'avalanche');
+  };
+
+  // Detect wallet address chain type
+  const detectChain = (addr: string): 'gunzchain' | 'solana' | null => {
+    const trimmed = addr.trim();
+    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return 'gunzchain';
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return 'solana';
+    return null;
+  };
+
+  const detectedChain = searchAddress.trim() ? detectChain(searchAddress) : null;
+
+  // Handle CTA form submit — the "Analyze a Wallet" entry form is ungated
+  const handleCtaSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchAddress.trim() || !detectedChain) return;
+    setNoWalletDetected(false);
     handleWalletSubmit(searchAddress.trim(), 'avalanche');
   };
 
@@ -710,35 +752,57 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
       {/* Transient state — waiting for wallet SDK or showing entry CTA */}
       {!walletData && !loading && (
-        noWalletDetected ? (
+        showFoundMessage ? (
+          <div className="text-center py-24">
+            <p className="text-[var(--gs-lime)] font-mono text-sm animate-pulse">
+              thank my fucking limbs i found it
+            </p>
+          </div>
+        ) : noWalletDetected ? (
           <div className="max-w-lg mx-auto py-20 px-4">
             <div
               className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-6 overflow-hidden"
               style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
             >
               <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-              <h2 className="font-display text-xl font-bold text-[var(--gs-white)] mb-1">View a Portfolio</h2>
+              <h2 className="font-display text-xl font-bold text-[var(--gs-white)] mb-1">Analyze a Wallet</h2>
               <p className="font-mono text-caption text-[var(--gs-gray-3)] mb-5">
                 Enter a wallet address or connect your wallet to get started.
               </p>
-              <form onSubmit={handleSearch} className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={searchAddress}
-                  onChange={(e) => setSearchAddress(e.target.value)}
-                  placeholder="0x... or Solana address"
-                  className="flex-1 bg-[var(--gs-dark-1)] border border-white/[0.08] px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/30 transition-colors"
-                  style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
-                />
+              <form onSubmit={handleCtaSearch} className="flex gap-2 mb-4">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={searchAddress}
+                    onChange={(e) => setSearchAddress(e.target.value)}
+                    placeholder="0x... or Solana address"
+                    className={`w-full bg-[var(--gs-dark-1)] border border-white/[0.08] px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/30 transition-colors ${detectedChain ? 'pr-24' : ''}`}
+                    style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+                  />
+                  {searchAddress.trim() && detectedChain && (
+                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
+                      detectedChain === 'gunzchain'
+                        ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
+                        : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
+                    }`}>
+                      {detectedChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
+                    </span>
+                  )}
+                </div>
                 <button
                   type="submit"
-                  disabled={!searchAddress.trim()}
+                  disabled={!searchAddress.trim() || !detectedChain}
                   className="px-4 py-2.5 bg-[var(--gs-lime)] text-black font-mono text-sm font-semibold uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-110 transition-all cursor-pointer"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
                 >
-                  View
+                  Analyze
                 </button>
               </form>
+              {searchAddress.trim() && !detectedChain && (
+                <p className="font-mono text-[10px] text-[var(--gs-gray-4)] -mt-2 mb-4">
+                  Enter a valid GunzChain (0x...) or Solana address
+                </p>
+              )}
               <div className="flex items-center gap-3">
                 <span className="font-mono text-micro text-[var(--gs-gray-2)] uppercase tracking-wider">or</span>
                 <button
@@ -753,7 +817,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         ) : (
           <div className="text-center py-24">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--gs-lime)]" />
-            <p className="mt-4 text-[var(--gs-gray-4)] font-mono text-sm">Loading portfolio\u2026</p>
+            <p className="mt-4 text-[var(--gs-gray-4)] font-mono text-sm">
+              {SDK_INIT_MESSAGES[sdkInitPhase]}
+            </p>
           </div>
         )
       )}

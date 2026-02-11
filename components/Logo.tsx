@@ -1,10 +1,13 @@
 'use client';
 
+import { useState, useCallback, useRef, useEffect } from 'react';
+
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   variant?: 'icon' | 'wordmark' | 'full';
   showIcon?: boolean;
   className?: string;
+  glitchOnHover?: boolean;
 }
 
 const sizeClasses = {
@@ -13,13 +16,104 @@ const sizeClasses = {
   lg: { text: 'text-3xl', icon: 26 },
 };
 
+const GLITCH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&!';
+const WORDMARK = 'GUNZscope';
+const GUNZ_LEN = 4; // "GUNZ" portion — white; rest is purple
+
 export default function Logo({
   size = 'md',
   variant = 'full',
   showIcon = true,
-  className = ''
+  className = '',
+  glitchOnHover = false,
 }: LogoProps) {
   const { text: textClass, icon: iconSize } = sizeClasses[size];
+
+  // Glitch state — only active when glitchOnHover is true
+  const [chars, setChars] = useState<string[] | null>(null);
+  const frameRef = useRef<number>(0);
+  const iterRef = useRef(0);
+  const lastTickRef = useRef(0);
+
+  const target = WORDMARK.toUpperCase();
+  const halfLen = Math.ceil(target.length / 2);
+  const totalSteps = halfLen * 3; // 3 ticks per resolve step
+
+  const scramble = useCallback(() => {
+    if (!glitchOnHover) return;
+    iterRef.current = 0;
+    lastTickRef.current = 0;
+
+    const tick = (timestamp: number) => {
+      if (timestamp - lastTickRef.current < 50) {
+        frameRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      lastTickRef.current = timestamp;
+      iterRef.current++;
+
+      // How many positions from each edge are resolved
+      const resolved = Math.floor(iterRef.current / 3);
+
+      setChars(
+        target.split('').map((char, i) => {
+          // Distance from nearest edge
+          const distFromEdge = Math.min(i, target.length - 1 - i);
+          if (distFromEdge < resolved) return WORDMARK[i]; // preserve original case
+          return GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+        })
+      );
+
+      if (iterRef.current < totalSteps) {
+        frameRef.current = requestAnimationFrame(tick);
+      } else {
+        setChars(null); // animation done — revert to normal render
+      }
+    };
+
+    cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(tick);
+  }, [glitchOnHover, target, totalSteps]);
+
+  const reset = useCallback(() => {
+    cancelAnimationFrame(frameRef.current);
+    setChars(null);
+  }, []);
+
+  useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+  // Renders the wordmark — either as scrambled per-char spans or as the normal two-color spans
+  const renderWordmark = (extraClass: string) => {
+    if (chars) {
+      return (
+        <span
+          className={`font-display font-bold tracking-[2px] uppercase ${textClass} ${extraClass}`}
+          onMouseEnter={scramble}
+          onMouseLeave={reset}
+        >
+          {chars.map((ch, i) => (
+            <span
+              key={i}
+              style={{ color: i < GUNZ_LEN ? 'var(--gs-white)' : 'var(--gs-purple)' }}
+            >
+              {ch}
+            </span>
+          ))}
+        </span>
+      );
+    }
+
+    return (
+      <span
+        className={`font-display font-bold tracking-[2px] uppercase ${textClass} ${extraClass}`}
+        onMouseEnter={scramble}
+        onMouseLeave={reset}
+      >
+        <span className="text-[var(--gs-white)]">GUNZ</span>
+        <span className="text-[var(--gs-purple)]">scope</span>
+      </span>
+    );
+  };
 
   // Icon only
   if (variant === 'icon') {
@@ -41,12 +135,7 @@ export default function Logo({
 
   // Wordmark only
   if (variant === 'wordmark') {
-    return (
-      <span className={`font-display font-bold tracking-[2px] uppercase ${textClass} ${className}`}>
-        <span className="text-[var(--gs-white)]">GUNZ</span>
-        <span className="text-[var(--gs-purple)]">scope</span>
-      </span>
-    );
+    return renderWordmark(className);
   }
 
   // Full logo (icon + wordmark)
@@ -66,10 +155,7 @@ export default function Logo({
           </svg>
         </div>
       )}
-      <span className={`font-display font-bold tracking-[2px] uppercase ${textClass}`}>
-        <span className="text-[var(--gs-white)]">GUNZ</span>
-        <span className="text-[var(--gs-purple)]">scope</span>
-      </span>
+      {renderWordmark('')}
     </div>
   );
 }

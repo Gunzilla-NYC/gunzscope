@@ -252,12 +252,12 @@ export default function PortfolioSummaryBar({
                     Total Portfolio Value
                   </p>
                   {portfolioResult?.confidence && (
-                    <ConfidenceIndicator confidence={portfolioResult.confidence} />
+                    <ConfidenceIndicator confidence={portfolioResult.confidence} isGathering={isEnriching} />
                   )}
-                  {/* Detailed mode: method tag pill */}
-                  {viewMode === 'detailed' && !isInitializing && (
+                  {/* Detailed mode: confidence pill */}
+                  {viewMode === 'detailed' && !isInitializing && portfolioResult?.confidence && (
                     <span className="font-mono text-micro tracking-wider text-[var(--gs-gray-3)] border border-white/[0.08] px-1.5 py-0.5 ml-1">
-                      GUN live &middot; NFTs at cost
+                      {portfolioResult.confidence.percentage}% data confidence
                     </span>
                   )}
                 </div>
@@ -415,7 +415,7 @@ export default function PortfolioSummaryBar({
                         <span className="font-mono text-data text-[var(--gs-gray-3)] tabular-nums">
                           {enrichmentProgress && enrichmentProgress.total > 0
                             ? `${enrichmentProgress.completed}/${enrichmentProgress.total}`
-                            : 'Analyzing'}
+                            : 'Scanning'}
                         </span>
                       </>
                     ) : isEnrichmentComplete ? (
@@ -429,7 +429,7 @@ export default function PortfolioSummaryBar({
                       <>
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse" />
                         <span className="font-mono text-data text-[var(--gs-gray-3)] tabular-nums">
-                          Analyzing
+                          Scanning
                         </span>
                       </>
                     )}
@@ -458,7 +458,7 @@ export default function PortfolioSummaryBar({
               {isEnriching && enrichmentProgress && enrichmentProgress.total > 0 ? (
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-4)]">Enriching</span>
+                    <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-4)]">Scanning</span>
                     <span className="font-mono text-2xl font-semibold text-[var(--gs-white)] tabular-nums">
                       {enrichmentProgress.completed}
                     </span>
@@ -476,7 +476,7 @@ export default function PortfolioSummaryBar({
                 </div>
               ) : isEnriching ? (
                 <p className="font-mono text-sm text-[var(--gs-gray-3)] animate-pulse">
-                  Analyzing&hellip;
+                  Scanning&hellip;
                 </p>
               ) : (
                 <div className="flex items-baseline gap-4 flex-wrap">
@@ -558,11 +558,11 @@ export default function PortfolioSummaryBar({
             </div>
           </div>
 
-          {/* P&L Decomposition */}
+          {/* Profit Breakdown */}
           {nftPnL.unrealizedGun !== null && (
             <div className={`p-3 border ${nftPnL.unrealizedGun >= 0 ? 'border-[var(--gs-profit)]/10 bg-[var(--gs-profit)]/[0.02]' : 'border-[var(--gs-loss)]/10 bg-[var(--gs-loss)]/[0.02]'}`}>
               <p className="font-mono text-micro tracking-widest uppercase text-[var(--gs-gray-4)] mb-2">
-                P&L Decomposition
+                Profit Breakdown
               </p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 <div className="flex justify-between">
@@ -578,7 +578,7 @@ export default function PortfolioSummaryBar({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-mono text-micro text-[var(--gs-gray-3)]">Unrealized P&L</span>
+                  <span className="font-mono text-micro text-[var(--gs-gray-3)]">Profit / Loss</span>
                   <span className={`font-mono text-micro tabular-nums ${nftPnL.unrealizedGun >= 0 ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'}`}>
                     {nftPnL.unrealizedGun >= 0 ? '+' : ''}{nftPnL.unrealizedGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
                   </span>
@@ -633,7 +633,7 @@ export default function PortfolioSummaryBar({
             <div>
               <div className="flex justify-between mb-1">
                 <span className="font-mono text-micro text-[var(--gs-gray-3)]">
-                  Enrichment {isEnriching ? '' : 'Complete'}
+                  Scan {isEnriching ? '' : 'Complete'}
                 </span>
                 <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
                   {enrichmentProgress.completed}/{enrichmentProgress.total}
@@ -716,10 +716,10 @@ export default function PortfolioSummaryBar({
             )}
           </div>
 
-          {/* Unrealized P&L */}
+          {/* Profit / Loss */}
           <div className="px-4 py-3">
             <p className="font-mono text-caption tracking-widest uppercase text-[var(--gs-gray-4)] mb-1">
-              Unrealized P&L
+              Profit / Loss
             </p>
             {isInitializing ? (
               <div className="h-6 w-20 bg-white/5 rounded animate-pulse" />
@@ -870,7 +870,7 @@ export default function PortfolioSummaryBar({
           >
             <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)] mb-3 flex items-center gap-1.5">
               Performance
-              <InfoTooltip text="Unrealized P&L based on floor prices vs acquisition cost. Click for cost basis." />
+              <InfoTooltip text="Profit/loss based on floor prices vs what you paid. Tap for cost breakdown." />
               <span className="font-mono text-micro text-[var(--gs-gray-3)] group-hover/perf:text-[var(--gs-purple)] transition-colors duration-200 ml-auto">
                 {performanceExpanded ? '\u25C0 back' : 'tap \u25B6'}
               </span>
@@ -886,7 +886,7 @@ export default function PortfolioSummaryBar({
                 {isEnriching && enrichmentProgress && enrichmentProgress.total > 0 ? (
                   <div className="flex flex-col justify-center gap-2">
                     <div className="flex items-baseline gap-1.5">
-                      <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-4)]">Analyzing</span>
+                      <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-4)]">Scanning</span>
                       <span className="font-mono text-2xl font-semibold text-[var(--gs-white)] tabular-nums">
                         {enrichmentProgress.completed}
                       </span>
@@ -904,11 +904,11 @@ export default function PortfolioSummaryBar({
                   </div>
                 ) : isEnriching ? (
                   <p className="font-mono text-sm text-[var(--gs-gray-3)] animate-pulse">
-                    Analyzing&hellip;
+                    Scanning&hellip;
                   </p>
                 ) : nftPnL.unrealizedUsd !== null ? (
                   <div>
-                    <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-4)] block mb-1">Unrealized P&L</span>
+                    <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-4)] block mb-1">Profit / Loss</span>
                     <span
                       className={`font-mono text-xl font-semibold ${
                         nftPnL.unrealizedUsd > 0
@@ -938,7 +938,7 @@ export default function PortfolioSummaryBar({
                           onClick={(e) => { e.stopPropagation(); onRetryEnrichment(); }}
                           className="font-mono text-micro uppercase tracking-wider text-[var(--gs-loss)] hover:text-[var(--gs-loss)]/80 transition-colors cursor-pointer"
                         >
-                          {enrichmentProgress!.failedCount} failed &middot; retry
+                          {enrichmentProgress!.failedCount} missed &middot; rescan
                         </button>
                       )}
                     </div>

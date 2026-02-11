@@ -258,16 +258,18 @@ export function useNFTEnrichmentOrchestrator(
           cachedAtIso: new Date().toISOString(),
         });
       } else if (quantity !== null && quantity !== undefined) {
+        // No acquisition found on-chain — this is a resolved "unknown origin",
+        // not a transient error. Cache as complete so we don't re-scan.
         setCachedNFT(walletAddress, primaryTokenId, {
           quantity: enrichedData.quantity,
-          hasAcquisition: false,
+          hasAcquisition: true,
           cachedAtIso: new Date().toISOString(),
         });
       }
 
       return {
         nft: { ...nft, ...enrichedData },
-        fetchSucceeded: acquisition !== null,
+        fetchSucceeded: true,
       };
     } catch (error) {
       console.error(`Error enriching NFT ${nft.tokenId}:`, error);
