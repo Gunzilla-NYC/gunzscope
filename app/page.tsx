@@ -230,7 +230,7 @@ export default function HomePage() {
     }
 
     return () => observer.disconnect();
-  }, [socialProofVisible, siteStats]);
+  }, [socialProofVisible, walletsCountUp, socialNftsCountUp]);
 
   // Wallet modal: Escape key handler
   useEffect(() => {
@@ -258,7 +258,7 @@ export default function HomePage() {
   // Trigger animations when data loads
   useEffect(() => {
     if (gunPrice !== null) gunPriceCountUp.startAnimation();
-  }, [gunPrice]);
+  }, [gunPrice, gunPriceCountUp]);
 
   useEffect(() => {
     if (siteStats) {
@@ -267,7 +267,7 @@ export default function HomePage() {
       setTimeout(() => pnlCountUp.startAnimation(), 400);
       setTimeout(() => nftsCountUp.startAnimation(), 600);
     }
-  }, [siteStats]);
+  }, [siteStats, portfolioValueCountUp, pnlCountUp, nftsCountUp]);
 
   // Fetch GUN price and site stats on mount
   useEffect(() => {
@@ -300,8 +300,7 @@ export default function HomePage() {
       }
     }
 
-    fetchPrice();
-    fetchSiteStats();
+    Promise.all([fetchPrice(), fetchSiteStats()]);
   }, []);
 
   // Setup intersection observer for scroll animations
