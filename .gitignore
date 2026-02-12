@@ -48,5 +48,34 @@ prisma/dev.db-journal
 # Claude Code local settings (machine-specific permissions)
 .claude/settings.local.json
 
+# AI tool config folders (skills are in .claude/skills/ only)
+.agent/
+.agents/
+.cline/
+.codebuddy/
+.commandcode/
+.continue/
+.crush/
+.cursor/
+.factory/
+.goose/
+.kilocode/
+.kiro/
+.mcpjam/
+.mux/
+.neovate/
+.openhands/
+.pi/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.windsurf/
+.zencoder/
+/skills/
+
+# Windows artifacts
+nul
+
 # Personal reference docs
 boris-cherny-workflow-guide.md

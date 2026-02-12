@@ -1,15 +1,39 @@
 /**
  * NFT Gallery Pagination
  *
- * Load more button, dev debug info, and all-loaded message.
+ * Auto-loads next page when sentinel scrolls into view (IntersectionObserver).
+ * Shows loading spinner during fetch, dev debug info, and all-loaded message.
  * RENDER ONLY: All pagination state comes from props.
  */
 
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { NFTGalleryPaginationProps } from './types';
 
 export function NFTGalleryPagination({ paginationInfo, onLoadMore }: NFTGalleryPaginationProps) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Auto-load next page when sentinel enters viewport
+  useEffect(() => {
+    if (!paginationInfo.hasMore || !onLoadMore || paginationInfo.isLoadingMore) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: '400px' } // Trigger 400px before sentinel is visible
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [paginationInfo.hasMore, paginationInfo.isLoadingMore, onLoadMore]);
+
   return (
     <div className="mt-6 flex flex-col items-center gap-3">
       {/* Pagination Debug Info - only visible in development */}
@@ -34,27 +58,20 @@ export function NFTGalleryPagination({ paginationInfo, onLoadMore }: NFTGalleryP
         </div>
       )}
 
-      {/* Load More Button */}
+      {/* Auto-load sentinel + loading indicator */}
       {paginationInfo.hasMore && onLoadMore && (
-        <button
-          onClick={onLoadMore}
-          disabled={paginationInfo.isLoadingMore}
-          className="font-body px-6 py-3 bg-gradient-to-r from-[var(--gs-lime)]/20 to-[var(--gs-purple)]/20 text-[var(--gs-lime)] font-medium rounded-lg border border-[var(--gs-lime)]/30 hover:border-[var(--gs-lime)]/60 hover:from-[var(--gs-lime)]/30 hover:to-[var(--gs-purple)]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {paginationInfo.isLoadingMore ? (
-            <>
-              <div className="w-4 h-4 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin"></div>
-              Loading...
-            </>
-          ) : (
-            <>
-              Load More NFTs
-              <span className="font-mono text-xs text-[var(--gs-lime)]/70">
+        <>
+          <div ref={sentinelRef} className="w-full h-1" aria-hidden="true" />
+          {paginationInfo.isLoadingMore && (
+            <div className="flex items-center gap-2 font-body text-sm text-[var(--gs-gray-4)]">
+              <div className="w-4 h-4 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin" />
+              Loading more NFTs...
+              <span className="font-mono text-xs text-[var(--gs-gray-3)]">
                 ({paginationInfo.totalOwnedCount - paginationInfo.fetchedCount} remaining)
               </span>
-            </>
+            </div>
           )}
-        </button>
+        </>
       )}
 
       {/* All Loaded Message */}

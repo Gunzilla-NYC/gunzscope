@@ -308,6 +308,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     }
   }, [walletData, nftPagination, startEnrichment, walletFetcher]);
 
+  // Auto-load all remaining NFT pages in the background for complete portfolio data
+  useEffect(() => {
+    if (nftPagination.hasMore && !nftPagination.isLoadingMore && walletData) {
+      handleLoadMoreNFTs();
+    }
+  }, [nftPagination.hasMore, nftPagination.isLoadingMore, walletData, handleLoadMoreNFTs]);
+
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Cancel any ongoing enrichment
     cancelEnrichment();

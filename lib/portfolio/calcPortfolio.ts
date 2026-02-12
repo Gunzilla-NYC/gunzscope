@@ -209,10 +209,12 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   // ==========================================================================
   // 5. Calculate confidence score
   // ==========================================================================
-  // Free transfers have known cost (zero) — include them as resolved data
+  // Free transfers have known cost (zero) — include them as resolved data.
+  // Use nftCount (from pagination total) as denominator so confidence is stable
+  // across page loads and only increases as enrichment progresses.
   const nftsWithKnownCost = nftsWithPrice + nftsFreeTransfer;
-  const confidencePercentage = totalNftQuantity > 0
-    ? Math.round((nftsWithKnownCost / totalNftQuantity) * 100)
+  const confidencePercentage = nftCount > 0
+    ? Math.round((nftsWithKnownCost / nftCount) * 100)
     : 0;
 
   const confidence: ConfidenceScore = {

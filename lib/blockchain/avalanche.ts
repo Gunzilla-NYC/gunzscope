@@ -771,8 +771,136 @@ export class AvalancheService {
   }
 
   /**
+   * Fast path: get Transfer events via GunzScan V2 pre-indexed API.
+   * Endpoint: GET /api/v2/tokens/{contract}/instances/{tokenId}/transfers
+   * Returns the same shape as getTransferEvents() for drop-in replacement.
+   * Typically responds in 1-3 seconds vs 15-45s for RPC block scanning.
+   */
+  private async getTransferEventsViaGunzScan(
+    contractAddress: string,
+    tokenId: string
+  ): Promise<{
+    events: Array<{
+      from: string;
+      to: string;
+      tokenId: string;
+      blockNumber: number;
+      logIndex: number;
+      transactionHash: string;
+    }>;
+    currentOwner: string | null;
+    debugInfo: {
+      fromBlock: number;
+      toBlock: number;
+      chunksQueried: number;
+      totalLogsFound: number;
+      blockRanges: Array<{ from: number; to: number; logsFound: number }>;
+    };
+  } | null> {
+    const baseUrl = `${GUNZSCAN_API_BASE}/api/v2/tokens/${contractAddress}/instances/${tokenId}/transfers`;
+    const allItems: Array<{
+      from: { hash: string };
+      to: { hash: string };
+      total: { token_id: string };
+      block_number: number;
+      log_index: number;
+      transaction_hash: string;
+    }> = [];
+
+    let url: string | null = baseUrl;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    try {
+      // Paginate through all transfer pages
+      while (url) {
+        const response = await fetch(url, {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          if (DEBUG_ACQUISITION) {
+            console.warn(`[getTransferEventsViaGunzScan] HTTP ${response.status} for tokenId=${tokenId}`);
+          }
+          return null;
+        }
+
+        const data = await response.json();
+        const items = data.items;
+
+        if (!Array.isArray(items)) {
+          if (DEBUG_ACQUISITION) {
+            console.warn(`[getTransferEventsViaGunzScan] Unexpected response shape for tokenId=${tokenId}`);
+          }
+          return null;
+        }
+
+        allItems.push(...items);
+
+        // Follow pagination
+        if (data.next_page_params) {
+          const params = new URLSearchParams();
+          for (const [key, value] of Object.entries(data.next_page_params)) {
+            params.set(key, String(value));
+          }
+          url = `${baseUrl}?${params.toString()}`;
+        } else {
+          url = null;
+        }
+      }
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        if (DEBUG_ACQUISITION) {
+          console.warn(`[getTransferEventsViaGunzScan] Timeout after 10s for tokenId=${tokenId}`);
+        }
+      }
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (allItems.length === 0) {
+      return null;
+    }
+
+    // Map GunzScan V2 response to existing event shape
+    const events = allItems.map((item) => ({
+      from: item.from.hash.toLowerCase(),
+      to: item.to.hash.toLowerCase(),
+      tokenId: item.total?.token_id ?? tokenId,
+      blockNumber: item.block_number,
+      logIndex: item.log_index ?? 0,
+      transactionHash: item.transaction_hash,
+    }));
+
+    // Sort by blockNumber ascending, then logIndex
+    events.sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex);
+
+    const currentOwner = events[events.length - 1].to;
+    const firstBlock = events[0].blockNumber;
+    const lastBlock = events[events.length - 1].blockNumber;
+
+    if (DEBUG_ACQUISITION) {
+      console.log(`[getTransferEventsViaGunzScan] Found ${events.length} transfers for tokenId=${tokenId} (blocks ${firstBlock}-${lastBlock})`);
+    }
+
+    return {
+      events,
+      currentOwner,
+      debugInfo: {
+        fromBlock: firstBlock,
+        toBlock: lastBlock,
+        chunksQueried: 0, // No chunking needed with indexed API
+        totalLogsFound: events.length,
+        blockRanges: [{ from: firstBlock, to: lastBlock, logsFound: events.length }],
+      },
+    };
+  }
+
+  /**
    * Get all Transfer events for a specific tokenId (any sender, any receiver)
-   * Uses explicit topic encoding to ensure correct matching
+   * Tries GunzScan pre-indexed API first (fast), falls back to RPC block scanning (slow)
    */
   async getTransferEvents(
     contractAddress: string,
@@ -795,6 +923,18 @@ export class AvalancheService {
       blockRanges: Array<{ from: number; to: number; logsFound: number }>;
     };
   }> {
+    // Fast path: GunzScan pre-indexed API (1-3s vs 15-45s for RPC)
+    try {
+      const gunzScanResult = await this.getTransferEventsViaGunzScan(contractAddress, tokenId);
+      if (gunzScanResult && gunzScanResult.events.length > 0) {
+        return gunzScanResult;
+      }
+      // Empty result (possibly very new token not yet indexed) — fall through to RPC
+    } catch (error) {
+      console.warn('[getTransferEvents] GunzScan unavailable, falling back to RPC:', error);
+    }
+
+    // Slow fallback: RPC block scanning (scans 13M+ blocks in 100k chunks)
     const currentBlock = await this.provider.getBlockNumber();
 
     // Get chain ID for deployment block lookup
@@ -815,13 +955,13 @@ export class AvalancheService {
       topics: [topic0, null, null, topic3], // [signature, from (any), to (any), tokenId]
     };
 
-    console.log(`[getTransferEvents] Querying transfers for tokenId=${tokenId}`);
+    console.log(`[getTransferEvents] RPC fallback for tokenId=${tokenId}`);
     console.log(`[getTransferEvents] Chain: ${chainId}, Block range: ${fromBlock} to ${currentBlock} (${currentBlock - fromBlock} blocks)`);
     console.log(`[getTransferEvents] Filter topics:`, { topic0, topic3 });
 
     const { logs, chunksQueried, blockRanges } = await this.queryLogsInChunks(filter, fromBlock, currentBlock);
 
-    console.log(`[getTransferEvents] Found ${logs.length} transfer events`);
+    console.log(`[getTransferEvents] Found ${logs.length} transfer events via RPC`);
 
     // Parse logs into structured events
     const events = logs.map((log) => ({
