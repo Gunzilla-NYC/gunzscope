@@ -1390,7 +1390,17 @@ export class AvalancheService {
           console.warn('[getNFTHoldingAcquisition] Failed to parse in-game trade price:', parseError);
         }
       }
-      // Priority 2: ERC-20 GUN token transfers (if not in-game marketplace)
+      // Priority 2: Decode/decoder venue — tx.value IS the decode fee regardless of sender
+      // In-game decodes are submitted by a relayer on the user's behalf, so tx.from ≠ wallet
+      // but the decode fee is still carried in tx.value
+      else if ((venue === 'decode' || venue === 'decoder') && tx && tx.value > BigInt(0)) {
+        costGun = parseFloat(ethers.formatEther(tx.value));
+
+        if (DEBUG_ACQUISITION) {
+          console.log(`[getNFTHoldingAcquisition] Decode fee (tx.value): ${costGun} GUN`);
+        }
+      }
+      // Priority 3: ERC-20 GUN token transfers
       else if (!gunIsNative && receipt && gunTokenAddress) {
         // ERC-20 GUN: compute net outflow from receipt logs
         costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
@@ -1399,7 +1409,7 @@ export class AvalancheService {
           console.log(`[getNFTHoldingAcquisition] ERC-20 GUN outflow: ${costGun}`);
         }
       }
-      // Priority 3: Native GUN (tx.value)
+      // Priority 4: Native GUN (tx.value) — wallet-initiated transactions
       else if (gunIsNative && tx) {
         // Native GUN: use tx.value if tx.from is the wallet
         const txFrom = normalizeAddr(tx.from);
