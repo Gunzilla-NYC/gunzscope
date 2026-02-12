@@ -11,8 +11,8 @@ import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey } from '@/
 // Constants
 // =============================================================================
 
-const ENRICHMENT_BATCH_SIZE = 3;
-const ENRICHMENT_BATCH_DELAY_MS = 1500;
+const ENRICHMENT_BATCH_SIZE = 6;
+const ENRICHMENT_BATCH_DELAY_MS = 800;
 const PRIORITY_ABOVE_FOLD_COUNT = 12;
 
 // NFT contract address (hardcoded fallback for client-side)
@@ -89,6 +89,10 @@ export function useNFTEnrichmentOrchestrator(
 
   // Cancellation ref
   const cancelledRef = useRef(false);
+
+  // Cumulative base: tracks total completed items across all startEnrichment calls
+  // so that progress never goes backwards when a new page starts enriching
+  const cumulativeBaseRef = useRef(0);
 
   // Store last enrichment args for retry
   const lastArgsRef = useRef<{
@@ -329,8 +333,13 @@ export function useNFTEnrichmentOrchestrator(
         return needsRetry;
       });
 
+      const totalNftCount = nfts.length;
+      const cachedCount = totalNftCount - nftsNeedingEnrichment.length;
+      const base = cumulativeBaseRef.current;
+
       if (nftsNeedingEnrichment.length === 0) {
-        setProgress({ completed: 0, total: 0, phase: 'complete', failedCount: 0 });
+        cumulativeBaseRef.current = base + totalNftCount;
+        setProgress({ completed: base + totalNftCount, total: base + totalNftCount, phase: 'complete', failedCount: 0 });
         setIsEnriching(false);
         return;
       }
@@ -348,7 +357,7 @@ export function useNFTEnrichmentOrchestrator(
       });
       const orderedNftsToEnrich = [...priorityNfts, ...remainingNfts];
 
-      setProgress({ completed: 0, total: orderedNftsToEnrich.length, phase: 'enriching', failedCount: 0 });
+      setProgress({ completed: base + cachedCount, total: base + totalNftCount, phase: 'enriching', failedCount: 0 });
 
       // Process in batches
       let failedCount = 0;
@@ -379,7 +388,7 @@ export function useNFTEnrichmentOrchestrator(
             enrichedResults.set(key, enrichedNFT);
             completedCount++;
             if (!cancelledRef.current) {
-              setProgress({ completed: completedCount, total: orderedNftsToEnrich.length, phase: 'enriching', failedCount });
+              setProgress({ completed: base + cachedCount + completedCount, total: base + totalNftCount, phase: 'enriching', failedCount });
             }
 
             return enrichedNFT;
@@ -401,7 +410,8 @@ export function useNFTEnrichmentOrchestrator(
         }
       }
 
-      setProgress({ completed: orderedNftsToEnrich.length, total: orderedNftsToEnrich.length, phase: 'complete', failedCount });
+      cumulativeBaseRef.current = base + totalNftCount;
+      setProgress({ completed: base + totalNftCount, total: base + totalNftCount, phase: 'complete', failedCount });
       setIsEnriching(false);
     } catch (error) {
       console.error('[NFT Enrichment] Error:', error);
@@ -414,6 +424,7 @@ export function useNFTEnrichmentOrchestrator(
    */
   const cancelEnrichment = useCallback(() => {
     cancelledRef.current = true;
+    cumulativeBaseRef.current = 0;
     setIsEnriching(false);
     setProgress(null);
   }, []);

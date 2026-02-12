@@ -238,6 +238,12 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
             if (aListings !== bListings) return aListings - bListings;
             return a.name.localeCompare(b.name);
           }
+          case 'date-desc': {
+            const aTime = a.purchaseDate ? new Date(a.purchaseDate).getTime() : 0;
+            const bTime = b.purchaseDate ? new Date(b.purchaseDate).getTime() : 0;
+            if (aTime !== bTime) return bTime - aTime;
+            return a.name.localeCompare(b.name);
+          }
           default:
             return 0;
         }

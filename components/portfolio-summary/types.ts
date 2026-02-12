@@ -16,7 +16,7 @@ export interface AcquisitionBreakdown {
   bought: number;
   boughtGun: number;
   transferred: number;
-  unknown: number;
+  pending: number;
 }
 
 export interface ChangeDisplay {

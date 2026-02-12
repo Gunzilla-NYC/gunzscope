@@ -10,7 +10,7 @@ import type { NFT } from '@/lib/types';
 // Types
 // ============================================================================
 
-export type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc' | 'value-desc' | 'pnl-desc' | 'scarcity-asc';
+export type SortOption = 'name-asc' | 'name-desc' | 'mint-asc' | 'mint-desc' | 'quantity-desc' | 'value-desc' | 'pnl-desc' | 'scarcity-asc' | 'date-desc';
 export type ViewMode = 'small' | 'medium' | 'list';
 export type Rarity = 'Epic' | 'Rare' | 'Uncommon' | 'Common';
 
@@ -30,6 +30,7 @@ export interface NFTCardData {
   nft: NFT;
   rarityName: string;
   rarityColor: string;
+  isMixedRarity: boolean;
   itemClass: string;
   mintDisplay: string;
   mintData: MintWithRarity[];
@@ -76,6 +77,42 @@ export function getRarityColor(nft: NFT): string {
 // Rarity color from rarity string (for filter tag)
 export function getRarityColorByName(rarity: string): string {
   return RARITY_COLORS[rarity] || '#888888';
+}
+
+/**
+ * Build a CSS linear-gradient for the left accent stripe that visualizes
+ * the proportional breakdown of rarities in a grouped item.
+ * Each rarity gets a segment sized by its share of the total.
+ * Returns a solid color string for single-rarity groups.
+ */
+export function buildRarityStripeGradient(mintData: MintWithRarity[]): string {
+  if (mintData.length <= 1) return getRarityColorByName(mintData[0]?.rarity || 'Common');
+
+  // Count per rarity, preserving rarity order (Epic first → Common last)
+  const counts = new Map<string, number>();
+  for (const m of mintData) {
+    const r = m.rarity || 'Unknown';
+    counts.set(r, (counts.get(r) || 0) + 1);
+  }
+
+  // Sort by rarity rank (Epic → Rare → Uncommon → Common → Unknown)
+  const order: Record<string, number> = { Epic: 0, Rare: 1, Uncommon: 2, Common: 3 };
+  const sorted = [...counts.entries()].sort(
+    (a, b) => (order[a[0]] ?? 4) - (order[b[0]] ?? 4),
+  );
+
+  // Build hard-stop gradient segments
+  const total = mintData.length;
+  const stops: string[] = [];
+  let pct = 0;
+  for (const [rarity, count] of sorted) {
+    const color = getRarityColorByName(rarity);
+    const end = pct + (count / total) * 100;
+    stops.push(`${color} ${pct.toFixed(1)}%`, `${color} ${end.toFixed(1)}%`);
+    pct = end;
+  }
+
+  return `linear-gradient(to bottom, ${stops.join(', ')})`;
 }
 
 // Get rarity rank for sorting (lower = rarer)
@@ -167,6 +204,15 @@ export function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean
   const defaultRarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || 'Unknown';
 
   if (mintNumbers.length === 0) {
+    const quantity = nft.quantity || 1;
+    if (quantity > 1) {
+      // Grouped item without mint numbers — show quantity multiplier
+      return {
+        display: `\u00d7${quantity}`,
+        hasMore: false,
+        mints: [{ mint: `\u00d7${quantity}`, rarity: defaultRarity }],
+      };
+    }
     return {
       display: `#${nft.tokenId.slice(0, 8)}`,
       hasMore: false,
@@ -242,10 +288,37 @@ export function getMarketScarcityColor(listingCount: number): string {
   return '#888888';                           // Gray — available
 }
 
+/** Rarity rank for sorting — lower = rarer */
+const RARITY_RANK: Record<string, number> = { Epic: 1, Rare: 2, Uncommon: 3, Common: 4 };
+
 /** Compute display-ready data for a single NFT — used by both grid cards and list rows */
 export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>): NFTCardData {
-  const rarityName = getRarityName(nft);
-  const rarityColor = getRarityColor(nft);
+  // Derive rarity from groupedRarities (accurate for mixed-rarity groups)
+  // Falls back to nft.traits for single items
+  let rarityName: string;
+  let rarityColor: string;
+  let isMixedRarity = false;
+
+  if (nft.groupedRarities && nft.groupedRarities.length > 0) {
+    const unique = [...new Set(nft.groupedRarities)].filter(r => r !== 'Unknown');
+    if (unique.length > 1) {
+      isMixedRarity = true;
+      // Use highest rarity for primary color
+      unique.sort((a, b) => (RARITY_RANK[a] ?? 5) - (RARITY_RANK[b] ?? 5));
+      rarityName = 'Mixed';
+      rarityColor = getRarityColorByName(unique[0]);
+    } else if (unique.length === 1) {
+      rarityName = unique[0];
+      rarityColor = getRarityColorByName(unique[0]);
+    } else {
+      rarityName = getRarityName(nft);
+      rarityColor = getRarityColor(nft);
+    }
+  } else {
+    rarityName = getRarityName(nft);
+    rarityColor = getRarityColor(nft);
+  }
+
   const itemClass = getItemClass(nft);
   const { display: mintDisplay, mints: mintData } = formatMintNumbers(nft);
   const nameInitials = nft.name.split(' ').map(w => w[0]).join('').slice(0, 2);
@@ -267,6 +340,7 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     nft,
     rarityName,
     rarityColor,
+    isMixedRarity,
     itemClass,
     mintDisplay,
     mintData,

@@ -14,9 +14,14 @@ import type { NFTGalleryListRowProps } from './types';
 
 export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
   const {
-    nft, rarityName, rarityColor, mintDisplay, mintData, nameInitials,
+    nft, rarityName, rarityColor, isMixedRarity, mintDisplay, mintData, nameInitials,
     pnlPct, isProfit, isLoss, priceGun, marketListings,
   } = cardData;
+
+  const isGrouped = !!(nft.quantity && nft.quantity > 1);
+  const mintRarities = isGrouped ? new Set(mintData.map(m => m.rarity).filter(r => r !== 'Unknown')) : null;
+  const hasMixedRarity = isMixedRarity || (mintRarities !== null && mintRarities.size > 1);
+  const groupAccent = hasMixedRarity ? '#22d3ee' : rarityColor;
 
   return (
     <div
@@ -27,29 +32,29 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioVie
       } as React.CSSProperties}
       onClick={() => onClick(nft)}
     >
-      {/* Left accent line - reveals rarity color on hover */}
+      {/* Left accent line — white for grouped, rarity fade for single */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ background: `linear-gradient(180deg, ${rarityColor}, transparent)` }}
+        className={`absolute left-0 top-0 bottom-0 w-[2px] transition-opacity duration-300 ${
+          isGrouped ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+        style={{ background: isGrouped
+          ? groupAccent
+          : `linear-gradient(180deg, ${rarityColor}, transparent)`
+        }}
       />
       {/* Thumbnail */}
       <div className="w-14 h-14 flex-shrink-0 relative bg-[var(--gs-dark-4)] overflow-hidden">
-        {/* Quality Badge - shows abbreviated for space, "MLT" for grouped items */}
+        {/* Quality Badge — rarity abbreviation for singles, ×N for grouped */}
         <span
-          className="absolute top-0.5 left-0.5 z-10 font-mono text-[6px] tracking-wide uppercase px-1 py-0.5 rounded-sm"
+          className="absolute top-0.5 left-0.5 z-10 font-mono text-[6px] tracking-wide uppercase px-1 py-0.5"
           style={{
-            backgroundColor: nft.quantity && nft.quantity > 1 ? 'rgba(150, 170, 255, 0.20)' : `${rarityColor}20`,
-            color: nft.quantity && nft.quantity > 1 ? 'var(--gs-purple)' : rarityColor,
+            color: nft.quantity && nft.quantity > 1 ? 'rgba(255,255,255,0.60)' : rarityColor,
+            backgroundColor: nft.quantity && nft.quantity > 1 ? 'rgba(255,255,255,0.08)' : `${rarityColor}18`,
+            border: nft.quantity && nft.quantity > 1 ? '1px solid rgba(255,255,255,0.15)' : `1px solid ${rarityColor}60`,
           }}
         >
-          {nft.quantity && nft.quantity > 1 ? 'MLT' : (rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4))}
+          {nft.quantity && nft.quantity > 1 ? `×${nft.quantity}` : (rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4))}
         </span>
-        {/* Quantity indicator for grouped items */}
-        {nft.quantity && nft.quantity > 1 && (
-          <span className="absolute bottom-0.5 right-0.5 z-10 font-mono text-[6px] font-bold px-1 py-0.5 rounded-sm bg-[var(--gs-purple)] text-black">
-            ×{nft.quantity}
-          </span>
-        )}
 
         {nft.image ? (
           <Image

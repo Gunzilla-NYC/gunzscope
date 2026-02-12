@@ -61,7 +61,7 @@ export function usePortfolioSummaryData(
     let minted = 0, mintedGun = 0;
     let bought = 0, boughtGun = 0;
     let transferred = 0;
-    let unknown = 0;
+    let pending = 0;
 
     for (const nft of nfts) {
       const qty = nft.quantity || 1;
@@ -77,11 +77,11 @@ export function usePortfolioSummaryData(
       } else if (venue === 'transfer' || nft.isFreeTransfer) {
         transferred += qty;
       } else {
-        unknown += qty;
+        pending += qty;
       }
     }
 
-    return { minted, mintedGun, bought, boughtGun, transferred, unknown };
+    return { minted, mintedGun, bought, boughtGun, transferred, pending };
   }, [nfts]);
 
   // Calculate total portfolio P&L percentage
@@ -132,8 +132,11 @@ export function usePortfolioSummaryData(
   const nftPct = totalValue > 0 ? ((nftFloorValueUsd ?? 0) / totalValue) * 100 : 0;
 
   // Enrichment helpers
-  const isEnriching = enrichmentProgress?.phase === 'enriching';
-  const isEnrichmentComplete = enrichmentProgress?.phase === 'complete';
+  // isEnriching: true while batches are actively processing OR between pages (totalItems < nftCount)
+  const isEnriching = enrichmentProgress != null && (
+    enrichmentProgress.phase === 'enriching' || nftPnL.totalItems < nftCount
+  );
+  const isEnrichmentComplete = enrichmentProgress?.phase === 'complete' && nftPnL.totalItems >= nftCount;
   const hasFailures = isEnrichmentComplete && (enrichmentProgress?.failedCount ?? 0) > 0;
   const progressPct = enrichmentProgress && enrichmentProgress.total > 0
     ? Math.round((enrichmentProgress.completed / enrichmentProgress.total) * 100)

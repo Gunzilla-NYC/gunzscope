@@ -104,15 +104,15 @@ export function DetailedGrid({
                   <span className="font-mono text-caption text-[var(--gs-gray-3)]">free</span>
                 </div>
               )}
-              {acquisitionBreakdown.unknown > 0 && (
+              {acquisitionBreakdown.pending > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-caption text-[var(--gs-gray-4)]">
-                    <span className="text-[var(--gs-gray-2)]">{'\u25C6'}</span> {acquisitionBreakdown.unknown} Unknown
+                    <span className={`text-[var(--gs-gray-2)] ${isEnriching ? 'animate-pulse' : ''}`}>{'\u25C6'}</span> {acquisitionBreakdown.pending} {isEnriching ? 'Scanning\u2026' : 'Unresolved'}
                   </span>
                   <span className="font-mono text-caption text-[var(--gs-gray-2)]">&mdash;</span>
                 </div>
               )}
-              {acquisitionBreakdown.minted === 0 && acquisitionBreakdown.bought === 0 && acquisitionBreakdown.transferred === 0 && acquisitionBreakdown.unknown === 0 && (
+              {acquisitionBreakdown.minted === 0 && acquisitionBreakdown.bought === 0 && acquisitionBreakdown.transferred === 0 && acquisitionBreakdown.pending === 0 && (
                 <p className="font-mono text-caption text-[var(--gs-gray-3)]">No data yet</p>
               )}
             </div>

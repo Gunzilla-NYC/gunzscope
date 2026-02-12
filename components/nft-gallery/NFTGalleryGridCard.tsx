@@ -14,38 +14,42 @@ import type { NFTGalleryGridCardProps } from './types';
 
 export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, portfolioViewMode }: NFTGalleryGridCardProps) {
   const {
-    nft, rarityName, rarityColor, mintDisplay, mintData, nameInitials,
+    nft, rarityName, rarityColor, isMixedRarity, mintDisplay, mintData, nameInitials,
     pnlPct, isProfit, isLoss, priceGun, priceDisplay, pnlDisplay,
     marketListings,
   } = cardData;
 
+  const isGrouped = !!(nft.quantity && nft.quantity > 1);
+  // Cross-check mintData for rarity diversity (fallback if groupedRarities incomplete)
+  const mintRarities = isGrouped ? new Set(mintData.map(m => m.rarity).filter(r => r !== 'Unknown')) : null;
+  const hasMixedRarity = isMixedRarity || (mintRarities !== null && mintRarities.size > 1);
+  // Grouped accent: rarity color when all same quality, yellow for mixed
+  const groupAccent = hasMixedRarity ? '#22d3ee' : rarityColor;
+
   return (
     <div
-      className="nft-card-hover group bg-[var(--gs-dark-3)] border border-white/[0.06] p-3 transition-[transform,border-color,box-shadow] duration-200 cursor-pointer hover:-translate-y-1 relative overflow-hidden"
+      className={`nft-card-hover group bg-[var(--gs-dark-3)] border p-3 transition-[transform,border-color,box-shadow] duration-200 cursor-pointer hover:-translate-y-1 relative overflow-hidden ${
+        isGrouped ? 'border-white/[0.06]' : 'border-white/[0.06]'
+      }`}
       style={{
         clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-        '--rarity-border': `${rarityColor}40`,
-        '--rarity-glow': `0 8px 20px ${rarityColor}15`,
+        '--rarity-border': isGrouped ? `${groupAccent}40` : `${rarityColor}40`,
+        '--rarity-glow': isGrouped ? 'none' : `0 8px 20px ${rarityColor}15`,
       } as React.CSSProperties}
       onClick={() => onClick(nft)}
     >
-      {/* Bottom accent line - reveals rarity color on hover */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ background: `linear-gradient(90deg, ${rarityColor}, transparent)` }}
-      />
       {/* Image Container — clean, no overlapping badges */}
       <div
         className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden"
         style={{
           clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-          boxShadow: `inset 0 0 0 1px ${rarityColor}20`,
+          boxShadow: isGrouped ? `inset 0 0 0 1px ${groupAccent}20` : `inset 0 0 0 1px ${rarityColor}20`,
         }}
       >
-        {/* Rarity accent — 2px left edge stripe */}
+        {/* Rarity accent — 2px left edge stripe (white for grouped, rarity color for single) */}
         <div
           className="absolute top-0 left-0 bottom-0 w-[2px] z-10"
-          style={{ backgroundColor: rarityColor }}
+          style={{ background: isGrouped ? groupAccent : rarityColor }}
         />
 
         {/* Image or Placeholder */}
@@ -89,8 +93,8 @@ export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, p
           {getSpecificItemType(nft) || nft.collection}
         </span>
         {nft.quantity && nft.quantity > 1 ? (
-          <span className="shrink-0 text-[var(--gs-purple)]">
-            \u00d7{nft.quantity}
+          <span className="shrink-0 text-[var(--gs-gray-3)]">
+            ×{nft.quantity}
           </span>
         ) : rarityName !== 'Unknown' && (
           <span className="shrink-0" style={{ color: rarityColor }}>

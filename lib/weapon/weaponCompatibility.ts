@@ -35,6 +35,39 @@ export function extractModelCode(imageUrl: string): string | null {
   return null;
 }
 
+/** Attachment subtype derived from image URL segments */
+export type AttachmentSubtype = 'scope' | 'skin' | 'other';
+
+// Pattern: WeaponAttachment_DA_WA_{MODEL}_{SUBTYPE}_...
+// Use [A-Z]+ (not \w+) to capture only the subtype code before the next underscore
+const ATTACHMENT_SUBTYPE_PATTERN = /WeaponAttachment_\w+_WA_[A-Z]+\d+_([A-Z]+)/;
+
+// Known subtype codes from asset URLs
+const SUBTYPE_MAP: Record<string, AttachmentSubtype> = {
+  SGT: 'scope',  // Sight (Reflex, Holographic, etc.)
+  SKIN: 'skin',  // Weapon skin (classified as attachment in URL)
+};
+
+/**
+ * Extract the attachment subtype from an image URL.
+ * Returns 'scope' for sights, 'skin' for skins, 'other' for unrecognized.
+ *
+ * NOTE: This is best-effort based on known URL patterns.
+ * More subtypes (grip, barrel, magazine) may exist but haven't been catalogued yet.
+ *
+ * @example
+ * extractAttachmentSubtype('...WeaponAttachment_DA_WA_AR05_SGT_REF_02_hd.png') // => 'scope'
+ * extractAttachmentSubtype('...WeaponAttachment_DA_WA_AR05_SKIN_hd.png') // => 'skin'
+ */
+export function extractAttachmentSubtype(imageUrl: string): AttachmentSubtype {
+  if (!imageUrl) return 'other';
+
+  const match = imageUrl.match(ATTACHMENT_SUBTYPE_PATTERN);
+  if (!match) return 'other';
+
+  return SUBTYPE_MAP[match[1]] || 'other';
+}
+
 // Asset path patterns that indicate special/locked editions
 const LOCKED_ASSET_PATTERNS = [
   /_RANK_/,      // Ranked reward: AR04_RANK_04_SN_01
@@ -88,6 +121,14 @@ export interface CompatibleItem {
   matchTier: 1 | 2 | 3;
   matchConfidence: MatchConfidence;
   category: ItemCategory;
+  /** Attachment subtype derived from URL (scope, skin, other). Only meaningful for attachments. */
+  subtype: AttachmentSubtype;
+}
+
+/** Options for findCompatibleItems */
+export interface FindCompatibleItemsOptions {
+  /** When true, filters out skins and non-scope attachments (Classified weapons) */
+  locked?: boolean;
 }
 
 /**
@@ -122,11 +163,73 @@ function getWeaponFamily(name: string): string {
 }
 
 /**
+ * Extract the target weapon name from a skin/attachment name.
+ * Patterns: "XXX for the {WEAPON}", "XXX for {WEAPON}", or "{WEAPON} Skin"
+ *
+ * @example
+ * extractTargetWeapon('Day 365 Skin for the M4 Commodore') // => 'm4 commodore'
+ * extractTargetWeapon('Vulture Reflex Sight') // => null (no "for" pattern)
+ * extractTargetWeapon('Vulture Skin') // => 'vulture'
+ */
+function extractTargetWeapon(itemName: string): string | null {
+  const lower = itemName.toLowerCase();
+
+  // "for the {WEAPON}" — most common skin naming pattern
+  const forTheMatch = lower.match(/for the (.+?)$/);
+  if (forTheMatch) return forTheMatch[1].trim();
+
+  // "for {WEAPON}" — alternate pattern
+  const forMatch = lower.match(/for ([^,]+?)$/);
+  if (forMatch) return forMatch[1].trim();
+
+  // "{WEAPON} Skin" — simple skin naming
+  const skinMatch = lower.match(/^(.+?)\s+skin$/);
+  if (skinMatch) return skinMatch[1].trim();
+
+  return null;
+}
+
+/**
+ * Check if a weapon family name matches an item via Tier 2 name matching.
+ * Prefers extracting the target weapon from the item name for precise matching.
+ * Falls back to substring matching only for multi-word weapon families.
+ */
+function isNameMatch(itemName: string, weaponFamilyLower: string): boolean {
+  const itemNameLower = itemName.toLowerCase();
+
+  // Strategy 1: Extract target weapon from item name and compare
+  const target = extractTargetWeapon(itemName);
+  if (target) {
+    // Target must match the full family name (or family is a prefix of target)
+    return target === weaponFamilyLower ||
+           target.startsWith(weaponFamilyLower + ' ') ||
+           weaponFamilyLower.startsWith(target + ' ') ||
+           weaponFamilyLower === target;
+  }
+
+  // Strategy 2: Fallback substring match — only for multi-word weapon families
+  // Single-word families (e.g., "M4") are too ambiguous for substring matching
+  if (weaponFamilyLower.includes(' ')) {
+    return itemNameLower.includes(weaponFamilyLower);
+  }
+
+  // Single-word family: require word-boundary match with "for" context
+  return itemNameLower.includes(`for the ${weaponFamilyLower} `) ||
+         itemNameLower.includes(`for ${weaponFamilyLower} `) ||
+         itemNameLower.endsWith(`for the ${weaponFamilyLower}`) ||
+         itemNameLower.endsWith(`for ${weaponFamilyLower}`);
+}
+
+/**
  * Find all compatible items (attachments, skins) for a weapon.
  * Uses tiered matching: asset-path model ID (Tier 1), name-based (Tier 2).
+ *
+ * When `options.locked` is true (Classified weapons), skins are excluded
+ * and only scope-type attachments are returned.
  */
-export function findCompatibleItems(weapon: NFT, inventory: NFT[]): CompatibleItem[] {
+export function findCompatibleItems(weapon: NFT, inventory: NFT[], options?: FindCompatibleItemsOptions): CompatibleItem[] {
   if (!isWeapon(weapon)) return [];
+  const skipSkins = options?.locked === true;
 
   const weaponModelCode = extractModelCode(weapon.image);
   const weaponFamily = getWeaponFamily(weapon.name);
@@ -141,6 +244,15 @@ export function findCompatibleItems(weapon: NFT, inventory: NFT[]): CompatibleIt
     const category = getItemCategory(item);
     if (!category) continue;
 
+    // Classified weapons: skip skins entirely
+    if (skipSkins && category === 'skin') continue;
+
+    const subtype = category === 'attachment' ? extractAttachmentSubtype(item.image) : 'other';
+
+    // Classified weapons: only allow scope-type attachments
+    // NOTE: Not all Classified weapons support scope changes — needs in-game research
+    if (skipSkins && category === 'attachment' && subtype !== 'scope') continue;
+
     // Tier 1: Model code match (highest confidence)
     if (weaponModelCode) {
       const itemModelCode = extractModelCode(item.image);
@@ -150,23 +262,20 @@ export function findCompatibleItems(weapon: NFT, inventory: NFT[]): CompatibleIt
           matchTier: 1,
           matchConfidence: 'high',
           category,
+          subtype,
         });
         continue;
       }
     }
 
     // Tier 2: Name-based match (fallback)
-    const itemNameLower = item.name.toLowerCase();
-    if (
-      itemNameLower.includes(weaponFamilyLower) ||
-      itemNameLower.includes(`for the ${weaponFamilyLower}`) ||
-      itemNameLower.includes(`for ${weaponFamilyLower}`)
-    ) {
+    if (isNameMatch(item.name, weaponFamilyLower)) {
       results.push({
         nft: item,
         matchTier: 2,
         matchConfidence: 'medium',
         category,
+        subtype,
       });
     }
   }

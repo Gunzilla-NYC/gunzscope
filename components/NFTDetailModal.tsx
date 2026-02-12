@@ -58,12 +58,6 @@ import {
 } from '@/components/nft-detail';
 import { LockedWeaponIndicator } from '@/components/weapon';
 
-// Dynamic import for WeaponLabDrawer - only loaded when user opens weapon lab
-const WeaponLabDrawer = dynamic(() => import('@/components/weapon/WeaponLabDrawer'), {
-  ssr: false,
-  loading: () => null,
-});
-
 // Dynamic import for NFTDetailDebugPanel - only loaded when debugMode is active
 const NFTDetailDebugPanel = dynamic(
   () => import('@/components/nft-detail/NFTDetailDebugPanel').then(mod => ({ default: mod.NFTDetailDebugPanel })),
@@ -450,7 +444,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     setDebugExpanded,
     handleCopyDebugData,
   } = useNFTDetailDebug(gunPriceTimestamp);
-  const [isWeaponLabOpen, setIsWeaponLabOpen] = useState(false);
 
   // Ref to track fetch state and prevent duplicate fetches
   const fetchStateRef = useRef<{
@@ -549,11 +542,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       return [];
     }
 
-    const getRarity = () => nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
-    const rarity = getRarity();
-    const colors = RARITY_COLORS[rarity || ''] || getDefaultRarityColors();
+    const defaultRarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
 
     if (!nft.tokenIds || nft.tokenIds.length <= 1) {
+      const rarity = defaultRarity;
+      const colors = RARITY_COLORS[rarity || ''] || getDefaultRarityColors();
       return [{
         tokenId: nft.tokenId,
         mintNumber: nft.mintNumber || nft.tokenId,
@@ -563,14 +556,18 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       }];
     }
 
-    // Create items array with their data
-    const items: ItemData[] = nft.tokenIds.map((tokenId, index) => ({
-      tokenId,
-      mintNumber: nft.mintNumbers?.[index] || tokenId,
-      rarity,
-      index,
-      colors,
-    }));
+    // Create items array — use per-item rarity from groupedRarities when available
+    const items: ItemData[] = nft.tokenIds.map((tokenId, index) => {
+      const rarity = nft.groupedRarities?.[index] || defaultRarity;
+      const colors = RARITY_COLORS[rarity || ''] || getDefaultRarityColors();
+      return {
+        tokenId,
+        mintNumber: nft.mintNumbers?.[index] || tokenId,
+        rarity,
+        index,
+        colors,
+      };
+    });
 
     // Sort by rarity (highest first), then by mint number (lowest first)
     return items.sort((a, b) => {
@@ -1886,13 +1883,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     return findRelatedItems(nft, allNfts);
   }, [nft, allNfts]);
 
-  // Determine if this weapon can show the Weapon Lab
-  const weaponLabEligible = useMemo(() => {
-    if (!nft) return false;
-    if (!isWeapon(nft)) return false;
-    return !isWeaponLocked(nft);
-  }, [nft]);
-
   const isLockedWeapon = useMemo(() => {
     if (!nft) return false;
     return isWeapon(nft) && isWeaponLocked(nft);
@@ -2025,10 +2015,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           key={item.tokenId}
                           onClick={() => setActiveItemIndex(index)}
                           className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
-                            isActive ? 'ring-1 opacity-100' : 'opacity-50 hover:opacity-75'
+                            isActive ? 'ring-1 opacity-100' : 'opacity-60 hover:opacity-80'
                           }`}
                           style={{
-                            borderColor: isActive ? item.colors.border : 'transparent',
+                            border: isActive ? `1px solid ${item.colors.border}` : `1px solid ${item.colors.primary}40`,
                             boxShadow: isActive ? `0 0 5px ${item.colors.border}` : 'none',
                           }}
                         >
@@ -2050,10 +2040,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                               No Image
                             </div>
                           )}
-                          {/* Mint badge */}
+                          {/* Mint badge — rarity-colored text, transparent fill, colored border */}
                           <div
-                            className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-caption font-semibold text-white"
-                            style={{ backgroundColor: isActive ? item.colors.primary : 'rgba(0,0,0,0.7)' }}
+                            className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-caption font-semibold"
+                            style={{
+                              color: item.colors.primary,
+                              backgroundColor: `${item.colors.primary}18`,
+                              border: `1px solid ${item.colors.primary}60`,
+                            }}
                           >
                             #{item.mintNumber}
                           </div>
@@ -2115,7 +2109,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   {/* Inline trait pills */}
                   <NFTDetailTraitPills
                     mintNumber={activeItem?.mintNumber}
-                    rarity={filteredTraits['Rarity']}
+                    rarity={activeItem?.rarity || filteredTraits['Rarity']}
+                    rarityColor={sortedItems.length > 1 ? activeItem?.colors.primary : undefined}
                     itemClass={filteredTraits['Class']}
                     platform={filteredTraits['Platform']}
                   />
@@ -2456,22 +2451,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 />
               </div>
 
-              {/* Armory Tab - only for modifiable weapons */}
-              {weaponLabEligible && hasRelatedItems && (
-                <button
-                  onClick={() => setIsWeaponLabOpen(true)}
-                  className="mt-4 w-full px-4 py-3 rounded-lg
-                    bg-[#64ffff]/10 border border-[#64ffff]/30
-                    text-sm font-medium text-[#64ffff]
-                    hover:bg-[#64ffff]/20 transition-colors
-                    flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                  </svg>
-                  Open Weapon Lab
-                </button>
-              )}
 
               {/* Locked Weapon Indicator */}
               {isLockedWeapon && (
@@ -2664,7 +2643,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
                           {/* Quantity Badge */}
                           {quantity > 1 && (
-                            <div className="flex-shrink-0 px-2 py-0.5 bg-[#96aaff]/20 text-[#96aaff] text-xs font-semibold rounded">
+                            <div
+                              className="flex-shrink-0 px-2 py-0.5 text-xs font-semibold"
+                              style={{
+                                color: '#96aaff',
+                                backgroundColor: 'rgba(150, 170, 255, 0.09)',
+                                border: '1px solid rgba(150, 170, 255, 0.38)',
+                              }}
+                            >
                               ×{quantity}
                             </div>
                           )}
@@ -2704,15 +2690,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         </div>
       </div>
 
-      {/* Weapon Lab Drawer */}
-      {nft && weaponLabEligible && (
-        <WeaponLabDrawer
-          isOpen={isWeaponLabOpen}
-          onClose={() => setIsWeaponLabOpen(false)}
-          weapon={nft}
-          inventory={allNfts || []}
-        />
-      )}
     </>,
     document.body
   );

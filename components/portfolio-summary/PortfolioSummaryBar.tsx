@@ -156,6 +156,7 @@ export default function PortfolioSummaryBar({
           isInitializing={isInitializing}
           gunHoldings={data.gunHoldings}
           gunValue={data.gunValue}
+          nftCount={data.nftCount}
           nftFloorValueUsd={data.nftFloorValueUsd}
           nftPnL={data.nftPnL}
           showNftOverlay={showNftOverlay}
@@ -163,6 +164,10 @@ export default function PortfolioSummaryBar({
           showGunOverlay={showGunOverlay}
           onToggleGunOverlay={toggleGunOverlay}
           hasSparklineData={hasSparklineData}
+          enrichmentProgress={enrichmentProgress}
+          progressPct={data.progressPct}
+          acquisitionBreakdown={data.acquisitionBreakdown}
+          onToggleViewMode={toggleViewMode}
         />
       )}
 

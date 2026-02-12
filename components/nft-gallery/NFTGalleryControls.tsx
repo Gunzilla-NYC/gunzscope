@@ -142,6 +142,7 @@ export function NFTGalleryControls({
               <option value="value-desc">Value (High-Low)</option>
               <option value="pnl-desc">P&L % (Best-Worst)</option>
               <option value="scarcity-asc">Scarcity (Rarest First)</option>
+              <option value="date-desc">Date (Newest First)</option>
             </select>
           </div>
 

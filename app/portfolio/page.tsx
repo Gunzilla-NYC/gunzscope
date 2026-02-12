@@ -10,7 +10,7 @@ import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { NFT } from '@/lib/types';
 import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
-import { groupNFTsByMetadata } from '@/lib/utils/nftGrouping';
+import { groupNFTsByMetadata, mergeIntoGroups } from '@/lib/utils/nftGrouping';
 import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
@@ -248,19 +248,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       );
 
       if (result.nfts.length > 0) {
-        // Group new NFTs
-        const groupedNewNFTs = groupNFTsByMetadata(result.nfts);
-
-        // Merge with existing NFTs (avoid duplicates by tokenId)
-        const existingTokenIds = new Set(
-          walletData.avalanche.nfts.flatMap(nft => nft.tokenIds || [nft.tokenId])
-        );
-        const uniqueNewNFTs = groupedNewNFTs.filter(nft => {
-          const tokenIds = nft.tokenIds || [nft.tokenId];
-          return !tokenIds.some(id => existingTokenIds.has(id));
-        });
-
-        const mergedNFTs = [...walletData.avalanche.nfts, ...uniqueNewNFTs];
+        // Merge new NFTs into existing groups (preserves enrichment data on existing groups,
+        // absorbs matching NFTs into their group, groups unmatched among themselves)
+        const mergedNFTs = mergeIntoGroups(walletData.avalanche.nfts, result.nfts);
 
         // Update wallet data with merged NFTs
         setWalletData(prev => {
@@ -285,9 +275,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
         // Start background enrichment for new NFTs using hook
         const marketplaceConfigured = marketplaceServiceRef.current.isConfigured();
+        const groupedNewNFTs = groupNFTsByMetadata(result.nfts);
 
         startEnrichment(
-          uniqueNewNFTs,
+          groupedNewNFTs,
           walletData.address,
           avalancheService,
           marketplaceConfigured ? marketplaceServiceRef.current : null,
