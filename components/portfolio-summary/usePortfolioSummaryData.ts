@@ -12,6 +12,7 @@ export function usePortfolioSummaryData(
   nfts: NFT[],
   enrichmentProgress: EnrichmentProgress | null | undefined,
   walletAddress: string | undefined,
+  gunPriceSparkline?: number[],
 ) {
   // Calculate NFT-based P&L from floor prices with coverage info
   const nftPnL = useMemo<NftPnL>(() => {
@@ -97,22 +98,55 @@ export function usePortfolioSummaryData(
   }, [walletAddress, portfolioResult?.totalUsd]);
 
   // Sparkline values from portfolio history (up to 90 evenly-sampled points across full history)
-  const sparklineValues = useMemo(() => {
+  // Falls back to GUN price-derived sparkline on first visit (no history yet)
+  const historySparkline = useMemo(() => {
     if (!walletAddress) return [];
     return getSparklineValues(walletAddress, 90);
   }, [walletAddress]);
 
+  const totalValue = portfolioResult?.totalUsd ?? 0;
+
+  const sparklineValues = useMemo(() => {
+    // Use real history when available (2+ points)
+    if (historySparkline.length >= 2) return historySparkline;
+    // Fall back to GUN price sparkline: scale each price point by current holdings
+    // portfolioValue ≈ gunPrice × totalGunDenominatedHoldings
+    // so historicalValue ≈ historicalPrice × (currentValue / currentPrice)
+    if (gunPriceSparkline && gunPriceSparkline.length >= 2 && gunPrice && gunPrice > 0 && totalValue > 0) {
+      const holdingsMultiplier = totalValue / gunPrice;
+      // Downsample to ~90 points for consistency
+      const src = gunPriceSparkline;
+      const count = Math.min(90, src.length);
+      const result: number[] = [];
+      for (let i = 0; i < count; i++) {
+        const srcIdx = Math.round((i / (count - 1)) * (src.length - 1));
+        result.push(src[srcIdx] * holdingsMultiplier);
+      }
+      return result;
+    }
+    return historySparkline;
+  }, [historySparkline, gunPriceSparkline, gunPrice, totalValue]);
+
   // NFT count history aligned with sparkline (same sampling)
   const nftCountHistory = useMemo(() => {
     if (!walletAddress) return [];
-    return getSparklineNftCounts(walletAddress, 90);
-  }, [walletAddress]);
+    const history = getSparklineNftCounts(walletAddress, 90);
+    // When using price-derived sparkline, fill NFT count with current count
+    if (history.length < 2 && sparklineValues.length >= 2) {
+      const nftC = portfolioResult?.nftCount ?? nfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
+      return sparklineValues.map(() => nftC);
+    }
+    return history;
+  }, [walletAddress, sparklineValues, portfolioResult?.nftCount, nfts]);
 
   // How many days the sparkline spans (for hover tooltip)
   const sparklineSpanDays = useMemo(() => {
     if (!walletAddress) return 0;
-    return getSparklineSpanDays(walletAddress);
-  }, [walletAddress]);
+    const historyDays = getSparklineSpanDays(walletAddress);
+    // Price sparkline covers 7 days when used as fallback
+    if (historyDays === 0 && sparklineValues.length >= 2) return 7;
+    return historyDays;
+  }, [walletAddress, sparklineValues]);
 
   // Portfolio insights
   const insights = useMemo(() => {
@@ -128,7 +162,6 @@ export function usePortfolioSummaryData(
   const changePercent7d = formatChangeDisplay(portfolioChanges.changePercent7d, true);
 
   // Derived values
-  const totalValue = portfolioResult?.totalUsd ?? 0;
   const gunHoldings = portfolioResult?.totalGunBalance ?? 0;
   const gunValue = portfolioResult?.tokensUsd ?? 0;
   const totalGunSpent = portfolioResult?.totalGunSpent ?? 0;

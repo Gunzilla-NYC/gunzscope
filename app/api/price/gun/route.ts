@@ -14,8 +14,9 @@ export async function GET() {
       headers['x-cg-demo-api-key'] = apiKey;
     }
 
+    // Use /coins/markets with sparkline=true to get both price AND 7-day history in one call
     const response = await fetch(
-      `${COINGECKO_API_BASE}/simple/price?ids=${COIN_ID}&vs_currencies=usd&include_24hr_change=true`,
+      `${COINGECKO_API_BASE}/coins/markets?vs_currency=usd&ids=${COIN_ID}&sparkline=true&price_change_percentage=24h`,
       { headers, next: { revalidate: 60 } } // Cache for 60 seconds
     );
 
@@ -24,11 +25,13 @@ export async function GET() {
     }
 
     const data = await response.json();
+    const coin = Array.isArray(data) ? data[0] : null;
 
-    if (data[COIN_ID]) {
+    if (coin) {
       return NextResponse.json({
-        gunTokenPrice: data[COIN_ID].usd,
-        change24h: data[COIN_ID].usd_24h_change,
+        gunTokenPrice: coin.current_price,
+        change24h: coin.price_change_percentage_24h,
+        sparkline7d: coin.sparkline_in_7d?.price ?? [],
         source: 'CoinGecko',
         timestamp: new Date().toISOString(),
       });

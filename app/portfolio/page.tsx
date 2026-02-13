@@ -50,6 +50,7 @@ export default function PortfolioPage() {
 function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; initialAddress: string | null }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
+  const [gunPriceSparkline, setGunPriceSparkline] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -386,6 +387,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       if (price) {
         setGunPrice(price);
       }
+      if (priceData?.sparkline7d && priceData.sparkline7d.length > 0) {
+        setGunPriceSparkline(priceData.sparkline7d);
+      }
 
       // Set network info and wallet type (from primary address)
       // Network info is hardcoded — we know it's GunzChain mainnet
@@ -514,6 +518,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     setNetworkInfo(null);
     setWalletType('unknown');
     setGunPrice(undefined);
+    setGunPriceSparkline([]);
     setError(null);
     setSearchAddress('');
     setAggregatedAddresses([]);
@@ -863,6 +868,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             <PortfolioSummaryBar
               portfolioResult={portfolioResult}
               gunPrice={gunPrice}
+              gunPriceSparkline={gunPriceSparkline}
               nfts={walletData.avalanche.nfts}
               isInitializing={isPortfolioInitializing}
               enrichmentProgress={enrichmentProgress}

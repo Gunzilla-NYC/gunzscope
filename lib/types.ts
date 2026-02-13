@@ -87,6 +87,7 @@ export interface PriceData {
   gunTokenPrice: number;
   source: string;
   timestamp: Date;
+  sparkline7d?: number[];
 }
 
 export interface MarketplaceData {

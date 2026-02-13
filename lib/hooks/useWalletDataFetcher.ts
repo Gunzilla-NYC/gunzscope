@@ -32,6 +32,7 @@ export interface WalletFetchResult {
 export interface WalletDataFetcherState {
   walletData: WalletData | null;
   gunPrice: number | undefined;
+  gunPriceSparkline: number[];
   networkInfo: NetworkInfo | null;
   walletType: 'in-game' | 'external' | 'unknown';
   nftPagination: {
@@ -55,6 +56,7 @@ export interface UseWalletDataFetcherOptions {
 const defaultState: WalletDataFetcherState = {
   walletData: null,
   gunPrice: undefined,
+  gunPriceSparkline: [],
   networkInfo: null,
   walletType: 'unknown',
   nftPagination: {
@@ -173,6 +175,7 @@ export function useWalletDataFetcher(options?: UseWalletDataFetcherOptions) {
       const newState: WalletDataFetcherState = {
         walletData: walletResult.walletData,
         gunPrice: priceData?.gunTokenPrice,
+        gunPriceSparkline: priceData?.sparkline7d ?? [],
         networkInfo: GUNZCHAIN_MAINNET_INFO,
         walletType: 'unknown',
         nftPagination: {

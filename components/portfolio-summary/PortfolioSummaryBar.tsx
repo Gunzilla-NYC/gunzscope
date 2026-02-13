@@ -16,6 +16,7 @@ import { DetailedGrid } from './DetailedGrid';
 interface PortfolioSummaryBarProps {
   portfolioResult: PortfolioCalcResult | null;
   gunPrice: number | undefined;
+  gunPriceSparkline?: number[];
   nfts: NFT[];
   isInitializing?: boolean;
   enrichmentProgress?: EnrichmentProgress | null;
@@ -28,6 +29,7 @@ interface PortfolioSummaryBarProps {
 export default function PortfolioSummaryBar({
   portfolioResult,
   gunPrice,
+  gunPriceSparkline,
   nfts,
   isInitializing = false,
   enrichmentProgress,
@@ -37,7 +39,7 @@ export default function PortfolioSummaryBar({
   walletAddress,
 }: PortfolioSummaryBarProps) {
   // All computed data from hook
-  const data = usePortfolioSummaryData(portfolioResult, gunPrice, nfts, enrichmentProgress, walletAddress);
+  const data = usePortfolioSummaryData(portfolioResult, gunPrice, nfts, enrichmentProgress, walletAddress, gunPriceSparkline);
 
   // Animated count-up for total value
   const { displayValue: animatedTotal } = useCountUp({

@@ -24,11 +24,15 @@ export class CoinGeckoService {
         }
         const data = await response.json();
         if (data.gunTokenPrice) {
-          return {
+          const result: PriceData = {
             gunTokenPrice: data.gunTokenPrice,
             source: 'CoinGecko',
             timestamp: new Date(data.timestamp),
           };
+          if (Array.isArray(data.sparkline7d) && data.sparkline7d.length > 0) {
+            result.sparkline7d = data.sparkline7d;
+          }
+          return result;
         }
         return null;
       }
