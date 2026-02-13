@@ -30,6 +30,7 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import UnlockBanner from '@/components/UnlockBanner';
 import { createEnrichmentUpdater } from '@/lib/utils/mergeEnrichedNFTs';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
+import { useGlitchTypewriter } from '@/hooks/useGlitchTypewriter';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -52,7 +53,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
   const [gunPriceSparkline, setGunPriceSparkline] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
@@ -145,20 +145,34 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     });
   }, [walletData, gunPrice, nftPagination.totalOwnedCount]);
 
-  // Phased loading messages — auto-advance while loading
-  const LOADING_MESSAGES = ['Connecting to GunzChain\u2026', 'Fetching wallet data\u2026', 'Loading NFT collection\u2026'];
-  useEffect(() => {
-    if (!loading) { setLoadingPhase(0); return; }
-    const t1 = setTimeout(() => setLoadingPhase(1), 1500);
-    const t2 = setTimeout(() => setLoadingPhase(2), 4000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [loading]);
+  // 10pm Easter egg — between 9:55 PM and 10:05 PM, this is the ONLY loading message
+  const is10pmWindow = useMemo(() => {
+    const now = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes();
+    return mins >= 21 * 60 + 55 && mins <= 22 * 60 + 5;
+  }, []);
+
+  const TEN_PM_MESSAGE = "It\u2019s 10pm. Do you know where your children are?";
+
+  // Typewriter loading messages — cycle with glitch transitions while loading
+  const LOADING_MESSAGES = is10pmWindow
+    ? [TEN_PM_MESSAGE]
+    : ['Dodging legendary buzzkilla with ease', 'Fetching wallet data\u2026', 'Loading NFT collection\u2026'];
+  const typewriter = useGlitchTypewriter({
+    words: LOADING_MESSAGES,
+    typingSpeed: 45,
+    pauseDuration: 2000,
+    glitchDuration: 250,
+  });
 
   // SDK init loading messages — displayed while waiting for wallet SDK to resolve
-  const SDK_INIT_MESSAGES = [
-    'I swear if this takes one more second to load...',
-    'I will lose my fucking mind...',
-  ];
+  const SDK_INIT_MESSAGES = useMemo(() => {
+    if (is10pmWindow) return [TEN_PM_MESSAGE];
+    return [
+      'I swear if this takes one more second to load...',
+      'I will lose my fucking mind...',
+    ];
+  }, [is10pmWindow]);
 
   // Transition out of initializing state when we have valid NFT price data OR after timeout
   // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
@@ -745,7 +759,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           <div className="text-center py-24">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--gs-lime)]" />
             <p className="mt-4 text-[var(--gs-gray-4)] font-mono text-sm">
-              {SDK_INIT_MESSAGES[sdkInitPhase]}
+              {SDK_INIT_MESSAGES[Math.min(sdkInitPhase, SDK_INIT_MESSAGES.length - 1)]}
             </p>
           </div>
         )
@@ -758,11 +772,22 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading state — typewriter with blinking cursor */}
       {loading && (
-        <div className="text-center py-24">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--gs-lime)]"></div>
-          <p className="mt-4 text-[var(--gs-gray-4)]">{LOADING_MESSAGES[loadingPhase]}</p>
+        <div className="flex items-center justify-center py-24">
+          <div className="flex items-center gap-3">
+            {/* Terminal prompt accent */}
+            <span className="text-[var(--gs-lime)] font-mono text-sm select-none">&gt;</span>
+            {/* Typewriter text */}
+            <span className="font-mono text-sm tracking-wide text-[var(--gs-gray-4)]">
+              {typewriter.displayText}
+            </span>
+            {/* Blinking cursor */}
+            <span
+              className="inline-block w-[2px] h-4 bg-[var(--gs-lime)] transition-opacity duration-100"
+              style={{ opacity: typewriter.cursorVisible ? 1 : 0 }}
+            />
+          </div>
         </div>
       )}
 

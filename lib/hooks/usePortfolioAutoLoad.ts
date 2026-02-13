@@ -97,12 +97,13 @@ export function usePortfolioAutoLoad({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [primaryWalletAddress, isAuthenticated, portfolioAddresses, walletData, loading, initialAddress]);
 
-  // 3. SDK init message cycling
+  // 3. SDK init message cycling (phases advance every ~2.5s)
   const isWaitingForSdk = !walletData && !loading && !noWalletDetected && !showFoundMessage;
   useEffect(() => {
     if (!isWaitingForSdk) { setSdkInitPhase(0); return; }
-    const t = setTimeout(() => setSdkInitPhase(1), 2000);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setSdkInitPhase(1), 2000);
+    const t2 = setTimeout(() => setSdkInitPhase(2), 4500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [isWaitingForSdk]);
 
   // 4. "Found it" transition message
