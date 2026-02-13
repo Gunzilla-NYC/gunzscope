@@ -110,7 +110,10 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                   </>
                 )}
                 {isAnonymous && isInApp && (
-                  <GlitchLink href="/" label="Home" isActive={false} />
+                  <>
+                    <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
+                    <GlitchLink href="/leaderboard" label="Leaderboard" isActive={pathname === '/leaderboard'} />
+                  </>
                 )}
                 {isAnonymous ? (
                   !isInApp ? (
@@ -166,13 +169,19 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/[0.06] bg-black/95 backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
-              {isInApp && !isAnonymous && [
-                { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
-                ...(hasWallet ? [
-                  { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
-                  { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
-                ] : []),
-              ].map(item => (
+              {isInApp && (isAnonymous
+                ? [
+                    { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
+                    { href: '/leaderboard', label: 'Leaderboard', active: pathname === '/leaderboard' },
+                  ]
+                : [
+                    { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
+                    ...(hasWallet ? [
+                      { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
+                      { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
+                    ] : []),
+                  ]
+              ).map(item => (
                 <Link
                   key={item.href}
                   href={item.href}

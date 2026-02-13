@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useFeatureRequests, type FeatureRequest } from '@/lib/hooks/useFeatureRequests';
 import WalletRequiredGate from '@/components/WalletRequiredGate';
+import { isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { SectionHeader } from './components/SectionHeader';
 import { RequestCard } from './components/RequestCard';
 import { SubmitForm } from './components/SubmitForm';
@@ -126,8 +127,7 @@ function FeatureRequestsContent() {
     deleteRequest,
   } = useFeatureRequests();
 
-  const isAdmin = primaryWallet?.address?.toLowerCase() ===
-    process.env.NEXT_PUBLIC_ADMIN_ADDRESS?.toLowerCase() && !!process.env.NEXT_PUBLIC_ADMIN_ADDRESS;
+  const isAdmin = isAdminWallet(primaryWallet?.address);
   const canParticipate = isAuthenticated && (eligibility?.eligible === true || isAdmin);
 
   return (

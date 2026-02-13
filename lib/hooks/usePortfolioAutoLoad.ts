@@ -74,7 +74,20 @@ export function usePortfolioAutoLoad({
       return;
     }
 
-    // No connected wallet — give Dynamic SDK time to initialize, then show CTA
+    // No connected wallet — check sessionStorage for a previously analyzed address
+    const lastSearched = typeof window !== 'undefined'
+      ? sessionStorage.getItem('gs_last_search')
+      : null;
+
+    if (lastSearched) {
+      autoLoadRef.current = true;
+      setNoWalletDetected(false);
+      onSetSearchAddress(lastSearched);
+      onSubmit(lastSearched);
+      return;
+    }
+
+    // No prior session either — give Dynamic SDK time to initialize, then show CTA
     const timer = setTimeout(() => {
       if (!autoLoadRef.current) {
         setNoWalletDetected(true);

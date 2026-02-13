@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { useAlertPreferences, type AlertType } from '@/lib/hooks/useAlertPreferences';
+import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
 
 const MAX_PORTFOLIO_WALLETS = 5;
@@ -73,6 +74,37 @@ function truncateAddress(addr: string): string {
 
 function isValidEvmAddress(addr: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(addr);
+}
+
+function LoginGate({ onLogin }: { onLogin: () => void }) {
+  const { spanRef, scramble } = useGlitchText('Login or Create Account');
+
+  return (
+    <div className="min-h-dvh flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)]">
+      <Navbar />
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="size-20 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-white/[0.06] flex items-center justify-center">
+          <svg className="size-10 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <h1 className="text-balance font-display font-bold text-2xl sm:text-3xl uppercase mb-3">
+          Login or Create Account
+        </h1>
+        <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)] mb-8 max-w-md text-center">
+          Login or create an account to track up to 5 wallets and manage your portfolio.
+        </p>
+        <button
+          onClick={onLogin}
+          onMouseEnter={scramble}
+          className="font-display font-semibold text-sm uppercase px-8 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors cursor-pointer"
+        >
+          <span ref={spanRef}>LOGIN OR CREATE ACCOUNT</span>
+        </button>
+      </main>
+      <Footer />
+    </div>
+  );
 }
 
 function AccountContent() {
@@ -184,29 +216,7 @@ function AccountContent() {
   // Gate: require authentication (use `user` not `primaryWallet` — wallet can lag behind SDK init)
   if (!user) {
     return (
-      <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center py-32">
-          <div className="size-20 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-white/[0.06] flex items-center justify-center">
-            <svg className="size-10 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-          </div>
-          <h1 className="text-balance font-display font-bold text-2xl sm:text-3xl uppercase mb-3">
-            Login to Manage Wallets
-          </h1>
-          <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)] mb-8 max-w-md text-center">
-            Login to track up to 5 wallets and manage your portfolio.
-          </p>
-          <button
-            onClick={() => setShowAuthFlow(true)}
-            className="font-display font-semibold text-sm uppercase px-8 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors"
-          >
-            Login
-          </button>
-        </main>
-        <Footer />
-      </div>
+      <LoginGate onLogin={() => setShowAuthFlow(true)} />
     );
   }
 

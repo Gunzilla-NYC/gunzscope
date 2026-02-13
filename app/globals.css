@@ -127,10 +127,9 @@ body {
   cursor: none;
 }
 
-/* Hide cursor everywhere — !important overrides Tailwind cursor-pointer */
-*, *::before, *::after {
-  cursor: none !important;
-}
+/* Hide native cursor everywhere — * without pseudo-elements.
+   !important needed to override both UA defaults and Tailwind cursor-* utilities. */
+* { cursor: none !important; }
 
 /* Typography utility classes */
 .font-display {

@@ -25,26 +25,26 @@ interface Step {
 // Wallet-connected user steps (original flow)
 const WALLET_STEPS: Step[] = [
   {
-    id: 'connect-wallet',
-    label: 'Connect your wallet',
-    description: 'Link a GunzChain wallet to get started',
-    action: 'auth',
-  },
-  {
     id: 'view-portfolio',
-    label: 'View your portfolio',
-    description: 'See your GUN tokens and NFT collection',
+    label: 'Analyze a Portfolio',
+    description: 'Search any wallet by address',
     href: '/portfolio',
   },
   {
+    id: 'connect-wallet',
+    label: 'Create an Account',
+    description: 'Unlock more features',
+    action: 'auth',
+  },
+  {
     id: 'explore-leaderboard',
-    label: 'Explore the leaderboard',
+    label: 'Explore the Leaderboard',
     description: 'See how your portfolio stacks up',
     href: '/leaderboard',
   },
   {
     id: 'manage-wallets',
-    label: 'Manage tracked wallets',
+    label: 'Track More Wallets',
     description: 'Add extra wallets for a combined view',
     href: '/account',
   },
@@ -146,10 +146,10 @@ export default function OnboardingChecklist() {
         hasWallet,                                     // unlock-features: same
       ]
     : [
-        hasWallet || hasUser,                          // connect-wallet
-        state.visitedPages.includes('/portfolio'),     // view-portfolio
-        state.visitedPages.includes('/leaderboard'),   // explore-leaderboard
-        state.visitedPages.includes('/account'),       // manage-wallets
+        state.visitedPages.includes('/portfolio'),                                     // analyze-portfolio
+        hasWallet || hasUser,                                                          // create-account
+        (hasWallet || hasUser) && state.visitedPages.includes('/leaderboard'),          // explore-leaderboard (requires auth)
+        (hasWallet || hasUser) && state.visitedPages.includes('/account'),              // track-more-wallets (requires auth)
       ];
 
   const completedCount = completedSteps.filter(Boolean).length;
