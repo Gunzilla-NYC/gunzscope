@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import StaticPageNav from '@/components/StaticPageNav';
 import Footer from '@/components/Footer';
+import prisma from '@/lib/db';
 
 interface Contributor {
   name: string;
@@ -12,7 +13,32 @@ const contributors: Contributor[] = [
   { name: 'meatport', role: 'Feedback & Testing', xHandle: 'meatportgg' },
 ];
 
-export default function CreditsPage() {
+/** Fetch distinct authors whose feature requests were completed. */
+async function getIdeaContributors(): Promise<{ name: string; count: number }[]> {
+  const completed = await prisma.featureRequest.findMany({
+    where: { status: 'completed' },
+    select: {
+      author: { select: { displayName: true } },
+    },
+  });
+
+  // Group by author name and count completed ideas
+  const counts = new Map<string, number>();
+  for (const r of completed) {
+    const name = r.author.displayName || 'Anonymous';
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+export const dynamic = 'force-dynamic';
+
+export default async function CreditsPage() {
+  const ideaContributors = await getIdeaContributors();
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">
       <div className="grid-bg" />
@@ -75,6 +101,31 @@ export default function CreditsPage() {
             </div>
           ))}
         </div>
+
+        {/* Idea Contributors — auto-populated from completed feature requests */}
+        {ideaContributors.length > 0 && (
+          <div className="mt-12 space-y-2">
+            <p className="font-mono text-caption uppercase tracking-widest text-[var(--gs-gray-4)] mb-4">
+              Idea Contributors
+            </p>
+            {ideaContributors.map((person) => (
+              <div
+                key={person.name}
+                className="flex items-center justify-between p-4 border border-white/[0.06] bg-[var(--gs-dark-2)] transition-colors hover:border-[var(--gs-lime)]/30"
+                style={{
+                  clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+                }}
+              >
+                <span className="font-mono text-base text-[var(--gs-white)]">
+                  {person.name}
+                </span>
+                <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)]">
+                  {person.count === 1 ? '1 idea shipped' : `${person.count} ideas shipped`}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* CTA — nudges toward the Feature Requests page */}
         <div className="mt-16 p-6 border border-white/[0.06] bg-[var(--gs-dark-2)]">

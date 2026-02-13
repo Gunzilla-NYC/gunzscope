@@ -827,7 +827,7 @@ export default function HomePage() {
                         <div className="mt-3 p-3 bg-[var(--gs-black)] border border-white/[0.06] clip-corner-sm space-y-2.5">
                           <p className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)]">How to find your address</p>
                           <ol className="font-body text-data leading-relaxed text-[var(--gs-gray-4)] list-decimal list-inside space-y-1">
-                            <li>Open <span className="text-[var(--gs-white)]">Battle Pass</span></li>
+                            <li>Stop admiring your drip in the <span className="text-[var(--gs-white)]">OTG Lobby</span></li>
                             <li>Click on your <span className="text-[var(--gs-lime)]">GUN balance</span></li>
                             <li>Click <span className="text-[var(--gs-white)]">Open Wallet</span></li>
                             <li>Copy your wallet address</li>
