@@ -492,9 +492,13 @@ export class AvalancheService {
   private provider: ethers.JsonRpcProvider;
 
   constructor() {
-    // GunzChain Mainnet RPC (Chain ID: 43419)
-    const rpcUrl = process.env.NEXT_PUBLIC_AVALANCHE_RPC_URL ||
-      'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
+    // In-browser: proxy through /api/rpc to avoid mixed-content (HTTP RPC from HTTPS page)
+    // and CORS issues. Server-side: call the RPC directly.
+    const isBrowser = typeof window !== 'undefined';
+    const rpcUrl = isBrowser
+      ? '/api/rpc'
+      : (process.env.AVALANCHE_RPC_URL ||
+         'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc');
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
   }
 
