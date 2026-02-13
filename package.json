@@ -11,8 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@dynamic-labs/ethereum": "^4.55.0",
-    "@dynamic-labs/sdk-react-core": "^4.55.0",
+    "@dynamic-labs/ethereum": "^4.61.2",
+    "@dynamic-labs/sdk-react-core": "^4.61.2",
     "@playwright/test": "^1.58.2",
     "@prisma/adapter-better-sqlite3": "^7.2.0",
     "@solana/web3.js": "^1.98.4",
