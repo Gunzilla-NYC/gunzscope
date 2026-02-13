@@ -30,7 +30,7 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import UnlockBanner from '@/components/UnlockBanner';
 import { createEnrichmentUpdater } from '@/lib/utils/mergeEnrichedNFTs';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
-import { useGlitchTypewriter } from '@/hooks/useGlitchTypewriter';
+import { useTextScramble } from '@/hooks/useTextScramble';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -59,7 +59,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [searchAddress, setSearchAddress] = useState('');
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
   const [viewMode, setViewMode] = useState<PortfolioViewMode>('simple');
-  // noWalletDetected, sdkInitPhase, showFoundMessage — owned by usePortfolioAutoLoad below
+  // noWalletDetected, showFoundMessage — owned by usePortfolioAutoLoad below
 
   // Slide-down unlock banner state
   const [showUnlockBanner, setShowUnlockBanner] = useState(false);
@@ -154,25 +154,29 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   const TEN_PM_MESSAGE = "It\u2019s 10pm. Do you know where your children are?";
 
-  // Typewriter loading messages — cycle with glitch transitions while loading
+  // Scramble loading messages — cycle with scramble decode effect (same as home hero)
   const LOADING_MESSAGES = is10pmWindow
     ? [TEN_PM_MESSAGE]
     : ['Dodging legendary buzzkilla with ease', 'Fetching wallet data\u2026', 'Loading NFT collection\u2026'];
-  const typewriter = useGlitchTypewriter({
+  const loadingScramble = useTextScramble({
     words: LOADING_MESSAGES,
-    typingSpeed: 45,
+    scrambleDuration: 600,
     pauseDuration: 2000,
-    glitchDuration: 250,
   });
 
   // SDK init loading messages — displayed while waiting for wallet SDK to resolve
-  const SDK_INIT_MESSAGES = useMemo(() => {
+  const SDK_INIT_WORDS = useMemo(() => {
     if (is10pmWindow) return [TEN_PM_MESSAGE];
     return [
       'I swear if this takes one more second to load...',
       'I will lose my fucking mind...',
     ];
   }, [is10pmWindow]);
+  const sdkScramble = useTextScramble({
+    words: SDK_INIT_WORDS,
+    scrambleDuration: 600,
+    pauseDuration: 2500,
+  });
 
   // Transition out of initializing state when we have valid NFT price data OR after timeout
   // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
@@ -550,7 +554,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Auto-load, disconnect detection, SDK init, and "found it" message — consolidated hook
   const {
     noWalletDetected, setNoWalletDetected,
-    showFoundMessage, sdkInitPhase, isSharedLinkLoad,
+    showFoundMessage, isSharedLinkLoad,
   } = usePortfolioAutoLoad({
     initialAddress,
     primaryWalletAddress: primaryWallet?.address,
@@ -756,10 +760,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             </div>
           </div>
         ) : (
-          <div className="text-center py-24">
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--gs-lime)]" />
-            <p className="mt-4 text-[var(--gs-gray-4)] font-mono text-sm">
-              {SDK_INIT_MESSAGES[Math.min(sdkInitPhase, SDK_INIT_MESSAGES.length - 1)]}
+            <p className="text-[var(--gs-gray-4)] font-mono text-sm">
+              {sdkScramble.displayText}
             </p>
           </div>
         )
@@ -772,22 +776,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         </div>
       )}
 
-      {/* Loading state — typewriter with blinking cursor */}
+      {/* Loading state — spinner + scramble text */}
       {loading && (
-        <div className="flex items-center justify-center py-24">
-          <div className="flex items-center gap-3">
-            {/* Terminal prompt accent */}
-            <span className="text-[var(--gs-lime)] font-mono text-sm select-none">&gt;</span>
-            {/* Typewriter text */}
-            <span className="font-mono text-sm tracking-wide text-[var(--gs-gray-4)]">
-              {typewriter.displayText}
-            </span>
-            {/* Blinking cursor */}
-            <span
-              className="inline-block w-[2px] h-4 bg-[var(--gs-lime)] transition-opacity duration-100"
-              style={{ opacity: typewriter.cursorVisible ? 1 : 0 }}
-            />
-          </div>
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-[var(--gs-lime)]" />
+          <p className="font-mono text-sm tracking-wide text-[var(--gs-gray-4)]">
+            {loadingScramble.displayText}
+          </p>
         </div>
       )}
 
