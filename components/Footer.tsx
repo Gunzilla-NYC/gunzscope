@@ -29,15 +29,13 @@ export default function Footer({ variant = 'full' }: FooterProps) {
           <Link href="/privacy" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Privacy</Link>
           <span className="text-[var(--gs-gray-2)] mx-2">&middot;</span>
           <Link href="/credits" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Credits</Link>
+          <span className="text-[var(--gs-gray-2)] mx-2">&middot;</span>
+          <a href="https://x.com/gunzscope" target="_blank" rel="noopener noreferrer" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">X</a>
         </p>
 
         {/* Credit */}
         <p className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
-          Built with <span className="text-[var(--gs-lime)]">&hearts;</span> by{' '}
-          <a href="https://x.com/gunzscope" target="_blank" rel="noopener noreferrer" className="text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] transition-colors">
-            CRYPTOHAKI
-          </a>{' '}
-          for the Gunzilla community.
+          Built with <span className="text-[var(--gs-lime)]">&hearts;</span> by CRYPTOHAKI for the Gunzilla community.
         </p>
       </div>
     </footer>
