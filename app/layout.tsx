@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
+import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import CrosshairCursor from "@/components/CrosshairCursor";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { Toaster } from "sonner";
@@ -49,6 +51,7 @@ export default function RootLayout({
     <html lang="en" className={`${chakraPetch.variable} ${outfit.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased font-body bg-gunzscope">
         <CrosshairCursor />
+        <PostHogProvider>
         <DynamicProvider>
           <div id="app-content" className="relative z-10">
             {children}
@@ -70,7 +73,9 @@ export default function RootLayout({
             }}
           />
         </DynamicProvider>
+        </PostHogProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
