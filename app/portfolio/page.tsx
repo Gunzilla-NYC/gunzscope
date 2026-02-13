@@ -9,7 +9,7 @@ import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { NFT } from '@/lib/types';
-import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
+import { NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata, mergeIntoGroups } from '@/lib/utils/nftGrouping';
 import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
@@ -75,6 +75,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   // Wallet data fetcher hook - provides fetchSingleWallet and services
   const walletFetcher = useWalletDataFetcher();
+  const { getServices } = walletFetcher;
 
   // Shared service instances (avoid re-creating per call)
   const marketplaceServiceRef = useRef(new GameMarketplaceService());
@@ -238,7 +239,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
     try {
       // Get avalanche service from hook (reuses existing instance)
-      const { avalanche: avalancheService } = walletFetcher.getServices();
+      const { avalanche: avalancheService } = getServices();
       const startIndex = nftPagination.fetchedCount;
 
       const result = await avalancheService.getNFTsPaginated(
@@ -297,7 +298,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       console.error('Error loading more NFTs:', error);
       setNftPagination(prev => ({ ...prev, isLoadingMore: false }));
     }
-  }, [walletData, nftPagination, startEnrichment, walletFetcher]);
+  }, [walletData, nftPagination, startEnrichment, getServices]);
 
   // Auto-load all remaining NFT pages in the background for complete portfolio data
   useEffect(() => {
@@ -318,13 +319,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
     try {
       // Get services from hook (reuses existing instances)
-      const { avalanche: avalancheService, coinGecko: coinGeckoService } = walletFetcher.getServices();
+      const { avalanche: avalancheService, coinGecko: coinGeckoService } = getServices();
       const marketplaceService = marketplaceServiceRef.current;
-
-      // Detect network and wallet type
-      // Note: RPC URL is server-side only, client uses hardcoded fallback
-      const rpcUrl = 'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
-      const networkDetector = new NetworkDetector(rpcUrl);
 
       // Determine all addresses to fetch
       // Primary address is always included, plus any portfolio addresses if user is authenticated
@@ -338,16 +334,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         addressesToFetch.push(...additionalAddresses);
       }
 
-      // Fetch shared data (prices, network) plus all wallet data in parallel
+      // Fetch price and wallet data in parallel
+      // Network info is hardcoded (we know it's GunzChain mainnet)
       const [
         priceData,
-        detectedNetworkInfo,
-        detectedWalletType,
         ...walletResults
       ] = await Promise.all([
         coinGeckoService.getGunTokenPrice(),
-        networkDetector.getNetworkInfo(),
-        networkDetector.detectWalletType(address),
         ...addressesToFetch.map(addr => walletFetcher.fetchSingleWallet(addr)),
       ]);
 
@@ -395,8 +388,14 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       }
 
       // Set network info and wallet type (from primary address)
-      setNetworkInfo(detectedNetworkInfo);
-      setWalletType(detectedWalletType);
+      // Network info is hardcoded — we know it's GunzChain mainnet
+      setNetworkInfo({
+        environment: 'mainnet',
+        chainId: 43419,
+        name: 'GunzChain Mainnet',
+        explorerUrl: 'https://gunzscan.io',
+      });
+      setWalletType('unknown');
 
       setWalletData(mergedData);
       setLoading(false);

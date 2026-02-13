@@ -5,8 +5,16 @@ import { WalletData } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { SolanaService } from '@/lib/blockchain/solana';
 import { CoinGeckoService } from '@/lib/api/coingecko';
-import { NetworkDetector, NetworkInfo } from '@/lib/utils/networkDetector';
+import { NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata } from '@/lib/utils/nftGrouping';
+
+// Known mainnet info — no need for an RPC call to determine this
+const GUNZCHAIN_MAINNET_INFO: NetworkInfo = {
+  environment: 'mainnet',
+  chainId: 43419,
+  name: 'GunzChain Mainnet',
+  explorerUrl: 'https://gunzscan.io',
+};
 
 // =============================================================================
 // Types
@@ -148,20 +156,13 @@ export function useWalletDataFetcher(options?: UseWalletDataFetcherOptions) {
     try {
       const services = getServices();
 
-      // RPC URL for network detection
-      const rpcUrl = 'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc';
-      const networkDetector = new NetworkDetector(rpcUrl);
-
-      // Fetch all data in parallel
+      // Fetch price and wallet data in parallel
+      // Network info is hardcoded (we know it's GunzChain mainnet)
       const [
         priceData,
-        detectedNetworkInfo,
-        detectedWalletType,
         walletResult,
       ] = await Promise.all([
         services.coinGecko.getGunTokenPrice(),
-        networkDetector.getNetworkInfo(),
-        networkDetector.detectWalletType(address),
         fetchSingleWallet(address, services.avalanche, services.solana),
       ]);
 
@@ -172,8 +173,8 @@ export function useWalletDataFetcher(options?: UseWalletDataFetcherOptions) {
       const newState: WalletDataFetcherState = {
         walletData: walletResult.walletData,
         gunPrice: priceData?.gunTokenPrice,
-        networkInfo: detectedNetworkInfo,
-        walletType: detectedWalletType,
+        networkInfo: GUNZCHAIN_MAINNET_INFO,
+        walletType: 'unknown',
         nftPagination: {
           totalCount: walletResult.nftResult.totalCount,
           fetchedCount: walletResult.nftResult.fetchedCount,
@@ -229,14 +230,17 @@ export function useWalletDataFetcher(options?: UseWalletDataFetcherOptions) {
     setState(defaultState);
   }, []);
 
+  // Stable wrapper for fetchSingleWallet — avoids new function on every render
+  const fetchSingleWalletPublic = useCallback((address: string) => {
+    const services = getServices();
+    return fetchSingleWallet(address, services.avalanche, services.solana);
+  }, [getServices, fetchSingleWallet]);
+
   return {
     ...state,
     fetchWalletData,
     fetchMultipleWallets,
-    fetchSingleWallet: (address: string) => {
-      const services = getServices();
-      return fetchSingleWallet(address, services.avalanche, services.solana);
-    },
+    fetchSingleWallet: fetchSingleWalletPublic,
     updateWalletData,
     reset,
     // Expose services for enrichment
