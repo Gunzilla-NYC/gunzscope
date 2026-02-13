@@ -132,7 +132,7 @@ export default function CrosshairCursor() {
         opacity: 0,
         zIndex: 9999,
         willChange: 'auto',
-        contain: 'strict',
+        contain: 'layout paint',
       }}
     >
       {/* Inline SVG — 4 lines, no filters, crispEdges. Lighter than an <img> data-URI
