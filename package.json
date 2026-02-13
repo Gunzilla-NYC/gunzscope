@@ -13,6 +13,12 @@
   "dependencies": {
     "@dynamic-labs/ethereum": "^4.61.2",
     "@dynamic-labs/sdk-react-core": "^4.61.2",
+    "@nivo/chord": "^0.99.0",
+    "@nivo/core": "^0.99.0",
+    "@nivo/heatmap": "^0.99.0",
+    "@nivo/radar": "^0.99.0",
+    "@nivo/sunburst": "^0.99.0",
+    "@nivo/treemap": "^0.99.0",
     "@playwright/test": "^1.58.2",
     "@prisma/adapter-better-sqlite3": "^7.2.0",
     "@solana/web3.js": "^1.98.4",
@@ -45,7 +51,11 @@
     "posthog-js": "^1.347.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-force-graph-2d": "^1.29.1",
+    "react-force-graph-3d": "^1.29.1",
+    "reaviz": "^16.1.1",
     "resend": "^6.9.1",
+    "satori": "^0.19.2",
     "sonner": "^2.0.7"
   },
   "overrides": {
