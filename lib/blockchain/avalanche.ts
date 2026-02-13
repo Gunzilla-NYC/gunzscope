@@ -496,7 +496,7 @@ export class AvalancheService {
     // and CORS issues. Server-side: call the RPC directly.
     const isBrowser = typeof window !== 'undefined';
     const rpcUrl = isBrowser
-      ? '/api/rpc'
+      ? `${window.location.origin}/api/rpc`
       : (process.env.AVALANCHE_RPC_URL ||
          'https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc');
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
