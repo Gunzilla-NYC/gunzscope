@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/react";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import CrosshairCursor from "@/components/CrosshairCursor";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
@@ -69,6 +70,7 @@ export default function RootLayout({
             }}
           />
         </DynamicProvider>
+        <Analytics />
       </body>
     </html>
   );

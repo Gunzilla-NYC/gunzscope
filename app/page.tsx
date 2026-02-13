@@ -255,19 +255,22 @@ export default function HomePage() {
     setShowWalletModal(false);
   }, []);
 
-  // Trigger animations when data loads
+  // Trigger animations when data loads (depend on data, not countUp objects)
   useEffect(() => {
     if (gunPrice !== null) gunPriceCountUp.startAnimation();
-  }, [gunPrice, gunPriceCountUp]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gunPrice]);
 
   useEffect(() => {
     if (siteStats) {
       // Stagger the stats: 200ms, 400ms, 600ms after siteStats loads
-      setTimeout(() => portfolioValueCountUp.startAnimation(), 200);
-      setTimeout(() => pnlCountUp.startAnimation(), 400);
-      setTimeout(() => nftsCountUp.startAnimation(), 600);
+      const t1 = setTimeout(() => portfolioValueCountUp.startAnimation(), 200);
+      const t2 = setTimeout(() => pnlCountUp.startAnimation(), 400);
+      const t3 = setTimeout(() => nftsCountUp.startAnimation(), 600);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
-  }, [siteStats, portfolioValueCountUp, pnlCountUp, nftsCountUp]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteStats]);
 
   // Fetch GUN price and site stats on mount
   useEffect(() => {
