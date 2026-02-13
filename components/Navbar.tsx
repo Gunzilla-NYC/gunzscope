@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Logo from './Logo';
 import { GlitchLink } from './navbar/GlitchLink';
@@ -14,6 +14,8 @@ import { useAutoLogin } from './navbar/hooks/useAutoLogin';
 export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: string) => void } = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const isStaticPage = ['/terms', '/privacy', '/credits'].includes(pathname);
   const { user, primaryWallet, setShowAuthFlow, handleLogOut } = useDynamicContext();
 
   // Global auto-login: create profile as soon as wallet connects on ANY page
@@ -117,12 +119,21 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                 )}
                 {isAnonymous ? (
                   !isInApp ? (
-                    <button
-                      onClick={() => setShowAuthFlow(true)}
-                      className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                    >
-                      Login
-                    </button>
+                    isStaticPage ? (
+                      <button
+                        onClick={() => router.back()}
+                        className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
+                      >
+                        Back
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setShowAuthFlow(true)}
+                        className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                      >
+                        Login
+                      </button>
+                    )
                   ) : null
                 ) : isConnected ? (
                   <WalletDropdown
@@ -154,12 +165,21 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                   </svg>
                 </button>
               ) : !isInApp ? (
-                <button
-                  onClick={() => setShowAuthFlow(true)}
-                  className="md:hidden font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                >
-                  Login
-                </button>
+                isStaticPage ? (
+                  <button
+                    onClick={() => router.back()}
+                    className="md:hidden font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAuthFlow(true)}
+                    className="md:hidden font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                  >
+                    Login
+                  </button>
+                )
               ) : null}
             </div>
           </div>

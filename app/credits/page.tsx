@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import StaticPageNav from '@/components/StaticPageNav';
+import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import prisma from '@/lib/db';
 
@@ -44,10 +44,7 @@ export default async function CreditsPage() {
       <div className="grid-bg" />
       <div className="scanlines" />
 
-      <StaticPageNav />
-
-      {/* Spacer for fixed nav */}
-      <div className="h-16" />
+      <Navbar />
 
       {/* Content */}
       <main className="flex-1 pt-16 pb-24 px-6 lg:px-10 max-w-2xl mx-auto w-full">

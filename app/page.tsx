@@ -150,6 +150,7 @@ export default function HomePage() {
     const chain = detectChain(trimmed);
     if (!chain) return;
 
+    setShowWalletHelp(false);
     setGateLoading(true);
     setGateError(null);
 
@@ -232,15 +233,21 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [socialProofVisible, walletsCountUp, socialNftsCountUp]);
 
+  // Close modal helper
+  const closeWalletModal = useCallback(() => {
+    setShowWalletModal(false);
+    setShowWalletHelp(false);
+  }, []);
+
   // Wallet modal: Escape key handler
   useEffect(() => {
     if (!showWalletModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowWalletModal(false);
+      if (e.key === 'Escape') closeWalletModal();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showWalletModal]);
+  }, [showWalletModal, closeWalletModal]);
 
   // Wallet modal: auto-focus paste input when entering paste view
   const pasteInputRef = useRef<HTMLInputElement>(null);
@@ -249,11 +256,6 @@ export default function HomePage() {
       setTimeout(() => pasteInputRef.current?.focus(), 100);
     }
   }, [showWalletModal, modalView]);
-
-  // Close modal helper
-  const closeWalletModal = useCallback(() => {
-    setShowWalletModal(false);
-  }, []);
 
   // Trigger animations when data loads (depend on data, not countUp objects)
   useEffect(() => {
@@ -672,7 +674,7 @@ export default function HomePage() {
                 {modalView === 'paste' && (
                   <button
                     type="button"
-                    onClick={() => { setModalView('choose'); setGateError(null); }}
+                    onClick={() => { setModalView('choose'); setGateError(null); setShowWalletHelp(false); }}
                     className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
                     aria-label="Back to options"
                   >
@@ -818,12 +820,23 @@ export default function HomePage() {
                       </button>
                     </p>
 
-                    {/* Slide-down help panel */}
+                    {/* Expandable help panel — mechanical accordion */}
                     <div
-                      className="grid transition-all duration-300 ease-out"
-                      style={{ gridTemplateRows: showWalletHelp ? '1fr' : '0fr' }}
+                      className="grid"
+                      style={{
+                        gridTemplateRows: showWalletHelp ? '1fr' : '0fr',
+                        transition: 'grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
                     >
-                      <div className="overflow-hidden">
+                      <div
+                        className="overflow-hidden"
+                        style={{
+                          opacity: showWalletHelp ? 1 : 0,
+                          transition: showWalletHelp
+                            ? 'opacity 0.3s 0.08s ease-out'
+                            : 'opacity 0.15s ease-in',
+                        }}
+                      >
                         <div className="mt-3 p-3 bg-[var(--gs-black)] border border-white/[0.06] clip-corner-sm space-y-2.5">
                           <p className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)]">How to find your address</p>
                           <ol className="font-body text-data leading-relaxed text-[var(--gs-gray-4)] list-decimal list-inside space-y-1">

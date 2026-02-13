@@ -9,8 +9,12 @@
 
 import { PrismaClient } from './generated/prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import path from 'path';
 
-const databaseUrl = process.env.DATABASE_URL || 'file:./dev.db';
+// Resolve database path relative to project root so it works in both
+// local dev (cwd = project root) and Vercel serverless (cwd varies).
+const defaultDbPath = `file:${path.join(process.cwd(), 'dev.db')}`;
+const databaseUrl = process.env.DATABASE_URL || defaultDbPath;
 
 // Create SQLite driver adapter
 const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
