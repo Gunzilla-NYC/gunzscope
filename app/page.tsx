@@ -7,7 +7,6 @@ import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
 import { useCountUp } from '@/hooks/useCountUp';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
-import InfoTooltip from '@/components/ui/InfoTooltip';
 import { useTextScramble } from '@/hooks/useTextScramble';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
@@ -76,6 +75,7 @@ export default function HomePage() {
   // Wallet modal state
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [modalView, setModalView] = useState<'choose' | 'paste'>('choose');
+  const [showWalletHelp, setShowWalletHelp] = useState(false);
   const { primaryWallet, user, setShowAuthFlow, handleLogOut } = useDynamicContext();
   // Track whether user was already authenticated on mount (don't auto-redirect on page load)
   const wasConnectedOnMount = useRef<boolean | null>(null);
@@ -805,11 +805,40 @@ export default function HomePage() {
                     <p className="font-mono text-data text-[var(--gs-loss)] mt-2">{gateError}</p>
                   )}
 
-                  {/* Helper text */}
-                  <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-4 leading-relaxed inline-flex items-center gap-1.5 flex-wrap">
-                    Paste your wallet address from Off The Grid on PC or Console.
-                    <InfoTooltip text="In OTG, go to Settings → Blockchain → Wallet Address. Copy the full address starting with 0x. Solana players: use your Phantom or in-game Solana address." />
-                  </p>
+                  {/* Helper text + expandable guide */}
+                  <div className="mt-4">
+                    <p className="font-mono text-caption text-[var(--gs-gray-2)] leading-relaxed">
+                      Paste your wallet address from Off The Grid on PC or Console.{' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowWalletHelp(prev => !prev)}
+                        className={`font-mono text-caption transition-colors cursor-pointer ${showWalletHelp ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-purple-bright)] hover:text-[var(--gs-lime)]'}`}
+                      >
+                        How do I find my wallet address?
+                      </button>
+                    </p>
+
+                    {/* Slide-down help panel */}
+                    <div
+                      className="grid transition-all duration-300 ease-out"
+                      style={{ gridTemplateRows: showWalletHelp ? '1fr' : '0fr' }}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="mt-3 p-3 bg-[var(--gs-black)] border border-white/[0.06] clip-corner-sm space-y-2.5">
+                          <p className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)]">How to find your address</p>
+                          <ol className="font-body text-data leading-relaxed text-[var(--gs-gray-4)] list-decimal list-inside space-y-1">
+                            <li>Open <span className="text-[var(--gs-white)]">Battle Pass</span></li>
+                            <li>Click on your <span className="text-[var(--gs-lime)]">GUN balance</span></li>
+                            <li>Click <span className="text-[var(--gs-white)]">Open Wallet</span></li>
+                            <li>Copy your wallet address</li>
+                          </ol>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/otg-wallet-guide.gif" alt="How to find wallet address in OTG" className="w-full rounded-sm border border-white/[0.06]" />
+                          <p className="font-mono text-caption text-[var(--gs-gray-2)]">Solana players: use your Phantom or in&#8209;game Solana address.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

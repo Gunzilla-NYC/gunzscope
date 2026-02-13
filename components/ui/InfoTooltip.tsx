@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 interface InfoTooltipProps {
-  text: string;
+  text?: string;
+  children?: ReactNode;
+  wide?: boolean;
 }
 
-export default function InfoTooltip({ text }: InfoTooltipProps) {
+export default function InfoTooltip({ text, children, wide }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -33,14 +35,16 @@ export default function InfoTooltip({ text }: InfoTooltipProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open, updatePosition]);
 
+  const hasRichContent = !!children;
+
   return (
     <>
       <button
         ref={btnRef}
         type="button"
         onClick={() => setOpen(prev => !prev)}
-        onMouseEnter={() => { setOpen(true); updatePosition(); }}
-        onMouseLeave={() => setOpen(false)}
+        onMouseEnter={() => { if (!hasRichContent) { setOpen(true); updatePosition(); } }}
+        onMouseLeave={() => { if (!hasRichContent) setOpen(false); }}
         className="text-[var(--gs-gray-2)] hover:text-[var(--gs-gray-4)] transition-colors cursor-help"
         aria-label="More info"
       >
@@ -51,10 +55,12 @@ export default function InfoTooltip({ text }: InfoTooltipProps) {
       </button>
       {open && pos && createPortal(
         <div
-          className="fixed w-52 px-3 py-2 bg-[var(--gs-dark-1)] border border-white/10 shadow-xl shadow-black/40 z-[100] -translate-x-1/2"
+          className={`fixed px-3 py-2 bg-[var(--gs-dark-1)] border border-white/10 shadow-xl shadow-black/40 z-[100] ${wide ? 'w-72' : 'w-52'}`}
           style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)' }}
         >
-          <p className="font-body text-data leading-relaxed text-[var(--gs-gray-4)]">{text}</p>
+          {children ?? (
+            <p className="font-body text-data leading-relaxed text-[var(--gs-gray-4)]">{text}</p>
+          )}
         </div>,
         document.body
       )}
