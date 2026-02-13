@@ -5,6 +5,7 @@ import { EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult, formatUsd } from '@/lib/portfolio/calcPortfolio';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
 import { PortfolioViewMode, ChangeDisplay } from './types';
+import { computeSparklinePath } from './sparklineUtils';
 
 // SVG viewBox dimensions for the backdrop sparkline
 const SVG_W = 800;
@@ -41,95 +42,8 @@ interface ValueHeaderProps {
   isProfit: boolean;
   isLoss: boolean;
   onToggleViewMode: () => void;
-  showNftOverlay: boolean;
-  nftSparklineValues: number[];
   showGunOverlay: boolean;
   gunSparklineValues: number[];
-}
-
-// ────────────────────────────────────────────────────────────
-// Monotone cubic Hermite interpolation (Fritsch-Carlson method)
-// Produces smooth curves that never overshoot — same algorithm
-// used by visx curveMonotoneX / d3-shape curveMonotoneX.
-// ────────────────────────────────────────────────────────────
-function monotoneCubicPath(points: { x: number; y: number }[]): string {
-  const n = points.length;
-  if (n < 2) return '';
-  if (n === 2) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)} L ${points[1].x.toFixed(1)} ${points[1].y.toFixed(1)}`;
-
-  // Slopes between adjacent points
-  const dxs: number[] = [];
-  const dys: number[] = [];
-  const deltas: number[] = [];
-  for (let i = 0; i < n - 1; i++) {
-    const dx = points[i + 1].x - points[i].x;
-    const dy = points[i + 1].y - points[i].y;
-    dxs.push(dx);
-    dys.push(dy);
-    deltas.push(dx === 0 ? 0 : dy / dx);
-  }
-
-  // Tangents (monotone Fritsch-Carlson)
-  const tangents: number[] = [deltas[0]];
-  for (let i = 1; i < n - 1; i++) {
-    if (deltas[i - 1] * deltas[i] <= 0) {
-      tangents.push(0);
-    } else {
-      tangents.push((deltas[i - 1] + deltas[i]) / 2);
-    }
-  }
-  tangents.push(deltas[n - 2]);
-
-  // Enforce monotonicity — clamp alpha/beta to the 3-circle
-  for (let i = 0; i < n - 1; i++) {
-    if (Math.abs(deltas[i]) < 1e-12) {
-      tangents[i] = 0;
-      tangents[i + 1] = 0;
-    } else {
-      const alpha = tangents[i] / deltas[i];
-      const beta = tangents[i + 1] / deltas[i];
-      const s = alpha * alpha + beta * beta;
-      if (s > 9) {
-        const t = 3 / Math.sqrt(s);
-        tangents[i] = t * alpha * deltas[i];
-        tangents[i + 1] = t * beta * deltas[i];
-      }
-    }
-  }
-
-  // Build cubic bezier path
-  let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-  for (let i = 0; i < n - 1; i++) {
-    const seg = dxs[i] / 3;
-    const cp1x = points[i].x + seg;
-    const cp1y = points[i].y + tangents[i] * seg;
-    const cp2x = points[i + 1].x - seg;
-    const cp2y = points[i + 1].y - tangents[i + 1] * seg;
-    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${points[i + 1].x.toFixed(1)} ${points[i + 1].y.toFixed(1)}`;
-  }
-  return d;
-}
-
-/** Compute smooth SVG sparkline path using monotone cubic interpolation */
-function computeSparklinePath(
-  values: number[],
-  w: number,
-  h: number,
-  globalMin: number,
-  globalMax: number,
-): { path: string; fillPath: string; points: { x: number; y: number }[] } {
-  if (values.length < 2) return { path: '', fillPath: '', points: [] };
-
-  const range = globalMax - globalMin || 1;
-  const points = values.map((v, i) => ({
-    x: (i / (values.length - 1)) * w,
-    y: h - ((v - globalMin) / range) * h,
-  }));
-
-  const path = monotoneCubicPath(points);
-  const fillPath = `${path} L ${points[points.length - 1].x.toFixed(1)} ${h} L 0 ${h} Z`;
-
-  return { path, fillPath, points };
 }
 
 export function ValueHeader({
@@ -140,7 +54,6 @@ export function ValueHeader({
   gunHoldings, gunValue, nftCount, nftFloorValueUsd, totalGunSpent, gunPct, nftPct,
   isEnriching, enrichmentProgress, isEnrichmentComplete, hasFailures, progressPct,
   totalPnLPct, isProfit, isLoss, onToggleViewMode,
-  showNftOverlay, nftSparklineValues,
   showGunOverlay, gunSparklineValues,
 }: ValueHeaderProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -152,17 +65,15 @@ export function ValueHeader({
     ? sparklineValues[sparklineValues.length - 1] >= sparklineValues[0] ? 'up' : 'down'
     : 'up';
   const color = trend === 'up' ? 'var(--gs-lime)' : 'var(--gs-loss)';
-  const nftColor = 'var(--gs-purple)';
   const gunColor = 'var(--gs-lime)';
 
   // Compute shared scale across all active sparklines
   const allValues = useMemo(() => {
     if (!hasSparkline) return sparklineValues;
     const combined = [...sparklineValues];
-    if (showNftOverlay && nftSparklineValues.length >= 2) combined.push(...nftSparklineValues);
     if (showGunOverlay && gunSparklineValues.length >= 2) combined.push(...gunSparklineValues);
     return combined;
-  }, [hasSparkline, sparklineValues, nftSparklineValues, gunSparklineValues, showNftOverlay, showGunOverlay]);
+  }, [hasSparkline, sparklineValues, gunSparklineValues, showGunOverlay]);
 
   const globalMin = useMemo(() => Math.min(...(allValues.length > 0 ? allValues : [0])), [allValues]);
   const globalMax = useMemo(() => Math.max(...(allValues.length > 0 ? allValues : [1])), [allValues]);
@@ -172,13 +83,6 @@ export function ValueHeader({
     () => computeSparklinePath(sparklineValues, SVG_W, SVG_H, globalMin, globalMax),
     [sparklineValues, globalMin, globalMax],
   );
-
-  // NFT overlay sparkline path
-  const nft = useMemo(() => {
-    if (!showNftOverlay || nftSparklineValues.length < 2)
-      return { path: '', fillPath: '', points: [] as { x: number; y: number }[] };
-    return computeSparklinePath(nftSparklineValues, SVG_W, SVG_H, globalMin, globalMax);
-  }, [nftSparklineValues, showNftOverlay, globalMin, globalMax]);
 
   // GUN overlay sparkline path
   const gun = useMemo(() => {
@@ -204,8 +108,6 @@ export function ValueHeader({
   // Hover-derived values
   const hoverPoint = hoverIndex !== null ? main.points[hoverIndex] ?? null : null;
   const hoverValue = hoverIndex !== null ? sparklineValues[hoverIndex] ?? null : null;
-  const hoverNftPoint = hoverIndex !== null && showNftOverlay ? nft.points[hoverIndex] ?? null : null;
-  const hoverNftValue = hoverIndex !== null && showNftOverlay ? nftSparklineValues[hoverIndex] ?? null : null;
   const hoverGunPoint = hoverIndex !== null && showGunOverlay ? gun.points[hoverIndex] ?? null : null;
   const hoverGunValue = hoverIndex !== null && showGunOverlay ? gunSparklineValues[hoverIndex] ?? null : null;
 
@@ -230,13 +132,6 @@ export function ValueHeader({
               <stop offset="70%" stopColor={color} stopOpacity="0.03" />
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </linearGradient>
-            {showNftOverlay && nft.path && (
-              <linearGradient id="portfolio-nft-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor={nftColor} stopOpacity="0.10" />
-                <stop offset="70%" stopColor={nftColor} stopOpacity="0.02" />
-                <stop offset="100%" stopColor={nftColor} stopOpacity="0" />
-              </linearGradient>
-            )}
             {showGunOverlay && gun.path && (
               <linearGradient id="portfolio-gun-grad" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor={gunColor} stopOpacity="0.08" />
@@ -258,23 +153,12 @@ export function ValueHeader({
             </>
           )}
 
-          {/* NFT overlay fill + line */}
-          {showNftOverlay && nft.path && (
-            <>
-              <path d={nft.fillPath} fill="url(#portfolio-nft-grad)" />
-              <path d={nft.path} fill="none" stroke={nftColor} strokeWidth="1.5" strokeOpacity="0.25" strokeLinecap="round" strokeLinejoin="round" />
-            </>
-          )}
-
           {/* Hover dots */}
           {hoverPoint && !topExpanded && (
             <circle cx={hoverPoint.x} cy={hoverPoint.y} r="3" fill="white" opacity="0.7" />
           )}
           {hoverGunPoint && !topExpanded && (
             <circle cx={hoverGunPoint.x} cy={hoverGunPoint.y} r="2.5" fill={gunColor} opacity="0.7" />
-          )}
-          {hoverNftPoint && !topExpanded && (
-            <circle cx={hoverNftPoint.x} cy={hoverNftPoint.y} r="2.5" fill={nftColor} opacity="0.8" />
           )}
         </svg>
       )}
@@ -295,11 +179,6 @@ export function ValueHeader({
           {showGunOverlay && hoverGunValue !== null && (
             <span className="font-mono text-micro tabular-nums text-[var(--gs-lime)]">
               ${hoverGunValue.toFixed(2)}
-            </span>
-          )}
-          {showNftOverlay && hoverNftValue !== null && (
-            <span className="font-mono text-micro tabular-nums text-[var(--gs-purple)]">
-              ${hoverNftValue.toFixed(2)}
             </span>
           )}
           <span className="font-mono text-micro tabular-nums text-[var(--gs-gray-2)]">

@@ -95,7 +95,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                 <Logo size="md" variant="full" glitchOnHover />
               </div>
               <span className="font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors">
-                Alpha
+                v0.1 // EARLY ACCESS
               </span>
             </Link>
 

@@ -67,13 +67,19 @@ export default function PortfolioHeader({
     return gunVal + nftValue;
   }, [walletData, gunPrice, portfolioResult, allNfts]);
 
+  // NFT count for history tracking
+  const nftCount = useMemo(() => {
+    if (portfolioResult) return portfolioResult.nftCount;
+    return allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
+  }, [portfolioResult, allNfts]);
+
   // Add portfolio snapshot for history tracking
   // Must be called unconditionally (React hooks rules)
   useEffect(() => {
     if (walletData?.address && totalTokenValue > 0) {
-      addPortfolioSnapshot(walletData.address, totalTokenValue);
+      addPortfolioSnapshot(walletData.address, totalTokenValue, nftCount);
     }
-  }, [walletData?.address, totalTokenValue]);
+  }, [walletData?.address, totalTokenValue, nftCount]);
 
   // Determine if WalletIdentity would render in "hidden" mode
   const isOwnWallet = useMemo(() => {

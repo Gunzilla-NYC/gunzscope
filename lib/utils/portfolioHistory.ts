@@ -12,6 +12,7 @@ const MIN_INTERVAL_MS = 5 * 60 * 1000; // Minimum 5 minutes between points
 export interface PortfolioSnapshot {
   t: number; // Unix timestamp (ms)
   v: number; // Portfolio value (USD)
+  n?: number; // NFT count (added later — missing on older points)
 }
 
 export interface PortfolioHistoryData {
@@ -41,7 +42,7 @@ export function getPortfolioHistory(address: string): PortfolioSnapshot[] {
 /**
  * Add a new portfolio value snapshot
  */
-export function addPortfolioSnapshot(address: string, value: number): void {
+export function addPortfolioSnapshot(address: string, value: number, nftCount?: number): void {
   if (typeof window === 'undefined') return;
   if (value <= 0) return;
 
@@ -63,7 +64,9 @@ export function addPortfolioSnapshot(address: string, value: number): void {
     }
 
     // Add new point
-    existing.points.push({ t: now, v: value });
+    const point: PortfolioSnapshot = { t: now, v: value };
+    if (nftCount != null && nftCount > 0) point.n = nftCount;
+    existing.points.push(point);
     existing.lastUpdated = now;
 
     // Trim to max points
@@ -173,6 +176,24 @@ export function getSparklineValues(address: string, count: number = 90): number[
   for (let i = 0; i < count; i++) {
     const srcIdx = Math.round((i / (count - 1)) * (points.length - 1));
     result.push(points[srcIdx].v);
+  }
+  return result;
+}
+
+/**
+ * Get sparkline NFT counts — same sampling as getSparklineValues.
+ * Returns null for points that predate the nftCount field.
+ */
+export function getSparklineNftCounts(address: string, count: number = 90): (number | null)[] {
+  const points = getPortfolioHistory(address);
+
+  if (points.length === 0) return [];
+  if (points.length <= count) return points.map(p => p.n ?? null);
+
+  const result: (number | null)[] = [];
+  for (let i = 0; i < count; i++) {
+    const srcIdx = Math.round((i / (count - 1)) * (points.length - 1));
+    result.push(points[srcIdx].n ?? null);
   }
   return result;
 }

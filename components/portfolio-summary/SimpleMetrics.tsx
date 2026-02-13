@@ -1,8 +1,10 @@
+import { useState, useCallback, useMemo } from 'react';
 import { EnrichmentProgress } from '@/lib/types';
 import { formatUsd } from '@/lib/portfolio/calcPortfolio';
 import { NftPnL, AcquisitionBreakdown } from './types';
+import { computeSparklinePath } from './sparklineUtils';
 
-/** Small sparkline-shaped icon used as an overlay toggle indicator */
+/** Small sparkline-shaped icon — hints "click for chart" */
 function SparklineIcon({ className }: { className?: string }) {
   return (
     <svg width="12" height="8" viewBox="0 0 12 8" fill="none" className={className} aria-hidden="true">
@@ -16,6 +18,24 @@ function SparklineIcon({ className }: { className?: string }) {
   );
 }
 
+/** Small dollar icon — hints "click for values" */
+function ValueIcon({ className }: { className?: string }) {
+  return (
+    <svg width="8" height="10" viewBox="0 0 8 10" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M4 0.5V1.5M4 8.5V9.5M2 3.5C2 2.7 2.9 2 4 2C5.1 2 6 2.7 6 3.5S5.1 5 4 5C2.9 5 2 5.7 2 6.5S2.9 8 4 8C5.1 8 6 7.3 6 6.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+// Mini sparkline dimensions for the NFT Holdings card
+const MINI_W = 200;
+const MINI_H = 36;
+
 interface SimpleMetricsProps {
   isInitializing: boolean;
   gunHoldings: number;
@@ -23,8 +43,10 @@ interface SimpleMetricsProps {
   nftCount: number;
   nftFloorValueUsd: number | null;
   nftPnL: NftPnL;
-  showNftOverlay: boolean;
-  onToggleNftOverlay: () => void;
+  nftCardSparkline: boolean;
+  onToggleNftCardSparkline: () => void;
+  nftSparklineValues: number[];
+  nftCountHistory: (number | null)[];
   showGunOverlay: boolean;
   onToggleGunOverlay: () => void;
   hasSparklineData: boolean;
@@ -36,7 +58,7 @@ interface SimpleMetricsProps {
 
 export function SimpleMetrics({
   isInitializing, gunHoldings, gunValue, nftCount, nftFloorValueUsd, nftPnL,
-  showNftOverlay, onToggleNftOverlay,
+  nftCardSparkline, onToggleNftCardSparkline, nftSparklineValues, nftCountHistory,
   showGunOverlay, onToggleGunOverlay,
   hasSparklineData,
   enrichmentProgress, progressPct,
@@ -53,6 +75,24 @@ export function SimpleMetrics({
     : 0;
   // Show spinner while enrichment hasn't covered all NFTs (survives between-page gaps)
   const isScanning = enrichmentProgress != null && enrichedCount < nftCount;
+
+  // Inline mini sparkline for NFT Holdings card
+  const hasNftSparkline = nftSparklineValues.length >= 2;
+  const nftMini = useMemo(() => {
+    if (!hasNftSparkline) return { path: '', fillPath: '', points: [] };
+    const min = Math.min(...nftSparklineValues);
+    const max = Math.max(...nftSparklineValues);
+    return computeSparklinePath(nftSparklineValues, MINI_W, MINI_H, min, max);
+  }, [nftSparklineValues, hasNftSparkline]);
+
+  // Hover state for sparkline interaction
+  const [nftHoverIdx, setNftHoverIdx] = useState<number | null>(null);
+  const onSparklineMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setNftHoverIdx(Math.round(pct * (nftSparklineValues.length - 1)));
+  }, [nftSparklineValues.length]);
+  const onSparklineLeave = useCallback(() => setNftHoverIdx(null), []);
 
   return (
     <div className="border-t border-white/[0.06] grid grid-cols-2 sm:grid-cols-4">
@@ -83,30 +123,85 @@ export function SimpleMetrics({
         )}
       </div>
 
-      {/* NFT Holdings — clickable to toggle NFT sparkline overlay */}
+      {/* NFT Holdings — clickable to toggle between data and inline sparkline */}
       <div
-        className={`px-4 py-3 sm:border-r border-white/[0.06] border-b sm:border-b-0 ${hasSparklineData ? 'cursor-pointer select-none transition-colors hover:bg-white/[0.02]' : ''} ${showNftOverlay ? 'bg-[var(--gs-purple)]/[0.06]' : ''}`}
-        onClick={hasSparklineData ? onToggleNftOverlay : undefined}
+        className={`px-4 py-3 sm:border-r border-white/[0.06] border-b sm:border-b-0 ${hasNftSparkline ? 'cursor-pointer select-none transition-colors hover:bg-white/[0.02]' : ''} ${nftCardSparkline ? 'bg-[var(--gs-purple)]/[0.06]' : ''}`}
+        onClick={hasNftSparkline ? onToggleNftCardSparkline : undefined}
       >
         <div className="flex items-center gap-1.5 mb-1">
           <p className="font-mono text-caption tracking-widest uppercase text-[var(--gs-gray-4)]">
             NFT Holdings
           </p>
-          {hasSparklineData && (
-            <SparklineIcon className={`transition-colors ${showNftOverlay ? 'text-[var(--gs-purple)]' : 'text-[var(--gs-gray-3)]/40'}`} />
+          {hasNftSparkline && (
+            nftCardSparkline
+              ? <ValueIcon className="text-[var(--gs-purple)] transition-colors" />
+              : <SparklineIcon className="text-[var(--gs-gray-3)]/40 transition-colors" />
           )}
         </div>
         {isInitializing ? (
           <div className="h-6 w-20 bg-white/5 rounded animate-pulse" />
         ) : (
-          <>
-            <p className="font-display text-xl font-bold text-[var(--gs-purple)] tabular-nums">
-              {nftCount.toLocaleString()}
-            </p>
-            <p className="font-mono text-caption text-[var(--gs-gray-3)] tabular-nums mt-0.5">
-              {nftFloorValueUsd !== null ? `$${formatUsd(nftFloorValueUsd)}` : '\u2014'}
-            </p>
-          </>
+          <div className="grid">
+            {/* Layer 1: Data view (count + USD) */}
+            <div
+              style={{ gridArea: '1/1' }}
+              className={`transition-opacity duration-300 ease-out ${
+                !nftCardSparkline ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <p className="font-display text-xl font-bold text-[var(--gs-purple)] tabular-nums">
+                {nftCount.toLocaleString()}
+              </p>
+              <p className="font-mono text-caption text-[var(--gs-gray-3)] tabular-nums mt-0.5">
+                {nftFloorValueUsd !== null ? `$${formatUsd(nftFloorValueUsd)}` : '\u2014'}
+              </p>
+            </div>
+            {/* Layer 2: Inline sparkline with hover */}
+            <div
+              style={{ gridArea: '1/1', transitionDelay: nftCardSparkline ? '100ms' : '0ms' }}
+              className={`relative transition-opacity duration-300 ease-out ${
+                nftCardSparkline ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+              onMouseMove={nftCardSparkline ? onSparklineMove : undefined}
+              onMouseLeave={nftCardSparkline ? onSparklineLeave : undefined}
+            >
+              {/* NFT count — pinned left, changes on hover */}
+              <p className="font-display text-xl font-bold text-[var(--gs-purple)] tabular-nums leading-none">
+                {(nftHoverIdx !== null
+                  ? (nftCountHistory[nftHoverIdx] ?? nftCount)
+                  : nftCount
+                ).toLocaleString()}
+              </p>
+              {hasNftSparkline && nftMini.path && (
+                <svg
+                  className="w-full mt-1"
+                  height={MINI_H}
+                  viewBox={`0 0 ${MINI_W} ${MINI_H}`}
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <linearGradient id="nft-card-sparkline-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="var(--gs-purple)" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="var(--gs-purple)" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d={nftMini.fillPath} fill="url(#nft-card-sparkline-grad)" />
+                  <path d={nftMini.path} fill="none" stroke="var(--gs-purple)" strokeWidth="1.5" strokeOpacity="0.7" strokeLinecap="round" strokeLinejoin="round" />
+                  {/* Hover dot */}
+                  {nftHoverIdx !== null && nftMini.points[nftHoverIdx] && (
+                    <circle
+                      cx={nftMini.points[nftHoverIdx].x}
+                      cy={nftMini.points[nftHoverIdx].y}
+                      r="3"
+                      fill="var(--gs-purple)"
+                      opacity="0.9"
+                    />
+                  )}
+                </svg>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

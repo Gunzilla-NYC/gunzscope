@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getAuthToken } from '@dynamic-labs/sdk-react-core';
 import { NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
@@ -51,15 +52,42 @@ export default function PortfolioSummaryBar({
   const [holdingsExpanded, setHoldingsExpanded] = useState(false);
   const [performanceExpanded, setPerformanceExpanded] = useState(false);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
-  const [showNftOverlay, setShowNftOverlay] = useState(false);
+  const [nftCardSparkline, setNftCardSparkline] = useState(false);
   const [showGunOverlay, setShowGunOverlay] = useState(false);
+  const settingsLoadedRef = useRef(false);
 
   const toggleTop = useCallback(() => setTopExpanded(prev => !prev), []);
   const toggleHoldings = useCallback(() => setHoldingsExpanded(prev => !prev), []);
   const togglePerformance = useCallback(() => setPerformanceExpanded(prev => !prev), []);
   const toggleBreakdown = useCallback(() => setBreakdownOpen(prev => !prev), []);
-  const toggleNftOverlay = useCallback(() => setShowNftOverlay(prev => !prev), []);
   const toggleGunOverlay = useCallback(() => setShowGunOverlay(prev => !prev), []);
+
+  // Load persisted nftCardSparkline from settings API (auth'd users)
+  useEffect(() => {
+    if (settingsLoadedRef.current) return;
+    const token = getAuthToken();
+    if (!token) return;
+    settingsLoadedRef.current = true;
+    fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.nftCardSparkline != null) setNftCardSparkline(!!d.nftCardSparkline); })
+      .catch(() => {});
+  }, []);
+
+  const toggleNftCardSparkline = useCallback(() => {
+    setNftCardSparkline(prev => {
+      const next = !prev;
+      const token = getAuthToken();
+      if (token) {
+        fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nftCardSparkline: next }),
+        }).catch(() => {});
+      }
+      return next;
+    });
+  }, []);
 
   // Derive overlay sparkline values by applying current ratio to total sparkline
   const nftSparklineValues = useMemo(() => {
@@ -127,8 +155,6 @@ export default function PortfolioSummaryBar({
         isProfit={data.isProfit}
         isLoss={data.isLoss}
         onToggleViewMode={toggleViewMode}
-        showNftOverlay={showNftOverlay}
-        nftSparklineValues={nftSparklineValues}
         showGunOverlay={showGunOverlay}
         gunSparklineValues={gunSparklineValues}
       />
@@ -159,8 +185,10 @@ export default function PortfolioSummaryBar({
           nftCount={data.nftCount}
           nftFloorValueUsd={data.nftFloorValueUsd}
           nftPnL={data.nftPnL}
-          showNftOverlay={showNftOverlay}
-          onToggleNftOverlay={toggleNftOverlay}
+          nftCardSparkline={nftCardSparkline}
+          onToggleNftCardSparkline={toggleNftCardSparkline}
+          nftSparklineValues={nftSparklineValues}
+          nftCountHistory={data.nftCountHistory}
           showGunOverlay={showGunOverlay}
           onToggleGunOverlay={toggleGunOverlay}
           hasSparklineData={hasSparklineData}
