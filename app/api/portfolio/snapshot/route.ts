@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, isReadOnlyDatabase } from '@/lib/db';
 
 interface SnapshotPayload {
   address: string;
@@ -19,6 +19,10 @@ interface SnapshotPayload {
  * Rate limited to 1 snapshot per address per hour to prevent spam.
  */
 export async function POST(request: NextRequest) {
+  if (isReadOnlyDatabase) {
+    return NextResponse.json({ success: true, skipped: true }, { status: 200 });
+  }
+
   try {
     const body: SnapshotPayload = await request.json();
 

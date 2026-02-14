@@ -9,11 +9,16 @@ import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId, updateDisplayName } from '@/lib/services/userService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
+import { isReadOnlyDatabase } from '@/lib/db';
 
 const DISPLAY_NAME_MAX = 30;
 const DISPLAY_NAME_REGEX = /^[a-zA-Z0-9 _.\-]+$/;
 
 export async function PATCH(request: NextRequest) {
+  if (isReadOnlyDatabase) {
+    return jsonError('Display name updates are not available in production yet', 503);
+  }
+
   const authResult = await authenticateRequest(request);
   if (!authResult.success) {
     return unauthorizedResponse(authResult);

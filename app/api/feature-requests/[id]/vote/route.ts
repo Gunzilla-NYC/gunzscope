@@ -9,11 +9,16 @@ import { getProfileByDynamicId } from '@/lib/services/userService';
 import { checkNFTEligibility } from '@/lib/services/nftEligibilityService';
 import { vote } from '@/lib/services/featureRequestService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
+import { isReadOnlyDatabase } from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (isReadOnlyDatabase) {
+    return jsonError('Voting is not available in production yet', 503);
+  }
+
   const authResult = await authenticateRequest(request);
   if (!authResult.success) {
     return unauthorizedResponse(authResult);
