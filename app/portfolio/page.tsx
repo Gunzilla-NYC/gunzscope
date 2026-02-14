@@ -28,6 +28,7 @@ import { useWalletDataFetcher } from '@/lib/hooks/useWalletDataFetcher';
 import { useAccountGate } from '@/lib/hooks/useAccountGate';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import UnlockBanner from '@/components/UnlockBanner';
+import WalletRequiredGate from '@/components/WalletRequiredGate';
 import { createEnrichmentUpdater } from '@/lib/utils/mergeEnrichedNFTs';
 import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
@@ -44,7 +45,9 @@ function PortfolioContent() {
 export default function PortfolioPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-black" />}>
-      <PortfolioContent />
+      <WalletRequiredGate feature="Portfolio">
+        <PortfolioContent />
+      </WalletRequiredGate>
     </Suspense>
   );
 }

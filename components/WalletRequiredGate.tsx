@@ -9,8 +9,8 @@ interface WalletRequiredGateProps {
 
 /**
  * Gate component for pages that require a connected wallet.
- * Email-only users see a "Connect wallet" prompt instead of the page content.
- * Anonymous users pass through (they have their own page-level gates).
+ * Anonymous users see a "Login" prompt.
+ * Email-only users see a "Connect wallet" prompt.
  */
 export default function WalletRequiredGate({ children, feature }: WalletRequiredGateProps) {
   const { primaryWallet, user, setShowAuthFlow } = useDynamicContext();
@@ -18,8 +18,30 @@ export default function WalletRequiredGate({ children, feature }: WalletRequired
   // Wallet connected — full access
   if (primaryWallet?.address) return <>{children}</>;
 
-  // Anonymous — pass through to existing page gates
-  if (!user) return <>{children}</>;
+  // Anonymous — show login prompt
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="size-16 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 flex items-center justify-center">
+          <svg className="size-7 text-[var(--gs-purple)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <h2 className="font-display font-bold text-xl uppercase mb-3 text-[var(--gs-white)]">
+          Login to Access {feature}
+        </h2>
+        <p className="font-body text-sm text-[var(--gs-gray-4)] max-w-md mb-6">
+          Sign in with your wallet to unlock the full GUNZscope experience including {feature.toLowerCase()}, tracked wallets, and more.
+        </p>
+        <button
+          onClick={() => setShowAuthFlow(true)}
+          className="font-display font-semibold text-data uppercase tracking-wider px-6 py-2.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+        >
+          Login
+        </button>
+      </div>
+    );
+  }
 
   // Email-only user — show wallet connection prompt
   return (

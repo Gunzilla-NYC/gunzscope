@@ -102,7 +102,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                 href="/changelog"
                 className="shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
               >
-                v0.1 // EARLY ACCESS
+                v0.1.5 // EARLY ACCESS
               </Link>
             </div>
 
@@ -114,12 +114,6 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                     <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
                     {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
                     {hasWallet && <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />}
-                  </>
-                )}
-                {isAnonymous && isInApp && (
-                  <>
-                    <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
-                    <GlitchLink href="/leaderboard" label="Leaderboard" isActive={pathname === '/leaderboard'} />
                   </>
                 )}
                 {isAnonymous ? (
@@ -194,19 +188,13 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/[0.06] bg-black/95 backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
-              {isInApp && (isAnonymous
-                ? [
-                    { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
-                    { href: '/leaderboard', label: 'Leaderboard', active: pathname === '/leaderboard' },
-                  ]
-                : [
+              {isInApp && !isAnonymous && [
                     { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
                     ...(hasWallet ? [
                       { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
                       { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
                     ] : []),
-                  ]
-              ).map(item => (
+              ].map(item => (
                 <Link
                   key={item.href}
                   href={item.href}

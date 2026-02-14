@@ -37,7 +37,6 @@ const VERSIONS: VersionEntry[] = [
       'NFT Holdings sparkline toggle on first wallet search',
       'Server\u2011side RPC proxy for reliable production wallet loading',
       'View transitions with framer\u2011motion page animations',
-      'Vercel Speed Insights + PostHog product analytics',
       'Wallet address help panel for new users',
       'Auto\u2011populate credits from completed feature requests',
     ],
