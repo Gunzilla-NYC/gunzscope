@@ -460,7 +460,7 @@ export default function WalletIdentity({
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            My Wallet
+            Account Wallet
           </button>
         </div>
       </div>

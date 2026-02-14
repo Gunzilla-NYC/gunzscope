@@ -143,7 +143,7 @@ export default function Logo({
     <div className={`flex items-center gap-2 ${className}`}>
       {showIcon && (
         <div
-          className="flex items-center justify-center"
+          className="flex items-center justify-center shrink-0"
           style={{ width: iconSize, height: iconSize, transform: 'translateY(-2px)' }}
         >
           <svg

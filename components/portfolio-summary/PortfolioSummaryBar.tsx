@@ -19,6 +19,7 @@ interface PortfolioSummaryBarProps {
   enrichmentProgress?: EnrichmentProgress | null;
   onRetryEnrichment?: () => void;
   walletAddress?: string;
+  walletCount?: number;
 }
 
 export default function PortfolioSummaryBar({
@@ -29,6 +30,7 @@ export default function PortfolioSummaryBar({
   isInitializing = false,
   enrichmentProgress,
   walletAddress,
+  walletCount,
 }: PortfolioSummaryBarProps) {
   // All computed data from hook
   const data = usePortfolioSummaryData(portfolioResult, gunPrice, nfts, enrichmentProgress, walletAddress, gunPriceSparkline);
@@ -162,6 +164,7 @@ export default function PortfolioSummaryBar({
         acquisitionBreakdown={data.acquisitionBreakdown}
         totalGunSpent={data.totalGunSpent}
         gunPrice={gunPrice}
+        walletCount={walletCount}
       />
 
       {/* Insights Panel */}

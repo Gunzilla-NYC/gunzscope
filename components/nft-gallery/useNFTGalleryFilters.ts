@@ -39,7 +39,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
 
   // Filter/sort state
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('mint-asc');
+  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [selectedItemClass, setSelectedItemClass] = useState<string>('all');
   const [activeRarities, setActiveRarities] = useState<Set<Rarity>>(() => new Set());
   // Default view: small grid if >16 NFTs, medium grid if <=16

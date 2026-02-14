@@ -12,6 +12,7 @@ import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
 
 const MAX_PORTFOLIO_WALLETS = 5;
+const MAX_TRACKED_WALLETS = 10;
 
 const ALERT_TYPES: {
   type: AlertType;
@@ -115,6 +116,8 @@ function AccountContent() {
     isLoading,
     addPortfolioAddress,
     removePortfolioAddress,
+    addTrackedAddress,
+    removeTrackedAddress,
     updateEmail,
     updateDisplayName,
     setPrimaryWallet,
@@ -142,6 +145,11 @@ function AccountContent() {
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [emailLoaded, setEmailLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [walletTab, setWalletTab] = useState<'portfolio' | 'tracked'>('portfolio');
+  const [newTrackedAddress, setNewTrackedAddress] = useState('');
+  const [newTrackedLabel, setNewTrackedLabel] = useState('');
+  const [isAddingTracked, setIsAddingTracked] = useState(false);
+  const [removingTrackedId, setRemovingTrackedId] = useState<string | null>(null);
   const [alertConfigs, setAlertConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [togglingAlert, setTogglingAlert] = useState<string | null>(null);
   const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
@@ -160,6 +168,9 @@ function AccountContent() {
   const portfolioAddresses = profile?.portfolioAddresses ?? [];
   const slotsUsed = portfolioAddresses.length;
   const isAtLimit = slotsUsed >= MAX_PORTFOLIO_WALLETS;
+  const trackedAddresses = profile?.trackedAddresses ?? [];
+  const trackedSlotsUsed = trackedAddresses.length;
+  const isTrackedAtLimit = trackedSlotsUsed >= MAX_TRACKED_WALLETS;
 
   const myContributions = useMemo(() => {
     if (!profile) return [];
@@ -205,6 +216,40 @@ function AccountContent() {
       toast.error('Failed to remove wallet');
     }
   }, [removePortfolioAddress]);
+
+  const handleAddTracked = useCallback(async () => {
+    const trimmed = newTrackedAddress.trim();
+    if (!trimmed) return;
+
+    if (!isValidEvmAddress(trimmed)) {
+      toast.error('Invalid address. Enter a valid 0x EVM address.');
+      return;
+    }
+
+    setIsAddingTracked(true);
+    const result = await addTrackedAddress(trimmed, newTrackedLabel.trim() || undefined);
+    setIsAddingTracked(false);
+
+    if (result) {
+      toast.success('Wallet added to watchlist');
+      setNewTrackedAddress('');
+      setNewTrackedLabel('');
+    } else {
+      toast.error('Failed to add wallet. It may already exist or you\u2019ve reached the limit.');
+    }
+  }, [newTrackedAddress, newTrackedLabel, addTrackedAddress]);
+
+  const handleRemoveTracked = useCallback(async (id: string) => {
+    setRemovingTrackedId(id);
+    const success = await removeTrackedAddress(id);
+    setRemovingTrackedId(null);
+
+    if (success) {
+      toast.success('Wallet removed from watchlist');
+    } else {
+      toast.error('Failed to remove wallet');
+    }
+  }, [removeTrackedAddress]);
 
   const handleSaveEmail = useCallback(async () => {
     setIsSavingEmail(true);
@@ -419,153 +464,299 @@ function AccountContent() {
               </div>
             </section>
 
-            {/* ── Portfolio Wallets ── */}
+            {/* ── Wallets (Portfolio + Tracked) ── */}
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] gradient-accent-line" />
               <div className="p-6">
-                <div className="flex items-center justify-between mb-5">
-                  <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                    Portfolio Wallets
-                  </p>
-                  <p className="font-mono text-data tabular-nums text-[var(--gs-gray-3)]">
-                    <span className={slotsUsed > 0 ? 'text-[var(--gs-lime)]' : ''}>{slotsUsed}</span>
-                    {' / '}
-                    {MAX_PORTFOLIO_WALLETS} used
-                  </p>
+                {/* Tab toggle */}
+                <div className="flex items-center gap-0 mb-5">
+                  <button
+                    onClick={() => setWalletTab('portfolio')}
+                    className={`flex-1 font-mono text-data uppercase tracking-wider py-2.5 text-center transition-colors border cursor-pointer ${
+                      walletTab === 'portfolio'
+                        ? 'bg-[var(--gs-lime)]/[0.08] border-[var(--gs-lime)]/30 text-[var(--gs-lime)]'
+                        : 'bg-transparent border-white/[0.06] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.12]'
+                    }`}
+                  >
+                    Portfolio
+                    {slotsUsed > 0 && (
+                      <span className="ml-2 font-mono text-[9px] tabular-nums opacity-70">{slotsUsed}/{MAX_PORTFOLIO_WALLETS}</span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setWalletTab('tracked')}
+                    className={`flex-1 font-mono text-data uppercase tracking-wider py-2.5 text-center transition-colors border border-l-0 cursor-pointer ${
+                      walletTab === 'tracked'
+                        ? 'bg-[var(--gs-purple)]/[0.08] border-[var(--gs-purple)]/30 text-[var(--gs-purple)]'
+                        : 'bg-transparent border-white/[0.06] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.12]'
+                    }`}
+                  >
+                    Watchlist
+                    {trackedSlotsUsed > 0 && (
+                      <span className="ml-2 font-mono text-[9px] tabular-nums opacity-70">{trackedSlotsUsed}/{MAX_TRACKED_WALLETS}</span>
+                    )}
+                  </button>
                 </div>
 
-                {/* First-time guidance */}
-                {slotsUsed === 0 && !primaryWallet && (
-                  <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
-                    <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
-                      <strong className="text-[var(--gs-white)]">In&#8209;Game Player?</strong> Enter your
-                      GunzChain wallet address from Off The Grid to start tracking your NFTs and GUN tokens.
-                    </p>
-                  </div>
-                )}
-                {slotsUsed === 0 && primaryWallet && (
-                  <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
-                    <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
-                      Your connected wallet is tracked automatically. Add up to {MAX_PORTFOLIO_WALLETS} extra wallets below to see a combined portfolio view.
-                    </p>
-                  </div>
-                )}
-
-                {/* Wallet list */}
-                <div className="space-y-0 mb-5">
-                  {portfolioAddresses.map((pa) => (
-                    <div
-                      key={pa.id}
-                      className="flex items-center justify-between py-3 border-b border-white/[0.06] last:border-b-0 group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] shrink-0" />
-                        <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
-                          {truncateAddress(pa.address)}
-                        </span>
-                        {pa.label && (
-                          <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
-                            {pa.label}
-                          </span>
-                        )}
+                {/* ── Portfolio Tab ── */}
+                {walletTab === 'portfolio' && (
+                  <>
+                    {/* First-time guidance */}
+                    {slotsUsed === 0 && !primaryWallet && (
+                      <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
+                        <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
+                          <strong className="text-[var(--gs-white)]">In&#8209;Game Player?</strong> Enter your
+                          GunzChain wallet address from Off The Grid to start tracking your NFTs and GUN tokens.
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Link
-                          href={`/portfolio?address=${pa.address}`}
-                          className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                    )}
+                    {slotsUsed === 0 && primaryWallet && (
+                      <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
+                        <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
+                          Add up to {MAX_PORTFOLIO_WALLETS} wallets to aggregate into a combined portfolio. Switch between them from the navbar.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Wallet list */}
+                    <div className="space-y-0 mb-5">
+                      {portfolioAddresses.map((pa) => (
+                        <div
+                          key={pa.id}
+                          className="flex items-center justify-between py-3 border-b border-white/[0.06] last:border-b-0 group"
                         >
-                          View
-                        </Link>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] shrink-0" />
+                            <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
+                              {truncateAddress(pa.address)}
+                            </span>
+                            {pa.label && (
+                              <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
+                                {pa.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Link
+                              href={`/portfolio?address=${pa.address}`}
+                              className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                            >
+                              View
+                            </Link>
+                            <button
+                              onClick={() => handleRemoveWallet(pa.id)}
+                              disabled={removingId === pa.id}
+                              className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
+                              aria-label="Remove wallet"
+                            >
+                              {removingId === pa.id ? (
+                                <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Empty slots — click to focus add form */}
+                      {Array.from({ length: MAX_PORTFOLIO_WALLETS - slotsUsed }).map((_, i) => (
                         <button
-                          onClick={() => handleRemoveWallet(pa.id)}
-                          disabled={removingId === pa.id}
-                          className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
-                          aria-label="Remove wallet"
+                          key={`empty-${i}`}
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById('add-wallet-input');
+                            if (input) { input.scrollIntoView({ behavior: 'smooth', block: 'center' }); input.focus(); }
+                          }}
+                          className="flex items-center w-full py-3 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer text-left"
                         >
-                          {removingId === pa.id ? (
-                            <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
+                          <span className="w-1.5 h-1.5 rounded-full border border-dashed border-[var(--gs-gray-2)] shrink-0" />
+                          <span className="ml-3 font-mono text-data text-[var(--gs-gray-2)]">
+                            + Add wallet
+                          </span>
                         </button>
+                      ))}
+                    </div>
+
+                    {/* Add wallet form */}
+                    {isAtLimit ? (
+                      <div className="flex items-center gap-2 py-3">
+                        <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <span className="font-mono text-data text-[var(--gs-warning)]">
+                          Portfolio wallet limit reached ({MAX_PORTFOLIO_WALLETS}/{MAX_PORTFOLIO_WALLETS})
+                        </span>
                       </div>
-                    </div>
-                  ))}
+                    ) : (
+                      <form
+                        onSubmit={(e) => { e.preventDefault(); handleAddWallet(); }}
+                        className="space-y-3"
+                      >
+                        <div className="flex gap-3">
+                          <input
+                            id="add-wallet-input"
+                            type="text"
+                            value={newAddress}
+                            onChange={(e) => setNewAddress(e.target.value)}
+                            placeholder="0x wallet address"
+                            className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                          />
+                          <input
+                            type="text"
+                            value={newLabel}
+                            onChange={(e) => setNewLabel(e.target.value)}
+                            placeholder="Label (optional)"
+                            className="w-40 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isAdding || !newAddress.trim()}
+                          className="w-full font-display font-semibold text-sm uppercase px-6 py-2.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isAdding ? 'Adding\u2026' : 'Add Wallet'}
+                        </button>
+                      </form>
+                    )}
 
-                  {/* Empty slots — click to focus add form */}
-                  {Array.from({ length: MAX_PORTFOLIO_WALLETS - slotsUsed }).map((_, i) => (
-                    <button
-                      key={`empty-${i}`}
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('add-wallet-input');
-                        if (input) { input.scrollIntoView({ behavior: 'smooth', block: 'center' }); input.focus(); }
-                      }}
-                      className="flex items-center w-full py-3 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer text-left"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full border border-dashed border-[var(--gs-gray-2)] shrink-0" />
-                      <span className="ml-3 font-mono text-data text-[var(--gs-gray-2)]">
-                        + Add wallet
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Add wallet form */}
-                {isAtLimit ? (
-                  <div className="flex items-center gap-2 py-3">
-                    <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <span className="font-mono text-data text-[var(--gs-warning)]">
-                      Portfolio wallet limit reached ({MAX_PORTFOLIO_WALLETS}/{MAX_PORTFOLIO_WALLETS})
-                    </span>
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={(e) => { e.preventDefault(); handleAddWallet(); }}
-                    className="space-y-3"
-                  >
-                    <div className="flex gap-3">
-                      <input
-                        id="add-wallet-input"
-                        type="text"
-                        value={newAddress}
-                        onChange={(e) => setNewAddress(e.target.value)}
-                        placeholder="0x wallet address"
-                        className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
-                      />
-                      <input
-                        type="text"
-                        value={newLabel}
-                        onChange={(e) => setNewLabel(e.target.value)}
-                        placeholder="Label (optional)"
-                        className="w-40 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isAdding || !newAddress.trim()}
-                      className="w-full font-display font-semibold text-sm uppercase px-6 py-2.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isAdding ? 'Adding\u2026' : 'Add Wallet'}
-                    </button>
-                  </form>
+                    {slotsUsed > 0 ? (
+                      <Link
+                        href={walletAddress ? `/portfolio?address=${walletAddress}` : '/portfolio'}
+                        className="mt-4 flex items-center font-mono text-caption tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+                      >
+                        View combined portfolio {'\u2192'}
+                      </Link>
+                    ) : (
+                      <p className="mt-4 font-mono text-caption text-[var(--gs-gray-2)]">
+                        Portfolio wallets are aggregated together. Switch between them from the navbar.
+                      </p>
+                    )}
+                  </>
                 )}
 
-                {slotsUsed > 0 ? (
-                  <Link
-                    href={walletAddress ? `/portfolio?address=${walletAddress}` : '/portfolio'}
-                    className="mt-4 flex items-center font-mono text-caption tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
-                  >
-                    View combined portfolio {'\u2192'}
-                  </Link>
-                ) : (
-                  <p className="mt-4 font-mono text-caption text-[var(--gs-gray-2)]">
-                    Portfolio wallets are aggregated into your combined portfolio view.
-                  </p>
+                {/* ── Watchlist Tab ── */}
+                {walletTab === 'tracked' && (
+                  <>
+                    {/* Guidance */}
+                    {trackedSlotsUsed === 0 && (
+                      <div className="mb-5 px-4 py-3 bg-[var(--gs-purple)]/[0.04] border border-[var(--gs-purple)]/10">
+                        <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
+                          Track whale wallets, friends, or competitors. Watched wallets are <strong className="text-[var(--gs-white)]">not</strong> included in your portfolio total.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Tracked wallet list */}
+                    <div className="space-y-0 mb-5">
+                      {trackedAddresses.map((ta) => (
+                        <div
+                          key={ta.id}
+                          className="flex items-center justify-between py-3 border-b border-white/[0.06] last:border-b-0 group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-purple)] shrink-0" />
+                            <span className="font-mono text-sm text-[var(--gs-purple)] tabular-nums">
+                              {truncateAddress(ta.address)}
+                            </span>
+                            {ta.label && (
+                              <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
+                                {ta.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Link
+                              href={`/portfolio?address=${ta.address}`}
+                              className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                            >
+                              View
+                            </Link>
+                            <button
+                              onClick={() => handleRemoveTracked(ta.id)}
+                              disabled={removingTrackedId === ta.id}
+                              className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
+                              aria-label="Remove tracked wallet"
+                            >
+                              {removingTrackedId === ta.id ? (
+                                <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Empty slots */}
+                      {Array.from({ length: Math.min(3, MAX_TRACKED_WALLETS - trackedSlotsUsed) }).map((_, i) => (
+                        <button
+                          key={`empty-tracked-${i}`}
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById('add-tracked-input');
+                            if (input) { input.scrollIntoView({ behavior: 'smooth', block: 'center' }); input.focus(); }
+                          }}
+                          className="flex items-center w-full py-3 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer text-left"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full border border-dashed border-[var(--gs-gray-2)] shrink-0" />
+                          <span className="ml-3 font-mono text-data text-[var(--gs-gray-2)]">
+                            + Watch a wallet
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Add tracked wallet form */}
+                    {isTrackedAtLimit ? (
+                      <div className="flex items-center gap-2 py-3">
+                        <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <span className="font-mono text-data text-[var(--gs-warning)]">
+                          Watchlist limit reached ({MAX_TRACKED_WALLETS}/{MAX_TRACKED_WALLETS})
+                        </span>
+                      </div>
+                    ) : (
+                      <form
+                        onSubmit={(e) => { e.preventDefault(); handleAddTracked(); }}
+                        className="space-y-3"
+                      >
+                        <div className="flex gap-3">
+                          <input
+                            id="add-tracked-input"
+                            type="text"
+                            value={newTrackedAddress}
+                            onChange={(e) => setNewTrackedAddress(e.target.value)}
+                            placeholder="0x wallet address"
+                            className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-purple)]/50 transition-colors"
+                          />
+                          <input
+                            type="text"
+                            value={newTrackedLabel}
+                            onChange={(e) => setNewTrackedLabel(e.target.value)}
+                            placeholder="Label (optional)"
+                            className="w-40 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-purple)]/50 transition-colors"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isAddingTracked || !newTrackedAddress.trim()}
+                          className="w-full font-display font-semibold text-sm uppercase px-6 py-2.5 bg-[var(--gs-purple)] text-[var(--gs-white)] hover:bg-[var(--gs-purple)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isAddingTracked ? 'Adding\u2026' : 'Watch Wallet'}
+                        </button>
+                      </form>
+                    )}
+
+                    <p className="mt-4 font-mono text-caption text-[var(--gs-gray-2)]">
+                      Watched wallets are view&#8209;only. They won&apos;t appear in your portfolio total.
+                    </p>
+                  </>
                 )}
               </div>
             </section>

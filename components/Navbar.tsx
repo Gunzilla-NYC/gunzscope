@@ -92,14 +92,19 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo — connected users stay on current page, anonymous users go home */}
-            <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center gap-3 group">
-              <div className="relative min-w-[11.5rem]">
-                <Logo size="md" variant="full" glitchOnHover />
-              </div>
-              <span className="shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors">
+            <div className="flex items-center gap-3">
+              <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center group">
+                <div className="relative w-[11.5rem] overflow-hidden">
+                  <Logo size="md" variant="full" glitchOnHover />
+                </div>
+              </Link>
+              <Link
+                href="/changelog"
+                className="shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
+              >
                 v0.1 // EARLY ACCESS
-              </span>
-            </Link>
+              </Link>
+            </div>
 
             {/* Navigation Links + Auth */}
             <div className="flex items-center gap-4">

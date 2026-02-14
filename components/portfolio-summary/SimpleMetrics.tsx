@@ -41,6 +41,7 @@ interface SimpleMetricsProps {
   acquisitionBreakdown: AcquisitionBreakdown;
   totalGunSpent: number;
   gunPrice: number | undefined;
+  walletCount?: number;
 }
 
 export function SimpleMetrics({
@@ -50,6 +51,7 @@ export function SimpleMetrics({
   hasSparklineData,
   enrichmentProgress, progressPct,
   acquisitionBreakdown, totalGunSpent, gunPrice,
+  walletCount,
 }: SimpleMetricsProps) {
   const isActiveEnrichment = enrichmentProgress != null && enrichmentProgress.phase !== 'complete';
   // During active scanning: use pipeline completed count (cumulative across pages)
@@ -149,6 +151,9 @@ export function SimpleMetrics({
           <p className="font-mono text-caption tracking-widest uppercase text-[var(--gs-gray-4)]">
             NFT Holdings
           </p>
+          {walletCount && walletCount > 1 && (
+            <span className="font-mono text-[9px] text-[var(--gs-purple)] opacity-70 tabular-nums">{walletCount} wallets</span>
+          )}
           {hasNftSparkline && (
             <DotIndicator activeIndex={nftCardSparkline ? 1 : 0} color="var(--gs-purple)" />
           )}

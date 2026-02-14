@@ -27,18 +27,18 @@ export function WalletDropdown({
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const displayLabel = truncateAddress(walletAddress).toUpperCase();
+  // Wallet details — only available on portfolio page (inside PortfolioProvider)
+  const { walletData, networkInfo, walletType } = usePortfolioWallet();
+  const { profile } = useUserProfile();
+  const portfolioAddresses = profile?.portfolioAddresses ?? [];
+
+  const displayLabel = profile?.displayName || truncateAddress(walletAddress).toUpperCase();
 
   const { display, hovered, scramble, reset } = useGlitchScramble({
     label: displayLabel,
     target: displayLabel,
     skipChars: ['\u2026'],
   });
-
-  // Wallet details — only available on portfolio page (inside PortfolioProvider)
-  const { walletData, networkInfo, walletType } = usePortfolioWallet();
-  const { profile } = useUserProfile();
-  const portfolioAddresses = profile?.portfolioAddresses ?? [];
 
   const chainId = networkInfo?.chainId ?? null;
   const networkLabel = networkInfo?.environment === 'testnet' ? 'GunzChain Testnet' : 'GunzChain Mainnet';
