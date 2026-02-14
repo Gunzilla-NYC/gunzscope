@@ -1,5 +1,3 @@
-export type PortfolioViewMode = 'simple' | 'detailed';
-
 export interface NftPnL {
   unrealizedGun: number | null;
   unrealizedUsd: number | null;

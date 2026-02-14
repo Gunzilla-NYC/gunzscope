@@ -760,6 +760,81 @@ export class OpenSeaService {
   }
 
   /**
+   * Build a floor price table for ALL rarity tiers at once.
+   * More efficient than calling getRarityFloorPrice() per tier — fetches sales
+   * once and groups by rarity.
+   *
+   * Returns: { floors: Record<string, number>, salesCount: Record<string, number>, updatedAt: string }
+   */
+  async getRarityFloorTable(
+    collectionSlug: string = 'off-the-grid'
+  ): Promise<{
+    floors: Record<string, number>;
+    salesCount: Record<string, number>;
+    updatedAt: string;
+  }> {
+    const floors: Record<string, number> = {};
+    const salesCount: Record<string, number> = {};
+    const updatedAt = new Date().toISOString();
+
+    try {
+      const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, 50);
+      if (recentSales.length === 0) {
+        return { floors, salesCount, updatedAt };
+      }
+
+      // Group prices by rarity tier (enrich with traits as needed)
+      const pricesByRarity: Record<string, number[]> = {};
+      const enrichedTokenIds = new Set<string>();
+      const MAX_TRAIT_FETCHES = 25;
+
+      for (const sale of recentSales) {
+        const effectivePrice = sale.priceGUN > 0 ? sale.priceGUN : sale.priceWGUN;
+        if (effectivePrice <= 0) continue;
+
+        if (enrichedTokenIds.size >= MAX_TRAIT_FETCHES && !enrichedTokenIds.has(sale.tokenId)) {
+          continue;
+        }
+        enrichedTokenIds.add(sale.tokenId);
+
+        let saleRarity: string | null = null;
+
+        if (sale.nftTraits) {
+          saleRarity = sale.nftTraits['RARITY'] || sale.nftTraits['Rarity'] || sale.nftTraits['rarity'] || null;
+        }
+
+        if (!saleRarity && sale.tokenId && sale.contract) {
+          const traits = await this.fetchNFTTraits(sale.contract, sale.tokenId);
+          if (traits) {
+            saleRarity = traits['RARITY'] || traits['Rarity'] || traits['rarity'] || null;
+          }
+        }
+
+        if (saleRarity) {
+          // Normalize to title case (Epic, Rare, Uncommon, Common)
+          const normalized = saleRarity.charAt(0).toUpperCase() + saleRarity.slice(1).toLowerCase();
+          if (!pricesByRarity[normalized]) pricesByRarity[normalized] = [];
+          pricesByRarity[normalized].push(effectivePrice);
+        }
+      }
+
+      // Compute floor (min price) for each tier
+      for (const [rarity, prices] of Object.entries(pricesByRarity)) {
+        floors[rarity] = Math.min(...prices);
+        salesCount[rarity] = prices.length;
+      }
+
+      if (DEBUG) {
+        console.log('[getRarityFloorTable] Floors:', floors, 'Sales:', salesCount);
+      }
+    } catch (error) {
+      console.warn('Error building rarity floor table:', error);
+    }
+
+    return { floors, salesCount, updatedAt };
+  }
+
+  /**
    * Find recent sales of similar items for valuation
    *
    * Strategy:

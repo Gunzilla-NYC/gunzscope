@@ -5,7 +5,6 @@ import WalletIdentity from './WalletIdentity';
 import { addPortfolioSnapshot } from '@/lib/utils/portfolioHistory';
 import {
   usePortfolioWallet,
-  usePortfolioGunPrice,
   usePortfolioResult,
   usePortfolioNFTs,
 } from '@/lib/contexts/PortfolioContext';
@@ -37,41 +36,13 @@ export default function PortfolioHeader({
 }: PortfolioHeaderProps = {}) {
   // Get data from context
   const { walletData } = usePortfolioWallet();
-  const { gunPrice = 0 } = usePortfolioGunPrice();
   const portfolioResult = usePortfolioResult();
   const { allNfts } = usePortfolioNFTs();
 
-  // Calculate total value for history tracking
-  // Must be called unconditionally (React hooks rules)
-  const totalTokenValue = useMemo(() => {
-    if (!walletData) return 0;
-
-    if (portfolioResult) {
-      return portfolioResult.totalUsd;
-    }
-
-    // Legacy fallback
-    const avalancheBalance = walletData.avalanche.gunToken?.balance || 0;
-    const solanaBalance = walletData.solana.gunToken?.balance || 0;
-    const totalBal = avalancheBalance + solanaBalance;
-    const gunVal = totalBal * (gunPrice || 0);
-
-    // Calculate NFT value for total
-    let nftValue = 0;
-    allNfts.forEach(nft => {
-      if (nft.purchasePriceGun && gunPrice) {
-        nftValue += nft.purchasePriceGun * gunPrice * (nft.quantity || 1);
-      }
-    });
-
-    return gunVal + nftValue;
-  }, [walletData, gunPrice, portfolioResult, allNfts]);
-
-  // NFT count for history tracking
-  const nftCount = useMemo(() => {
-    if (portfolioResult) return portfolioResult.nftCount;
-    return allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
-  }, [portfolioResult, allNfts]);
+  // Total value and NFT count for history tracking.
+  // Prefer portfolioResult (stable, memoized upstream) to avoid recalcing on every NFT array change.
+  const totalTokenValue = portfolioResult?.totalUsd ?? 0;
+  const nftCount = portfolioResult?.nftCount ?? allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
 
   // Add portfolio snapshot for history tracking
   // Must be called unconditionally (React hooks rules)

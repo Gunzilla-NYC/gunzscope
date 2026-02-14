@@ -15,7 +15,7 @@ import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import { PortfolioProvider, PortfolioContextValue } from '@/lib/contexts/PortfolioContext';
-import PortfolioSummaryBar, { PortfolioViewMode } from '@/components/PortfolioSummaryBar';
+import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
@@ -29,6 +29,7 @@ import { useAccountGate } from '@/lib/hooks/useAccountGate';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import UnlockBanner from '@/components/UnlockBanner';
 import { createEnrichmentUpdater } from '@/lib/utils/mergeEnrichedNFTs';
+import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { useTextScramble } from '@/hooks/useTextScramble';
 
@@ -58,7 +59,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
   const [searchAddress, setSearchAddress] = useState('');
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<PortfolioViewMode>('simple');
   // noWalletDetected, showFoundMessage — owned by usePortfolioAutoLoad below
 
   // Slide-down unlock banner state
@@ -155,9 +155,25 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const TEN_PM_MESSAGE = "It\u2019s 10pm. Do you know where your children are?";
 
   // Scramble loading messages — cycle with scramble decode effect (same as home hero)
-  const LOADING_MESSAGES = is10pmWindow
-    ? [TEN_PM_MESSAGE]
-    : ['Dodging legendary buzzkilla with ease', 'Fetching wallet data\u2026', 'Loading NFT collection\u2026'];
+  // Shuffled on mount so each visit feels different
+  const LOADING_MESSAGES = useMemo(() => {
+    if (is10pmWindow) return [TEN_PM_MESSAGE];
+    const pool = [
+      'Dodging legendary buzzkilla with ease',
+      'Counting your digital weapons\u2026',
+      'Shaking down the blockchain for answers',
+      'Appraising your arsenal\u2026',
+      'Floor prices don\u2019t check themselves',
+      'Interrogating smart contracts\u2026',
+      'Scanning 13M blocks. Yeah, all of them.',
+      'Loading NFTs faster than you loot crates',
+      'Your portfolio called. It said hurry up.',
+      'Doing math so you don\u2019t have to',
+      'Raiding the RPC for your data\u2026',
+      'Bribing the blockchain for faster responses',
+    ];
+    return pool.sort(() => Math.random() - 0.5);
+  }, [is10pmWindow]);
   const loadingScramble = useTextScramble({
     words: LOADING_MESSAGES,
     scrambleDuration: 600,
@@ -167,10 +183,21 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // SDK init loading messages — displayed while waiting for wallet SDK to resolve
   const SDK_INIT_WORDS = useMemo(() => {
     if (is10pmWindow) return [TEN_PM_MESSAGE];
-    return [
-      'I swear if this takes one more second to load...',
-      'I will lose my fucking mind...',
+    const pool = [
+      'How many hexes did you have to open to collect all this shit',
+      'Somewhere on Teardrop Island, your wallet is being looted',
+      'Wallet SDK is being a little bitch rn',
+      'Hold on, the hamster powering the server tripped',
+      'Loading\u2026 faster than it takes to find you a match',
+      'This is taking longer than a hot drop wipe',
+      'Patience is a virtue. You don\u2019t have it.',
+      'If you\u2019re reading this, blame the SDK',
+      'Connecting wallet\u2026 or trying to, at least',
+      'The blockchain doesn\u2019t give a shit about your impatience',
+      'Almost there. Maybe. No promises.',
+      'Screaming into the void while your wallet connects',
     ];
+    return pool.sort(() => Math.random() - 0.5);
   }, [is10pmWindow]);
   const sdkScramble = useTextScramble({
     words: SDK_INIT_WORDS,
@@ -407,6 +434,17 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       }
       if (priceData?.sparkline7d && priceData.sparkline7d.length > 0) {
         setGunPriceSparkline(priceData.sparkline7d);
+
+        // Bootstrap portfolio history on first visit for this wallet
+        // Seeds localStorage with synthetic points from GUN price sparkline
+        // so that sparkline + 24h/7d changes render immediately
+        if (price) {
+          const gunBal = (mergedData.avalanche.gunToken?.balance ?? 0) + (mergedData.solana.gunToken?.balance ?? 0);
+          const estValue = gunBal * price;
+          if (estValue > 0) {
+            bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price);
+          }
+        }
       }
 
       // Set network info and wallet type (from primary address)
@@ -421,6 +459,14 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
       setWalletData(mergedData);
       setLoading(false);
+
+      // Persist address in URL so browser back-navigation preserves it
+      const url = new URL(window.location.href);
+      url.searchParams.set('address', address);
+      window.history.replaceState({}, '', url.toString());
+
+      // Persist to sessionStorage so clicking nav links recovers the last search
+      sessionStorage.setItem('gs_last_search', address);
 
       // Track search for account gate (anonymous users only)
       // Shared link loads (arriving via ?address= URL param) don't count against the limit
@@ -449,38 +495,54 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         }
       );
 
-      // Fetch collection floor price in background and apply to all NFTs
-      // This enables Value/P&L sorting in the gallery
+      // Fetch collection floor + rarity-tier floors in parallel, then apply in ONE setWalletData
       const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
-      if (nftContractAddress) {
-        openSeaServiceRef.current.getNFTFloorPrice(nftContractAddress, 'avalanche')
-          .then(floorPrice => {
-            if (floorPrice !== null && floorPrice > 0) {
-              setWalletData(prev => {
-                if (!prev || prev.address !== address) return prev;
-                // Apply collection floor price to all NFTs that don't already have one
-                const nftsWithFloor = prev.avalanche.nfts.map(nft => ({
-                  ...nft,
-                  floorPrice: nft.floorPrice ?? floorPrice,
-                }));
-                return {
-                  ...prev,
-                  avalanche: {
-                    ...prev.avalanche,
-                    nfts: nftsWithFloor,
-                  },
-                };
-              });
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`[Floor Price] Applied collection floor: ${floorPrice} GUN`);
+      const floorPromise = nftContractAddress
+        ? openSeaServiceRef.current.getNFTFloorPrice(nftContractAddress, 'avalanche').catch(() => null)
+        : Promise.resolve(null);
+      const rarityPromise = fetch('/api/opensea/rarity-floors')
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null) as Promise<{ floors: Record<string, number> } | null>;
+
+      Promise.all([floorPromise, rarityPromise]).then(([collectionFloor, rarityData]) => {
+        const hasCollectionFloor = collectionFloor !== null && collectionFloor > 0;
+        const rarityFloors = rarityData?.floors && Object.keys(rarityData.floors).length > 0
+          ? rarityData.floors : null;
+
+        if (!hasCollectionFloor && !rarityFloors) return;
+
+        setWalletData(prev => {
+          if (!prev || prev.address !== address) return prev;
+          const nfts = prev.avalanche.nfts.map(nft => {
+            // Per-item listing is most accurate — skip if present
+            if (nft.currentLowestListing && nft.currentLowestListing > 0) {
+              // Still apply collection floor as fallback field
+              return hasCollectionFloor ? { ...nft, floorPrice: nft.floorPrice ?? collectionFloor } : nft;
+            }
+            // Rarity-tier floor (more accurate than collection-wide)
+            if (rarityFloors) {
+              const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
+              if (rarity) {
+                const tierFloor = rarityFloors[rarity];
+                if (tierFloor && tierFloor > 0) {
+                  return { ...nft, floorPrice: tierFloor };
+                }
               }
             }
-          })
-          .catch(err => {
-            // Non-critical - portfolio still works without floor price
-            console.warn('[Floor Price] Failed to fetch from OpenSea:', err);
+            // Collection-wide floor as final fallback
+            if (hasCollectionFloor) {
+              return { ...nft, floorPrice: nft.floorPrice ?? collectionFloor };
+            }
+            return nft;
           });
-      }
+          return { ...prev, avalanche: { ...prev.avalanche, nfts } };
+        });
+
+        if (process.env.NODE_ENV === 'development') {
+          if (hasCollectionFloor) console.log(`[Floor Price] Collection floor: ${collectionFloor} GUN`);
+          if (rarityFloors) console.log('[Floor Price] Rarity-tier floors:', rarityFloors);
+        }
+      });
 
     } catch (err) {
       console.error('Error fetching wallet data:', err);
@@ -551,10 +613,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     });
   };
 
-  // Auto-load, disconnect detection, SDK init, and "found it" message — consolidated hook
+  // Auto-load, disconnect detection, and SDK init — consolidated hook
   const {
     noWalletDetected, setNoWalletDetected,
-    showFoundMessage, isSharedLinkLoad,
+    isSharedLinkLoad,
   } = usePortfolioAutoLoad({
     initialAddress,
     primaryWalletAddress: primaryWallet?.address,
@@ -638,6 +700,15 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Build context value for PortfolioProvider
   // Use aggregatedWalletFromHook (computed by useWalletAggregation) with fallback to walletData
   const effectiveWalletData = aggregatedWalletFromHook ?? walletData;
+  // Memoize allNfts separately to stabilize the reference —
+  // downstream hooks (PortfolioHeader) depend on this for useMemo/useEffect
+  const allNfts = useMemo(
+    () => effectiveWalletData
+      ? [...effectiveWalletData.avalanche.nfts, ...effectiveWalletData.solana.nfts]
+      : [],
+    [effectiveWalletData?.avalanche.nfts, effectiveWalletData?.solana.nfts],
+  );
+
   const contextValue: PortfolioContextValue = useMemo(() => ({
     walletData: effectiveWalletData,
     address: effectiveWalletData?.address ?? null,
@@ -649,9 +720,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     portfolioResult,
     enrichmentProgress,
     isEnriching: enrichingNFTs,
-    allNfts: effectiveWalletData
-      ? [...effectiveWalletData.avalanche.nfts, ...effectiveWalletData.solana.nfts]
-      : [],
+    allNfts,
     isLoading: loading,
     isInitializing: isPortfolioInitializing,
     error,
@@ -663,6 +732,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     portfolioResult,
     enrichmentProgress,
     enrichingNFTs,
+    allNfts,
     loading,
     isPortfolioInitializing,
     error,
@@ -697,13 +767,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
       {/* Transient state — waiting for wallet SDK or showing entry CTA */}
       {!walletData && !loading && (
-        showFoundMessage ? (
-          <div className="text-center py-24">
-            <p className="text-[var(--gs-lime)] font-mono text-sm animate-pulse">
-              thank my fucking limbs i found it
-            </p>
-          </div>
-        ) : noWalletDetected ? (
+        noWalletDetected ? (
           <div className="max-w-lg mx-auto py-20 px-4">
             <div
               className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] p-6 overflow-hidden"
@@ -864,12 +928,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   />
                 </div>
               </form>
-              {enrichingNFTs && (
-                <div className="flex items-center gap-2 text-xs text-[var(--gs-gray-3)]">
-                  <div className="w-3 h-3 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin"></div>
-                  <span>Loading details...</span>
-                </div>
-              )}
             </div>
           )}
 
@@ -893,8 +951,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               isInitializing={isPortfolioInitializing}
               enrichmentProgress={enrichmentProgress}
               onRetryEnrichment={retryEnrichment}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
               walletAddress={walletData.address}
             />
 

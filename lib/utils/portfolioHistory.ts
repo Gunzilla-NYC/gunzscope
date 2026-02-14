@@ -82,6 +82,69 @@ export function addPortfolioSnapshot(address: string, value: number, nftCount?: 
 }
 
 /**
+ * Bootstrap portfolio history from a GUN price sparkline on first visit.
+ *
+ * When a wallet has zero history points, we generate synthetic points from the
+ * 7-day hourly GUN price sparkline (168 points from CoinGecko). Each synthetic
+ * value = historicalGunPrice × (currentValue / currentGunPrice).
+ *
+ * This gives us instant 24h/7d change numbers and a real sparkline from stored
+ * history on subsequent renders.
+ *
+ * Returns true if bootstrap was performed.
+ */
+export function bootstrapPortfolioHistory(
+  address: string,
+  currentValue: number,
+  gunPriceSparkline: number[],
+  currentGunPrice: number,
+): boolean {
+  if (typeof window === 'undefined') return false;
+  if (currentValue <= 0 || currentGunPrice <= 0) return false;
+  if (gunPriceSparkline.length < 2) return false;
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const data: Record<string, PortfolioHistoryData> = stored ? JSON.parse(stored) : {};
+    const normalizedAddress = address.toLowerCase();
+    const existing = data[normalizedAddress];
+
+    // Only bootstrap if no history exists
+    if (existing && existing.points.length > 0) return false;
+
+    const holdingsMultiplier = currentValue / currentGunPrice;
+    const now = Date.now();
+    const sparkLen = gunPriceSparkline.length;
+    // CoinGecko 7d sparkline has ~168 hourly points
+    const msPerPoint = (7 * 24 * 60 * 60 * 1000) / (sparkLen - 1);
+
+    const points: PortfolioSnapshot[] = [];
+    // Sample evenly — take ~24 points (one every ~7 hours) to avoid bloating storage
+    const sampleCount = Math.min(24, sparkLen);
+    for (let i = 0; i < sampleCount; i++) {
+      const srcIdx = Math.round((i / (sampleCount - 1)) * (sparkLen - 1));
+      const syntheticValue = gunPriceSparkline[srcIdx] * holdingsMultiplier;
+      const timestamp = now - (sparkLen - 1 - srcIdx) * msPerPoint;
+      if (syntheticValue > 0) {
+        points.push({ t: Math.round(timestamp), v: syntheticValue });
+      }
+    }
+
+    if (points.length < 2) return false;
+
+    data[normalizedAddress] = {
+      address: normalizedAddress,
+      points,
+      lastUpdated: now,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get value closest to a target timestamp
  */
 function getValueAtTime(points: PortfolioSnapshot[], targetTime: number): number | null {

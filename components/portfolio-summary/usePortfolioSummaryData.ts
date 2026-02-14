@@ -91,11 +91,36 @@ export function usePortfolioSummaryData(
     return nftPnL.pct;
   }, [portfolioResult, nftPnL.pct]);
 
+  const totalValue = portfolioResult?.totalUsd ?? 0;
+
   // Performance changes from portfolio history
+  // Falls back to GUN price-derived synthetic changes on first visit
   const portfolioChanges = useMemo<PortfolioChanges>(() => {
     if (!walletAddress) return { change24h: null, changePercent24h: null, change7d: null, changePercent7d: null, hasEnoughData: false };
-    return calculatePortfolioChanges(walletAddress, portfolioResult?.totalUsd ?? 0);
-  }, [walletAddress, portfolioResult?.totalUsd]);
+    const real = calculatePortfolioChanges(walletAddress, portfolioResult?.totalUsd ?? 0);
+    if (real.hasEnoughData) return real;
+
+    // Synthetic fallback from GUN price sparkline (168 hourly points over 7 days)
+    if (gunPriceSparkline && gunPriceSparkline.length >= 24 && gunPrice && gunPrice > 0 && totalValue > 0) {
+      const holdingsMultiplier = totalValue / gunPrice;
+      const len = gunPriceSparkline.length;
+      // Index for ~24h ago (len points span 7 days, so 24h ≈ len/7 from the end)
+      const idx24h = Math.max(0, Math.round(len - len / 7));
+      const val24hAgo = gunPriceSparkline[idx24h] * holdingsMultiplier;
+      const val7dAgo = gunPriceSparkline[0] * holdingsMultiplier;
+
+      const synth: PortfolioChanges = {
+        change24h: val24hAgo > 0 ? totalValue - val24hAgo : null,
+        changePercent24h: val24hAgo > 0 ? ((totalValue - val24hAgo) / val24hAgo) * 100 : null,
+        change7d: val7dAgo > 0 ? totalValue - val7dAgo : null,
+        changePercent7d: val7dAgo > 0 ? ((totalValue - val7dAgo) / val7dAgo) * 100 : null,
+        hasEnoughData: val24hAgo > 0,
+      };
+      return synth;
+    }
+
+    return real;
+  }, [walletAddress, portfolioResult?.totalUsd, gunPriceSparkline, gunPrice, totalValue]);
 
   // Sparkline values from portfolio history (up to 90 evenly-sampled points across full history)
   // Falls back to GUN price-derived sparkline on first visit (no history yet)
@@ -103,8 +128,6 @@ export function usePortfolioSummaryData(
     if (!walletAddress) return [];
     return getSparklineValues(walletAddress, 90);
   }, [walletAddress]);
-
-  const totalValue = portfolioResult?.totalUsd ?? 0;
 
   const sparklineValues = useMemo(() => {
     // Use real history when available (2+ points)
