@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm install",
+  "installCommand": "npm install --legacy-peer-deps",
   "crons": [
     { "path": "/api/cron/gun-price", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/floor-drop", "schedule": "*/15 * * * *" },
