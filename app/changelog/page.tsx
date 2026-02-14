@@ -26,6 +26,7 @@ const VERSIONS: VersionEntry[] = [
       'Display name support for wallet profiles',
       'Portfolio history bootstrap with sparkline seeding',
       'Hybrid portfolio: aggregated summary + per\u2011wallet gallery with SWITCH',
+      'Migrate from SQLite to Neon PostgreSQL \u2014 full read/write in production',
     ],
   },
   {
