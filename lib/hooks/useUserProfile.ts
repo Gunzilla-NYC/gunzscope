@@ -78,6 +78,7 @@ interface UseUserProfileReturn {
   // Actions
   refreshProfile: () => Promise<void>;
   updateEmail: (email: string | null) => Promise<boolean>;
+  updateDisplayName: (displayName: string | null) => Promise<boolean>;
 
   // Tracked addresses
   addTrackedAddress: (address: string, label?: string, chain?: string) => Promise<TrackedAddress | null>;
@@ -235,6 +236,27 @@ export function useUserProfile(): UseUserProfileReturn {
 
     if (result.success) {
       setProfile((prev) => (prev ? { ...prev, email } : null));
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Update display name
+  const updateDisplayName = useCallback(async (displayName: string | null): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth(
+      '/api/me/display-name',
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ displayName }),
+      },
+      token
+    );
+
+    if (result.success) {
+      setProfile((prev) => (prev ? { ...prev, displayName } : null));
       return true;
     }
     return false;
@@ -512,6 +534,7 @@ export function useUserProfile(): UseUserProfileReturn {
     error,
     refreshProfile,
     updateEmail,
+    updateDisplayName,
     addTrackedAddress,
     removeTrackedAddress,
     addPortfolioAddress,

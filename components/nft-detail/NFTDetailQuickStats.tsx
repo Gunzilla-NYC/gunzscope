@@ -47,14 +47,14 @@ export function NFTDetailQuickStats({
     return 'text-white/60';
   };
 
-  // Format currency
-  const formatUsd = (value: number | null) => {
-    if (value === null) return '—';
+  // Format currency — pink DEBUG for missing data
+  const formatUsd = (value: number | null, debugLabel?: string) => {
+    if (value === null) return <span className="text-pink-400">DEBUG: {debugLabel ?? 'no data'}</span>;
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatGun = (value: number | null) => {
-    if (value === null) return '—';
+  const formatGun = (value: number | null, debugLabel?: string) => {
+    if (value === null) return <span className="text-pink-400">DEBUG: {debugLabel ?? 'no GUN data'}</span>;
     return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN`;
   };
 
@@ -75,13 +75,11 @@ export function NFTDetailQuickStats({
           Cost Basis
         </div>
         <div className="font-display text-sm font-semibold text-[var(--gs-white)] tabular-nums">
-          {formatUsd(costBasisUsd)}
+          {formatUsd(costBasisUsd, 'no cost USD')}
         </div>
-        {costBasisGun !== null && (
-          <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
-            {formatGun(costBasisGun)}
-          </div>
-        )}
+        <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
+          {formatGun(costBasisGun, 'no cost GUN')}
+        </div>
       </div>
 
       {/* Market Value */}
@@ -93,13 +91,11 @@ export function NFTDetailQuickStats({
           Market Value
         </div>
         <div className="font-display text-sm font-semibold text-[var(--gs-white)] tabular-nums">
-          {formatUsd(marketValueUsd)}
+          {formatUsd(marketValueUsd, 'no market USD')}
         </div>
-        {marketValueGun !== null && (
-          <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
-            {formatGun(marketValueGun)}
-          </div>
-        )}
+        <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
+          {formatGun(marketValueGun, 'no market GUN')}
+        </div>
       </div>
 
       {/* Unrealized P&L */}
@@ -121,13 +117,11 @@ export function NFTDetailQuickStats({
             <>
               {unrealizedUsd >= 0 ? '+' : '-'}${Math.abs(unrealizedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </>
-          ) : '—'}
+          ) : <span className="text-pink-400">DEBUG: no P&L</span>}
         </div>
-        {unrealizedPct !== null && (
-          <div className={`font-mono text-caption tabular-nums mt-0.5 ${getPnlColor()}`}>
-            {formatPct(unrealizedPct)}
-          </div>
-        )}
+        <div className={`font-mono text-caption tabular-nums mt-0.5 ${unrealizedPct !== null ? getPnlColor() : ''}`}>
+          {unrealizedPct !== null ? formatPct(unrealizedPct) : <span className="text-pink-400">DEBUG: no %</span>}
+        </div>
       </div>
     </div>
   );

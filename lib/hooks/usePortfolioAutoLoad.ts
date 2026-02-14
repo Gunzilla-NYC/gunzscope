@@ -116,12 +116,16 @@ export function usePortfolioAutoLoad({
   }, [noWalletDetected, walletData, loading]);
 
   // 5. Wallet disconnect detection
+  // Only clear data if the loaded wallet matches the disconnecting wallet.
+  // Dynamic SDK can briefly provide a primaryWallet from cache during init
+  // then clear it — that shouldn't wipe data loaded from sessionStorage/URL.
   useEffect(() => {
     const prev = prevWalletRef.current;
     const curr = primaryWalletAddress;
     prevWalletRef.current = curr;
 
-    if (prev && !curr && walletData) {
+    if (prev && !curr && walletData
+        && walletData.address.toLowerCase() === prev.toLowerCase()) {
       onDisconnect();
       autoLoadRef.current = false;
       setNoWalletDetected(true);

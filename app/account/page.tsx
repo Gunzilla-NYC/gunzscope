@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense, useState, useCallback } from 'react';
+import { Suspense, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { useAlertPreferences, type AlertType } from '@/lib/hooks/useAlertPreferences';
+import { useFeatureRequests } from '@/lib/hooks/useFeatureRequests';
 import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
 
@@ -115,6 +116,7 @@ function AccountContent() {
     addPortfolioAddress,
     removePortfolioAddress,
     updateEmail,
+    updateDisplayName,
     setPrimaryWallet,
     refreshProfile,
   } = useUserProfile();
@@ -126,11 +128,16 @@ function AccountContent() {
     updatePreference,
   } = useAlertPreferences();
 
+  const { requests: featureRequests } = useFeatureRequests();
+
   // Local state
   const [newAddress, setNewAddress] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
+  const [displayNameLoaded, setDisplayNameLoaded] = useState(false);
   const [email, setEmail] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [emailLoaded, setEmailLoaded] = useState(false);
@@ -139,7 +146,11 @@ function AccountContent() {
   const [togglingAlert, setTogglingAlert] = useState<string | null>(null);
   const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
 
-  // Sync email from profile on first load
+  // Sync from profile on first load
+  if (profile && !displayNameLoaded) {
+    setDisplayName(profile.displayName ?? '');
+    setDisplayNameLoaded(true);
+  }
   if (profile && !emailLoaded) {
     setEmail(profile.email ?? '');
     setEmailLoaded(true);
@@ -149,6 +160,11 @@ function AccountContent() {
   const portfolioAddresses = profile?.portfolioAddresses ?? [];
   const slotsUsed = portfolioAddresses.length;
   const isAtLimit = slotsUsed >= MAX_PORTFOLIO_WALLETS;
+
+  const myContributions = useMemo(() => {
+    if (!profile) return [];
+    return featureRequests.filter((r) => r.authorId === profile.id);
+  }, [featureRequests, profile]);
 
   const handleCopyAddress = useCallback(() => {
     navigator.clipboard.writeText(walletAddress);
@@ -201,6 +217,18 @@ function AccountContent() {
       toast.error('Failed to update email');
     }
   }, [email, updateEmail]);
+
+  const handleSaveDisplayName = useCallback(async () => {
+    setIsSavingDisplayName(true);
+    const success = await updateDisplayName(displayName.trim() || null);
+    setIsSavingDisplayName(false);
+
+    if (success) {
+      toast.success('Display name updated');
+    } else {
+      toast.error('Failed to update display name');
+    }
+  }, [displayName, updateDisplayName]);
 
   const handleSetPrimary = useCallback(async (address: string) => {
     setSettingPrimary(address);
@@ -352,6 +380,35 @@ function AccountContent() {
                       No wallet connected. Add your in&#8209;game wallet below to track your portfolio.
                     </p>
                   </>
+                )}
+
+                {/* Display Name */}
+                {profile && (
+                  <div className="mb-4 pt-4 border-t border-white/[0.06]">
+                    <label className="block font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-2">
+                      Display Name
+                    </label>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Enter a display name"
+                        maxLength={30}
+                        className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                      />
+                      <button
+                        onClick={handleSaveDisplayName}
+                        disabled={isSavingDisplayName}
+                        className="px-5 py-2.5 font-display font-semibold text-sm uppercase border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {isSavingDisplayName ? 'Saving\u2026' : 'Save'}
+                      </button>
+                    </div>
+                    <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-1.5">
+                      Shown on feature requests and credits page. Max 30 characters.
+                    </p>
+                  </div>
                 )}
 
                 {profile && (
@@ -563,6 +620,57 @@ function AccountContent() {
                 )}
               </div>
             </section>
+
+            {/* ── My Contributions ── */}
+            {myContributions.length > 0 && (
+              <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
+                <div className="h-[2px] gradient-accent-line" />
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-5">
+                    <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                      My Feature Requests
+                    </p>
+                    <Link
+                      href="/feature-requests"
+                      className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+                    >
+                      View All {'\u2192'}
+                    </Link>
+                  </div>
+                  <div className="space-y-0">
+                    {myContributions.map((req) => {
+                      const statusStyle = {
+                        open: { bg: 'bg-[var(--gs-lime)]/10', text: 'text-[var(--gs-lime)]', label: 'Open' },
+                        planned: { bg: 'bg-[var(--gs-purple)]/10', text: 'text-[var(--gs-purple)]', label: 'In Flight' },
+                        completed: { bg: 'bg-[var(--gs-profit)]/10', text: 'text-[var(--gs-profit)]', label: 'Done' },
+                        declined: { bg: 'bg-[var(--gs-loss)]/10', text: 'text-[var(--gs-loss)]', label: 'Declined' },
+                      }[req.status] || { bg: 'bg-white/5', text: 'text-[var(--gs-gray-3)]', label: req.status };
+
+                      return (
+                        <div
+                          key={req.id}
+                          className="flex items-center justify-between py-3 border-b border-white/[0.06] last:border-b-0"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className={`font-mono text-sm font-bold tabular-nums w-8 text-right shrink-0 ${
+                              req.netVotes > 0 ? 'text-[var(--gs-lime)]' : req.netVotes < 0 ? 'text-[var(--gs-loss)]' : 'text-[var(--gs-gray-3)]'
+                            }`}>
+                              {req.netVotes > 0 ? '+' : ''}{req.netVotes}
+                            </span>
+                            <span className="font-body text-sm text-[var(--gs-white)] truncate">
+                              {req.title}
+                            </span>
+                          </div>
+                          <span className={`font-mono text-label uppercase tracking-wider px-1.5 py-0.5 shrink-0 ${statusStyle.bg} ${statusStyle.text}`}>
+                            {statusStyle.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* ── Notifications ── */}
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">

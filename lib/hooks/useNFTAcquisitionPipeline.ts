@@ -814,7 +814,7 @@ export function useNFTAcquisitionPipeline(
 
         // Map venue to acquisition type for backward compatibility
         let acquisitionType: AcquisitionType;
-        if (acquisition?.isMint || acquisitionVenue === 'mint') {
+        if (acquisition?.isMint || acquisitionVenue === 'mint' || acquisitionVenue === 'decode' || acquisitionVenue === 'decoder' || acquisitionVenue === 'system_mint') {
           acquisitionType = 'MINT';
         } else if (hasAcquisitionData) {
           acquisitionType = 'TRANSFER';

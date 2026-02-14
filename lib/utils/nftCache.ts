@@ -7,7 +7,7 @@ import { AcquisitionVenue } from '../types';
 // Schema Versions - Increment when cache structure changes
 // =============================================================================
 const SCHEMA_VERSIONS = {
-  nftDetail: 'v9', // v9: Added hasMarketplacePrice + priceSource for marketplace enrichment
+  nftDetail: 'v10', // v10: Invalidate stale decode costs (pre-7b8a20d had costGun:0 for relayer txs)
   transfers: 'v2',
   priceGunUsd: 'v1',
   metadata: 'v1', // v1: NFT metadata cache (name, image, traits, mintNumber)
@@ -223,6 +223,10 @@ export interface CachedNFTDetailData {
   hasMarketplacePrice?: boolean; // true = marketplace price lookup was attempted
   priceSource?: 'blockchain' | 'marketplace'; // Where purchasePriceGun came from
   cachedAtIso?: string; // ISO timestamp when this entry was cached
+  // v10: Per-item listing prices from OpenSea (Phase 1 of valuation gap fix)
+  currentLowestListing?: number;  // Lowest active listing in GUN
+  currentHighestListing?: number; // Highest active listing in GUN
+  listingFetchedAt?: string;      // ISO timestamp of listing fetch
 }
 
 export interface CachedTransferData {
@@ -444,6 +448,10 @@ interface LegacyCachedNFTData {
   // v9 fields - marketplace price tracking
   hasMarketplacePrice?: boolean;
   priceSource?: 'blockchain' | 'marketplace';
+  // v10 fields - per-item listing prices
+  currentLowestListing?: number;
+  currentHighestListing?: number;
+  listingFetchedAt?: string;
 }
 
 /**
@@ -469,6 +477,9 @@ export const getCachedNFT = (
         cachedAt: Date.now(), // Approximate - new format doesn't expose this directly
         hasAcquisition: newResult.value.hasAcquisition,
         cachedAtIso: newResult.value.cachedAtIso,
+        currentLowestListing: newResult.value.currentLowestListing,
+        currentHighestListing: newResult.value.currentHighestListing,
+        listingFetchedAt: newResult.value.listingFetchedAt,
       };
     }
 
@@ -521,6 +532,9 @@ export const setCachedNFT = (
     hasMarketplacePrice: data.hasMarketplacePrice,
     priceSource: data.priceSource,
     cachedAtIso: data.cachedAtIso,
+    currentLowestListing: data.currentLowestListing,
+    currentHighestListing: data.currentHighestListing,
+    listingFetchedAt: data.listingFetchedAt,
   });
 };
 

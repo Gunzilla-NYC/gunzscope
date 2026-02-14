@@ -109,21 +109,21 @@
   --text-body-sm: 14px;
 }
 
-/* ── View Transitions ── */
+/* ── View Transitions (Chrome/Edge/Safari 18+) ── */
 ::view-transition-old(root) {
-  animation: vt-fade-out 0.2s cubic-bezier(0.4, 0, 1, 1);
+  animation: vt-exit 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 ::view-transition-new(root) {
-  animation: vt-fade-in 0.25s cubic-bezier(0, 0, 0.2, 1) 0.1s both;
+  animation: vt-enter 0.3s cubic-bezier(0, 0, 0.2, 1) 0.06s both;
 }
 
-@keyframes vt-fade-out {
-  to { opacity: 0; }
+@keyframes vt-exit {
+  to { opacity: 0; transform: translateY(-6px); }
 }
 
-@keyframes vt-fade-in {
-  from { opacity: 0; }
+@keyframes vt-enter {
+  from { opacity: 0; transform: translateY(10px); }
 }
 
 /* NFT Card Rarity Glow Animation */

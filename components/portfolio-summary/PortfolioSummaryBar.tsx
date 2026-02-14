@@ -127,8 +127,6 @@ export default function PortfolioSummaryBar({
         animatedTotal={animatedTotal}
         confidence={portfolioResult.confidence}
         walletAddress={walletAddress}
-        change24h={data.change24h}
-        changePercent24h={data.changePercent24h}
         change7d={data.change7d}
         changePercent7d={data.changePercent7d}
         sparklineValues={data.sparklineValues}
@@ -137,9 +135,6 @@ export default function PortfolioSummaryBar({
         isEnriching={data.isEnriching}
         enrichmentProgress={enrichmentProgress}
         isEnrichmentComplete={data.isEnrichmentComplete}
-        totalPnLPct={data.totalPnLPct}
-        isProfit={data.isProfit}
-        isLoss={data.isLoss}
         showGunOverlay={showGunOverlay}
         gunSparklineValues={gunSparklineValues}
       />

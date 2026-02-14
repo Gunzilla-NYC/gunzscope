@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { FeatureRequest } from '@/lib/hooks/useFeatureRequests';
-import { truncateAddress, timeAgo, STATUS_STYLES } from '../utils';
+import { timeAgo, STATUS_STYLES } from '../utils';
 import { VoteButton } from './VoteButton';
 
 export function RequestCard({
@@ -17,11 +17,12 @@ export function RequestCard({
   canVote: boolean;
   isAdmin: boolean;
   onVote: (id: string, value: 1 | -1) => void;
-  onUpdateStatus: (id: string, status: string, adminNote?: string) => void;
+  onUpdateStatus: (id: string, status: string, adminNote?: string, showAttribution?: boolean) => void;
   onDelete: (id: string) => void;
 }) {
   const [pendingAction, setPendingAction] = useState<'completed' | 'declined' | null>(null);
   const [reasonText, setReasonText] = useState('');
+  const [includeAttribution, setIncludeAttribution] = useState(true);
 
   const status = STATUS_STYLES[request.status] || STATUS_STYLES.open;
   const scoreColor =
@@ -45,14 +46,17 @@ export function RequestCard({
 
   const handleConfirmAction = () => {
     if (!pendingAction) return;
-    onUpdateStatus(request.id, pendingAction, reasonText.trim() || undefined);
+    const attribution = pendingAction === 'completed' ? includeAttribution : undefined;
+    onUpdateStatus(request.id, pendingAction, reasonText.trim() || undefined, attribution);
     setPendingAction(null);
     setReasonText('');
+    setIncludeAttribution(true);
   };
 
   const handleCancelAction = () => {
     setPendingAction(null);
     setReasonText('');
+    setIncludeAttribution(true);
   };
 
   return (
@@ -89,16 +93,23 @@ export function RequestCard({
             <h3 className="font-body text-sm font-semibold text-[var(--gs-white)] leading-snug">
               {request.title}
             </h3>
-            <span className={`shrink-0 font-mono text-label uppercase tracking-wider px-1.5 py-0.5 ${status.bg} ${status.text}`}>
-              {status.label}
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {request.status === 'completed' && request.showAttribution && (
+                <span className="font-mono text-label uppercase tracking-wider px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)]">
+                  ★
+                </span>
+              )}
+              <span className={`font-mono text-label uppercase tracking-wider px-1.5 py-0.5 ${status.bg} ${status.text}`}>
+                {status.label}
+              </span>
+            </div>
           </div>
           <p className="font-body text-xs text-[var(--gs-gray-4)] leading-relaxed mb-2">
             {request.description}
           </p>
           <div className="flex items-center gap-3 text-[var(--gs-gray-2)]">
             <span className="font-mono text-caption">
-              {request.authorName || truncateAddress(request.authorId)}
+              {request.authorName || 'Anonymous'}
             </span>
             <span className="font-mono text-caption">&middot;</span>
             <span className="font-mono text-caption">{timeAgo(request.createdAt)}</span>
@@ -115,37 +126,50 @@ export function RequestCard({
           {isAdmin && (
             <div className="mt-2.5 pt-2.5 border-t border-white/[0.04]">
               {pendingAction ? (
-                <div className="flex items-center gap-2">
+                <div className="space-y-2">
                   <input
                     type="text"
                     value={reasonText}
                     onChange={(e) => setReasonText(e.target.value)}
                     placeholder="Reason (optional)"
                     maxLength={200}
-                    className="flex-1 bg-[var(--gs-dark-1)] border border-white/[0.06] px-2 py-1 font-mono text-caption text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors"
+                    className="w-full bg-[var(--gs-dark-1)] border border-white/[0.06] px-2 py-1 font-mono text-caption text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleConfirmAction();
                       if (e.key === 'Escape') handleCancelAction();
                     }}
                   />
-                  <button
-                    type="button"
-                    onClick={handleConfirmAction}
-                    className="font-mono text-caption uppercase tracking-wider text-[var(--gs-lime)] hover:text-[var(--gs-lime)]/80 transition-colors cursor-pointer shrink-0"
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelAction}
-                    className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer shrink-0"
-                  >
-                    Cancel
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmAction}
+                      className="font-mono text-caption uppercase tracking-wider text-[var(--gs-lime)] hover:text-[var(--gs-lime)]/80 transition-colors cursor-pointer"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelAction}
+                      className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {pendingAction === 'completed' && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeAttribution}
+                        onChange={(e) => setIncludeAttribution(e.target.checked)}
+                        className="accent-[var(--gs-lime)] w-3.5 h-3.5 cursor-pointer"
+                      />
+                      <span className="font-mono text-caption text-[var(--gs-gray-3)]">Include in credits page</span>
+                    </label>
+                  )}
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   {request.status !== 'open' && (
                     <button
                       type="button"
@@ -153,6 +177,15 @@ export function RequestCard({
                       className="font-mono text-caption uppercase tracking-wider text-[var(--gs-purple)] hover:text-[var(--gs-purple)]/80 transition-colors cursor-pointer"
                     >
                       Reopen
+                    </button>
+                  )}
+                  {request.status !== 'planned' && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateStatus(request.id, 'planned')}
+                      className="font-mono text-caption uppercase tracking-wider text-[var(--gs-purple)] hover:text-[var(--gs-purple)]/80 transition-colors cursor-pointer"
+                    >
+                      In Flight
                     </button>
                   )}
                   {request.status !== 'completed' && (
@@ -171,6 +204,21 @@ export function RequestCard({
                       className="font-mono text-caption uppercase tracking-wider text-[var(--gs-loss)] hover:text-[var(--gs-loss)]/80 transition-colors cursor-pointer"
                     >
                       Decline
+                    </button>
+                  )}
+                  {/* Attribution toggle for completed requests */}
+                  {request.status === 'completed' && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateStatus(request.id, 'completed', undefined, !request.showAttribution)}
+                      className={`font-mono text-caption uppercase tracking-wider transition-colors cursor-pointer ${
+                        request.showAttribution
+                          ? 'text-[var(--gs-lime)]/70 hover:text-[var(--gs-lime)]'
+                          : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)]'
+                      }`}
+                      title={request.showAttribution ? 'Remove from credits' : 'Add to credits'}
+                    >
+                      {request.showAttribution ? '★ Credited' : '☆ Credit'}
                     </button>
                   )}
                   <button

@@ -922,7 +922,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
         // Map venue to acquisition type for backward compatibility
         let acquisitionType: AcquisitionType;
-        if (acquisition?.isMint || acquisitionVenue === 'mint') {
+        if (acquisition?.isMint || acquisitionVenue === 'mint' || acquisitionVenue === 'decode' || acquisitionVenue === 'decoder' || acquisitionVenue === 'system_mint') {
           acquisitionType = 'MINT';
         } else if (hasAcquisitionData) {
           acquisitionType = 'TRANSFER';
@@ -2118,7 +2118,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               </div>
 
               {/* ===== 2.25) Quick Stats Row ===== */}
-              {walletAddress && costBasisGun !== null && (
+              {walletAddress && (
                 <NFTDetailQuickStats
                   costBasisGun={costBasisGun}
                   costBasisUsd={currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null}
@@ -2141,7 +2141,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               )}
 
               {/* ===== 2.5) YOUR POSITION Section ===== */}
-              {walletAddress && costBasisGun !== null && (() => {
+              {walletAddress && (() => {
                 // Compute USD values for position tracking
                 const costBasisUsdAtAcquisition = currentPurchaseData?.purchasePriceUsd
                   ?? currentPurchaseData?.decodeCostUsd
@@ -2172,7 +2172,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   if (acquisitionType === 'TRANSFER') {
                     return { text: 'Transferred', style: 'bg-white/10 text-white/60' };
                   }
-                  return null;
+                  return { text: 'DEBUG: UNKNOWN', style: 'bg-pink-500/20 text-pink-400' };
                 };
 
                 const statusPill = getStatusPill();
@@ -2205,11 +2205,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         Your Position
                       </p>
                       {/* Status pill */}
-                      {statusPill && (
-                        <span className={`text-caption font-semibold px-2 py-0.5 rounded-full ${statusPill.style}`}>
-                          {statusPill.text}
-                        </span>
-                      )}
+                      <span className={`text-caption font-semibold px-2 py-0.5 rounded-full ${statusPill.style}`}>
+                        {statusPill.text}
+                      </span>
                     </div>
 
                     {loadingDetails ? (
@@ -2222,79 +2220,90 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     ) : (
                       <div className="space-y-1">
                         {/* Current USD value */}
-                        <p className="font-display text-[26px] font-bold text-white tabular-nums">
+                        <p className={`font-display text-[26px] font-bold tabular-nums ${currentValueUsd !== null ? 'text-white' : 'text-pink-400'}`}>
                           {currentValueUsd !== null
                             ? `$${currentValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : '—'}
+                            : 'DEBUG: no USD value'}
                         </p>
 
                         {/* Cost basis in GUN */}
-                        <p className="text-[13px] text-white/70">
-                          Cost basis: {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                        <p className={`text-[13px] ${costBasisGun !== null ? 'text-white/70' : 'text-pink-400'}`}>
+                          Cost basis: {costBasisGun !== null
+                            ? `${costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN`
+                            : 'DEBUG: no cost data'}
                         </p>
 
                         {/* USD at acquisition */}
-                        {costBasisUsdAtAcquisition !== null && (
-                          <p className="text-[13px] text-white/60">
-                            At acquisition: ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        )}
+                        <p className={`text-[13px] ${costBasisUsdAtAcquisition !== null ? 'text-white/60' : 'text-pink-400'}`}>
+                          {costBasisUsdAtAcquisition !== null
+                            ? `At acquisition: $${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : 'DEBUG: no USD at acquisition'}
+                        </p>
 
                         {/* Unrealized P&L */}
-                        {formatUnrealized() && (
-                          <p className={`text-[13px] ${getUnrealizedColor()}`}>
-                            Unrealized (GUN): {formatUnrealized()}
-                          </p>
-                        )}
+                        <p className={`text-[13px] ${formatUnrealized() ? getUnrealizedColor() : 'text-pink-400'}`}>
+                          {formatUnrealized()
+                            ? `Unrealized (GUN): ${formatUnrealized()}`
+                            : 'DEBUG: no P&L data'}
+                        </p>
 
                         {/* Explanation text */}
                         <p className="text-data text-white/60 mt-2 leading-relaxed">
                           Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
                         </p>
 
-                        {/* Acquisition Summary - inline, not hidden */}
-                        {(currentPurchaseData?.acquisitionVenue || currentPurchaseData?.purchaseDate) && (
-                          <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
-                            {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-data uppercase tracking-wider text-white/60">Source</span>
-                                <span className={`text-[13px] font-medium ${
-                                  currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
-                                  currentPurchaseData.acquisitionVenue === 'otg_marketplace' ? 'text-[var(--gs-purple)]' :
-                                  currentPurchaseData.acquisitionVenue === 'decode' || currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-[var(--gs-lime)]' :
-                                  'text-white/90'
-                                }`}>
-                                  {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0)}
-                                </span>
-                              </div>
-                            )}
-                            {currentPurchaseData?.purchaseDate && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-data uppercase tracking-wider text-white/60">Acquired</span>
-                                <span className="text-[13px] font-medium text-white/90 tabular-nums">
-                                  {formatDate(currentPurchaseData.purchaseDate)}
-                                </span>
-                              </div>
-                            )}
-                            {/* Transaction link */}
-                            {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-data uppercase tracking-wider text-white/60">Transaction</span>
-                                <a
-                                  href={gunzExplorerTxUrl(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash || '')}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-[13px] font-medium text-[var(--gs-lime)] hover:text-[var(--gs-purple)] transition inline-flex items-center gap-1"
-                                >
-                                  View
-                                  <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                  </svg>
-                                </a>
-                              </div>
+                        {/* Acquisition Summary - always shown, DEBUG for missing */}
+                        <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
+                          {/* Source */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-data uppercase tracking-wider text-white/60">Source</span>
+                            {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' ? (
+                              <span className={`text-[13px] font-medium ${
+                                currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
+                                currentPurchaseData.acquisitionVenue === 'otg_marketplace' ? 'text-[var(--gs-purple)]' :
+                                currentPurchaseData.acquisitionVenue === 'decode' || currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-[var(--gs-lime)]' :
+                                'text-white/90'
+                              }`}>
+                                {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0)}
+                              </span>
+                            ) : (
+                              <span className="text-[13px] font-medium text-pink-400">DEBUG: no source</span>
                             )}
                           </div>
-                        )}
+                          {/* Acquired date */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-data uppercase tracking-wider text-white/60">Acquired</span>
+                            {currentPurchaseData?.purchaseDate ? (
+                              <span className="text-[13px] font-medium text-white/90 tabular-nums">
+                                {formatDate(currentPurchaseData.purchaseDate)}
+                              </span>
+                            ) : (
+                              <span className="text-[13px] font-medium text-pink-400">DEBUG: no date</span>
+                            )}
+                          </div>
+                          {/* Transaction link */}
+                          {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-data uppercase tracking-wider text-white/60">Transaction</span>
+                              <a
+                                href={gunzExplorerTxUrl(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash || '')}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[13px] font-medium text-[var(--gs-lime)] hover:text-[var(--gs-purple)] transition inline-flex items-center gap-1"
+                              >
+                                View
+                                <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className="text-data uppercase tracking-wider text-white/60">Transaction</span>
+                              <span className="text-[13px] font-medium text-pink-400">DEBUG: no tx hash</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

@@ -129,6 +129,8 @@ export function useNFTEnrichmentOrchestrator(
           isFreeTransfer: cached.isFreeTransfer,
           acquisitionVenue: cached.acquisitionVenue,
           acquisitionTxHash: cached.acquisitionTxHash,
+          currentLowestListing: cached.currentLowestListing,
+          currentHighestListing: cached.currentHighestListing,
         },
         fetchSucceeded: true,
       };
@@ -137,8 +139,8 @@ export function useNFTEnrichmentOrchestrator(
     const cachedQuantity = cached?.quantity;
 
     try {
-      // Fetch quantity and acquisition details in parallel
-      const [quantity, acquisition] = await Promise.all([
+      // Fetch quantity, acquisition details, and per-item listing in parallel
+      const [quantity, acquisition, listing] = await Promise.all([
         cachedQuantity !== undefined
           ? Promise.resolve(cachedQuantity)
           : nft.tokenIds && nft.tokenIds.length > 1
@@ -151,6 +153,11 @@ export function useNFTEnrichmentOrchestrator(
           avalancheService.getNFTHoldingAcquisition(nftContractAddress, primaryTokenId, walletAddress),
           45000
         ),
+        // Per-item listing price from OpenSea (5s timeout, non-blocking)
+        withTimeout(
+          new OpenSeaService().getNFTListings(nftContractAddress, primaryTokenId, 'avalanche'),
+          5000
+        ).catch(() => null),
       ]);
 
       // Marketplace price lookup
@@ -243,9 +250,12 @@ export function useNFTEnrichmentOrchestrator(
         isFreeTransfer,
         acquisitionVenue: acquisition?.venue,
         acquisitionTxHash: acquisition?.txHash ?? undefined,
+        currentLowestListing: listing?.lowest ?? undefined,
+        currentHighestListing: listing?.highest ?? undefined,
       };
 
       // Cache the result
+      const nowIso = new Date().toISOString();
       if (hasAcquisitionData) {
         const priceSource = marketplacePriceGun !== undefined ? 'marketplace' : (acquisition?.costGun !== undefined ? 'blockchain' : undefined);
         setCachedNFT(walletAddress, primaryTokenId, {
@@ -259,7 +269,10 @@ export function useNFTEnrichmentOrchestrator(
           hasAcquisition: true,
           hasMarketplacePrice: marketplacePriceGun !== undefined,
           priceSource,
-          cachedAtIso: new Date().toISOString(),
+          cachedAtIso: nowIso,
+          currentLowestListing: enrichedData.currentLowestListing,
+          currentHighestListing: enrichedData.currentHighestListing,
+          listingFetchedAt: listing ? nowIso : undefined,
         });
       } else if (quantity !== null && quantity !== undefined) {
         // No acquisition found on-chain — this is a resolved "unknown origin",
@@ -267,7 +280,10 @@ export function useNFTEnrichmentOrchestrator(
         setCachedNFT(walletAddress, primaryTokenId, {
           quantity: enrichedData.quantity,
           hasAcquisition: true,
-          cachedAtIso: new Date().toISOString(),
+          cachedAtIso: nowIso,
+          currentLowestListing: enrichedData.currentLowestListing,
+          currentHighestListing: enrichedData.currentHighestListing,
+          listingFetchedAt: listing ? nowIso : undefined,
         });
       }
 
@@ -317,6 +333,8 @@ export function useNFTEnrichmentOrchestrator(
             isFreeTransfer: cached.isFreeTransfer,
             acquisitionVenue: cached.acquisitionVenue,
             acquisitionTxHash: cached.acquisitionTxHash,
+            currentLowestListing: cached.currentLowestListing,
+            currentHighestListing: cached.currentHighestListing,
           };
         }
         return nft;

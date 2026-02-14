@@ -13,6 +13,7 @@ export interface FeatureRequest {
   description: string;
   status: string;
   adminNote: string | null;
+  showAttribution: boolean;
   authorId: string;
   authorName: string | null;
   netVotes: number;
@@ -34,7 +35,7 @@ interface UseFeatureRequestsReturn {
   error: string | null;
   submitRequest: (title: string, description: string) => Promise<boolean>;
   vote: (id: string, value: 1 | -1) => Promise<boolean>;
-  updateRequestStatus: (id: string, status: string, adminNote?: string) => Promise<boolean>;
+  updateRequestStatus: (id: string, status: string, adminNote?: string, showAttribution?: boolean) => Promise<boolean>;
   deleteRequest: (id: string) => Promise<boolean>;
   refetch: () => Promise<void>;
 }
@@ -201,14 +202,19 @@ export function useFeatureRequests(): UseFeatureRequestsReturn {
     }
   }, [fetchRequests]);
 
-  const updateRequestStatus = useCallback(async (id: string, status: string, adminNote?: string): Promise<boolean> => {
+  const updateRequestStatus = useCallback(async (id: string, status: string, adminNote?: string, showAttribution?: boolean): Promise<boolean> => {
     const token = getAuthToken();
     if (!token) return false;
 
     // Optimistic update
     const noteValue = status === 'open' ? null : (adminNote || null);
     setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status, adminNote: noteValue } : r))
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const updated = { ...r, status, adminNote: noteValue };
+        if (showAttribution !== undefined) updated.showAttribution = showAttribution;
+        return updated;
+      })
     );
 
     try {
@@ -218,7 +224,7 @@ export function useFeatureRequests(): UseFeatureRequestsReturn {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status, adminNote }),
+        body: JSON.stringify({ status, adminNote, showAttribution }),
       });
 
       const data = await res.json();

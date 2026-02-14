@@ -263,7 +263,9 @@ export function SimpleMetrics({
               <p className="font-mono text-caption text-[var(--gs-gray-3)] tabular-nums mt-0.5">
                 {hasPnL && gunPrice
                   ? `${pnlIsProfit ? '+' : '-'}$${formatUsd(Math.abs(pnlUsd))}`
-                  : `${nftPnL.coverage} of ${nftPnL.totalItems} priced`}
+                  : nftPnL.nftsWithCost > 0 && nftPnL.coverage === 0
+                  ? 'Awaiting floor prices'
+                  : `${nftPnL.coverage} of ${nftPnL.totalItems} with P&L`}
               </p>
             </div>
           </div>
@@ -395,7 +397,7 @@ export function SimpleMetrics({
               </div>
               <div>
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-mono text-xs text-[var(--gs-gray-3)]">With prices</span>
+                  <span className="font-mono text-xs text-[var(--gs-gray-3)]">With cost</span>
                   <span className="font-mono text-xs text-[var(--gs-white)] tabular-nums">{withCostPct}%</span>
                 </div>
                 <div className="h-[3px] bg-[var(--gs-dark-4)] overflow-hidden">

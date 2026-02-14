@@ -25,13 +25,13 @@ export function useCountUp({
   const [isAnimating, setIsAnimating] = useState(false);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const valueRef = useRef(start);
   // Use refs for animation targets so closures always see current values
   const startRef = useRef(start);
   const endRef = useRef(end);
   const durationRef = useRef(duration);
 
-  // Keep refs in sync
-  startRef.current = start;
+  // Keep refs in sync (don't sync startRef — it's set before each animation)
   endRef.current = end;
   durationRef.current = duration;
 
@@ -43,6 +43,7 @@ export function useCountUp({
     const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
     const current = startRef.current + (endRef.current - startRef.current) * eased;
 
+    valueRef.current = current;
     setValue(current);
 
     if (progress < 1) {
@@ -65,15 +66,17 @@ export function useCountUp({
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
     }
-    setValue(startRef.current);
+    valueRef.current = start;
+    setValue(start);
     setIsAnimating(false);
     startTimeRef.current = null;
-  }, []);
+  }, [start]);
 
   // Auto-start on mount if requested, or snap to end for reduced motion
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
+      valueRef.current = end;
       setValue(end);
       return;
     }
@@ -91,15 +94,16 @@ export function useCountUp({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startOnMount]);
 
-  // When end changes and we're not using manual startAnimation, snap to new value
-  // This prevents the animation from re-triggering on every end change
+  // When end changes, animate from current displayed value to new end
   useEffect(() => {
     if (!startOnMount) return;
-    // For auto-start hooks: re-animate when end changes to a meaningful value
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
+      valueRef.current = end;
       setValue(end);
     } else if (end > 0) {
+      // Animate FROM the current value TO the new end (not from 0)
+      startRef.current = valueRef.current;
       startAnimation();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

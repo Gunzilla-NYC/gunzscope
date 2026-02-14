@@ -13,25 +13,60 @@ const contributors: Contributor[] = [
   { name: 'meatport', role: 'Feedback & Testing', xHandle: 'meatportgg' },
 ];
 
-/** Fetch distinct authors whose feature requests were completed. */
-async function getIdeaContributors(): Promise<{ name: string; count: number }[]> {
+function truncateAddress(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}\u2026${addr.slice(-4)}`;
+}
+
+interface IdeaContributor {
+  name: string;
+  ideasShipped: number;
+  upvotes: number;
+  downvotes: number;
+  netScore: number;
+}
+
+/** Fetch distinct authors whose feature requests were completed with vote stats. */
+async function getIdeaContributors(): Promise<IdeaContributor[]> {
   const completed = await prisma.featureRequest.findMany({
-    where: { status: 'completed' },
+    where: { status: 'completed', showAttribution: true },
     select: {
-      author: { select: { displayName: true } },
+      author: {
+        select: {
+          displayName: true,
+          wallets: {
+            where: { isPrimary: true },
+            select: { address: true },
+            take: 1,
+          },
+        },
+      },
+      votes: {
+        select: { value: true },
+      },
     },
   });
 
-  // Group by author name and count completed ideas
-  const counts = new Map<string, number>();
+  // Aggregate per author
+  const stats = new Map<string, IdeaContributor>();
   for (const r of completed) {
-    const name = r.author.displayName || 'Anonymous';
-    counts.set(name, (counts.get(name) || 0) + 1);
+    const name = r.author.displayName
+      || (r.author.wallets[0]?.address ? truncateAddress(r.author.wallets[0].address) : 'Anonymous');
+
+    const existing = stats.get(name) || { name, ideasShipped: 0, upvotes: 0, downvotes: 0, netScore: 0 };
+    existing.ideasShipped += 1;
+
+    for (const v of r.votes) {
+      if (v.value > 0) existing.upvotes += v.value;
+      else existing.downvotes += Math.abs(v.value);
+    }
+    existing.netScore = existing.upvotes - existing.downvotes;
+
+    stats.set(name, existing);
   }
 
-  return Array.from(counts.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return Array.from(stats.values())
+    .sort((a, b) => b.netScore - a.netScore || b.ideasShipped - a.ideasShipped || a.name.localeCompare(b.name));
 }
 
 export const dynamic = 'force-dynamic';
@@ -116,9 +151,16 @@ export default async function CreditsPage() {
                 <span className="font-mono text-base text-[var(--gs-white)]">
                   {person.name}
                 </span>
-                <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)]">
-                  {person.count === 1 ? '1 idea shipped' : `${person.count} ideas shipped`}
-                </span>
+                <div className="flex items-center gap-4">
+                  {person.netScore !== 0 && (
+                    <span className={`font-mono text-caption tabular-nums ${person.netScore > 0 ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-loss)]'}`}>
+                      {person.netScore > 0 ? '+' : ''}{person.netScore} votes
+                    </span>
+                  )}
+                  <span className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)]">
+                    {person.ideasShipped === 1 ? '1 idea shipped' : `${person.ideasShipped} ideas shipped`}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

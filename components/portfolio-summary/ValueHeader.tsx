@@ -11,8 +11,6 @@ interface ValueHeaderProps {
   animatedTotal: string;
   confidence?: PortfolioCalcResult['confidence'];
   walletAddress?: string;
-  change24h: ChangeDisplay;
-  changePercent24h: ChangeDisplay;
   change7d: ChangeDisplay;
   changePercent7d: ChangeDisplay;
   sparklineValues: number[];
@@ -21,9 +19,6 @@ interface ValueHeaderProps {
   isEnriching: boolean;
   enrichmentProgress?: EnrichmentProgress | null;
   isEnrichmentComplete: boolean;
-  totalPnLPct: number | null;
-  isProfit: boolean;
-  isLoss: boolean;
   showGunOverlay: boolean;
   gunSparklineValues: number[];
 }
@@ -31,13 +26,17 @@ interface ValueHeaderProps {
 export function ValueHeader({
   isInitializing,
   animatedTotal, confidence, walletAddress,
-  change24h, changePercent24h, change7d, changePercent7d,
+  change7d, changePercent7d,
   sparklineValues, sparklineSpanDays, totalValue,
-  isEnriching, enrichmentProgress, isEnrichmentComplete,
-  totalPnLPct, isProfit, isLoss,
+  isEnriching,
   showGunOverlay, gunSparklineValues,
 }: ValueHeaderProps) {
   const hasSparkline = sparklineValues.length >= 2 && !isInitializing;
+
+  // 7d performance badge state
+  const show7dBadge = walletAddress && !change7d.isCalculating && !isInitializing;
+  const is7dUp = changePercent7d.text.startsWith('+') || (!changePercent7d.text.startsWith('-') && changePercent7d.text !== '0.0%');
+  const is7dDown = changePercent7d.text.startsWith('-');
 
   return (
     <div className="relative overflow-hidden">
@@ -86,57 +85,34 @@ export function ValueHeader({
                 <p className="font-display text-4xl font-bold text-[var(--gs-white)]">
                   ${animatedTotal}
                 </p>
-                {walletAddress && !(change24h.isCalculating && change7d.isCalculating) && (
-                  <div className="flex items-center gap-3 mt-1">
-                    {!change24h.isCalculating && (
-                      <span className="font-mono text-[13px]">
-                        <span className="text-[var(--gs-gray-3)] mr-1">24h</span>
-                        <span className={change24h.colorClass}>{change24h.text}</span>
-                        <span className={`text-data ml-0.5 ${changePercent24h.colorClass}`}>({changePercent24h.text})</span>
-                      </span>
+                {show7dBadge && (
+                  <div
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 border text-[11px] ${
+                      is7dUp
+                        ? 'bg-[var(--gs-profit)]/8 border-[var(--gs-profit)]/20 text-[var(--gs-profit)]'
+                        : is7dDown
+                        ? 'bg-[var(--gs-loss)]/8 border-[var(--gs-loss)]/20 text-[var(--gs-loss)]'
+                        : 'bg-white/5 border-white/10 text-[var(--gs-gray-4)]'
+                    }`}
+                    style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+                  >
+                    {is7dUp && (
+                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                      </svg>
                     )}
-                    {!change7d.isCalculating && (
-                      <span className="font-mono text-[13px]">
-                        <span className="text-[var(--gs-gray-3)] mr-1">7d</span>
-                        <span className={change7d.colorClass}>{change7d.text}</span>
-                        <span className={`text-data ml-0.5 ${changePercent7d.colorClass}`}>({changePercent7d.text})</span>
-                      </span>
+                    {is7dDown && (
+                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
                     )}
+                    <span className="font-mono font-semibold">
+                      <span className="opacity-50 mr-0.5">7d</span>{changePercent7d.text}
+                    </span>
                   </div>
                 )}
               </>
             )}
-          </div>
-
-          {/* Right column: P&L Badge */}
-          <div className="flex items-center gap-2">
-            {/* P&L Badge */}
-            {totalPnLPct !== null && !isInitializing ? (
-              <div
-                className={`flex items-center gap-1.5 px-3 py-1.5 border ${
-                  isProfit
-                    ? 'bg-[var(--gs-profit)]/10 border-[var(--gs-profit)]/30 text-[var(--gs-profit)]'
-                    : isLoss
-                    ? 'bg-[var(--gs-loss)]/10 border-[var(--gs-loss)]/30 text-[var(--gs-loss)]'
-                    : 'bg-white/5 border-white/10 text-[var(--gs-gray-4)]'
-                }`}
-                style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
-              >
-                {isProfit && (
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                )}
-                {isLoss && (
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                )}
-                <span className="font-mono text-sm font-semibold">
-                  {totalPnLPct >= 0 ? '+' : ''}{totalPnLPct.toFixed(1)}%
-                </span>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

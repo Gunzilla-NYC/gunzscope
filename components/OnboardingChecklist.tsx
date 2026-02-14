@@ -33,7 +33,7 @@ const WALLET_STEPS: Step[] = [
   {
     id: 'connect-wallet',
     label: 'Create an Account',
-    description: 'Unlock more features',
+    description: 'Session persistence & more',
     action: 'auth',
   },
   {

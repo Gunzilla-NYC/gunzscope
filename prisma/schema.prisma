@@ -142,8 +142,9 @@ model FeatureRequest {
   id          String   @id @default(cuid())
   title       String
   description String
-  status      String   @default("open") // open | planned | completed | declined
-  adminNote   String?  // optional admin reason for status change
+  status          String   @default("open") // open | planned | completed | declined
+  adminNote       String?  // optional admin reason for status change
+  showAttribution Boolean  @default(false) // admin controls whether author appears on credits page
   authorId    String
   author      UserProfile @relation(fields: [authorId], references: [id])
   votes       FeatureRequestVote[]

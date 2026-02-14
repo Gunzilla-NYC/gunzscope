@@ -27,7 +27,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, adminNote } = body;
+    const { status, adminNote, showAttribution } = body;
 
     if (!status || !VALID_STATUSES.includes(status as ValidStatus)) {
       return jsonError(`Status must be one of: ${VALID_STATUSES.join(', ')}`, 400);
@@ -35,7 +35,7 @@ export async function PATCH(
 
     // When reopening, clear the admin note
     const note = status === 'open' ? null : adminNote;
-    await updateStatus(id, status as ValidStatus, note);
+    await updateStatus(id, status as ValidStatus, note, showAttribution);
 
     return jsonSuccess({});
   } catch (error) {

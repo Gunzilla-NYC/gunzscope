@@ -31,24 +31,23 @@ function RequestSections({
   canSubmit: boolean;
   isAdmin: boolean;
   onVote: (id: string, value: 1 | -1) => void;
-  onUpdateStatus: (id: string, status: string, adminNote?: string) => void;
+  onUpdateStatus: (id: string, status: string, adminNote?: string, showAttribution?: boolean) => void;
   onDelete: (id: string) => void;
   onSubmit: (title: string, description: string) => Promise<boolean>;
   isSubmitting: boolean;
 }) {
-  const activeRequests = requests.filter(
-    (r) => r.status === 'open' || r.status === 'planned'
-  );
-  const completedRequests = requests.filter((r) => r.status === 'completed');
+  const openRequests = requests.filter((r) => r.status === 'open');
+  const inFlightRequests = requests.filter((r) => r.status === 'planned');
   const declinedRequests = requests.filter((r) => r.status === 'declined');
+  const completedRequests = requests.filter((r) => r.status === 'completed');
 
   const cardProps = { canVote, isAdmin, onVote, onUpdateStatus, onDelete };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Requested — left column */}
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* Requested — open items */}
       <div>
-        <SectionHeader label="Requested" count={activeRequests.length} color="bg-[var(--gs-lime)]" />
+        <SectionHeader label="Requested" count={openRequests.length} color="bg-[var(--gs-lime)]" />
         {canSubmit && (
           <div className="mb-3">
             <SubmitForm
@@ -60,9 +59,9 @@ function RequestSections({
             />
           </div>
         )}
-        {activeRequests.length > 0 ? (
+        {openRequests.length > 0 ? (
           <div className="space-y-3">
-            {activeRequests.map((request) => (
+            {openRequests.map((request) => (
               <RequestCard key={request.id} request={request} {...cardProps} />
             ))}
           </div>
@@ -73,7 +72,23 @@ function RequestSections({
         )}
       </div>
 
-      {/* Declined — center column */}
+      {/* In Flight — planned items */}
+      <div>
+        <SectionHeader label="In Flight" count={inFlightRequests.length} color="bg-[var(--gs-purple)]" />
+        {inFlightRequests.length > 0 ? (
+          <div className="space-y-3">
+            {inFlightRequests.map((request) => (
+              <RequestCard key={request.id} request={request} {...cardProps} />
+            ))}
+          </div>
+        ) : (
+          <div className="border border-white/[0.04] py-6 text-center clip-corner-sm">
+            <p className="font-mono text-caption text-[var(--gs-gray-2)]">None yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* Declined */}
       <div>
         <SectionHeader label="Declined" count={declinedRequests.length} color="bg-[var(--gs-loss)]" />
         {declinedRequests.length > 0 ? (
@@ -89,7 +104,7 @@ function RequestSections({
         )}
       </div>
 
-      {/* Completed — right column */}
+      {/* Completed */}
       <div>
         <SectionHeader label="Completed" count={completedRequests.length} color="bg-[var(--gs-profit)]" />
         {completedRequests.length > 0 ? (

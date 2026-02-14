@@ -6,12 +6,37 @@
 
 import prisma from '../db';
 
+function truncateAddress(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}\u2026${addr.slice(-4)}`;
+}
+
+/** Resolve author display name: displayName → truncated primary wallet → null */
+function resolveAuthorName(
+  author: { displayName: string | null; wallets: { address: string }[] }
+): string | null {
+  if (author.displayName) return author.displayName;
+  const primary = author.wallets[0];
+  if (primary) return truncateAddress(primary.address);
+  return null;
+}
+
+const AUTHOR_SELECT = {
+  displayName: true,
+  wallets: {
+    where: { isPrimary: true },
+    select: { address: true },
+    take: 1,
+  },
+} as const;
+
 export interface FeatureRequestWithVotes {
   id: string;
   title: string;
   description: string;
   status: string;
   adminNote: string | null;
+  showAttribution: boolean;
   authorId: string;
   authorName: string | null;
   netVotes: number;
@@ -27,7 +52,7 @@ export interface FeatureRequestWithVotes {
 export async function getAll(userId?: string): Promise<FeatureRequestWithVotes[]> {
   const requests = await prisma.featureRequest.findMany({
     include: {
-      author: { select: { displayName: true } },
+      author: { select: AUTHOR_SELECT },
       votes: true,
     },
     orderBy: { createdAt: 'desc' },
@@ -45,8 +70,9 @@ export async function getAll(userId?: string): Promise<FeatureRequestWithVotes[]
       description: r.description,
       status: r.status,
       adminNote: r.adminNote ?? null,
+      showAttribution: r.showAttribution,
       authorId: r.authorId,
-      authorName: r.author.displayName,
+      authorName: resolveAuthorName(r.author),
       netVotes,
       userVote,
       createdAt: r.createdAt,
@@ -70,7 +96,7 @@ export async function create(
       authorId: userId,
     },
     include: {
-      author: { select: { displayName: true } },
+      author: { select: AUTHOR_SELECT },
     },
   });
 
@@ -80,8 +106,9 @@ export async function create(
     description: request.description,
     status: request.status,
     adminNote: null,
+    showAttribution: false,
     authorId: request.authorId,
-    authorName: request.author.displayName,
+    authorName: resolveAuthorName(request.author),
     netVotes: 0,
     userVote: null,
     createdAt: request.createdAt,
@@ -147,13 +174,15 @@ export async function vote(
 export async function updateStatus(
   featureRequestId: string,
   status: 'open' | 'planned' | 'completed' | 'declined',
-  adminNote?: string | null
+  adminNote?: string | null,
+  showAttribution?: boolean
 ): Promise<void> {
   await prisma.featureRequest.update({
     where: { id: featureRequestId },
     data: {
       status,
       adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
+      ...(showAttribution !== undefined && { showAttribution }),
     },
   });
 }

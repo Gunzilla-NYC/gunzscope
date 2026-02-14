@@ -25,7 +25,7 @@ export function usePortfolioSummaryData(
 
     for (const nft of nfts) {
       const quantity = nft.quantity || 1;
-      const floor = nft.floorPrice;
+      const floor = nft.currentLowestListing ?? nft.floorPrice;
       const cost = nft.purchasePriceGun;
 
       if (nft.isFreeTransfer) {
@@ -178,9 +178,7 @@ export function usePortfolioSummaryData(
     return generateInsights(nfts, gunPrice);
   }, [nfts, gunPrice, nftPnL.nftsWithCost, nftPnL.totalItems]);
 
-  // Format 24h/7d changes
-  const change24h = formatChangeDisplay(portfolioChanges.change24h);
-  const changePercent24h = formatChangeDisplay(portfolioChanges.changePercent24h, true);
+  // Format 7d changes (24h removed — no longer displayed in summary)
   const change7d = formatChangeDisplay(portfolioChanges.change7d);
   const changePercent7d = formatChangeDisplay(portfolioChanges.changePercent7d, true);
 
@@ -209,7 +207,7 @@ export function usePortfolioSummaryData(
 
   return {
     nftPnL, acquisitionBreakdown, totalPnLPct,
-    change24h, changePercent24h, change7d, changePercent7d,
+    change7d, changePercent7d,
     sparklineValues, sparklineSpanDays, nftCountHistory, insights,
     totalValue, gunHoldings, gunValue, totalGunSpent, nftCount,
     nftFloorValueUsd, gunPct, nftPct,
