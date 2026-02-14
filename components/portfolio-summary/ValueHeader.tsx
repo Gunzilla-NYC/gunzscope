@@ -21,6 +21,8 @@ interface ValueHeaderProps {
   isEnrichmentComplete: boolean;
   showGunOverlay: boolean;
   gunSparklineValues: number[];
+  hasMarketValue?: boolean;
+  costBasisTotal?: number;
 }
 
 export function ValueHeader({
@@ -30,6 +32,7 @@ export function ValueHeader({
   sparklineValues, sparklineSpanDays, totalValue,
   isEnriching,
   showGunOverlay, gunSparklineValues,
+  hasMarketValue, costBasisTotal,
 }: ValueHeaderProps) {
   const hasSparkline = sparklineValues.length >= 2 && !isInitializing;
 
@@ -59,7 +62,7 @@ export function ValueHeader({
           <div aria-live="polite" aria-busy={isInitializing}>
             <div className="flex items-center gap-2 mb-1">
               <p className="font-mono text-caption tracking-widest uppercase text-[var(--gs-gray-4)]">
-                Total Portfolio Value
+                {hasMarketValue ? 'Estimated Market Value' : 'Total Portfolio Value'}
               </p>
               {confidence && (
                 <ConfidenceIndicator confidence={confidence} isGathering={isEnriching} />
@@ -85,6 +88,11 @@ export function ValueHeader({
                 <p className="font-display text-4xl font-bold text-[var(--gs-white)]">
                   ${animatedTotal}
                 </p>
+                {hasMarketValue && costBasisTotal !== undefined && (
+                  <p className="font-mono text-[11px] text-[var(--gs-gray-3)] mt-0.5">
+                    Cost basis: ${costBasisTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
                 {show7dBadge && (
                   <div
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 border text-[11px] ${

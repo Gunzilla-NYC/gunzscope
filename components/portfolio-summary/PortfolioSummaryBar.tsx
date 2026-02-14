@@ -33,9 +33,10 @@ export default function PortfolioSummaryBar({
   // All computed data from hook
   const data = usePortfolioSummaryData(portfolioResult, gunPrice, nfts, enrichmentProgress, walletAddress, gunPriceSparkline);
 
-  // Animated count-up for total value
+  // Animated count-up for total value (prefer market value when available)
+  const displayTotal = data.hasMarketValue ? data.totalMarketValue : data.totalValue;
   const { displayValue: animatedTotal } = useCountUp({
-    end: data.totalValue,
+    end: displayTotal,
     duration: 1500,
     decimals: 2,
     startOnMount: true,
@@ -137,6 +138,8 @@ export default function PortfolioSummaryBar({
         isEnrichmentComplete={data.isEnrichmentComplete}
         showGunOverlay={showGunOverlay}
         gunSparklineValues={gunSparklineValues}
+        hasMarketValue={data.hasMarketValue}
+        costBasisTotal={data.totalValue}
       />
 
       {/* Simple Mode: 4-Cell Metrics Row */}

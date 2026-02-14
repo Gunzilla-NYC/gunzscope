@@ -40,8 +40,8 @@ export default function PortfolioHeader({
   const { allNfts } = usePortfolioNFTs();
 
   // Total value and NFT count for history tracking.
-  // Prefer portfolioResult (stable, memoized upstream) to avoid recalcing on every NFT array change.
-  const totalTokenValue = portfolioResult?.totalUsd ?? 0;
+  // Prefer market value (listing > floor > cost) when available, fall back to cost basis.
+  const totalTokenValue = portfolioResult?.totalMarketValueUsd ?? portfolioResult?.totalUsd ?? 0;
   const nftCount = portfolioResult?.nftCount ?? allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
 
   // Add portfolio snapshot for history tracking

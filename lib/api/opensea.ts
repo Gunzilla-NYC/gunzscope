@@ -835,6 +835,93 @@ export class OpenSeaService {
   }
 
   /**
+   * Build a lookup table of per-item-name median sale prices from recent sales.
+   * Groups by "itemName::rarity" key. Server-cached for 2 hours.
+   *
+   * Returns: { items: Record<string, { medianGun, minGun, saleCount, rarity, name }> }
+   */
+  async getComparableSalesTable(
+    collectionSlug: string = 'off-the-grid',
+    salesToFetch: number = 100
+  ): Promise<{
+    items: Record<string, { medianGun: number; minGun: number; saleCount: number; rarity: string; name: string }>;
+    totalSalesAnalyzed: number;
+    updatedAt: string;
+  }> {
+    const items: Record<string, { medianGun: number; minGun: number; saleCount: number; rarity: string; name: string }> = {};
+    const updatedAt = new Date().toISOString();
+
+    try {
+      const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, salesToFetch);
+      if (recentSales.length === 0) {
+        return { items, totalSalesAnalyzed: 0, updatedAt };
+      }
+
+      // Group by item name + rarity
+      const pricesByItem: Record<string, { prices: number[]; rarity: string; name: string }> = {};
+      const enrichedTokenIds = new Set<string>();
+      const MAX_TRAIT_FETCHES = 30;
+
+      for (const sale of recentSales) {
+        const effectivePrice = sale.priceGUN > 0 ? sale.priceGUN : sale.priceWGUN;
+        if (effectivePrice <= 0) continue;
+
+        const name = (sale.nftName || '').trim();
+        if (!name) continue;
+
+        // Get rarity via trait enrichment
+        if (enrichedTokenIds.size >= MAX_TRAIT_FETCHES && !enrichedTokenIds.has(sale.tokenId)) {
+          continue;
+        }
+        enrichedTokenIds.add(sale.tokenId);
+
+        let rarity: string | null = null;
+        if (sale.nftTraits) {
+          rarity = sale.nftTraits['RARITY'] || sale.nftTraits['Rarity'] || sale.nftTraits['rarity'] || null;
+        }
+        if (!rarity && sale.tokenId && sale.contract) {
+          const traits = await this.fetchNFTTraits(sale.contract, sale.tokenId);
+          if (traits) {
+            rarity = traits['RARITY'] || traits['Rarity'] || traits['rarity'] || null;
+          }
+        }
+        if (!rarity) continue;
+
+        const normalized = rarity.charAt(0).toUpperCase() + rarity.slice(1).toLowerCase();
+        const key = `${name}::${normalized}`;
+        if (!pricesByItem[key]) {
+          pricesByItem[key] = { prices: [], rarity: normalized, name };
+        }
+        pricesByItem[key].prices.push(effectivePrice);
+      }
+
+      // Compute median and min for each item
+      for (const [key, data] of Object.entries(pricesByItem)) {
+        const sorted = [...data.prices].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        const median = sorted.length % 2 === 0
+          ? (sorted[mid - 1] + sorted[mid]) / 2
+          : sorted[mid];
+        items[key] = {
+          medianGun: median,
+          minGun: sorted[0],
+          saleCount: sorted.length,
+          rarity: data.rarity,
+          name: data.name,
+        };
+      }
+
+      if (DEBUG) {
+        console.log(`[getComparableSalesTable] Built table with ${Object.keys(items).length} items from ${recentSales.length} sales`);
+      }
+    } catch (error) {
+      console.warn('Error building comparable sales table:', error);
+    }
+
+    return { items, totalSalesAnalyzed: salesToFetch, updatedAt };
+  }
+
+  /**
    * Find recent sales of similar items for valuation
    *
    * Strategy:

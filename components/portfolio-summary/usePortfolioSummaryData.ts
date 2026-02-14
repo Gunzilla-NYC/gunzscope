@@ -191,6 +191,13 @@ export function usePortfolioSummaryData(
   const gunPct = totalValue > 0 ? (gunValue / totalValue) * 100 : 0;
   const nftPct = totalValue > 0 ? ((nftFloorValueUsd ?? 0) / totalValue) * 100 : 0;
 
+  // Market value: estimated total using listing > floor > cost basis waterfall
+  const totalMarketValue = portfolioResult?.totalMarketValueUsd ?? totalValue;
+  const nftsMarketValueUsd = portfolioResult?.nftsMarketValueUsd ?? 0;
+  const nftsWithMarketValue = portfolioResult?.nftsWithMarketValue ?? 0;
+  // Show market value when it differs meaningfully from cost basis
+  const hasMarketValue = nftsWithMarketValue > 0 && Math.abs(totalMarketValue - totalValue) > 0.01;
+
   // Enrichment helpers
   // isEnriching: true while batches are actively processing OR between pages (totalItems < nftCount)
   const isEnriching = enrichmentProgress != null && (
@@ -211,6 +218,7 @@ export function usePortfolioSummaryData(
     sparklineValues, sparklineSpanDays, nftCountHistory, insights,
     totalValue, gunHoldings, gunValue, totalGunSpent, nftCount,
     nftFloorValueUsd, gunPct, nftPct,
+    totalMarketValue, nftsMarketValueUsd, nftsWithMarketValue, hasMarketValue,
     isEnriching, isEnrichmentComplete, hasFailures, progressPct,
     isProfit, isLoss,
   };

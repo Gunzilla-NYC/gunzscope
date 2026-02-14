@@ -16,6 +16,9 @@ const SCHEMA_VERSIONS = {
 // Stale threshold for incomplete cache entries (10 minutes)
 export const INCOMPLETE_CACHE_STALE_MS = 10 * 60 * 1000;
 
+// Listing prices go stale faster than acquisition data (4 hours)
+export const LISTING_STALE_MS = 4 * 60 * 60 * 1000;
+
 // =============================================================================
 // Cache Configuration
 // =============================================================================

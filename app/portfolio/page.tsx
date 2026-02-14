@@ -495,7 +495,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         }
       );
 
-      // Fetch collection floor + rarity-tier floors in parallel, then apply in ONE setWalletData
+      // Fetch collection floor + rarity floors + comparable sales in parallel, then apply in ONE setWalletData
       const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
       const floorPromise = nftContractAddress
         ? openSeaServiceRef.current.getNFTFloorPrice(nftContractAddress, 'avalanche').catch(() => null)
@@ -503,13 +503,18 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       const rarityPromise = fetch('/api/opensea/rarity-floors')
         .then(r => r.ok ? r.json() : null)
         .catch(() => null) as Promise<{ floors: Record<string, number> } | null>;
+      const comparablePromise = fetch('/api/opensea/comparable-sales')
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null) as Promise<{ items: Record<string, { medianGun: number }> } | null>;
 
-      Promise.all([floorPromise, rarityPromise]).then(([collectionFloor, rarityData]) => {
+      Promise.all([floorPromise, rarityPromise, comparablePromise]).then(([collectionFloor, rarityData, comparableData]) => {
         const hasCollectionFloor = collectionFloor !== null && collectionFloor > 0;
         const rarityFloors = rarityData?.floors && Object.keys(rarityData.floors).length > 0
           ? rarityData.floors : null;
+        const comparableItems = comparableData?.items && Object.keys(comparableData.items).length > 0
+          ? comparableData.items : null;
 
-        if (!hasCollectionFloor && !rarityFloors) return;
+        if (!hasCollectionFloor && !rarityFloors && !comparableItems) return;
 
         setWalletData(prev => {
           if (!prev || prev.address !== address) return prev;
@@ -518,6 +523,18 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             if (nft.currentLowestListing && nft.currentLowestListing > 0) {
               // Still apply collection floor as fallback field
               return hasCollectionFloor ? { ...nft, floorPrice: nft.floorPrice ?? collectionFloor } : nft;
+            }
+            // Comparable sales median (per-item-name, more accurate than rarity-tier)
+            if (comparableItems) {
+              const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
+              const name = nft.name?.trim();
+              if (name && rarity) {
+                const key = `${name}::${rarity}`;
+                const comp = comparableItems[key];
+                if (comp && comp.medianGun > 0) {
+                  return { ...nft, floorPrice: comp.medianGun };
+                }
+              }
             }
             // Rarity-tier floor (more accurate than collection-wide)
             if (rarityFloors) {
@@ -541,6 +558,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         if (process.env.NODE_ENV === 'development') {
           if (hasCollectionFloor) console.log(`[Floor Price] Collection floor: ${collectionFloor} GUN`);
           if (rarityFloors) console.log('[Floor Price] Rarity-tier floors:', rarityFloors);
+          if (comparableItems) console.log(`[Floor Price] Comparable sales: ${Object.keys(comparableItems).length} items`);
         }
       });
 

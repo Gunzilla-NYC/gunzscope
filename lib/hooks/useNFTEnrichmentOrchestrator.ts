@@ -5,7 +5,7 @@ import { NFT, EnrichmentProgress } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { OpenSeaService } from '@/lib/api/opensea';
-import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey } from '@/lib/utils/nftCache';
+import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey, LISTING_STALE_MS } from '@/lib/utils/nftCache';
 
 // =============================================================================
 // Constants
@@ -119,6 +119,34 @@ export function useNFTEnrichmentOrchestrator(
     const cached = getCachedNFT(walletAddress, primaryTokenId);
     if (cached && cached.hasAcquisition === true) {
       const groupedQuantity = nft.tokenIds && nft.tokenIds.length > 1 ? nft.tokenIds.length : undefined;
+
+      // Check if listing data is stale (older than 4 hours)
+      const listingStale = !cached.listingFetchedAt ||
+        (Date.now() - new Date(cached.listingFetchedAt).getTime()) > LISTING_STALE_MS;
+
+      let lowestListing = cached.currentLowestListing;
+      let highestListing = cached.currentHighestListing;
+
+      // Re-fetch listing in background if stale (non-blocking, fast 5s timeout)
+      if (listingStale) {
+        withTimeout(
+          new OpenSeaService().getNFTListings(nftContractAddress, primaryTokenId, 'avalanche'),
+          5000
+        ).then(listing => {
+          if (listing) {
+            lowestListing = listing.lowest ?? undefined;
+            highestListing = listing.highest ?? undefined;
+            // Update cache with fresh listing data
+            setCachedNFT(walletAddress, primaryTokenId, {
+              ...cached,
+              currentLowestListing: lowestListing,
+              currentHighestListing: highestListing,
+              listingFetchedAt: new Date().toISOString(),
+            });
+          }
+        }).catch(() => {});
+      }
+
       return {
         nft: {
           ...nft,
@@ -129,8 +157,8 @@ export function useNFTEnrichmentOrchestrator(
           isFreeTransfer: cached.isFreeTransfer,
           acquisitionVenue: cached.acquisitionVenue,
           acquisitionTxHash: cached.acquisitionTxHash,
-          currentLowestListing: cached.currentLowestListing,
-          currentHighestListing: cached.currentHighestListing,
+          currentLowestListing: lowestListing,
+          currentHighestListing: highestListing,
         },
         fetchSucceeded: true,
       };

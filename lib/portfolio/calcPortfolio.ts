@@ -47,6 +47,12 @@ export interface PortfolioCalcResult {
   totalGunSpent: number;
   // Data confidence score based on NFT price coverage
   confidence: ConfidenceScore;
+  // Market value: estimated value using listing > floor > cost basis waterfall
+  nftsMarketValueUsd: number;
+  nftsMarketValueGun: number;
+  nftsWithMarketValue: number;
+  // Total portfolio using market value instead of cost basis
+  totalMarketValueUsd: number;
 }
 
 export interface CalcPortfolioInput {
@@ -105,6 +111,10 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   let totalNftQuantity = 0;
   let totalGunSpent = 0;
 
+  // Market value: use best available price per NFT (listing > floor > cost basis)
+  let nftsMarketValueGun = 0;
+  let nftsWithMarketValue = 0;
+
   for (const nft of allNFTs) {
     const quantity = nft.quantity ?? 1;
     totalNftQuantity += quantity;
@@ -122,6 +132,13 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
       nftsFreeTransfer += quantity;
     } else {
       nftsWithoutPrice += quantity;
+    }
+
+    // Market value waterfall: per-item listing > rarity/collection floor > cost basis
+    const marketGun = nft.currentLowestListing ?? nft.floorPrice ?? nft.purchasePriceGun;
+    if (marketGun !== undefined && marketGun > 0) {
+      nftsMarketValueGun += marketGun * quantity;
+      nftsWithMarketValue += quantity;
     }
   }
 
@@ -145,10 +162,14 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
   // Always include NFT value (even partial) - UI uses nftUsdReliable flag for warnings
   const effectiveNftsUsd = nftsUsd;
 
+  // Market value of NFTs (listing > floor > cost basis)
+  const nftsMarketValueUsd = nftsMarketValueGun * effectiveGunPrice;
+
   // ==========================================================================
   // 3. Calculate total and breakdown
   // ==========================================================================
   const totalUsd = tokensUsd + effectiveNftsUsd;
+  const totalMarketValueUsd = tokensUsd + nftsMarketValueUsd;
 
   // Build breakdown array
   const breakdown: BreakdownItem[] = [];
@@ -250,6 +271,11 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
     nftsWithoutPrice,
     totalGunSpent,
     confidence,
+    // Market value (listing > floor > cost basis waterfall)
+    nftsMarketValueUsd,
+    nftsMarketValueGun,
+    nftsWithMarketValue,
+    totalMarketValueUsd,
   };
 }
 

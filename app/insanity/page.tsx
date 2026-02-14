@@ -197,25 +197,39 @@ function InsanityInner({ address }: { address: string }) {
           (enrichedNFTs) => setWalletData(createEnrichmentUpdater(enrichedNFTs, address)),
         );
 
-        // Fetch collection floor + rarity-tier floors in parallel, apply in ONE setWalletData
+        // Fetch collection floor + rarity floors + comparable sales in parallel, apply in ONE setWalletData
         const nftContract = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
         const floorP = openSeaRef.current.getNFTFloorPrice(nftContract, 'avalanche').catch(() => null);
         const rarityP = fetch('/api/opensea/rarity-floors')
           .then(r => r.ok ? r.json() : null)
           .catch(() => null) as Promise<{ floors: Record<string, number> } | null>;
+        const comparableP = fetch('/api/opensea/comparable-sales')
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null) as Promise<{ items: Record<string, { medianGun: number }> } | null>;
 
-        Promise.all([floorP, rarityP]).then(([collectionFloor, rarityData]) => {
+        Promise.all([floorP, rarityP, comparableP]).then(([collectionFloor, rarityData, comparableData]) => {
           if (cancelled) return;
           const hasFloor = collectionFloor !== null && collectionFloor > 0;
           const rarityFloors = rarityData?.floors && Object.keys(rarityData.floors).length > 0
             ? rarityData.floors : null;
-          if (!hasFloor && !rarityFloors) return;
+          const comparableItems = comparableData?.items && Object.keys(comparableData.items).length > 0
+            ? comparableData.items : null;
+          if (!hasFloor && !rarityFloors && !comparableItems) return;
 
           setWalletData(prev => {
             if (!prev) return prev;
             const nfts = prev.avalanche.nfts.map(nft => {
               if (nft.currentLowestListing && nft.currentLowestListing > 0) {
                 return hasFloor ? { ...nft, floorPrice: nft.floorPrice ?? collectionFloor } : nft;
+              }
+              // Comparable sales median (per-item-name)
+              if (comparableItems) {
+                const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
+                const name = nft.name?.trim();
+                if (name && rarity) {
+                  const comp = comparableItems[`${name}::${rarity}`];
+                  if (comp && comp.medianGun > 0) return { ...nft, floorPrice: comp.medianGun };
+                }
               }
               if (rarityFloors) {
                 const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
