@@ -7,7 +7,6 @@ import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse, isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { updateStatus, deleteRequest } from '@/lib/services/featureRequestService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
-import { isReadOnlyDatabase } from '@/lib/db';
 
 const VALID_STATUSES = ['open', 'planned', 'completed', 'declined'] as const;
 type ValidStatus = (typeof VALID_STATUSES)[number];
@@ -16,10 +15,6 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (isReadOnlyDatabase) {
-    return jsonError('Status updates are not available in production yet', 503);
-  }
-
   const authResult = await authenticateRequest(request);
   if (!authResult.success) {
     return unauthorizedResponse(authResult);
@@ -53,10 +48,6 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (isReadOnlyDatabase) {
-    return jsonError('Deletions are not available in production yet', 503);
-  }
-
   const authResult = await authenticateRequest(request);
   if (!authResult.success) {
     return unauthorizedResponse(authResult);

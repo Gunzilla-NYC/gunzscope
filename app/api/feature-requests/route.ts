@@ -9,7 +9,6 @@ import { getProfileByDynamicId } from '@/lib/services/userService';
 import { checkNFTEligibility } from '@/lib/services/nftEligibilityService';
 import { getAll, create } from '@/lib/services/featureRequestService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
-import { isReadOnlyDatabase } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,10 +35,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (isReadOnlyDatabase) {
-    return jsonError('Feature request submissions are not available in production yet', 503);
-  }
-
   const authResult = await authenticateRequest(request);
   if (!authResult.success) {
     return unauthorizedResponse(authResult);
