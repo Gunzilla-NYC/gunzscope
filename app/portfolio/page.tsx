@@ -95,6 +95,17 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Which wallet's NFTs the gallery currently shows (null = primary)
   const [activeGalleryWallet, setActiveGalleryWallet] = useState<string | null>(null);
 
+  // Keep primaryWalletData in sync with walletData so enrichment updates
+  // (acquisition data, floor prices, listings) flow through to aggregation
+  useEffect(() => {
+    if (!walletData || !primaryWalletData) return;
+    if (walletData.address.toLowerCase() !== primaryWalletData.address.toLowerCase()) return;
+    // Only sync if walletData has newer NFT data (different reference)
+    if (walletData.avalanche.nfts !== primaryWalletData.avalanche.nfts) {
+      setPrimaryWalletData(walletData);
+    }
+  }, [walletData, primaryWalletData]);
+
   // Compute aggregated wallet using hook (will replace inline mergeWalletData)
   const aggregatedWalletFromHook = useWalletAggregation(
     primaryWalletData,
