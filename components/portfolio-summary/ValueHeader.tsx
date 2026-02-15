@@ -1,5 +1,7 @@
 'use client';
 
+import { useCallback, useState } from 'react';
+import { toast } from 'sonner';
 import { EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
@@ -23,6 +25,9 @@ interface ValueHeaderProps {
   gunSparklineValues: number[];
   hasMarketValue?: boolean;
   costBasisTotal?: number;
+  nftCount?: number;
+  gunBalance?: number;
+  nftPnlPct?: number | null;
 }
 
 export function ValueHeader({
@@ -33,6 +38,7 @@ export function ValueHeader({
   isEnriching,
   showGunOverlay, gunSparklineValues,
   hasMarketValue, costBasisTotal,
+  nftCount, gunBalance, nftPnlPct,
 }: ValueHeaderProps) {
   const hasSparkline = sparklineValues.length >= 2 && !isInitializing;
 
@@ -40,6 +46,28 @@ export function ValueHeader({
   const show7dBadge = walletAddress && !change7d.isCalculating && !isInitializing;
   const is7dUp = changePercent7d.text.startsWith('+') || (!changePercent7d.text.startsWith('-') && changePercent7d.text !== '0.0%');
   const is7dDown = changePercent7d.text.startsWith('-');
+
+  // Share button state
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(() => {
+    if (!walletAddress) return;
+    // Build share URL — the OG meta tags on the portfolio page use the address
+    // to generate a rich preview card via /api/og/portfolio/[address]
+    const url = new URL(`${window.location.origin}/portfolio`);
+    url.searchParams.set('address', walletAddress);
+    const base = url.toString();
+    navigator.clipboard.writeText(base).then(() => {
+      setCopied(true);
+      toast.success('Portfolio link copied!', {
+        description: 'Share this link so others can view this portfolio with a rich preview card.',
+        duration: 3000,
+      });
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      toast.error('Failed to copy link');
+    });
+  }, [walletAddress]);
 
   return (
     <div className="relative overflow-hidden">
@@ -126,6 +154,29 @@ export function ValueHeader({
               </>
             )}
           </div>
+
+          {/* Share button */}
+          {walletAddress && !isInitializing && (
+            <button
+              onClick={handleShare}
+              className="group flex items-center gap-1.5 px-2.5 py-1.5 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))' }}
+              title="Copy portfolio link"
+            >
+              {copied ? (
+                <svg className="w-3.5 h-3.5 text-[var(--gs-profit)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 text-[var(--gs-gray-4)] group-hover:text-[var(--gs-lime)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              )}
+              <span className={`font-mono text-[10px] tracking-wider uppercase ${copied ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-gray-4)] group-hover:text-[var(--gs-lime)]'} transition-colors`}>
+                {copied ? 'Copied' : 'Share'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>

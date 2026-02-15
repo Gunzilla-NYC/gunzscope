@@ -33,6 +33,7 @@ async function main() {
     { address: '0xba7c0800be9f5dbad13d76e5c74e4bc31b527b01', label: 'test user', addedBy: 'seed' },
     { address: '0x3f0872605d8408b640798ca3a9a1c0b778efb3b8', label: 'FAT.toe', addedBy: 'seed' },
     { address: '0xe4edb38da3ebc519ae72ec432869a223b19a3a72', label: 'get_wrong18', addedBy: 'seed' },
+    { address: '0x8ad9bb7d1c96eb8a7f01e0fa8d545cf26bfaecf1', label: 'oodaboogah', addedBy: 'seed' },
   ];
 
   for (const entry of whitelistEntries) {

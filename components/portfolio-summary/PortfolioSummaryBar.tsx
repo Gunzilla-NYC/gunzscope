@@ -163,6 +163,9 @@ export default function PortfolioSummaryBar({
         gunSparklineValues={gunSparklineValues}
         hasMarketValue={data.hasMarketValue}
         costBasisTotal={data.totalValue}
+        nftCount={data.nftCount}
+        gunBalance={data.gunHoldings}
+        nftPnlPct={data.nftPnL.pct}
       />
 
       {/* Simple Mode: 4-Cell Metrics Row */}
