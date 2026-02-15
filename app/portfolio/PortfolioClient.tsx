@@ -33,6 +33,7 @@ import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { useTextScramble } from '@/hooks/useTextScramble';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
+import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -103,6 +104,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     if (!enrichingNFTs) flushPendingUpdates();
   }, [enrichingNFTs, flushPendingUpdates]);
 
+  // Server-side portfolio cache — instant hydration for logged-in users
+  const { loadCache, saveCache, cachedAt, loadedFromCache, setLoadedFromCache } = usePortfolioCache();
+
   // Wallet data fetcher hook - provides fetchSingleWallet and services
   const walletFetcher = useWalletDataFetcher();
   const { getServices } = walletFetcher;
@@ -163,6 +167,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   ) ?? false;
   const addressInPortfolio = isInPortfolio(searchAddress);
   const isAtPortfolioLimit = (profile?.portfolioAddresses?.length ?? 0) >= 5;
+
+  // Auto-save enriched portfolio to server cache when enrichment completes
+  useEffect(() => {
+    if (!enrichingNFTs && walletData && isAuthenticated) {
+      saveCache(walletData.address, walletData, gunPrice);
+    }
+  }, [enrichingNFTs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // NFT Pagination state
   const [nftPagination, setNftPagination] = useState<NFTPaginationInfo>({
@@ -398,8 +409,25 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     // Cancel any ongoing enrichment
     cancelEnrichment();
 
-    // Reset portfolio states for new search
-    setIsPortfolioInitializing(true);
+    // Cache-first hydration for authenticated users — render cached portfolio instantly
+    let hydratedFromCache = false;
+    if (isAuthenticated && !loadedFromCache) {
+      const cached = await loadCache(address);
+      if (cached) {
+        setWalletData(cached.walletData);
+        if (cached.gunPrice) setGunPrice(cached.gunPrice);
+        setPrimaryWalletData(cached.walletData);
+        setIsPortfolioInitializing(false);
+        setLoadedFromCache(true);
+        hydratedFromCache = true;
+        // Continue to live fetch below — don't return
+      }
+    }
+
+    // Reset portfolio states for new search (skip if cache already rendered)
+    if (!hydratedFromCache) {
+      setIsPortfolioInitializing(true);
+    }
 
     setLoading(true);
     setError(null);
@@ -503,6 +531,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
       setWalletData(mergedData);
       setLoading(false);
+
+      // Live data arrived — clear cache flag so UI shows fresh data
+      if (loadedFromCache) setLoadedFromCache(false);
 
       // Persist address in URL so browser back-navigation preserves it
       const url = new URL(window.location.href);

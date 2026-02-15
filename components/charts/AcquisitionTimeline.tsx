@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useMemo, useRef } from 'react';
 import { Circle, Line } from '@visx/shape';
 import { scaleSqrt, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
@@ -10,10 +9,16 @@ import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { NFT } from '@/lib/types';
 import { chartTheme } from './theme';
+import { useProximityLock, LockPoint } from './useProximityLock';
+import { useGrabScroll } from './useGrabScroll';
 
 interface AcquisitionTimelineProps {
   nfts: NFT[];
   gunPrice?: number;
+  /** When true, renders only the chart body (no header, no border, always visible). */
+  embedded?: boolean;
+  /** Zoom level (1 = 100%, 2 = 200% width). Only used in embedded mode. */
+  zoomLevel?: number;
 }
 
 interface TimelineDatum {
@@ -25,7 +30,7 @@ interface TimelineDatum {
   quantity: number;
 }
 
-const MARGIN = { top: 28, right: 16, bottom: 32, left: 16 };
+const MARGIN = { top: 28, right: 44, bottom: 32, left: 16 };
 const CHART_HEIGHT = 180;
 
 const VENUE_COLORS: Record<string, string> = {
@@ -71,8 +76,7 @@ function TimelineChart({
   height: number;
   gunPrice?: number;
 }) {
-  const [tooltip, setTooltip] = useState<{ data: TimelineDatum; x: number; y: number } | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const innerWidth = width - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
@@ -111,25 +115,42 @@ function TimelineChart({
     return Array.from(colors);
   }, [data]);
 
-  const handleMouseEnter = useCallback(
-    (d: TimelineDatum, e: React.MouseEvent) => {
-      setHoveredId(d.id);
-      setTooltip({ data: d, x: e.clientX, y: e.clientY });
-    },
-    [],
+  // Build lock-on points from data (in group coordinate space)
+  const lockPoints: LockPoint[] = useMemo(
+    () => data.map(d => ({ id: d.id, x: xScale(d.date), y: yScale(d.costGun) })),
+    [data, xScale, yScale],
   );
 
-  const handleMouseLeave = useCallback(() => {
-    setHoveredId(null);
-    setTooltip(null);
-  }, []);
+  const { lockedId, lockedPoint, handleMouseMove, handleMouseLeave } = useProximityLock(
+    lockPoints,
+    svgRef,
+    { left: MARGIN.left, top: MARGIN.top },
+    40,
+  );
+
+  // Lookup the locked datum for tooltip
+  const lockedDatum = useMemo(
+    () => lockedId ? data.find(d => d.id === lockedId) ?? null : null,
+    [lockedId, data],
+  );
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
   return (
     <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{ cursor: lockedId ? 'crosshair' : 'default' }}
+      >
         <defs>
+          <style>{`
+            @keyframes timeline-scan-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            @keyframes timeline-lock-pulse { 0% { r: 0; opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0.5; } }
+          `}</style>
           {/* Glow filter */}
           <filter id="timeline-glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
@@ -146,7 +167,7 @@ function TimelineChart({
               x1="0" y1="1" x2="0" y2="0"
             >
               <stop offset="0%" stopColor={color} stopOpacity={0} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.5} />
             </linearGradient>
           ))}
         </defs>
@@ -157,7 +178,7 @@ function TimelineChart({
             scale={xScale}
             height={innerHeight}
             numTicks={Math.min(rangeDays < 3 ? 3 : 5, Math.floor(innerWidth / 80))}
-            stroke={chartTheme.colors.grid}
+            stroke={chartTheme.colors.gridStrong}
           />
 
           {/* Baseline */}
@@ -172,12 +193,12 @@ function TimelineChart({
           {data.map(d => {
             const cx = xScale(d.date);
             const cy = yScale(d.costGun);
-            const isHovered = hoveredId === d.id;
+            const isLocked = lockedId === d.id;
             const color = venueColor(d.venue);
             const gradientId = `stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
 
             return (
-              <g key={d.id} style={{ cursor: 'pointer' }}>
+              <g key={d.id}>
                 {/* Gradient stem from baseline to dot */}
                 <line
                   x1={cx}
@@ -185,35 +206,89 @@ function TimelineChart({
                   x2={cx}
                   y2={cy}
                   stroke={`url(#${gradientId})`}
-                  strokeWidth={isHovered ? 2 : 1.5}
+                  strokeWidth={isLocked ? 2 : 1.5}
+                  pointerEvents="none"
                   style={{ transition: 'stroke-width 200ms ease' }}
                 />
-                {/* Outer glow ring */}
+                {/* Outer ambient glow */}
                 <circle
                   cx={cx}
                   cy={cy}
-                  r={isHovered ? 10 : 6}
+                  r={isLocked ? 12 : 7}
                   fill={color}
-                  fillOpacity={isHovered ? 0.12 : 0.04}
-                  style={{ transition: 'r 200ms ease, fill-opacity 200ms ease' }}
+                  fillOpacity={isLocked ? 0.15 : 0.06}
+                  pointerEvents="none"
+                  style={{ transition: 'r 250ms ease, fill-opacity 250ms ease' }}
                 />
                 {/* Main dot */}
                 <Circle
                   cx={cx}
                   cy={cy}
-                  r={isHovered ? 5.5 : 4}
+                  r={isLocked ? 5.5 : 4}
                   fill={color}
-                  fillOpacity={isHovered ? 1 : 0.75}
-                  stroke={isHovered ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)'}
-                  strokeWidth={isHovered ? 1.5 : 0.5}
-                  filter={isHovered ? 'url(#timeline-glow)' : undefined}
-                  style={{ transition: 'all 200ms ease' }}
-                  onMouseEnter={(e) => handleMouseEnter(d, e)}
-                  onMouseLeave={handleMouseLeave}
+                  fillOpacity={isLocked ? 1 : 0.8}
+                  stroke={isLocked ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.12)'}
+                  strokeWidth={isLocked ? 1.5 : 0.5}
+                  filter={isLocked ? 'url(#timeline-glow)' : undefined}
+                  pointerEvents="none"
+                  style={{ transition: 'all 250ms ease' }}
                 />
               </g>
             );
           })}
+
+          {/* HUD lock-on overlay — rendered above all dots */}
+          {lockedId && lockedPoint && lockedDatum && (() => {
+            const color = venueColor(lockedDatum.venue);
+            return (
+              <g pointerEvents="none">
+                {/* Crosshair guide lines — vertical to baseline, horizontal to left edge */}
+                <line
+                  x1={lockedPoint.x}
+                  y1={lockedPoint.y}
+                  x2={lockedPoint.x}
+                  y2={innerHeight}
+                  stroke={color}
+                  strokeOpacity={0.15}
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                />
+                <line
+                  x1={lockedPoint.x}
+                  y1={lockedPoint.y}
+                  x2={0}
+                  y2={lockedPoint.y}
+                  stroke={color}
+                  strokeOpacity={0.15}
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                />
+                {/* Scanning ring — dashed, slowly rotates */}
+                <circle
+                  cx={lockedPoint.x}
+                  cy={lockedPoint.y}
+                  r={20}
+                  fill="none"
+                  stroke={color}
+                  strokeOpacity={0.3}
+                  strokeWidth={1}
+                  strokeDasharray="4 6"
+                  style={{ transformOrigin: `${lockedPoint.x}px ${lockedPoint.y}px`, animation: 'timeline-scan-spin 4s linear infinite' }}
+                />
+                {/* Lock ring — solid, pulses on acquire */}
+                <circle
+                  cx={lockedPoint.x}
+                  cy={lockedPoint.y}
+                  r={14}
+                  fill="none"
+                  stroke={color}
+                  strokeOpacity={0.5}
+                  strokeWidth={1.5}
+                  style={{ animation: 'timeline-lock-pulse 600ms ease-out' }}
+                />
+              </g>
+            );
+          })()}
 
           {/* Time axis — smart formatting based on date range */}
           <AxisBottom
@@ -236,22 +311,22 @@ function TimelineChart({
             stroke={chartTheme.colors.axis}
             tickStroke={chartTheme.colors.axis}
             tickLabelProps={{
-              fill: chartTheme.colors.text,
-              fontSize: 9,
+              fill: chartTheme.colors.axisLabel,
+              fontSize: 10,
               fontFamily: chartTheme.fonts.mono,
               textAnchor: 'middle' as const,
             }}
           />
 
-          {/* Cost axis label (right side, rotated) */}
+          {/* Cost axis label (right side) */}
           <text
             x={innerWidth + 8}
             y={2}
-            fill="rgba(255,255,255,0.18)"
-            fontSize={8}
+            fill="rgba(255,255,255,0.3)"
+            fontSize={9}
             fontFamily={chartTheme.fonts.mono}
             textAnchor="start"
-            letterSpacing="0.1em"
+            letterSpacing="0.12em"
           >
             GUN
           </text>
@@ -262,8 +337,8 @@ function TimelineChart({
               key={i}
               x={innerWidth + 4}
               y={yScale(val)}
-              fill="rgba(255,255,255,0.15)"
-              fontSize={8}
+              fill={chartTheme.colors.axisLabel}
+              fontSize={10}
               fontFamily={chartTheme.fonts.mono}
               textAnchor="start"
               dominantBaseline="middle"
@@ -274,69 +349,68 @@ function TimelineChart({
         </Group>
       </svg>
 
-      {/* Tooltip — portalled to document.body to escape overflow-hidden/clipPath */}
-      {tooltip && typeof document !== 'undefined' && createPortal(
-        <div
-          style={{
-            position: 'fixed',
-            left: tooltip.x + 14,
-            top: tooltip.y - 14,
-            background: 'rgba(10,10,10,0.97)',
-            border: `1px solid ${venueColor(tooltip.data.venue)}30`,
-            borderLeft: `3px solid ${venueColor(tooltip.data.venue)}`,
-            color: 'white',
-            padding: '12px 14px',
-            fontFamily: chartTheme.fonts.mono,
-            fontSize: '12px',
-            lineHeight: '1.5',
-            pointerEvents: 'none',
-            zIndex: 9999,
-            minWidth: 180,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.02em', marginBottom: 8 }}>
-            {tooltip.data.name}
-            {tooltip.data.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: 11 }}> &times;{tooltip.data.quantity}</span>}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cost</span>
-            <span style={{ color: 'white', fontWeight: 600, fontSize: 13 }}>
-              {formatGun(tooltip.data.costGun)} GUN
+      {/* Data strip — fixed at top-right of chart, no floating tooltip */}
+      {lockedDatum && (() => {
+        const color = venueColor(lockedDatum.venue);
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              background: 'rgba(10,10,10,0.92)',
+              borderLeft: `2px solid ${color}40`,
+              borderBottom: `1px solid ${color}20`,
+              color: 'white',
+              fontFamily: chartTheme.fonts.mono,
+              fontSize: '11px',
+              lineHeight: '1.4',
+              pointerEvents: 'none',
+              zIndex: 10,
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <span style={{ fontWeight: 700, fontSize: 12, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {lockedDatum.name}
+              {lockedDatum.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: 10 }}> &times;{lockedDatum.quantity}</span>}
+            </span>
+            <span style={{ color: 'white', fontWeight: 600 }}>
+              {formatGun(lockedDatum.costGun)} GUN
             </span>
             {gunPrice && gunPrice > 0 && (
-              <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
-                ${(tooltip.data.costGun * gunPrice).toFixed(2)}
+              <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
+                ${(lockedDatum.costGun * gunPrice).toFixed(2)}
               </span>
             )}
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
             <span
               style={{
-                color: venueColor(tooltip.data.venue),
-                fontSize: 10,
+                color,
+                fontSize: 9,
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
+                letterSpacing: '0.06em',
                 fontWeight: 600,
-                padding: '2px 6px',
-                background: `${venueColor(tooltip.data.venue)}15`,
+                padding: '1px 5px',
+                background: `${color}15`,
               }}
             >
-              {venueLabel(tooltip.data.venue)}
+              {venueLabel(lockedDatum.venue)}
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
-              {tooltip.data.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
+              {lockedDatum.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
             </span>
           </div>
-        </div>,
-        document.body,
-      )}
+        );
+      })()}
     </div>
   );
 }
 
-export default function AcquisitionTimeline({ nfts, gunPrice }: AcquisitionTimelineProps) {
+export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLevel = 1 }: AcquisitionTimelineProps) {
   const [expanded, setExpanded] = useState(false);
+  const grabScrollRef = useGrabScroll(zoomLevel > 1);
 
   const timelineData = useMemo<TimelineDatum[]>(() => {
     return nfts
@@ -363,6 +437,59 @@ export default function AcquisitionTimeline({ nfts, gunPrice }: AcquisitionTimel
   }, [timelineData]);
 
   const hasData = timelineData.length >= 2;
+
+  const chartHeight = Math.round(CHART_HEIGHT * Math.min(zoomLevel, 1.5));
+
+  // Chart body content (shared between embedded and standalone)
+  const chartBody = (
+    <div className="px-4 pb-3">
+      {hasData ? (
+        <div
+          ref={grabScrollRef}
+          className="overflow-x-auto"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}
+        >
+          <div style={{ width: `${100 * zoomLevel}%`, minWidth: '100%' }}>
+            <ParentSize debounceTime={100}>
+              {({ width }: { width: number }) =>
+                width > 0 ? (
+                  <TimelineChart data={timelineData} width={width} height={chartHeight} gunPrice={gunPrice} />
+                ) : null
+              }
+            </ParentSize>
+          </div>
+        </div>
+      ) : (
+        <p className="font-mono text-caption text-[var(--gs-gray-3)] text-center py-4">
+          Need at least 2 NFTs with purchase dates to show timeline
+        </p>
+      )}
+
+      {/* Venue legend — pill style */}
+      {hasData && venueCounts.length > 0 && (
+        <div className="flex items-center justify-center gap-3 mt-2">
+          {venueCounts.map(([venue]) => {
+            const originalKey = timelineData.find(d => venueLabel(d.venue) === venue)?.venue ?? 'unknown';
+            const color = venueColor(originalKey);
+            return (
+              <div key={venue} className="flex items-center gap-1.5">
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    backgroundColor: color,
+                    boxShadow: `0 0 4px ${color}40`,
+                  }}
+                />
+                <span className="font-mono text-micro text-[var(--gs-gray-3)]">{venue}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  if (embedded) return chartBody;
 
   return (
     <div className="border-t border-white/[0.06]">
@@ -400,45 +527,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice }: AcquisitionTimel
       </button>
 
       {/* Chart */}
-      {expanded && (
-        <div className="px-2 pb-3">
-          {hasData ? (
-            <ParentSize debounceTime={100}>
-              {({ width }: { width: number }) =>
-                width > 0 ? (
-                  <TimelineChart data={timelineData} width={width} height={CHART_HEIGHT} gunPrice={gunPrice} />
-                ) : null
-              }
-            </ParentSize>
-          ) : (
-            <p className="font-mono text-caption text-[var(--gs-gray-3)] text-center py-4">
-              Need at least 2 NFTs with purchase dates to show timeline
-            </p>
-          )}
-
-          {/* Venue legend — pill style */}
-          {hasData && venueCounts.length > 0 && (
-            <div className="flex items-center justify-center gap-3 mt-2">
-              {venueCounts.map(([venue]) => {
-                const originalKey = timelineData.find(d => venueLabel(d.venue) === venue)?.venue ?? 'unknown';
-                const color = venueColor(originalKey);
-                return (
-                  <div key={venue} className="flex items-center gap-1.5">
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor: color,
-                        boxShadow: `0 0 4px ${color}40`,
-                      }}
-                    />
-                    <span className="font-mono text-micro text-[var(--gs-gray-3)]">{venue}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {expanded && chartBody}
     </div>
   );
 }

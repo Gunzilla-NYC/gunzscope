@@ -31,6 +31,8 @@ model UserProfile {
   featureRequestVotes FeatureRequestVote[]
   alertPreferences    AlertPreference[]
   alertLogs           AlertLog[]
+  shareLinks          ShareLink[]
+  portfolioCaches     PortfolioCache[]
 
   @@map("user_profiles")
 }
@@ -231,4 +233,60 @@ model PriceCache {
   updatedAt DateTime @updatedAt
 
   @@map("price_cache")
+}
+
+// =============================================================================
+// Share Link - Short URL for portfolio sharing with view tracking
+// =============================================================================
+model ShareLink {
+  id            String       @id @default(cuid())
+  code          String       @unique           // 8-char alphanumeric, used in /s/{code}
+  userProfileId String?                        // null for unauthenticated shares
+  userProfile   UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
+  address       String                         // wallet address (lowercase)
+  totalUsd      String?                        // portfolio value at share time
+  gunBalance    String?                        // GUN balance string
+  nftCount      Int?                           // NFT count
+  nftPnlPct     String?                        // P&L percentage string
+  platform      String       @default("copy")  // "x" | "discord" | "copy"
+  viewCount     Int          @default(0)       // denormalized counter for fast reads
+  createdAt     DateTime     @default(now())
+  clicks        ShareClick[]
+
+  @@index([userProfileId])
+  @@index([createdAt])
+  @@map("share_links")
+}
+
+// =============================================================================
+// Share Click - Individual view event for detailed analytics
+// =============================================================================
+model ShareClick {
+  id          String    @id @default(cuid())
+  shareLinkId String
+  shareLink   ShareLink @relation(fields: [shareLinkId], references: [id], onDelete: Cascade)
+  referrer    String?                          // HTTP referer (t.co, discord.com, etc.)
+  userAgent   String?                          // truncated UA for bot detection
+  createdAt   DateTime  @default(now())
+
+  @@index([shareLinkId])
+  @@index([createdAt])
+  @@map("share_clicks")
+}
+
+// =============================================================================
+// Portfolio Cache - Server-side persistence of enriched portfolio state
+// =============================================================================
+model PortfolioCache {
+  id            String      @id @default(cuid())
+  userProfileId String
+  address       String      // Wallet address (normalized to lowercase)
+  walletBlob    String      // JSON-serialized WalletData with enriched NFTs
+  gunPrice      Float?      // GUN/USD price at save time
+  nftCount      Int         // Quick display count before parsing blob
+  savedAt       DateTime    @default(now())
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userProfileId, address])
+  @@map("portfolio_caches")
 }
