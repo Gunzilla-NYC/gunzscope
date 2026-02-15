@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Circle, Line } from '@visx/shape';
 import { scaleSqrt } from '@visx/scale';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { GridRows, GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
-import { useTooltip, TooltipWithBounds } from '@visx/tooltip';
 import { ParentSize } from '@visx/responsive';
 import { NFT } from '@/lib/types';
 import { chartTheme } from './theme';
@@ -45,9 +45,7 @@ function ScatterChart({
   width: number;
   height: number;
 }) {
-  const { showTooltip, hideTooltip, tooltipData, tooltipLeft, tooltipTop, tooltipOpen } =
-    useTooltip<ScatterDatum>();
-
+  const [tooltip, setTooltip] = useState<{ data: ScatterDatum; x: number; y: number } | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const innerWidth = width - MARGIN.left - MARGIN.right;
@@ -86,21 +84,17 @@ function ScatterChart({
   }, [maxVal]);
 
   const handleMouseEnter = useCallback(
-    (d: ScatterDatum, cx: number, cy: number) => {
+    (d: ScatterDatum, e: React.MouseEvent) => {
       setHoveredId(d.id);
-      showTooltip({
-        tooltipData: d,
-        tooltipLeft: cx + MARGIN.left,
-        tooltipTop: cy + MARGIN.top,
-      });
+      setTooltip({ data: d, x: e.clientX, y: e.clientY });
     },
-    [showTooltip],
+    [],
   );
 
   const handleMouseLeave = useCallback(() => {
     setHoveredId(null);
-    hideTooltip();
-  }, [hideTooltip]);
+    setTooltip(null);
+  }, []);
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
@@ -213,7 +207,7 @@ function ScatterChart({
                   strokeWidth={isHovered ? 1.5 : 0.5}
                   filter={isHovered ? 'url(#scatter-glow)' : undefined}
                   style={{ transition: 'all 200ms ease' }}
-                  onMouseEnter={() => handleMouseEnter(d, cx, cy)}
+                  onMouseEnter={(e) => handleMouseEnter(d, e)}
                   onMouseLeave={handleMouseLeave}
                 />
               </g>
@@ -271,53 +265,65 @@ function ScatterChart({
         </Group>
       </svg>
 
-      {/* Tooltip */}
-      {tooltipOpen && tooltipData && (() => {
-        const pnl = tooltipData.floor - tooltipData.cost;
-        const pnlPct = tooltipData.cost > 0 ? (pnl / tooltipData.cost) * 100 : 0;
+      {/* Tooltip — portalled to document.body to escape overflow-hidden/clipPath */}
+      {tooltip && typeof document !== 'undefined' && (() => {
+        const pnl = tooltip.data.floor - tooltip.data.cost;
+        const pnlPct = tooltip.data.cost > 0 ? (pnl / tooltip.data.cost) * 100 : 0;
         const isProfit = pnl >= 0;
-        return (
-          <TooltipWithBounds
-            left={tooltipLeft}
-            top={tooltipTop}
+        const accentColor = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
+        return createPortal(
+          <div
             style={{
-              background: 'rgba(14,14,14,0.96)',
-              border: `1px solid ${isProfit ? 'rgba(0,255,136,0.15)' : 'rgba(255,68,68,0.15)'}`,
+              position: 'fixed',
+              left: tooltip.x + 14,
+              top: tooltip.y - 14,
+              background: 'rgba(10,10,10,0.97)',
+              border: `1px solid ${isProfit ? 'rgba(0,255,136,0.2)' : 'rgba(255,68,68,0.2)'}`,
+              borderLeft: `3px solid ${accentColor}`,
               color: 'white',
-              padding: '10px 12px',
+              padding: '12px 14px',
               fontFamily: chartTheme.fonts.mono,
-              fontSize: '10px',
-              lineHeight: '1.6',
+              fontSize: '12px',
+              lineHeight: '1.5',
               pointerEvents: 'none',
-              zIndex: 30,
+              zIndex: 9999,
+              minWidth: 190,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: 11, letterSpacing: '0.02em' }}>
-              {tooltipData.name}
+            <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.02em', marginBottom: 4 }}>
+              {tooltip.data.name}
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, marginTop: 1, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              {tooltipData.collection}
-              {tooltipData.quantity > 1 && <span> &times;{tooltipData.quantity}</span>}
-              <span style={{ marginLeft: 6 }}>{tooltipData.venue.replace(/_/g, ' ')}</span>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {tooltip.data.collection}
+              {tooltip.data.quantity > 1 && <span> &times;{tooltip.data.quantity}</span>}
+              <span style={{ marginLeft: 8 }}>{tooltip.data.venue.replace(/_/g, ' ')}</span>
             </div>
-            <div style={{ display: 'flex', gap: 16, marginBottom: 6 }}>
-              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Cost <span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatGun(tooltipData.cost)}</span></span>
-              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Value <span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatGun(tooltipData.floor)}</span></span>
+            <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
+              <div>
+                <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Cost</div>
+                <div style={{ color: 'white', fontWeight: 600, fontSize: 13 }}>{formatGun(tooltip.data.cost)} GUN</div>
+              </div>
+              <div>
+                <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Value</div>
+                <div style={{ color: 'white', fontWeight: 600, fontSize: 13 }}>{formatGun(tooltip.data.floor)} GUN</div>
+              </div>
             </div>
             <div style={{
-              padding: '3px 8px',
+              padding: '4px 10px',
               display: 'inline-block',
-              background: isProfit ? 'rgba(0,255,136,0.08)' : 'rgba(255,68,68,0.08)',
-              color: isProfit ? chartTheme.colors.profit : chartTheme.colors.loss,
-              fontWeight: 600,
-              fontSize: 11,
+              background: isProfit ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,68,0.1)',
+              color: accentColor,
+              fontWeight: 700,
+              fontSize: 13,
             }}>
               {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%
-              <span style={{ fontWeight: 400, fontSize: 9, marginLeft: 6, opacity: 0.6 }}>
+              <span style={{ fontWeight: 400, fontSize: 11, marginLeft: 8, opacity: 0.7 }}>
                 {isProfit ? '+' : ''}{formatGun(pnl)} GUN
               </span>
             </div>
-          </TooltipWithBounds>
+          </div>,
+          document.body,
         );
       })()}
     </div>
@@ -378,6 +384,9 @@ export default function PnLScatterPlot({ nfts, gunPrice }: PnLScatterPlotProps) 
         <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
           NFT Cost vs Value
         </p>
+        <span className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 text-[#FF9F43] border border-[#FF9F43]/30 bg-[#FF9F43]/[0.08]">
+          Under Active Dev
+        </span>
         <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
           {hasChartData ? `${stats.total} items` : `${withCostOnly + scatterData.length} with cost`}
         </span>

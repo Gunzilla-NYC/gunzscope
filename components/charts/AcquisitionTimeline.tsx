@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Circle, Line } from '@visx/shape';
 import { scaleSqrt, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
 import { GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
-import { useTooltip, TooltipWithBounds } from '@visx/tooltip';
 import { ParentSize } from '@visx/responsive';
 import { NFT } from '@/lib/types';
 import { chartTheme } from './theme';
@@ -71,9 +71,7 @@ function TimelineChart({
   height: number;
   gunPrice?: number;
 }) {
-  const { showTooltip, hideTooltip, tooltipData, tooltipLeft, tooltipTop, tooltipOpen } =
-    useTooltip<TimelineDatum>();
-
+  const [tooltip, setTooltip] = useState<{ data: TimelineDatum; x: number; y: number } | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const innerWidth = width - MARGIN.left - MARGIN.right;
@@ -83,7 +81,8 @@ function TimelineChart({
     const dates = data.map(d => d.date.getTime());
     const min = Math.min(...dates);
     const max = Math.max(...dates);
-    const pad = Math.max((max - min) * 0.08, 12 * 60 * 60 * 1000);
+    // 15% padding, minimum 10 minutes — zooms into concentrated buying periods
+    const pad = Math.max((max - min) * 0.15, 10 * 60 * 1000);
     return [new Date(min - pad), new Date(max + pad)] as [Date, Date];
   }, [data]);
 
@@ -113,21 +112,17 @@ function TimelineChart({
   }, [data]);
 
   const handleMouseEnter = useCallback(
-    (d: TimelineDatum, cx: number, cy: number) => {
+    (d: TimelineDatum, e: React.MouseEvent) => {
       setHoveredId(d.id);
-      showTooltip({
-        tooltipData: d,
-        tooltipLeft: cx + MARGIN.left,
-        tooltipTop: cy + MARGIN.top,
-      });
+      setTooltip({ data: d, x: e.clientX, y: e.clientY });
     },
-    [showTooltip],
+    [],
   );
 
   const handleMouseLeave = useCallback(() => {
     setHoveredId(null);
-    hideTooltip();
-  }, [hideTooltip]);
+    setTooltip(null);
+  }, []);
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
@@ -213,7 +208,7 @@ function TimelineChart({
                   strokeWidth={isHovered ? 1.5 : 0.5}
                   filter={isHovered ? 'url(#timeline-glow)' : undefined}
                   style={{ transition: 'all 200ms ease' }}
-                  onMouseEnter={() => handleMouseEnter(d, cx, cy)}
+                  onMouseEnter={(e) => handleMouseEnter(d, e)}
                   onMouseLeave={handleMouseLeave}
                 />
               </g>
@@ -279,57 +274,62 @@ function TimelineChart({
         </Group>
       </svg>
 
-      {/* Tooltip */}
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          left={tooltipLeft}
-          top={tooltipTop}
+      {/* Tooltip — portalled to document.body to escape overflow-hidden/clipPath */}
+      {tooltip && typeof document !== 'undefined' && createPortal(
+        <div
           style={{
-            background: 'rgba(14,14,14,0.96)',
-            border: `1px solid ${venueColor(tooltipData.venue)}25`,
+            position: 'fixed',
+            left: tooltip.x + 14,
+            top: tooltip.y - 14,
+            background: 'rgba(10,10,10,0.97)',
+            border: `1px solid ${venueColor(tooltip.data.venue)}30`,
+            borderLeft: `3px solid ${venueColor(tooltip.data.venue)}`,
             color: 'white',
-            padding: '10px 12px',
+            padding: '12px 14px',
             fontFamily: chartTheme.fonts.mono,
-            fontSize: '10px',
-            lineHeight: '1.6',
+            fontSize: '12px',
+            lineHeight: '1.5',
             pointerEvents: 'none',
-            zIndex: 30,
+            zIndex: 9999,
+            minWidth: 180,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
           }}
         >
-          <div style={{ fontWeight: 600, fontSize: 11, letterSpacing: '0.02em' }}>
-            {tooltipData.name}
-            {tooltipData.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}> &times;{tooltipData.quantity}</span>}
+          <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.02em', marginBottom: 8 }}>
+            {tooltip.data.name}
+            {tooltip.data.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: 11 }}> &times;{tooltip.data.quantity}</span>}
           </div>
-          <div style={{ marginTop: 4, display: 'flex', gap: 16 }}>
-            <span style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Cost <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-                {formatGun(tooltipData.costGun)} GUN
-              </span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cost</span>
+            <span style={{ color: 'white', fontWeight: 600, fontSize: 13 }}>
+              {formatGun(tooltip.data.costGun)} GUN
             </span>
             {gunPrice && gunPrice > 0 && (
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>
-                ${(tooltipData.costGun * gunPrice).toFixed(2)}
+              <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
+                ${(tooltip.data.costGun * gunPrice).toFixed(2)}
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
             <span
               style={{
-                color: venueColor(tooltipData.venue),
-                fontSize: 9,
+                color: venueColor(tooltip.data.venue),
+                fontSize: 10,
                 textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                padding: '1px 5px',
-                background: `${venueColor(tooltipData.venue)}10`,
+                letterSpacing: '0.08em',
+                fontWeight: 600,
+                padding: '2px 6px',
+                background: `${venueColor(tooltip.data.venue)}15`,
               }}
             >
-              {venueLabel(tooltipData.venue)}
+              {venueLabel(tooltip.data.venue)}
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 9 }}>
-              {tooltipData.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+              {tooltip.data.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           </div>
-        </TooltipWithBounds>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -374,6 +374,9 @@ export default function AcquisitionTimeline({ nfts, gunPrice }: AcquisitionTimel
         <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
           Acquisition Timeline
         </p>
+        <span className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 text-[#FF9F43] border border-[#FF9F43]/30 bg-[#FF9F43]/[0.08]">
+          Under Active Dev
+        </span>
         <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
           {timelineData.length} purchases
         </span>
