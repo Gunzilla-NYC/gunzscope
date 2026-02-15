@@ -39,15 +39,24 @@ function PortfolioContent() {
   const debugMode = searchParams.get('debug') === '1';
   const addressParam = searchParams.get('address');
 
-  return <PortfolioInner debugMode={debugMode} initialAddress={addressParam} />;
+  // If a specific address is in the URL, allow read-only access without auth.
+  // The address param is display-only — it never gets associated with any user account.
+  if (addressParam) {
+    return <PortfolioInner debugMode={debugMode} initialAddress={addressParam} />;
+  }
+
+  // No address param — require auth to view own portfolio
+  return (
+    <WalletRequiredGate feature="Portfolio">
+      <PortfolioInner debugMode={debugMode} initialAddress={null} />
+    </WalletRequiredGate>
+  );
 }
 
 export default function PortfolioPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-black" />}>
-      <WalletRequiredGate feature="Portfolio">
-        <PortfolioContent />
-      </WalletRequiredGate>
+      <PortfolioContent />
     </Suspense>
   );
 }
@@ -117,11 +126,12 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
 
-  // Wallet hint dismissal
-  const [walletHintDismissed, setWalletHintDismissed] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return sessionStorage.getItem('gs_wallet_hint_dismissed') === '1';
-  });
+  // Wallet hint dismissal — permanently hidden after visiting /account or manual dismiss
+  // Start hidden to avoid SSR hydration mismatch, then check localStorage after mount
+  const [walletHintDismissed, setWalletHintDismissed] = useState(true);
+  useEffect(() => {
+    if (localStorage.getItem('gs_wallet_hint_dismissed') !== '1') setWalletHintDismissed(false);
+  }, []);
 
   // Account gate — first search free, then require wallet connection
   const { canSearch, isGated, incrementSearch, getLastSearchedAddress } = useAccountGate();
@@ -1044,7 +1054,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   </Link>
                 </p>
                 <button
-                  onClick={() => { setWalletHintDismissed(true); sessionStorage.setItem('gs_wallet_hint_dismissed', '1'); }}
+                  onClick={() => { setWalletHintDismissed(true); localStorage.setItem('gs_wallet_hint_dismissed', '1'); }}
                   className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer ml-4"
                   aria-label="Dismiss"
                 >
