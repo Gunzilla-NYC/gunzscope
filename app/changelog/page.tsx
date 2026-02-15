@@ -19,6 +19,7 @@ const VERSIONS: VersionEntry[] = [
     date: 'Feb 14, 2026',
     tag: 'current',
     items: [
+      'Social sharing \u2014 Share on X, Discord, or copy link with rich OG preview cards showing portfolio value, P&L, and NFT count',
       'Valuation waterfall upgrade \u2014 per\u2011item listing > comparable sales median > rarity\u2011tier floor > cost basis',
       'Insights panel expansion \u2014 unrealized P&L, most valuable, biggest loss (5 insight types total)',
       'Acquisition Timeline chart \u2014 interactive visx timeline of NFT purchases by venue and date',
