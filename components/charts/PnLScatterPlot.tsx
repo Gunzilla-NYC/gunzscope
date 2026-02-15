@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Circle, Line } from '@visx/shape';
 import { scaleSqrt } from '@visx/scale';
 import { AxisBottom, AxisLeft } from '@visx/axis';
@@ -11,6 +11,7 @@ import { NFT } from '@/lib/types';
 import { chartTheme } from './theme';
 import { useProximityLock, LockPoint } from './useProximityLock';
 import { useGrabScroll } from './useGrabScroll';
+import { RARITY_COLORS } from '@/components/nft-gallery/utils';
 
 interface PnLScatterPlotProps {
   nfts: NFT[];
@@ -29,6 +30,7 @@ interface ScatterDatum {
   quantity: number;
   venue: string;
   collection: string;
+  quality: string;
 }
 
 const MARGIN = { top: 20, right: 20, bottom: 38, left: 58 };
@@ -45,10 +47,12 @@ function ScatterChart({
   data,
   width,
   height,
+  onLockedDatumChange,
 }: {
   data: ScatterDatum[];
   width: number;
   height: number;
+  onLockedDatumChange?: (datum: ScatterDatum | null) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -105,6 +109,11 @@ function ScatterChart({
     () => lockedId ? data.find(d => d.id === lockedId) ?? null : null,
     [lockedId, data],
   );
+
+  // Report locked datum to parent for the combined info row
+  useEffect(() => {
+    onLockedDatumChange?.(lockedDatum);
+  }, [lockedDatum, onLockedDatumChange]);
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
@@ -386,63 +395,13 @@ function ScatterChart({
           />
         </Group>
       </svg>
-
-      {/* Data strip — fixed at top-right of chart, no floating tooltip */}
-      {lockedDatum && (() => {
-        const pnl = lockedDatum.floor - lockedDatum.cost;
-        const pnlPct = lockedDatum.cost > 0 ? (pnl / lockedDatum.cost) * 100 : 0;
-        const isProfit = pnl >= 0;
-        const accentColor = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
-        return (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              background: 'rgba(10,10,10,0.92)',
-              borderLeft: `2px solid ${accentColor}40`,
-              borderBottom: `1px solid ${accentColor}20`,
-              color: 'white',
-              fontFamily: chartTheme.fonts.mono,
-              fontSize: '11px',
-              lineHeight: '1.4',
-              pointerEvents: 'none',
-              zIndex: 10,
-              padding: '6px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <span style={{ fontWeight: 700, fontSize: 12, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lockedDatum.name}
-            </span>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
-              Cost {formatGun(lockedDatum.cost)}
-            </span>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
-              Val {formatGun(lockedDatum.floor)}
-            </span>
-            <span
-              style={{
-                color: accentColor,
-                fontWeight: 700,
-                fontSize: 11,
-                padding: '1px 6px',
-                background: isProfit ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,68,0.1)',
-              }}
-            >
-              {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%
-            </span>
-          </div>
-        );
-      })()}
     </div>
   );
 }
 
 export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1 }: PnLScatterPlotProps) {
   const [expanded, setExpanded] = useState(false);
+  const [lockedDatum, setLockedDatum] = useState<ScatterDatum | null>(null);
   const grabScrollRef = useGrabScroll(zoomLevel > 1);
 
   const scatterData = useMemo<ScatterDatum[]>(() => {
@@ -461,6 +420,7 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1
         quantity: nft.quantity ?? 1,
         venue: nft.acquisitionVenue ?? 'unknown',
         collection: nft.collection,
+        quality: nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '',
       }));
   }, [nfts]);
 
@@ -502,17 +462,67 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1
               <ParentSize debounceTime={100}>
                 {({ width }: { width: number }) =>
                   width > 0 ? (
-                    <ScatterChart data={scatterData} width={width} height={chartHeight} />
+                    <ScatterChart data={scatterData} width={width} height={chartHeight} onLockedDatumChange={setLockedDatum} />
                   ) : null
                 }
               </ParentSize>
             </div>
           </div>
-          {gunPrice && gunPrice > 0 && (
-            <p className="font-mono text-micro text-[var(--gs-gray-2)] text-center mt-1.5">
-              Value = listing or estimated market price &middot; 1 GUN = ${gunPrice.toFixed(4)} &middot; sqrt scale
-            </p>
-          )}
+          {/* Scale note + locked item data — single inline row */}
+          <div className="flex items-center gap-3 mt-1.5 min-h-[20px]">
+            {gunPrice && gunPrice > 0 && (
+              <span className="font-mono text-micro text-[var(--gs-gray-2)]">
+                1 GUN = ${gunPrice.toFixed(4)} &middot; sqrt scale
+              </span>
+            )}
+
+            {/* Locked item data (right) */}
+            {lockedDatum && (() => {
+              const pnl = lockedDatum.floor - lockedDatum.cost;
+              const pnlPct = lockedDatum.cost > 0 ? (pnl / lockedDatum.cost) * 100 : 0;
+              const isProfit = pnl >= 0;
+              const accentColor = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
+              const qualityCol = RARITY_COLORS[lockedDatum.quality] || '#888888';
+              return (
+                <div className="ml-auto flex items-center gap-2.5 font-mono" style={{ fontSize: 11 }}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 200,
+                      fontWeight: 700,
+                      fontSize: 12,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      color: qualityCol,
+                      border: `1px solid ${qualityCol}30`,
+                      background: `${qualityCol}0A`,
+                      padding: '1px 6px',
+                    }}
+                  >
+                    {lockedDatum.name}
+                  </span>
+                  <span style={{ display: 'inline-block', minWidth: 62, color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
+                    Cost {formatGun(lockedDatum.cost)}
+                  </span>
+                  <span style={{ display: 'inline-block', minWidth: 56, color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
+                    Val {formatGun(lockedDatum.floor)}
+                  </span>
+                  <span
+                    style={{
+                      color: accentColor,
+                      fontWeight: 700,
+                      fontSize: 11,
+                      padding: '1px 6px',
+                      background: isProfit ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,68,0.1)',
+                    }}
+                  >
+                    {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
         </>
       ) : (
         <p className="font-mono text-caption text-[var(--gs-gray-3)] text-center py-4">

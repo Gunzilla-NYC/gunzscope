@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Circle, Line } from '@visx/shape';
 import { scaleSqrt, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
@@ -11,6 +11,7 @@ import { NFT } from '@/lib/types';
 import { chartTheme } from './theme';
 import { useProximityLock, LockPoint } from './useProximityLock';
 import { useGrabScroll } from './useGrabScroll';
+import { RARITY_COLORS } from '@/components/nft-gallery/utils';
 
 interface AcquisitionTimelineProps {
   nfts: NFT[];
@@ -28,9 +29,10 @@ interface TimelineDatum {
   costGun: number;
   venue: string;
   quantity: number;
+  quality: string;
 }
 
-const MARGIN = { top: 28, right: 44, bottom: 32, left: 16 };
+const MARGIN = { top: 14, right: 16, bottom: 32, left: 16 };
 const CHART_HEIGHT = 180;
 
 const VENUE_COLORS: Record<string, string> = {
@@ -69,12 +71,12 @@ function TimelineChart({
   data,
   width,
   height,
-  gunPrice,
+  onLockedDatumChange,
 }: {
   data: TimelineDatum[];
   width: number;
   height: number;
-  gunPrice?: number;
+  onLockedDatumChange?: (datum: TimelineDatum | null) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -133,6 +135,11 @@ function TimelineChart({
     () => lockedId ? data.find(d => d.id === lockedId) ?? null : null,
     [lockedId, data],
   );
+
+  // Report locked datum to parent for the combined legend+data row
+  useEffect(() => {
+    onLockedDatumChange?.(lockedDatum);
+  }, [lockedDatum, onLockedDatumChange]);
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
@@ -318,29 +325,35 @@ function TimelineChart({
             }}
           />
 
-          {/* Cost axis label (right side) */}
+          {/* Cost axis label (left side — right-aligned column) */}
           <text
-            x={innerWidth + 8}
-            y={2}
+            x={30}
+            y={-4}
             fill="rgba(255,255,255,0.3)"
-            fontSize={9}
+            fontSize={10}
             fontFamily={chartTheme.fonts.mono}
-            textAnchor="start"
-            letterSpacing="0.12em"
+            textAnchor="end"
           >
             GUN
           </text>
 
-          {/* Cost scale markers along right edge */}
-          {[maxCost * 0.25, maxCost * 0.5, maxCost * 0.75].filter(v => v > 0).map((val, i) => (
+          {/* Cost scale markers — right-aligned for proper number column */}
+          {(() => {
+            const candidates = [1, 2, 5, 10, 15, 20, 25, 30, 50, 75, 100, 150, 200, 250, 500, 750, 1000, 2000, 5000];
+            const ticks = candidates.filter(v => v > 0 && v < maxCost * 0.95);
+            // Keep at most 6 ticks to avoid clutter
+            const step = Math.max(1, Math.floor(ticks.length / 6));
+            const selected = ticks.filter((_, i) => i % step === 0).slice(0, 6);
+            return selected;
+          })().map((val, i) => (
             <text
               key={i}
-              x={innerWidth + 4}
+              x={30}
               y={yScale(val)}
               fill={chartTheme.colors.axisLabel}
               fontSize={10}
               fontFamily={chartTheme.fonts.mono}
-              textAnchor="start"
+              textAnchor="end"
               dominantBaseline="middle"
             >
               {formatGun(val)}
@@ -348,68 +361,13 @@ function TimelineChart({
           ))}
         </Group>
       </svg>
-
-      {/* Data strip — fixed at top-right of chart, no floating tooltip */}
-      {lockedDatum && (() => {
-        const color = venueColor(lockedDatum.venue);
-        return (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              background: 'rgba(10,10,10,0.92)',
-              borderLeft: `2px solid ${color}40`,
-              borderBottom: `1px solid ${color}20`,
-              color: 'white',
-              fontFamily: chartTheme.fonts.mono,
-              fontSize: '11px',
-              lineHeight: '1.4',
-              pointerEvents: 'none',
-              zIndex: 10,
-              padding: '6px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <span style={{ fontWeight: 700, fontSize: 12, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lockedDatum.name}
-              {lockedDatum.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: 10 }}> &times;{lockedDatum.quantity}</span>}
-            </span>
-            <span style={{ color: 'white', fontWeight: 600 }}>
-              {formatGun(lockedDatum.costGun)} GUN
-            </span>
-            {gunPrice && gunPrice > 0 && (
-              <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
-                ${(lockedDatum.costGun * gunPrice).toFixed(2)}
-              </span>
-            )}
-            <span
-              style={{
-                color,
-                fontSize: 9,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                fontWeight: 600,
-                padding: '1px 5px',
-                background: `${color}15`,
-              }}
-            >
-              {venueLabel(lockedDatum.venue)}
-            </span>
-            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
-              {lockedDatum.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
-            </span>
-          </div>
-        );
-      })()}
     </div>
   );
 }
 
 export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLevel = 1 }: AcquisitionTimelineProps) {
   const [expanded, setExpanded] = useState(false);
+  const [lockedDatum, setLockedDatum] = useState<TimelineDatum | null>(null);
   const grabScrollRef = useGrabScroll(zoomLevel > 1);
 
   const timelineData = useMemo<TimelineDatum[]>(() => {
@@ -422,6 +380,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
         costGun: nft.purchasePriceGun!,
         venue: nft.acquisitionVenue ?? 'unknown',
         quantity: nft.quantity ?? 1,
+        quality: nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '',
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [nfts]);
@@ -453,7 +412,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
             <ParentSize debounceTime={100}>
               {({ width }: { width: number }) =>
                 width > 0 ? (
-                  <TimelineChart data={timelineData} width={width} height={chartHeight} gunPrice={gunPrice} />
+                  <TimelineChart data={timelineData} width={width} height={chartHeight} onLockedDatumChange={setLockedDatum} />
                 ) : null
               }
             </ParentSize>
@@ -465,16 +424,17 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
         </p>
       )}
 
-      {/* Venue legend — pill style */}
-      {hasData && venueCounts.length > 0 && (
-        <div className="flex items-center justify-center gap-3 mt-2">
+      {/* Legend + locked item data — single inline row */}
+      {hasData && (
+        <div className="flex items-center gap-3 mt-2 min-h-[20px]">
+          {/* Venue legend (left) */}
           {venueCounts.map(([venue]) => {
             const originalKey = timelineData.find(d => venueLabel(d.venue) === venue)?.venue ?? 'unknown';
             const color = venueColor(originalKey);
             return (
               <div key={venue} className="flex items-center gap-1.5">
                 <div
-                  className="w-2 h-2 rounded-full"
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{
                     backgroundColor: color,
                     boxShadow: `0 0 4px ${color}40`,
@@ -484,6 +444,58 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
               </div>
             );
           })}
+
+          {/* Locked item data (right) */}
+          {lockedDatum && (() => {
+            const venueCol = venueColor(lockedDatum.venue);
+            const qualityCol = RARITY_COLORS[lockedDatum.quality] || '#888888';
+            return (
+              <div className="ml-auto flex items-center gap-2.5 font-mono" style={{ fontSize: 11 }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 200,
+                    fontWeight: 700,
+                    fontSize: 12,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: qualityCol,
+                    border: `1px solid ${qualityCol}30`,
+                    background: `${qualityCol}0A`,
+                    padding: '1px 6px',
+                  }}
+                >
+                  {lockedDatum.name}
+                  {lockedDatum.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: 10 }}> &times;{lockedDatum.quantity}</span>}
+                </span>
+                <span style={{ display: 'inline-block', minWidth: 72, color: 'white', fontWeight: 600 }}>
+                  {formatGun(lockedDatum.costGun)} GUN
+                </span>
+                {gunPrice && gunPrice > 0 && (
+                  <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
+                    ${(lockedDatum.costGun * gunPrice).toFixed(2)}
+                  </span>
+                )}
+                <span
+                  style={{
+                    color: venueCol,
+                    fontSize: 9,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    fontWeight: 600,
+                    padding: '1px 5px',
+                    background: `${venueCol}15`,
+                  }}
+                >
+                  {venueLabel(lockedDatum.venue)}
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
+                  {lockedDatum.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                </span>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
