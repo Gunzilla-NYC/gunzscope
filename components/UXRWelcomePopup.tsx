@@ -1,24 +1,28 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Link from 'next/link';
 
 const STORAGE_KEY = 'gs-uxr-welcome-dismissed';
 
 export default function UXRWelcomePopup() {
+  const { user } = useDynamicContext();
+  const isAuthenticated = !!user;
+
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
 
-  // Check localStorage after mount (SSR-safe)
+  // Show popup after login, once per user
   useEffect(() => {
+    if (!isAuthenticated) return;
     try {
       if (localStorage.getItem(STORAGE_KEY) !== '1') {
-        // Small delay so the page loads first
         const timer = setTimeout(() => setVisible(true), 1200);
         return () => clearTimeout(timer);
       }
     } catch { /* localStorage unavailable */ }
-  }, []);
+  }, [isAuthenticated]);
 
   const dismiss = useCallback(() => {
     setClosing(true);
