@@ -28,7 +28,7 @@ import { useAccountGate } from '@/lib/hooks/useAccountGate';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import UnlockBanner from '@/components/UnlockBanner';
 import WalletRequiredGate from '@/components/WalletRequiredGate';
-import { createEnrichmentUpdater } from '@/lib/utils/mergeEnrichedNFTs';
+import { useStableEnrichmentUpdates } from '@/lib/hooks/useStableEnrichmentUpdates';
 import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { useTextScramble } from '@/hooks/useTextScramble';
@@ -92,6 +92,16 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     cancelEnrichment,
     retryEnrichment,
   } = useNFTEnrichmentOrchestrator();
+
+  // Stable enrichment updates — debounces walletData updates to prevent UI flicker
+  const { createUpdateCallback, flushPendingUpdates } = useStableEnrichmentUpdates({
+    setWalletData,
+  });
+
+  // Flush pending debounced updates when enrichment completes
+  useEffect(() => {
+    if (!enrichingNFTs) flushPendingUpdates();
+  }, [enrichingNFTs, flushPendingUpdates]);
 
   // Wallet data fetcher hook - provides fetchSingleWallet and services
   const walletFetcher = useWalletDataFetcher();
@@ -362,9 +372,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           walletData.address,
           avalancheService,
           marketplaceConfigured ? marketplaceServiceRef.current : null,
-          (enrichedNFTs: NFT[]) => {
-            setWalletData(createEnrichmentUpdater(enrichedNFTs));
-          }
+          createUpdateCallback(walletData.address)
         );
       } else {
         setNftPagination(prev => ({
@@ -526,9 +534,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         address, // Use primary address for cache keys
         avalancheService,
         marketplaceConfigured ? marketplaceService : null,
-        (enrichedNFTs) => {
-          setWalletData(createEnrichmentUpdater(enrichedNFTs, address));
-        }
+        createUpdateCallback(address)
       );
 
       // Fetch rarity floors + comparable sales in parallel, then inject into NFTs via applyValuationTables
@@ -604,6 +610,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   // Handle wallet disconnect
   const handleWalletDisconnect = () => {
+    flushPendingUpdates();
     cancelEnrichment();
     setWalletData(null);
     setNetworkInfo(null);
@@ -725,6 +732,36 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       : [],
     [effectiveWalletData?.avalanche.nfts, effectiveWalletData?.solana.nfts],
   );
+
+  // Milestone-gated NFT array for charts — only updates at enrichment milestones
+  // (0%, 25%, 50%, 75%, 100%) to prevent chart flicker during per-batch updates.
+  // Between milestones, returns the same object ref so downstream useMemo([nfts])
+  // in PnLScatterPlot / AcquisitionTimeline skips re-render.
+  const lastChartMilestoneRef = useRef<number>(-1);
+  const chartNftsRef = useRef<NFT[]>([]);
+
+  const chartNfts = useMemo(() => {
+    // When not enriching, always use latest data
+    if (!enrichingNFTs) {
+      lastChartMilestoneRef.current = -1;
+      chartNftsRef.current = allNfts;
+      return allNfts;
+    }
+    // Calculate progress %
+    const pct = enrichmentProgress && enrichmentProgress.total > 0
+      ? (enrichmentProgress.completed / enrichmentProgress.total) * 100
+      : 0;
+    // Milestone check
+    const milestones = [0, 25, 50, 75, 100];
+    const currentMilestone = milestones.reduce((best, m) => pct >= m ? m : best, 0);
+    if (currentMilestone > lastChartMilestoneRef.current) {
+      lastChartMilestoneRef.current = currentMilestone;
+      chartNftsRef.current = allNfts;
+      return allNfts;
+    }
+    // Between milestones: return same ref → charts don't re-render
+    return chartNftsRef.current;
+  }, [allNfts, enrichingNFTs, enrichmentProgress]);
 
   // Per-wallet token key sets — used to filter allNfts for gallery view
   // Built from pre-enrichment per-wallet data; keys stay valid because
@@ -988,6 +1025,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               gunPrice={gunPrice}
               gunPriceSparkline={gunPriceSparkline}
               nfts={allNfts}
+              chartNfts={chartNfts}
               isInitializing={isPortfolioInitializing}
               enrichmentProgress={enrichmentProgress}
               onRetryEnrichment={retryEnrichment}

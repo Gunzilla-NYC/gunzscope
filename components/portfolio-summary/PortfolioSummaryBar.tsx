@@ -6,8 +6,7 @@ import { NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
 import InsightsPanel from '@/components/ui/InsightsPanel';
-import PnLScatterPlot from '@/components/charts/PnLScatterPlot';
-import AcquisitionTimeline from '@/components/charts/AcquisitionTimeline';
+import ChartInsightsRow from './ChartInsightsRow';
 import { usePortfolioSummaryData } from './usePortfolioSummaryData';
 import { ValueHeader } from './ValueHeader';
 import { SimpleMetrics } from './SimpleMetrics';
@@ -17,6 +16,8 @@ interface PortfolioSummaryBarProps {
   gunPrice: number | undefined;
   gunPriceSparkline?: number[];
   nfts: NFT[];
+  /** Milestone-gated NFT array for charts — only updates at enrichment milestones */
+  chartNfts?: NFT[];
   isInitializing?: boolean;
   enrichmentProgress?: EnrichmentProgress | null;
   onRetryEnrichment?: () => void;
@@ -29,6 +30,7 @@ export default function PortfolioSummaryBar({
   gunPrice,
   gunPriceSparkline,
   nfts,
+  chartNfts,
   isInitializing = false,
   enrichmentProgress,
   walletAddress,
@@ -191,22 +193,14 @@ export default function PortfolioSummaryBar({
         walletCount={walletCount}
       />
 
-      {/* Insights Panel */}
-      {data.insights.length > 0 && !isInitializing && (
+      {/* Charts + Insights — side-by-side on desktop, stacked on mobile */}
+      {!isInitializing && nfts.length > 0 ? (
+        <ChartInsightsRow nfts={chartNfts ?? nfts} gunPrice={gunPrice} insights={data.insights} />
+      ) : data.insights.length > 0 && !isInitializing ? (
         <div className="border-t border-white/[0.06] px-6 py-3">
           <InsightsPanel insights={data.insights} />
         </div>
-      )}
-
-      {/* P&L Scatter Plot — collapsible */}
-      {!isInitializing && nfts.length > 0 && (
-        <PnLScatterPlot nfts={nfts} gunPrice={gunPrice} />
-      )}
-
-      {/* Acquisition Timeline — collapsible */}
-      {!isInitializing && nfts.length > 0 && (
-        <AcquisitionTimeline nfts={nfts} gunPrice={gunPrice} />
-      )}
+      ) : null}
     </div>
   );
 }
