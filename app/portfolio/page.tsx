@@ -38,6 +38,7 @@ function PortfolioContent() {
   const searchParams = useSearchParams();
   const debugMode = searchParams.get('debug') === '1';
   const addressParam = searchParams.get('address');
+  const { user, primaryWallet } = useDynamicContext();
 
   // If a specific address is in the URL, allow read-only access without auth.
   // The address param is display-only — it never gets associated with any user account.
@@ -45,7 +46,13 @@ function PortfolioContent() {
     return <PortfolioInner debugMode={debugMode} initialAddress={addressParam} />;
   }
 
-  // No address param — require auth to view own portfolio
+  // Authenticated users (wallet OR email-only) get through.
+  // Email-only users see an empty portfolio with a search bar to look up wallets.
+  if (user) {
+    return <PortfolioInner debugMode={debugMode} initialAddress={primaryWallet?.address ?? null} />;
+  }
+
+  // Anonymous — require login
   return (
     <WalletRequiredGate feature="Portfolio">
       <PortfolioInner debugMode={debugMode} initialAddress={null} />

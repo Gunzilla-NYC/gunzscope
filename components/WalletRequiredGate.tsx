@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
 interface WalletRequiredGateProps {
@@ -8,60 +9,48 @@ interface WalletRequiredGateProps {
 }
 
 /**
- * Gate component for pages that require a connected wallet.
- * Anonymous users see a "Login" prompt.
- * Email-only users see a "Connect wallet" prompt.
+ * Gate component for pages that require authentication.
+ * Shows a brief loading skeleton while the Dynamic SDK initializes,
+ * then either lets the user through or shows a login prompt.
  */
 export default function WalletRequiredGate({ children, feature }: WalletRequiredGateProps) {
   const { primaryWallet, user, setShowAuthFlow } = useDynamicContext();
+  const [sdkReady, setSdkReady] = useState(false);
 
-  // Wallet connected — full access
-  if (primaryWallet?.address) return <>{children}</>;
+  // Give the Dynamic SDK a moment to hydrate before showing the gate.
+  // This prevents a flash of the lock screen during SDK initialization.
+  useEffect(() => {
+    const timer = setTimeout(() => setSdkReady(true), 600);
+    return () => clearTimeout(timer);
+  }, []);
 
-  // Anonymous — show login prompt
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="size-16 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 flex items-center justify-center">
-          <svg className="size-7 text-[var(--gs-purple)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-          </svg>
-        </div>
-        <h2 className="font-display font-bold text-xl uppercase mb-3 text-[var(--gs-white)]">
-          Login to Access {feature}
-        </h2>
-        <p className="font-body text-sm text-[var(--gs-gray-4)] max-w-md mb-6">
-          Sign in with your wallet to unlock the full GUNZscope experience including {feature.toLowerCase()}, tracked wallets, and more.
-        </p>
-        <button
-          onClick={() => setShowAuthFlow(true)}
-          className="font-display font-semibold text-data uppercase tracking-wider px-6 py-2.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-        >
-          Login
-        </button>
-      </div>
-    );
+  // Wallet connected or email-only user — full access
+  if (primaryWallet?.address || user) return <>{children}</>;
+
+  // SDK still initializing — show nothing (prevents flash)
+  if (!sdkReady) {
+    return <div className="min-h-[200px]" />;
   }
 
-  // Email-only user — show wallet connection prompt
+  // Anonymous — show login prompt
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="size-16 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-[var(--gs-lime)]/20 flex items-center justify-center">
-        <svg className="size-7 text-[var(--gs-lime)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+      <div className="size-16 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 flex items-center justify-center">
+        <svg className="size-7 text-[var(--gs-purple)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
         </svg>
       </div>
       <h2 className="font-display font-bold text-xl uppercase mb-3 text-[var(--gs-white)]">
-        Connect a Wallet to Access {feature}
+        Login or Create Account
       </h2>
       <p className="font-body text-sm text-[var(--gs-gray-4)] max-w-md mb-6">
-        Link a GunzChain wallet to your account to unlock the full GUNZscope experience including {feature.toLowerCase()}, tracked wallets, and more.
+        Login or create an account to track up to 5 wallets and manage your portfolio.
       </p>
       <button
         onClick={() => setShowAuthFlow(true)}
         className="font-display font-semibold text-data uppercase tracking-wider px-6 py-2.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
       >
-        Connect Wallet
+        Login or Create Account
       </button>
     </div>
   );

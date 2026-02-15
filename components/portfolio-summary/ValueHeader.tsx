@@ -43,15 +43,19 @@ export function ValueHeader({
 
   return (
     <div className="relative overflow-hidden">
-      {/* Visx backdrop chart */}
+      {/* Visx backdrop chart — top-fade mask prevents overlap with text */}
       {hasSparkline && (
-        <div className="absolute inset-0" aria-hidden="true">
+        <div
+          className="absolute inset-0"
+          aria-hidden="true"
+          style={{ maskImage: 'linear-gradient(to left, black 0%, black 70%, transparent 85%)', WebkitMaskImage: 'linear-gradient(to left, black 0%, black 70%, transparent 85%)' }}
+        >
           <BackdropChart
             values={sparklineValues}
             overlayValues={gunSparklineValues}
             showOverlay={showGunOverlay}
             spanDays={sparklineSpanDays}
-            height={120}
+            height={140}
           />
         </div>
       )}
