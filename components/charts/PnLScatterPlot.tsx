@@ -275,15 +275,15 @@ export default function PnLScatterPlot({ nfts, gunPrice }: PnLScatterPlotProps) 
     return nfts
       .filter(nft => {
         if (nft.purchasePriceGun == null || nft.purchasePriceGun <= 0) return false;
-        // Prefer per-item listing, fall back to collection floor
-        const value = nft.currentLowestListing ?? nft.floorPrice;
+        // Valuation waterfall: listing > comparable sales > rarity floor > collection floor
+        const value = nft.currentLowestListing ?? nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.floorPrice;
         return value != null && value > 0;
       })
       .map(nft => ({
         id: nft.tokenId,
         name: nft.name,
         cost: nft.purchasePriceGun!,
-        floor: (nft.currentLowestListing ?? nft.floorPrice)!,
+        floor: (nft.currentLowestListing ?? nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.floorPrice)!,
         quantity: nft.quantity ?? 1,
         venue: nft.acquisitionVenue ?? 'unknown',
         collection: nft.collection,
@@ -305,7 +305,7 @@ export default function PnLScatterPlot({ nfts, gunPrice }: PnLScatterPlotProps) 
   const withCostOnly = useMemo(() => {
     return nfts.filter(nft => {
       if (nft.purchasePriceGun == null || nft.purchasePriceGun <= 0) return false;
-      const value = nft.currentLowestListing ?? nft.floorPrice;
+      const value = nft.currentLowestListing ?? nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.floorPrice;
       return !value || value <= 0;
     }).length;
   }, [nfts]);

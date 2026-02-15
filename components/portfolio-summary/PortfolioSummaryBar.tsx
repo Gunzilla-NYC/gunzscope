@@ -6,6 +6,8 @@ import { NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
 import InsightsPanel from '@/components/ui/InsightsPanel';
+import PnLScatterPlot from '@/components/charts/PnLScatterPlot';
+import AcquisitionTimeline from '@/components/charts/AcquisitionTimeline';
 import { usePortfolioSummaryData } from './usePortfolioSummaryData';
 import { ValueHeader } from './ValueHeader';
 import { SimpleMetrics } from './SimpleMetrics';
@@ -191,6 +193,16 @@ export default function PortfolioSummaryBar({
         <div className="border-t border-white/[0.06] px-6 py-3">
           <InsightsPanel insights={data.insights} />
         </div>
+      )}
+
+      {/* P&L Scatter Plot — collapsible */}
+      {!isInitializing && nfts.length > 0 && (
+        <PnLScatterPlot nfts={nfts} gunPrice={gunPrice} />
+      )}
+
+      {/* Acquisition Timeline — collapsible */}
+      {!isInitializing && nfts.length > 0 && (
+        <AcquisitionTimeline nfts={nfts} gunPrice={gunPrice} />
       )}
     </div>
   );

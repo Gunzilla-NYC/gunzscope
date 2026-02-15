@@ -20,8 +20,10 @@ const VERSIONS: VersionEntry[] = [
     tag: 'current',
     items: [
       'Valuation waterfall upgrade \u2014 per\u2011item listing > comparable sales median > rarity\u2011tier floor > cost basis',
-      'Dedicated comparableSalesMedian and rarityFloor fields on NFT type for clean separation',
-      'applyValuationTables pure function replaces inline floor\u2011price overloading',
+      'Insights panel expansion \u2014 unrealized P&L, most valuable, biggest loss (5 insight types total)',
+      'Acquisition Timeline chart \u2014 interactive visx timeline of NFT purchases by venue and date',
+      'P&L Scatter Plot promoted to main portfolio view (was insanity\u2011only)',
+      'All charts now use full valuation waterfall (listing > comparable > rarity > floor)',
     ],
   },
   {
