@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { Circle, Line } from '@visx/shape';
-import { scaleLinear, scaleSqrt } from '@visx/scale';
+import { scaleSqrt } from '@visx/scale';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { GridRows, GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
@@ -26,12 +26,13 @@ interface ScatterDatum {
   collection: string;
 }
 
-const MARGIN = { top: 16, right: 16, bottom: 32, left: 48 };
-const CHART_HEIGHT = 200;
+const MARGIN = { top: 20, right: 20, bottom: 38, left: 52 };
+const CHART_HEIGHT = 230;
 
 function formatGun(val: number): string {
   if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
   if (val >= 100) return val.toFixed(0);
+  if (val >= 10) return val.toFixed(0);
   return val.toFixed(1);
 }
 
@@ -59,23 +60,30 @@ function ScatterChart({
       if (d.cost > m) m = d.cost;
       if (d.floor > m) m = d.floor;
     }
-    return m * 1.1 || 100; // 10% padding
+    return m * 1.15 || 100;
   }, [data]);
 
+  // sqrt scales — compress high values, give more visual space to small values
   const xScale = useMemo(
-    () => scaleLinear<number>({ domain: [0, maxVal], range: [0, innerWidth], nice: true }),
+    () => scaleSqrt<number>({ domain: [0, maxVal], range: [0, innerWidth] }),
     [maxVal, innerWidth],
   );
 
   const yScale = useMemo(
-    () => scaleLinear<number>({ domain: [0, maxVal], range: [innerHeight, 0], nice: true }),
+    () => scaleSqrt<number>({ domain: [0, maxVal], range: [innerHeight, 0] }),
     [maxVal, innerHeight],
   );
 
   const sizeScale = useMemo(
-    () => scaleSqrt<number>({ domain: [1, Math.max(5, ...data.map(d => d.quantity))], range: [4, 14] }),
+    () => scaleSqrt<number>({ domain: [1, Math.max(5, ...data.map(d => d.quantity))], range: [5, 16] }),
     [data],
   );
+
+  // Custom tick values for clean axis labels on sqrt scale
+  const tickValues = useMemo(() => {
+    const candidates = [0, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000, 10000];
+    return candidates.filter(v => v <= maxVal * 0.95);
+  }, [maxVal]);
 
   const handleMouseEnter = useCallback(
     (d: ScatterDatum, cx: number, cy: number) => {
@@ -99,18 +107,42 @@ function ScatterChart({
   return (
     <div style={{ position: 'relative' }}>
       <svg width={width} height={height}>
+        <defs>
+          {/* Glow filter for hovered dots */}
+          <filter id="scatter-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
         <Group left={MARGIN.left} top={MARGIN.top}>
+          {/* Profit zone (above diagonal) — subtle green tint */}
+          <polygon
+            points={`0,0 ${innerWidth},0 0,${innerHeight}`}
+            fill={chartTheme.colors.profit}
+            fillOpacity={0.018}
+          />
+          {/* Loss zone (below diagonal) — subtle red tint */}
+          <polygon
+            points={`0,${innerHeight} ${innerWidth},0 ${innerWidth},${innerHeight}`}
+            fill={chartTheme.colors.loss}
+            fillOpacity={0.018}
+          />
+
           {/* Grid */}
           <GridRows
             scale={yScale}
             width={innerWidth}
-            numTicks={4}
+            tickValues={tickValues}
             stroke={chartTheme.colors.grid}
           />
           <GridColumns
             scale={xScale}
             height={innerHeight}
-            numTicks={4}
+            tickValues={tickValues}
             stroke={chartTheme.colors.grid}
           />
 
@@ -118,33 +150,34 @@ function ScatterChart({
           <Line
             from={{ x: xScale(0), y: yScale(0) }}
             to={{ x: xScale(maxVal), y: yScale(maxVal) }}
-            stroke="rgba(255,255,255,0.08)"
+            stroke="rgba(255,255,255,0.1)"
             strokeWidth={1}
-            strokeDasharray="6 4"
+            strokeDasharray="8 5"
           />
 
-          {/* Profit zone label */}
+          {/* Zone labels */}
           <text
-            x={xScale(maxVal * 0.15)}
-            y={yScale(maxVal * 0.55)}
+            x={innerWidth * 0.06}
+            y={innerHeight * 0.18}
             fill={chartTheme.colors.profit}
-            fillOpacity={0.15}
-            fontSize={10}
+            fillOpacity={0.12}
+            fontSize={9}
             fontFamily={chartTheme.fonts.mono}
             textAnchor="start"
+            letterSpacing="0.15em"
           >
             PROFIT
           </text>
 
-          {/* Loss zone label */}
           <text
-            x={xScale(maxVal * 0.55)}
-            y={yScale(maxVal * 0.15)}
+            x={innerWidth * 0.72}
+            y={innerHeight * 0.88}
             fill={chartTheme.colors.loss}
-            fillOpacity={0.15}
-            fontSize={10}
+            fillOpacity={0.12}
+            fontSize={9}
             fontFamily={chartTheme.fonts.mono}
             textAnchor="start"
+            letterSpacing="0.15em"
           >
             LOSS
           </text>
@@ -156,21 +189,34 @@ function ScatterChart({
             const isProfit = d.floor >= d.cost;
             const isHovered = hoveredId === d.id;
             const r = sizeScale(d.quantity);
+            const color = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
 
             return (
-              <Circle
-                key={d.id}
-                cx={cx}
-                cy={cy}
-                r={isHovered ? r + 2 : r}
-                fill={isProfit ? chartTheme.colors.profit : chartTheme.colors.loss}
-                fillOpacity={isHovered ? 0.9 : 0.6}
-                stroke={isHovered ? 'white' : 'none'}
-                strokeWidth={isHovered ? 1.5 : 0}
-                style={{ cursor: 'pointer', transition: 'r 150ms, fill-opacity 150ms' }}
-                onMouseEnter={() => handleMouseEnter(d, cx, cy)}
-                onMouseLeave={handleMouseLeave}
-              />
+              <g key={d.id} style={{ cursor: 'pointer' }}>
+                {/* Outer glow ring */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={isHovered ? r + 8 : r + 3}
+                  fill={color}
+                  fillOpacity={isHovered ? 0.12 : 0.04}
+                  style={{ transition: 'r 200ms ease, fill-opacity 200ms ease' }}
+                />
+                {/* Main dot */}
+                <Circle
+                  cx={cx}
+                  cy={cy}
+                  r={isHovered ? r + 2 : r}
+                  fill={color}
+                  fillOpacity={isHovered ? 0.95 : 0.65}
+                  stroke={isHovered ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)'}
+                  strokeWidth={isHovered ? 1.5 : 0.5}
+                  filter={isHovered ? 'url(#scatter-glow)' : undefined}
+                  style={{ transition: 'all 200ms ease' }}
+                  onMouseEnter={() => handleMouseEnter(d, cx, cy)}
+                  onMouseLeave={handleMouseLeave}
+                />
+              </g>
             );
           })}
 
@@ -178,7 +224,7 @@ function ScatterChart({
           <AxisBottom
             scale={xScale}
             top={innerHeight}
-            numTicks={4}
+            tickValues={tickValues}
             tickFormat={(v) => formatGun(v as number)}
             stroke={chartTheme.colors.axis}
             tickStroke={chartTheme.colors.axis}
@@ -188,19 +234,20 @@ function ScatterChart({
               fontFamily: chartTheme.fonts.mono,
               textAnchor: 'middle' as const,
             }}
-            label="Cost (GUN)"
+            label="COST (GUN)"
             labelProps={{
-              fill: chartTheme.colors.text,
-              fontSize: 9,
+              fill: 'rgba(255,255,255,0.22)',
+              fontSize: 8,
               fontFamily: chartTheme.fonts.mono,
               textAnchor: 'middle' as const,
+              letterSpacing: '0.12em',
             }}
-            labelOffset={14}
+            labelOffset={18}
           />
 
           <AxisLeft
             scale={yScale}
-            numTicks={4}
+            tickValues={tickValues}
             tickFormat={(v) => formatGun(v as number)}
             stroke={chartTheme.colors.axis}
             tickStroke={chartTheme.colors.axis}
@@ -211,59 +258,68 @@ function ScatterChart({
               textAnchor: 'end' as const,
               dx: -4,
             }}
-            label="Floor (GUN)"
+            label="VALUE (GUN)"
             labelProps={{
-              fill: chartTheme.colors.text,
-              fontSize: 9,
+              fill: 'rgba(255,255,255,0.22)',
+              fontSize: 8,
               fontFamily: chartTheme.fonts.mono,
               textAnchor: 'middle' as const,
+              letterSpacing: '0.12em',
             }}
-            labelOffset={32}
+            labelOffset={36}
           />
         </Group>
       </svg>
 
       {/* Tooltip */}
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          left={tooltipLeft}
-          top={tooltipTop}
-          style={{
-            background: 'rgba(22,22,22,0.95)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: 'white',
-            padding: '8px 10px',
-            fontFamily: chartTheme.fonts.mono,
-            fontSize: '10px',
-            lineHeight: '1.5',
-            pointerEvents: 'none',
-            zIndex: 30,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 11 }}>
-            {tooltipData.name}
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.5)' }}>
-            {tooltipData.collection}
-            {tooltipData.quantity > 1 && <span> &times; {tooltipData.quantity}</span>}
-          </div>
-          <div style={{ marginTop: 4, display: 'flex', gap: 12 }}>
-            <span>Cost: <span style={{ color: 'rgba(255,255,255,0.8)' }}>{tooltipData.cost.toFixed(1)} GUN</span></span>
-            <span>Floor: <span style={{ color: 'rgba(255,255,255,0.8)' }}>{tooltipData.floor.toFixed(1)} GUN</span></span>
-          </div>
-          <div style={{
-            marginTop: 2,
-            color: tooltipData.floor >= tooltipData.cost ? chartTheme.colors.profit : chartTheme.colors.loss,
-            fontWeight: 600,
-          }}>
-            {tooltipData.floor >= tooltipData.cost ? '+' : ''}
-            {(((tooltipData.floor - tooltipData.cost) / tooltipData.cost) * 100).toFixed(1)}% P&L
-          </div>
-          <div style={{ marginTop: 2, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', fontSize: 8, letterSpacing: '0.05em' }}>
-            {tooltipData.venue.replace(/_/g, ' ')}
-          </div>
-        </TooltipWithBounds>
-      )}
+      {tooltipOpen && tooltipData && (() => {
+        const pnl = tooltipData.floor - tooltipData.cost;
+        const pnlPct = tooltipData.cost > 0 ? (pnl / tooltipData.cost) * 100 : 0;
+        const isProfit = pnl >= 0;
+        return (
+          <TooltipWithBounds
+            left={tooltipLeft}
+            top={tooltipTop}
+            style={{
+              background: 'rgba(14,14,14,0.96)',
+              border: `1px solid ${isProfit ? 'rgba(0,255,136,0.15)' : 'rgba(255,68,68,0.15)'}`,
+              color: 'white',
+              padding: '10px 12px',
+              fontFamily: chartTheme.fonts.mono,
+              fontSize: '10px',
+              lineHeight: '1.6',
+              pointerEvents: 'none',
+              zIndex: 30,
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: 11, letterSpacing: '0.02em' }}>
+              {tooltipData.name}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, marginTop: 1, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {tooltipData.collection}
+              {tooltipData.quantity > 1 && <span> &times;{tooltipData.quantity}</span>}
+              <span style={{ marginLeft: 6 }}>{tooltipData.venue.replace(/_/g, ' ')}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 6 }}>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Cost <span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatGun(tooltipData.cost)}</span></span>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Value <span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatGun(tooltipData.floor)}</span></span>
+            </div>
+            <div style={{
+              padding: '3px 8px',
+              display: 'inline-block',
+              background: isProfit ? 'rgba(0,255,136,0.08)' : 'rgba(255,68,68,0.08)',
+              color: isProfit ? chartTheme.colors.profit : chartTheme.colors.loss,
+              fontWeight: 600,
+              fontSize: 11,
+            }}>
+              {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%
+              <span style={{ fontWeight: 400, fontSize: 9, marginLeft: 6, opacity: 0.6 }}>
+                {isProfit ? '+' : ''}{formatGun(pnl)} GUN
+              </span>
+            </div>
+          </TooltipWithBounds>
+        );
+      })()}
     </div>
   );
 }
@@ -314,7 +370,7 @@ export default function PnLScatterPlot({ nfts, gunPrice }: PnLScatterPlotProps) 
 
   return (
     <div className="border-t border-white/[0.06]">
-      {/* Header (always visible, clickable) */}
+      {/* Header */}
       <button
         onClick={() => setExpanded(prev => !prev)}
         className="w-full px-4 py-2.5 flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] transition-colors"
@@ -325,14 +381,18 @@ export default function PnLScatterPlot({ nfts, gunPrice }: PnLScatterPlotProps) 
         <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
           {hasChartData ? `${stats.total} items` : `${withCostOnly + scatterData.length} with cost`}
         </span>
-        <span className="ml-auto flex items-center gap-1.5">
+        <span className="ml-auto flex items-center gap-2">
           {hasChartData ? (
             <>
-              <span className="font-mono text-micro text-[var(--gs-profit)] tabular-nums">{stats.profitable} {'\u25B2'}</span>
-              <span className="font-mono text-micro text-[var(--gs-loss)] tabular-nums">{stats.losing} {'\u25BC'}</span>
+              <span className="font-mono text-micro tabular-nums px-1.5 py-0.5 text-[var(--gs-profit)]" style={{ background: 'rgba(0,255,136,0.06)' }}>
+                {stats.profitable} {'\u25B2'}
+              </span>
+              <span className="font-mono text-micro tabular-nums px-1.5 py-0.5 text-[var(--gs-loss)]" style={{ background: 'rgba(255,68,68,0.06)' }}>
+                {stats.losing} {'\u25BC'}
+              </span>
             </>
           ) : (
-            <span className="font-mono text-micro text-[var(--gs-gray-3)]">needs floor prices</span>
+            <span className="font-mono text-micro text-[var(--gs-gray-3)]">needs value data</span>
           )}
           <span className="font-mono text-micro text-[var(--gs-gray-3)] ml-1">
             {expanded ? '\u25B4' : '\u25BE'}
@@ -340,7 +400,7 @@ export default function PnLScatterPlot({ nfts, gunPrice }: PnLScatterPlotProps) 
         </span>
       </button>
 
-      {/* Chart (expanded only) */}
+      {/* Chart */}
       {expanded && (
         <div className="px-2 pb-3">
           {hasChartData ? (
@@ -353,16 +413,16 @@ export default function PnLScatterPlot({ nfts, gunPrice }: PnLScatterPlotProps) 
                 }
               </ParentSize>
               {gunPrice && gunPrice > 0 && (
-                <p className="font-mono text-micro text-[var(--gs-gray-2)] text-center mt-1">
-                  Value = per&#8209;item listing or collection floor &middot; 1 GUN = ${gunPrice.toFixed(4)}
+                <p className="font-mono text-micro text-[var(--gs-gray-2)] text-center mt-1.5">
+                  Value = listing or estimated market price &middot; 1 GUN = ${gunPrice.toFixed(4)} &middot; sqrt scale
                 </p>
               )}
             </>
           ) : (
             <p className="font-mono text-caption text-[var(--gs-gray-3)] text-center py-4">
               {withCostOnly > 0
-                ? `${withCostOnly} NFTs have cost data but no floor price yet`
-                : 'Need at least 2 NFTs with both cost and floor price'}
+                ? `${withCostOnly} NFTs have cost data but no value estimate yet`
+                : 'Need at least 2 NFTs with both cost and value data'}
             </p>
           )}
         </div>

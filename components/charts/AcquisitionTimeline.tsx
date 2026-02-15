@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { Circle, Line } from '@visx/shape';
-import { scaleLinear, scaleTime } from '@visx/scale';
+import { scaleSqrt, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
 import { GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
@@ -25,8 +25,8 @@ interface TimelineDatum {
   quantity: number;
 }
 
-const MARGIN = { top: 24, right: 16, bottom: 28, left: 16 };
-const CHART_HEIGHT = 160;
+const MARGIN = { top: 28, right: 16, bottom: 32, left: 16 };
+const CHART_HEIGHT = 180;
 
 const VENUE_COLORS: Record<string, string> = {
   decode: chartTheme.colors.lime,
@@ -35,8 +35,8 @@ const VENUE_COLORS: Record<string, string> = {
   opensea: chartTheme.colors.purple,
   in_game_marketplace: '#FF9F43',
   otg_marketplace: '#FF9F43',
-  transfer: 'rgba(255,255,255,0.3)',
-  unknown: 'rgba(255,255,255,0.2)',
+  transfer: '#4CC9F0',
+  unknown: 'rgba(255,255,255,0.25)',
 };
 
 function venueColor(venue: string): string {
@@ -52,6 +52,12 @@ function venueLabel(venue: string): string {
     case 'transfer': return 'Transfer';
     default: return venue.replace(/_/g, ' ');
   }
+}
+
+function formatGun(val: number): string {
+  if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
+  if (val >= 100) return val.toFixed(0);
+  return val.toFixed(1);
 }
 
 function TimelineChart({
@@ -77,9 +83,14 @@ function TimelineChart({
     const dates = data.map(d => d.date.getTime());
     const min = Math.min(...dates);
     const max = Math.max(...dates);
-    const pad = Math.max((max - min) * 0.05, 12 * 60 * 60 * 1000); // min 12h pad
+    const pad = Math.max((max - min) * 0.08, 12 * 60 * 60 * 1000);
     return [new Date(min - pad), new Date(max + pad)] as [Date, Date];
   }, [data]);
+
+  // Date range in days (for smart axis formatting)
+  const rangeDays = useMemo(() => {
+    return (dateExtent[1].getTime() - dateExtent[0].getTime()) / (1000 * 60 * 60 * 24);
+  }, [dateExtent]);
 
   const maxCost = useMemo(() => Math.max(...data.map(d => d.costGun), 1), [data]);
 
@@ -88,10 +99,18 @@ function TimelineChart({
     [dateExtent, innerWidth],
   );
 
+  // sqrt scale for cost — compresses big outliers, spreads small values
   const yScale = useMemo(
-    () => scaleLinear<number>({ domain: [0, maxCost * 1.15], range: [innerHeight, 0], nice: true }),
+    () => scaleSqrt<number>({ domain: [0, maxCost * 1.2], range: [innerHeight, 0] }),
     [maxCost, innerHeight],
   );
+
+  // Collect unique venue colors for stem gradients
+  const uniqueColors = useMemo(() => {
+    const colors = new Set<string>();
+    for (const d of data) colors.add(venueColor(d.venue));
+    return Array.from(colors);
+  }, [data]);
 
   const handleMouseEnter = useCallback(
     (d: TimelineDatum, cx: number, cy: number) => {
@@ -115,16 +134,38 @@ function TimelineChart({
   return (
     <div style={{ position: 'relative' }}>
       <svg width={width} height={height}>
+        <defs>
+          {/* Glow filter */}
+          <filter id="timeline-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          {/* Stem gradients — one per unique venue color */}
+          {uniqueColors.map(color => (
+            <linearGradient
+              key={color}
+              id={`stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`}
+              x1="0" y1="1" x2="0" y2="0"
+            >
+              <stop offset="0%" stopColor={color} stopOpacity={0} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.35} />
+            </linearGradient>
+          ))}
+        </defs>
+
         <Group left={MARGIN.left} top={MARGIN.top}>
           {/* Grid */}
           <GridColumns
             scale={xScale}
             height={innerHeight}
-            numTicks={Math.min(5, Math.floor(innerWidth / 60))}
+            numTicks={Math.min(rangeDays < 3 ? 3 : 5, Math.floor(innerWidth / 80))}
             stroke={chartTheme.colors.grid}
           />
 
-          {/* Zero cost baseline */}
+          {/* Baseline */}
           <Line
             from={{ x: 0, y: innerHeight }}
             to={{ x: innerWidth, y: innerHeight }}
@@ -138,26 +179,40 @@ function TimelineChart({
             const cy = yScale(d.costGun);
             const isHovered = hoveredId === d.id;
             const color = venueColor(d.venue);
+            const gradientId = `stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
 
             return (
-              <g key={d.id}>
-                {/* Vertical stem from baseline */}
-                <Line
-                  from={{ x: cx, y: innerHeight }}
-                  to={{ x: cx, y: cy }}
-                  stroke={color}
-                  strokeWidth={1}
-                  strokeOpacity={isHovered ? 0.5 : 0.2}
+              <g key={d.id} style={{ cursor: 'pointer' }}>
+                {/* Gradient stem from baseline to dot */}
+                <line
+                  x1={cx}
+                  y1={innerHeight}
+                  x2={cx}
+                  y2={cy}
+                  stroke={`url(#${gradientId})`}
+                  strokeWidth={isHovered ? 2 : 1.5}
+                  style={{ transition: 'stroke-width 200ms ease' }}
                 />
+                {/* Outer glow ring */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={isHovered ? 10 : 6}
+                  fill={color}
+                  fillOpacity={isHovered ? 0.12 : 0.04}
+                  style={{ transition: 'r 200ms ease, fill-opacity 200ms ease' }}
+                />
+                {/* Main dot */}
                 <Circle
                   cx={cx}
                   cy={cy}
-                  r={isHovered ? 5 : 3.5}
+                  r={isHovered ? 5.5 : 4}
                   fill={color}
-                  fillOpacity={isHovered ? 1 : 0.7}
-                  stroke={isHovered ? 'white' : 'none'}
-                  strokeWidth={isHovered ? 1.5 : 0}
-                  style={{ cursor: 'pointer', transition: 'r 150ms, fill-opacity 150ms' }}
+                  fillOpacity={isHovered ? 1 : 0.75}
+                  stroke={isHovered ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)'}
+                  strokeWidth={isHovered ? 1.5 : 0.5}
+                  filter={isHovered ? 'url(#timeline-glow)' : undefined}
+                  style={{ transition: 'all 200ms ease' }}
                   onMouseEnter={() => handleMouseEnter(d, cx, cy)}
                   onMouseLeave={handleMouseLeave}
                 />
@@ -165,19 +220,23 @@ function TimelineChart({
             );
           })}
 
-          {/* Time axis */}
+          {/* Time axis — smart formatting based on date range */}
           <AxisBottom
             scale={xScale}
             top={innerHeight}
-            numTicks={Math.min(5, Math.floor(innerWidth / 60))}
+            numTicks={Math.min(rangeDays < 3 ? 3 : 5, Math.floor(innerWidth / 80))}
             tickFormat={(v) => {
               const d = v as Date;
-              const now = new Date();
-              const diff = now.getTime() - d.getTime();
-              const days = diff / (1000 * 60 * 60 * 24);
-              if (days < 1) return `${Math.round(days * 24)}h ago`;
-              if (days < 30) return `${Math.round(days)}d ago`;
-              return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+              if (rangeDays < 1) {
+                return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+              }
+              if (rangeDays < 3) {
+                return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+              }
+              if (rangeDays < 60) {
+                return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+              }
+              return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
             }}
             stroke={chartTheme.colors.axis}
             tickStroke={chartTheme.colors.axis}
@@ -188,6 +247,35 @@ function TimelineChart({
               textAnchor: 'middle' as const,
             }}
           />
+
+          {/* Cost axis label (right side, rotated) */}
+          <text
+            x={innerWidth + 8}
+            y={2}
+            fill="rgba(255,255,255,0.18)"
+            fontSize={8}
+            fontFamily={chartTheme.fonts.mono}
+            textAnchor="start"
+            letterSpacing="0.1em"
+          >
+            GUN
+          </text>
+
+          {/* Cost scale markers along right edge */}
+          {[maxCost * 0.25, maxCost * 0.5, maxCost * 0.75].filter(v => v > 0).map((val, i) => (
+            <text
+              key={i}
+              x={innerWidth + 4}
+              y={yScale(val)}
+              fill="rgba(255,255,255,0.15)"
+              fontSize={8}
+              fontFamily={chartTheme.fonts.mono}
+              textAnchor="start"
+              dominantBaseline="middle"
+            >
+              {formatGun(val)}
+            </text>
+          ))}
         </Group>
       </svg>
 
@@ -197,32 +285,47 @@ function TimelineChart({
           left={tooltipLeft}
           top={tooltipTop}
           style={{
-            background: 'rgba(22,22,22,0.95)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(14,14,14,0.96)',
+            border: `1px solid ${venueColor(tooltipData.venue)}25`,
             color: 'white',
-            padding: '8px 10px',
+            padding: '10px 12px',
             fontFamily: chartTheme.fonts.mono,
             fontSize: '10px',
-            lineHeight: '1.5',
+            lineHeight: '1.6',
             pointerEvents: 'none',
             zIndex: 30,
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 11 }}>
+          <div style={{ fontWeight: 600, fontSize: 11, letterSpacing: '0.02em' }}>
             {tooltipData.name}
-            {tooltipData.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)' }}> &times;{tooltipData.quantity}</span>}
+            {tooltipData.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}> &times;{tooltipData.quantity}</span>}
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <span>Cost: <span style={{ color: 'rgba(255,255,255,0.8)' }}>
-              {tooltipData.costGun.toFixed(1)} GUN
-              {gunPrice && gunPrice > 0 && <span style={{ color: 'rgba(255,255,255,0.4)' }}> (${(tooltipData.costGun * gunPrice).toFixed(2)})</span>}
-            </span></span>
+          <div style={{ marginTop: 4, display: 'flex', gap: 16 }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Cost <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+                {formatGun(tooltipData.costGun)} GUN
+              </span>
+            </span>
+            {gunPrice && gunPrice > 0 && (
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>
+                ${(tooltipData.costGun * gunPrice).toFixed(2)}
+              </span>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 12, marginTop: 2 }}>
-            <span style={{ color: venueColor(tooltipData.venue) }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'center' }}>
+            <span
+              style={{
+                color: venueColor(tooltipData.venue),
+                fontSize: 9,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                padding: '1px 5px',
+                background: `${venueColor(tooltipData.venue)}10`,
+              }}
+            >
               {venueLabel(tooltipData.venue)}
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.3)' }}>
+            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 9 }}>
               {tooltipData.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           </div>
@@ -275,11 +378,18 @@ export default function AcquisitionTimeline({ nfts, gunPrice }: AcquisitionTimel
           {timelineData.length} purchases
         </span>
         <span className="ml-auto flex items-center gap-1.5">
-          {venueCounts.slice(0, 2).map(([venue, count]) => (
-            <span key={venue} className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
-              {count} {venue}
-            </span>
-          ))}
+          {venueCounts.slice(0, 3).map(([venue, count]) => {
+            const originalKey = timelineData.find(d => venueLabel(d.venue) === venue)?.venue ?? 'unknown';
+            return (
+              <span
+                key={venue}
+                className="font-mono text-micro tabular-nums px-1.5 py-0.5"
+                style={{ backgroundColor: `${venueColor(originalKey)}0D`, color: venueColor(originalKey) }}
+              >
+                {count} {venue}
+              </span>
+            );
+          })}
           <span className="font-mono text-micro text-[var(--gs-gray-3)] ml-1">
             {expanded ? '\u25B4' : '\u25BE'}
           </span>
@@ -303,15 +413,21 @@ export default function AcquisitionTimeline({ nfts, gunPrice }: AcquisitionTimel
             </p>
           )}
 
-          {/* Venue legend */}
+          {/* Venue legend — pill style */}
           {hasData && venueCounts.length > 0 && (
-            <div className="flex items-center justify-center gap-4 mt-2">
+            <div className="flex items-center justify-center gap-3 mt-2">
               {venueCounts.map(([venue]) => {
-                // Find original venue key for color lookup
                 const originalKey = timelineData.find(d => venueLabel(d.venue) === venue)?.venue ?? 'unknown';
+                const color = venueColor(originalKey);
                 return (
-                  <div key={venue} className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: venueColor(originalKey) }} />
+                  <div key={venue} className="flex items-center gap-1.5">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor: color,
+                        boxShadow: `0 0 4px ${color}40`,
+                      }}
+                    />
                     <span className="font-mono text-micro text-[var(--gs-gray-3)]">{venue}</span>
                   </div>
                 );

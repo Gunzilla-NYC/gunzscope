@@ -24,6 +24,7 @@ const VERSIONS: VersionEntry[] = [
       'Acquisition Timeline chart \u2014 interactive visx timeline of NFT purchases by venue and date',
       'P&L Scatter Plot promoted to main portfolio view (was insanity\u2011only)',
       'All charts now use full valuation waterfall (listing > comparable > rarity > floor)',
+      'Chart visual overhaul \u2014 sqrt scales, glow effects, gradient zones, smarter axis formatting',
     ],
   },
   {
