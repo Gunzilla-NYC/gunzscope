@@ -92,9 +92,9 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo — connected users stay on current page, anonymous users go home */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center group">
-                <div className="relative w-[11.5rem] overflow-hidden">
+                <div className="relative w-[12.5rem] overflow-hidden">
                   <Logo size="md" variant="full" glitchOnHover />
                 </div>
               </Link>
