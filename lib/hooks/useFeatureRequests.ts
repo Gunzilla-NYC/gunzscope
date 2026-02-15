@@ -11,9 +11,11 @@ export interface FeatureRequest {
   id: string;
   title: string;
   description: string;
+  type: string;
   status: string;
   adminNote: string | null;
   showAttribution: boolean;
+  screenshotUrl: string | null;
   authorId: string;
   authorName: string | null;
   netVotes: number;
@@ -33,7 +35,7 @@ interface UseFeatureRequestsReturn {
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
-  submitRequest: (title: string, description: string) => Promise<boolean>;
+  submitRequest: (title: string, description: string, type?: 'feature' | 'bug', screenshotUrl?: string | null) => Promise<boolean>;
   vote: (id: string, value: 1 | -1) => Promise<boolean>;
   updateRequestStatus: (id: string, status: string, adminNote?: string, showAttribution?: boolean) => Promise<boolean>;
   deleteRequest: (id: string) => Promise<boolean>;
@@ -119,7 +121,7 @@ export function useFeatureRequests(): UseFeatureRequestsReturn {
     }
   }, [isAuthenticated, fetchEligibility]);
 
-  const submitRequest = useCallback(async (title: string, description: string): Promise<boolean> => {
+  const submitRequest = useCallback(async (title: string, description: string, type?: 'feature' | 'bug', screenshotUrl?: string | null): Promise<boolean> => {
     const token = getAuthToken();
     if (!token) return false;
 
@@ -133,7 +135,7 @@ export function useFeatureRequests(): UseFeatureRequestsReturn {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title, description }),
+        body: JSON.stringify({ title, description, type: type || 'feature', screenshotUrl: screenshotUrl || null }),
       });
 
       const data = await res.json();

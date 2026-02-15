@@ -142,9 +142,11 @@ model FeatureRequest {
   id          String   @id @default(cuid())
   title       String
   description String
+  type            String   @default("feature") // feature | bug
   status          String   @default("open") // open | planned | completed | declined
   adminNote       String?  // optional admin reason for status change
   showAttribution Boolean  @default(false) // admin controls whether author appears on credits page
+  screenshotUrl   String?  // base64 data URL for attached screenshot
   authorId    String
   author      UserProfile @relation(fields: [authorId], references: [id])
   votes       FeatureRequestVote[]

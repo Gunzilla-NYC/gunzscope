@@ -22,6 +22,11 @@ export const STATUS_STYLES: Record<string, { bg: string; text: string; label: st
   declined: { bg: 'bg-[var(--gs-loss)]/10', text: 'text-[var(--gs-loss)]', label: 'Declined' },
 };
 
+export const TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  feature: { bg: 'bg-[var(--gs-purple)]/10', text: 'text-[var(--gs-purple)]', label: 'Feature' },
+  bug: { bg: 'bg-[#FF8800]/10', text: 'text-[#FF8800]', label: 'Bug' },
+};
+
 // Stop words excluded from similarity matching
 const STOP_WORDS = new Set([
   'a', 'an', 'the', 'is', 'it', 'to', 'in', 'for', 'of', 'and', 'or', 'on',

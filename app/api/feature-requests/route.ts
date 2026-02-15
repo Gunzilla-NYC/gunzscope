@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description } = body;
+    const { title, description, type, screenshotUrl } = body;
 
     // Validate input
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
@@ -71,11 +71,29 @@ export async function POST(request: NextRequest) {
       return jsonError('Description must be 500 characters or less', 400);
     }
 
-    const featureRequest = await create(profile.id, title, description);
+    // Validate type
+    const validTypes = ['feature', 'bug'] as const;
+    const requestType = validTypes.includes(type) ? type : 'feature';
+
+    // Validate screenshot (base64 data URL, max ~2MB)
+    let validatedScreenshot: string | null = null;
+    if (screenshotUrl && typeof screenshotUrl === 'string') {
+      if (!screenshotUrl.startsWith('data:image/')) {
+        return jsonError('Screenshot must be a valid image', 400);
+      }
+      // ~2MB base64 ≈ ~2.7M characters
+      if (screenshotUrl.length > 2_800_000) {
+        return jsonError('Screenshot must be under 2MB', 400);
+      }
+      validatedScreenshot = screenshotUrl;
+    }
+
+    const featureRequest = await create(profile.id, title, description, requestType, validatedScreenshot);
 
     return jsonSuccess({ request: featureRequest }, 201);
   } catch (error) {
-    console.error('Error creating feature request:', error);
-    return jsonError('Failed to create feature request');
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error creating feature request:', msg, error);
+    return jsonError(`Failed to create feature request: ${msg}`);
   }
 }

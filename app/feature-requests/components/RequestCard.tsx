@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { FeatureRequest } from '@/lib/hooks/useFeatureRequests';
-import { timeAgo, STATUS_STYLES } from '../utils';
+import { timeAgo, STATUS_STYLES, TYPE_STYLES } from '../utils';
 import { VoteButton } from './VoteButton';
 
 export function RequestCard({
@@ -20,9 +20,11 @@ export function RequestCard({
   onUpdateStatus: (id: string, status: string, adminNote?: string, showAttribution?: boolean) => void;
   onDelete: (id: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [pendingAction, setPendingAction] = useState<'completed' | 'declined' | null>(null);
   const [reasonText, setReasonText] = useState('');
   const [includeAttribution, setIncludeAttribution] = useState(true);
+  const [lightbox, setLightbox] = useState(false);
 
   const status = STATUS_STYLES[request.status] || STATUS_STYLES.open;
   const scoreColor =
@@ -89,40 +91,126 @@ export function RequestCard({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3 mb-1">
-            <h3 className="font-body text-sm font-semibold text-[var(--gs-white)] leading-snug">
-              {request.title}
-            </h3>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {request.status === 'completed' && request.showAttribution && (
-                <span className="font-mono text-label uppercase tracking-wider px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)]">
-                  ★
+          {/* Collapsed header — always visible, click to expand */}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full text-left cursor-pointer group/card"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <svg
+                  className={`w-3 h-3 shrink-0 text-[var(--gs-gray-2)] transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+                  viewBox="0 0 6 10"
+                  fill="currentColor"
+                >
+                  <path d="M0 0l6 5-6 5z" />
+                </svg>
+                <h3 className="font-body text-sm font-semibold text-[var(--gs-white)] leading-snug truncate group-hover/card:text-[var(--gs-gray-4)] transition-colors">
+                  {request.title}
+                </h3>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {request.type === 'bug' && (
+                  <span className={`font-mono text-label uppercase tracking-wider px-1.5 py-0.5 ${TYPE_STYLES.bug.bg} ${TYPE_STYLES.bug.text}`}>
+                    {TYPE_STYLES.bug.label}
+                  </span>
+                )}
+                {request.status === 'completed' && request.showAttribution && (
+                  <span className="font-mono text-label uppercase tracking-wider px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)]">
+                    ★
+                  </span>
+                )}
+                <span className={`font-mono text-label uppercase tracking-wider px-1.5 py-0.5 ${status.bg} ${status.text}`}>
+                  {status.label}
                 </span>
-              )}
-              <span className={`font-mono text-label uppercase tracking-wider px-1.5 py-0.5 ${status.bg} ${status.text}`}>
-                {status.label}
-              </span>
+              </div>
             </div>
-          </div>
-          <p className="font-body text-xs text-[var(--gs-gray-4)] leading-relaxed mb-2">
-            {request.description}
-          </p>
-          <div className="flex items-center gap-3 text-[var(--gs-gray-2)]">
-            <span className="font-mono text-caption">
-              {request.authorName || 'Anonymous'}
-            </span>
-            <span className="font-mono text-caption">&middot;</span>
-            <span className="font-mono text-caption">{timeAgo(request.createdAt)}</span>
-          </div>
+            {/* Collapsed meta line */}
+            {!expanded && (
+              <div className="flex items-center gap-3 text-[var(--gs-gray-2)] mt-1 ml-5">
+                <span className="font-mono text-caption">
+                  {request.authorName || 'Anonymous'}
+                </span>
+                <span className="font-mono text-caption">&middot;</span>
+                <span className="font-mono text-caption">{timeAgo(request.createdAt)}</span>
+                {request.screenshotUrl && (
+                  <>
+                    <span className="font-mono text-caption">&middot;</span>
+                    <span className="font-mono text-caption text-[var(--gs-gray-2)]">has image</span>
+                  </>
+                )}
+              </div>
+            )}
+          </button>
 
-          {/* Admin Note */}
-          {request.adminNote && (
-            <p className="font-mono text-caption text-[var(--gs-gray-3)] mt-1.5 italic">
-              &ldquo;{request.adminNote}&rdquo;
-            </p>
+          {/* Expanded content */}
+          {expanded && (
+            <div className="mt-2 ml-5">
+              <p className="font-body text-xs text-[var(--gs-gray-4)] leading-relaxed mb-2">
+                {request.description}
+              </p>
+              {/* Screenshot thumbnail */}
+              {request.screenshotUrl && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(true)}
+                    className="block mb-2 group/img cursor-pointer"
+                  >
+                    <img
+                      src={request.screenshotUrl}
+                      alt="Attached screenshot"
+                      className="max-h-32 object-contain bg-black/30 border border-white/[0.06] group-hover/img:border-[var(--gs-lime)]/30 transition-colors"
+                      loading="lazy"
+                    />
+                  </button>
+                  {lightbox && (
+                    <div
+                      className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/80"
+                      onClick={() => setLightbox(false)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setLightbox(false); }}
+                      role="dialog"
+                      aria-modal="true"
+                      tabIndex={-1}
+                      ref={(el) => el?.focus()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setLightbox(false)}
+                        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] font-mono text-lg transition-colors cursor-pointer"
+                        aria-label="Close"
+                      >
+                        &times;
+                      </button>
+                      <img
+                        src={request.screenshotUrl}
+                        alt="Attached screenshot"
+                        className="max-w-[90vw] max-h-[85vh] object-contain border border-white/[0.06]"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="flex items-center gap-3 text-[var(--gs-gray-2)]">
+                <span className="font-mono text-caption">
+                  {request.authorName || 'Anonymous'}
+                </span>
+                <span className="font-mono text-caption">&middot;</span>
+                <span className="font-mono text-caption">{timeAgo(request.createdAt)}</span>
+              </div>
+
+              {/* Admin Note */}
+              {request.adminNote && (
+                <p className="font-mono text-caption text-[var(--gs-gray-3)] mt-1.5 italic">
+                  &ldquo;{request.adminNote}&rdquo;
+                </p>
+              )}
+            </div>
           )}
 
-          {/* Admin Actions */}
+          {/* Admin Actions — always visible for admins */}
           {isAdmin && (
             <div className="mt-2.5 pt-2.5 border-t border-white/[0.04]">
               {pendingAction ? (

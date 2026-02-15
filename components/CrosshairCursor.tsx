@@ -77,6 +77,10 @@ export default function CrosshairCursor() {
       rafRef.current = requestAnimationFrame(animate);
     };
 
+    // Cache the last inspected target to skip redundant DOM walks
+    let lastTarget: Element | null = null;
+    let lastResult = false;
+
     const onMove = (e: MouseEvent) => {
       tx = e.clientX;
       ty = e.clientY;
@@ -88,11 +92,15 @@ export default function CrosshairCursor() {
 
       wake();
 
-      // Interactive detection — manual parent walk is faster than closest() with a complex selector
-      const over = isInteractive(e.target as Element);
-      if (over !== interactive) {
-        interactive = over;
-        el.classList.toggle('is-interactive', over);
+      // Interactive detection — skip DOM walk if target hasn't changed
+      const target = e.target as Element;
+      if (target !== lastTarget) {
+        lastTarget = target;
+        lastResult = isInteractive(target);
+      }
+      if (lastResult !== interactive) {
+        interactive = lastResult;
+        el.classList.toggle('is-interactive', lastResult);
       }
     };
 

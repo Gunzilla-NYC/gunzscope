@@ -7,6 +7,7 @@ import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import CrosshairCursor from "@/components/CrosshairCursor";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
+import UXRWelcomePopup from "@/components/UXRWelcomePopup";
 import { Toaster } from "sonner";
 
 // GUNZscope Brand Fonts
@@ -56,6 +57,7 @@ export default function RootLayout({
           <div id="app-content" className="relative z-10">
             {children}
           </div>
+          <UXRWelcomePopup />
           <OnboardingChecklist />
           <Toaster
             position="top-right"

@@ -34,9 +34,11 @@ export interface FeatureRequestWithVotes {
   id: string;
   title: string;
   description: string;
+  type: string;
   status: string;
   adminNote: string | null;
   showAttribution: boolean;
+  screenshotUrl: string | null;
   authorId: string;
   authorName: string | null;
   netVotes: number;
@@ -68,9 +70,11 @@ export async function getAll(userId?: string): Promise<FeatureRequestWithVotes[]
       id: r.id,
       title: r.title,
       description: r.description,
+      type: r.type,
       status: r.status,
       adminNote: r.adminNote ?? null,
       showAttribution: r.showAttribution,
+      screenshotUrl: r.screenshotUrl ?? null,
       authorId: r.authorId,
       authorName: resolveAuthorName(r.author),
       netVotes,
@@ -87,12 +91,16 @@ export async function getAll(userId?: string): Promise<FeatureRequestWithVotes[]
 export async function create(
   userId: string,
   title: string,
-  description: string
+  description: string,
+  type: 'feature' | 'bug' = 'feature',
+  screenshotUrl?: string | null
 ): Promise<FeatureRequestWithVotes> {
   const request = await prisma.featureRequest.create({
     data: {
       title: title.trim(),
       description: description.trim(),
+      type,
+      screenshotUrl: screenshotUrl || null,
       authorId: userId,
     },
     include: {
@@ -104,9 +112,11 @@ export async function create(
     id: request.id,
     title: request.title,
     description: request.description,
+    type: request.type,
     status: request.status,
     adminNote: null,
     showAttribution: false,
+    screenshotUrl: request.screenshotUrl ?? null,
     authorId: request.authorId,
     authorName: resolveAuthorName(request.author),
     netVotes: 0,

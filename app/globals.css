@@ -144,9 +144,13 @@ body {
   cursor: none;
 }
 
-/* Hide native cursor everywhere — * without pseudo-elements.
-   !important needed to override both UA defaults and Tailwind cursor-* utilities. */
-* { cursor: none !important; }
+/* Hide native cursor on interactive elements whose UA stylesheet sets a visible cursor.
+   body { cursor: none } handles everything via inheritance; the list below overrides
+   UA defaults and Tailwind cursor-* utilities on the specific elements that fight back. */
+a, button, input, select, textarea, summary, label,
+[role="button"], [tabindex]:not([tabindex="-1"]) {
+  cursor: none !important;
+}
 
 /* Typography utility classes */
 .font-display {

@@ -33,7 +33,7 @@ function RequestSections({
   onVote: (id: string, value: 1 | -1) => void;
   onUpdateStatus: (id: string, status: string, adminNote?: string, showAttribution?: boolean) => void;
   onDelete: (id: string) => void;
-  onSubmit: (title: string, description: string) => Promise<boolean>;
+  onSubmit: (title: string, description: string, type?: 'feature' | 'bug', screenshotUrl?: string | null) => Promise<boolean>;
   isSubmitting: boolean;
 }) {
   const openRequests = requests.filter((r) => r.status === 'open');
@@ -154,10 +154,10 @@ function FeatureRequestsContent() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-wide mb-2">
-            Feature Requests
+            Feedback &amp; Bug Reports
           </h1>
           <p className="font-body text-sm text-[var(--gs-gray-4)] leading-relaxed">
-            Suggest features and vote on what gets built next. Requires 20+ OTG NFTs to participate.
+            Report bugs, suggest features, and vote on what gets built next. Requires 20+ OTG NFTs to participate.
           </p>
         </div>
 
