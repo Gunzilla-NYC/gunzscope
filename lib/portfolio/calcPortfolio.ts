@@ -134,8 +134,11 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
       nftsWithoutPrice += quantity;
     }
 
-    // Market value waterfall: per-item listing > rarity/collection floor > cost basis
-    const marketGun = nft.currentLowestListing ?? nft.floorPrice ?? nft.purchasePriceGun;
+    // Market value waterfall: per-item listing > comparable sales > rarity floor > cost basis
+    const marketGun = nft.currentLowestListing
+      ?? nft.comparableSalesMedian
+      ?? nft.rarityFloor
+      ?? nft.purchasePriceGun;
     if (marketGun !== undefined && marketGun > 0) {
       nftsMarketValueGun += marketGun * quantity;
       nftsWithMarketValue += quantity;

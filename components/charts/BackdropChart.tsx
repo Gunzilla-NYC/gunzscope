@@ -23,7 +23,7 @@ interface ChartDatum {
   value: number;
 }
 
-const MARGIN = { top: 4, right: 0, bottom: 16, left: 0 };
+const MARGIN = { top: 4, right: 44, bottom: 16, left: 0 };
 
 function Chart({
   values,
@@ -115,20 +115,29 @@ function Chart({
   const hoverOverlayValue = hoverIndex !== null && showOverlay && overlayValues
     ? overlayValues[hoverIndex] ?? null : null;
 
-  // Time labels along bottom
+  // Time labels along bottom — always includes "Now" at right edge
   const timeLabels = useMemo(() => {
     if (spanDays <= 0 || values.length < 2) return [];
     const labels: { x: number; text: string }[] = [];
     const labelCount = Math.min(5, Math.max(2, Math.floor(innerWidth / 80)));
+    const totalHours = spanDays * 24;
+    const seen = new Set<string>();
     for (let i = 0; i < labelCount; i++) {
       const pct = i / (labelCount - 1);
       const x = MARGIN.left + pct * innerWidth;
-      const daysAgo = Math.round((1 - pct) * spanDays);
+      const hoursAgo = (1 - pct) * totalHours;
       let text: string;
-      if (daysAgo === 0) text = 'Now';
-      else if (daysAgo >= 30) text = `${Math.round(daysAgo / 30)}mo`;
-      else text = `${daysAgo}d`;
+      if (hoursAgo < 0.5) text = 'Now';
+      else if (hoursAgo < 24) text = `${Math.round(hoursAgo)}h`;
+      else if (hoursAgo < 24 * 30) text = `${Math.round(hoursAgo / 24)}d`;
+      else text = `${Math.round(hoursAgo / (24 * 30))}mo`;
+      if (seen.has(text)) continue;
+      seen.add(text);
       labels.push({ x, text });
+    }
+    // Ensure "Now" is always present at the right edge
+    if (!seen.has('Now')) {
+      labels.push({ x: MARGIN.left + innerWidth, text: 'Now' });
     }
     return labels;
   }, [spanDays, values.length, innerWidth]);
@@ -158,7 +167,7 @@ function Chart({
           id="backdrop-area-gradient"
           from={mainColor}
           to={mainColor}
-          fromOpacity={0.12}
+          fromOpacity={0.2}
           toOpacity={0}
           x1="0%"
           y1="0%"
@@ -208,9 +217,29 @@ function Chart({
         curve={curveMonotoneX}
         stroke={mainColor}
         strokeWidth={1.5}
-        strokeOpacity={0.25}
+        strokeOpacity={0.5}
         strokeLinecap="round"
       />
+
+      {/* Current value endpoint dot (glowing) */}
+      {data.length > 0 && (
+        <>
+          <circle
+            cx={getX(data[data.length - 1])}
+            cy={getY(data[data.length - 1])}
+            r={6}
+            fill={mainColor}
+            fillOpacity={0.15}
+          />
+          <circle
+            cx={getX(data[data.length - 1])}
+            cy={getY(data[data.length - 1])}
+            r={2.5}
+            fill={mainColor}
+            fillOpacity={0.8}
+          />
+        </>
+      )}
 
       {/* GUN overlay */}
       {showOverlay && overlayData.length >= 2 && (
@@ -274,8 +303,9 @@ function Chart({
           <Line
             from={{ x: hoverX, y: MARGIN.top }}
             to={{ x: hoverX, y: MARGIN.top + innerHeight }}
-            stroke="rgba(255,255,255,0.08)"
+            stroke="rgba(255,255,255,0.15)"
             strokeWidth={1}
+            strokeDasharray="3 2"
           />
           {/* Main dot */}
           {hoverY !== null && (
@@ -327,8 +357,9 @@ function Chart({
             <span
               style={{
                 fontFamily: chartTheme.fonts.mono,
-                fontSize: '9px',
-                color: 'rgba(255,255,255,0.5)',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.7)',
                 fontVariantNumeric: 'tabular-nums',
                 whiteSpace: 'nowrap',
               }}
@@ -339,7 +370,7 @@ function Chart({
               <span
                 style={{
                   fontFamily: chartTheme.fonts.mono,
-                  fontSize: '9px',
+                  fontSize: '10px',
                   color: chartTheme.colors.lime,
                   fontVariantNumeric: 'tabular-nums',
                   whiteSpace: 'nowrap',
@@ -352,17 +383,18 @@ function Chart({
               style={{
                 fontFamily: chartTheme.fonts.mono,
                 fontSize: '9px',
-                color: 'rgba(255,255,255,0.25)',
+                color: 'rgba(255,255,255,0.35)',
                 fontVariantNumeric: 'tabular-nums',
                 whiteSpace: 'nowrap',
               }}
             >
               {(() => {
                 const span = spanDays || 7;
-                const daysAgo = Math.round((1 - hoverIndex / (values.length - 1)) * span);
-                if (daysAgo === 0) return 'Now';
-                if (daysAgo >= 30) return `${Math.round(daysAgo / 30)}mo ago`;
-                return `${daysAgo}d ago`;
+                const hoursAgo = (1 - hoverIndex / (values.length - 1)) * span * 24;
+                if (hoursAgo < 0.5) return 'Now';
+                if (hoursAgo < 24) return `${Math.round(hoursAgo)}h ago`;
+                if (hoursAgo < 24 * 30) return `${Math.round(hoursAgo / 24)}d ago`;
+                return `${Math.round(hoursAgo / (24 * 30))}mo ago`;
               })()}
             </span>
           </div>

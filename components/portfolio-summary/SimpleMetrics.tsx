@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { EnrichmentProgress } from '@/lib/types';
 import { formatUsd } from '@/lib/portfolio/calcPortfolio';
 import { NftPnL, AcquisitionBreakdown } from './types';
@@ -68,7 +68,7 @@ export function SimpleMetrics({
   // Toggle states for card flips
   const [gunCardFlipped, setGunCardFlipped] = useState(false);
   const [spentCardFlipped, setSpentCardFlipped] = useState(false);
-  const [holdingsView, setHoldingsView] = useState(0); // 0=counts, 1=percentages, 2=coverage
+  const [holdingsView, setHoldingsView] = useState(2); // 0=counts, 1=percentages, 2=coverage (default to data quality so first-timers see bars fill)
   const toggleGunCard = useCallback(() => setGunCardFlipped(prev => !prev), []);
   const toggleSpentCard = useCallback(() => setSpentCardFlipped(prev => !prev), []);
   const cycleHoldingsView = useCallback(() => setHoldingsView(prev => (prev + 1) % 3), []);
@@ -76,9 +76,22 @@ export function SimpleMetrics({
   // Inline mini sparkline for NFT Holdings card
   const hasNftSparkline = nftSparklineValues.length >= 2;
 
-  // Hover state for sparkline interaction (driven by MiniSparkline callback)
+  // Hover state for sparkline — driven by card-level mouse tracking
   const [nftHoverIdx, setNftHoverIdx] = useState<number | null>(null);
-  const onSparklineHover = useCallback((idx: number | null) => setNftHoverIdx(idx), []);
+  const sparklineRef = useRef<HTMLDivElement>(null);
+
+  const handleCardMouseMove = useCallback((e: React.MouseEvent) => {
+    const container = sparklineRef.current;
+    if (!container || nftSparklineValues.length < 2) return;
+    const rect = container.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const idx = Math.round(pct * (nftSparklineValues.length - 1));
+    setNftHoverIdx(idx);
+  }, [nftSparklineValues.length]);
+
+  const handleCardMouseLeave = useCallback(() => {
+    setNftHoverIdx(null);
+  }, []);
 
   // Card 4: percentage + coverage helpers
   const pctOf = (n: number) => nftCount > 0 ? Math.round((n / nftCount) * 100) : 0;
@@ -146,6 +159,8 @@ export function SimpleMetrics({
       <div
         className={`px-4 py-3 sm:border-r border-white/[0.06] border-b sm:border-b-0 ${hasNftSparkline ? 'cursor-pointer select-none transition-colors hover:bg-white/[0.02]' : ''} ${nftCardSparkline ? 'bg-[var(--gs-purple)]/[0.06]' : ''}`}
         onClick={hasNftSparkline ? onToggleNftCardSparkline : undefined}
+        onMouseMove={nftCardSparkline ? handleCardMouseMove : undefined}
+        onMouseLeave={nftCardSparkline ? handleCardMouseLeave : undefined}
       >
         <div className="flex items-center gap-1.5 mb-1">
           <p className="font-mono text-caption tracking-widest uppercase text-[var(--gs-gray-4)]">
@@ -196,13 +211,12 @@ export function SimpleMetrics({
                   : '\u2014'}
               </p>
               {hasNftSparkline && (
-                <div className="mt-1" aria-hidden="true">
+                <div ref={sparklineRef} className="mt-1 w-full" aria-hidden="true">
                   <MiniSparkline
                     values={nftSparklineValues}
-                    width={200}
                     height={MINI_H}
                     color="#6D5BFF"
-                    onHoverIndex={onSparklineHover}
+                    hoverIndex={nftHoverIdx}
                   />
                 </div>
               )}
@@ -299,43 +313,58 @@ export function SimpleMetrics({
                 holdingsView === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             >
-              {acquisitionBreakdown.minted > 0 && (
-                <div>
-                  <span className="font-mono text-xs">
-                    <span className="text-[var(--gs-lime)] mr-1.5">&#9670;</span>
-                    <span className="text-[var(--gs-white)]">{acquisitionBreakdown.minted}</span>
-                    <span className="text-[var(--gs-gray-3)] ml-1">Minted</span>
+              {resolvedCount === 0 && acquisitionBreakdown.pending === 0 ? (
+                <div className="space-y-1.5">
+                  <span className="font-mono text-xs text-[var(--gs-gray-3)]/60">
+                    {nftCount > 0 ? 'Scanning acquisition history\u2026' : 'No NFTs loaded'}
                   </span>
-                  <p className="font-mono text-micro text-[var(--gs-gray-3)]/60 ml-[14px] tabular-nums">
-                    {acquisitionBreakdown.mintedGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
-                  </p>
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs"><span className="text-[var(--gs-lime)]/20 mr-1.5">&#9670;</span><span className="text-[var(--gs-gray-3)]/30">Minted</span></span>
+                    <span className="font-mono text-xs"><span className="text-[var(--gs-purple)]/20 mr-1.5">&#9670;</span><span className="text-[var(--gs-gray-3)]/30">Bought</span></span>
+                    <span className="font-mono text-xs"><span className="text-[var(--gs-gray-2)]/20 mr-1.5">&#9670;</span><span className="text-[var(--gs-gray-3)]/30">Free</span></span>
+                  </div>
                 </div>
-              )}
-              {acquisitionBreakdown.bought > 0 && (
-                <div>
-                  <span className="font-mono text-xs">
-                    <span className="text-[var(--gs-purple)] mr-1.5">&#9670;</span>
-                    <span className="text-[var(--gs-white)]">{acquisitionBreakdown.bought}</span>
-                    <span className="text-[var(--gs-gray-3)] ml-1">Bought</span>
-                  </span>
-                  <p className="font-mono text-micro text-[var(--gs-gray-3)]/60 ml-[14px] tabular-nums">
-                    {acquisitionBreakdown.boughtGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
-                  </p>
-                </div>
-              )}
-              {acquisitionBreakdown.transferred > 0 && (
-                <span className="font-mono text-xs">
-                  <span className="text-[var(--gs-gray-2)] mr-1.5">&#9670;</span>
-                  <span className="text-[var(--gs-white)]">{acquisitionBreakdown.transferred}</span>
-                  <span className="text-[var(--gs-gray-3)] ml-1">Free</span>
-                </span>
-              )}
-              {acquisitionBreakdown.pending > 0 && (
-                <span className="font-mono text-xs block">
-                  <span className="text-[var(--gs-gray-3)]/40 mr-1.5">&#9670;</span>
-                  <span className="text-[var(--gs-white)]">{acquisitionBreakdown.pending}</span>
-                  <span className="text-[var(--gs-gray-3)] ml-1">Unresolved</span>
-                </span>
+              ) : (
+                <>
+                  {acquisitionBreakdown.minted > 0 && (
+                    <div>
+                      <span className="font-mono text-xs">
+                        <span className="text-[var(--gs-lime)] mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{acquisitionBreakdown.minted}</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Minted</span>
+                      </span>
+                      <p className="font-mono text-micro text-[var(--gs-gray-3)]/60 ml-[14px] tabular-nums">
+                        {acquisitionBreakdown.mintedGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
+                      </p>
+                    </div>
+                  )}
+                  {acquisitionBreakdown.bought > 0 && (
+                    <div>
+                      <span className="font-mono text-xs">
+                        <span className="text-[var(--gs-purple)] mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{acquisitionBreakdown.bought}</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Bought</span>
+                      </span>
+                      <p className="font-mono text-micro text-[var(--gs-gray-3)]/60 ml-[14px] tabular-nums">
+                        {acquisitionBreakdown.boughtGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
+                      </p>
+                    </div>
+                  )}
+                  {acquisitionBreakdown.transferred > 0 && (
+                    <span className="font-mono text-xs">
+                      <span className="text-[var(--gs-gray-2)] mr-1.5">&#9670;</span>
+                      <span className="text-[var(--gs-white)]">{acquisitionBreakdown.transferred}</span>
+                      <span className="text-[var(--gs-gray-3)] ml-1">Free</span>
+                    </span>
+                  )}
+                  {acquisitionBreakdown.pending > 0 && (
+                    <span className="font-mono text-xs block">
+                      <span className="text-[var(--gs-gray-3)]/40 mr-1.5">&#9670;</span>
+                      <span className="text-[var(--gs-white)]">{acquisitionBreakdown.pending}</span>
+                      <span className="text-[var(--gs-gray-3)] ml-1">Unresolved</span>
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
@@ -346,41 +375,56 @@ export function SimpleMetrics({
                 holdingsView === 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             >
-              {acquisitionBreakdown.minted > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs">
-                    <span className="text-[var(--gs-lime)] mr-1.5">&#9670;</span>
-                    <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.minted)}%</span>
-                    <span className="text-[var(--gs-gray-3)] ml-1">Minted</span>
+              {resolvedCount === 0 && acquisitionBreakdown.pending === 0 ? (
+                <div className="space-y-1.5">
+                  <span className="font-mono text-xs text-[var(--gs-gray-3)]/60">
+                    {nftCount > 0 ? 'Resolving categories\u2026' : 'No NFTs loaded'}
                   </span>
+                  <div className="space-y-1">
+                    <div className="h-[3px] bg-[var(--gs-dark-4)] overflow-hidden"><div className="h-full bg-[var(--gs-lime)]/10" style={{ width: '33%' }} /></div>
+                    <div className="h-[3px] bg-[var(--gs-dark-4)] overflow-hidden"><div className="h-full bg-[var(--gs-purple)]/10" style={{ width: '33%' }} /></div>
+                    <div className="h-[3px] bg-[var(--gs-dark-4)] overflow-hidden"><div className="h-full bg-[var(--gs-gray-2)]/10" style={{ width: '33%' }} /></div>
+                  </div>
                 </div>
-              )}
-              {acquisitionBreakdown.bought > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs">
-                    <span className="text-[var(--gs-purple)] mr-1.5">&#9670;</span>
-                    <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.bought)}%</span>
-                    <span className="text-[var(--gs-gray-3)] ml-1">Bought</span>
-                  </span>
-                </div>
-              )}
-              {acquisitionBreakdown.transferred > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs">
-                    <span className="text-[var(--gs-gray-2)] mr-1.5">&#9670;</span>
-                    <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.transferred)}%</span>
-                    <span className="text-[var(--gs-gray-3)] ml-1">Free</span>
-                  </span>
-                </div>
-              )}
-              {acquisitionBreakdown.pending > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs">
-                    <span className="text-[var(--gs-gray-3)]/40 mr-1.5">&#9670;</span>
-                    <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.pending)}%</span>
-                    <span className="text-[var(--gs-gray-3)] ml-1">Unresolved</span>
-                  </span>
-                </div>
+              ) : (
+                <>
+                  {acquisitionBreakdown.minted > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs">
+                        <span className="text-[var(--gs-lime)] mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.minted)}%</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Minted</span>
+                      </span>
+                    </div>
+                  )}
+                  {acquisitionBreakdown.bought > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs">
+                        <span className="text-[var(--gs-purple)] mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.bought)}%</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Bought</span>
+                      </span>
+                    </div>
+                  )}
+                  {acquisitionBreakdown.transferred > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs">
+                        <span className="text-[var(--gs-gray-2)] mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.transferred)}%</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Free</span>
+                      </span>
+                    </div>
+                  )}
+                  {acquisitionBreakdown.pending > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs">
+                        <span className="text-[var(--gs-gray-3)]/40 mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{pctOf(acquisitionBreakdown.pending)}%</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Unresolved</span>
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

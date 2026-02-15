@@ -15,9 +15,18 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.1.5',
+    version: 'v0.1.6',
     date: 'Feb 14, 2026',
     tag: 'current',
+    items: [
+      'Valuation waterfall upgrade \u2014 per\u2011item listing > comparable sales median > rarity\u2011tier floor > cost basis',
+      'Dedicated comparableSalesMedian and rarityFloor fields on NFT type for clean separation',
+      'applyValuationTables pure function replaces inline floor\u2011price overloading',
+    ],
+  },
+  {
+    version: 'v0.1.5',
+    date: 'Feb 14, 2026',
     items: [
       'NFT valuation waterfall: per\u2011item listings, rarity\u2011tier floors, comparable sales medians',
       'Dual\u2011value display \u2014 cost basis vs market value side by side',

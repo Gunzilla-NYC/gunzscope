@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useCallback, useMemo } from 'react';
+import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Navbar from '@/components/Navbar';
@@ -78,6 +78,24 @@ function isValidEvmAddress(addr: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(addr);
 }
 
+/** Deduplicate wallets that share the same address but differ only by chain.
+ *  Prefers the more specific chain name (e.g. "avalanche" over "eip155"). */
+function deduplicateWallets(wallets: { id: string; address: string; chain: string; isPrimary: boolean; createdAt: string }[]) {
+  const byAddress = new Map<string, typeof wallets[number]>();
+  for (const w of wallets) {
+    const key = w.address.toLowerCase();
+    const existing = byAddress.get(key);
+    if (!existing) {
+      byAddress.set(key, w);
+    } else {
+      // Keep the one with isPrimary, or the more specific chain (not eip155)
+      const preferNew = w.isPrimary || (existing.chain === 'eip155' && w.chain !== 'eip155');
+      if (preferNew) byAddress.set(key, w);
+    }
+  }
+  return Array.from(byAddress.values());
+}
+
 function LoginGate({ onLogin }: { onLogin: () => void }) {
   const { spanRef, scramble } = useGlitchText('Login or Create Account');
 
@@ -110,6 +128,9 @@ function LoginGate({ onLogin }: { onLogin: () => void }) {
 }
 
 function AccountContent() {
+  // Mark wallet hint as permanently dismissed once user visits this page
+  useEffect(() => { localStorage.setItem('gs_wallet_hint_dismissed', '1'); }, []);
+
   const { primaryWallet, user, setShowAuthFlow } = useDynamicContext();
   const {
     profile,
@@ -168,6 +189,17 @@ function AccountContent() {
   const portfolioAddresses = profile?.portfolioAddresses ?? [];
   const slotsUsed = portfolioAddresses.length;
   const isAtLimit = slotsUsed >= MAX_PORTFOLIO_WALLETS;
+
+  // Auto-add primary wallet to portfolio if portfolio is empty (first-time UX)
+  const autoAddedRef = useRef(false);
+  useEffect(() => {
+    if (autoAddedRef.current) return;
+    if (!profile || isLoading) return;
+    if (!walletAddress) return;
+    if (portfolioAddresses.length > 0) return;
+    autoAddedRef.current = true;
+    addPortfolioAddress(walletAddress, 'Primary Wallet');
+  }, [profile, isLoading, walletAddress, portfolioAddresses.length, addPortfolioAddress]);
   const trackedAddresses = profile?.trackedAddresses ?? [];
   const trackedSlotsUsed = trackedAddresses.length;
   const isTrackedAtLimit = trackedSlotsUsed >= MAX_TRACKED_WALLETS;
@@ -336,10 +368,10 @@ function AccountContent() {
                       </span>
                     </div>
 
-                    {/* Wallet list from profile */}
+                    {/* Wallet list from profile (deduplicated by address) */}
                     {profile && profile.wallets.length > 0 ? (
                       <div className="space-y-0 mb-4">
-                        {profile.wallets.map((wallet) => (
+                        {deduplicateWallets(profile.wallets).map((wallet) => (
                           <div
                             key={wallet.id}
                             className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-b-0"
@@ -804,7 +836,7 @@ function AccountContent() {
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-caption text-[var(--gs-gray-3)]">Connected wallets</span>
                       <span className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums">
-                        {profile.wallets.length}
+                        {deduplicateWallets(profile.wallets).length}
                       </span>
                     </div>
                   </div>

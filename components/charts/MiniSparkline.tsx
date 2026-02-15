@@ -5,16 +5,19 @@ import { AreaClosed, LinePath } from '@visx/shape';
 import { scaleLinear } from '@visx/scale';
 import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
+import { ParentSize } from '@visx/responsive';
 
 interface MiniSparklineProps {
   values: number[];
-  width: number;
+  width?: number;
   height: number;
   color: string;
   gradientOpacity?: number;
   strokeOpacity?: number;
   strokeWidth?: number;
   onHoverIndex?: (index: number | null) => void;
+  /** Externally controlled hover index — overrides internal mouse tracking */
+  hoverIndex?: number | null;
 }
 
 interface Datum {
@@ -24,9 +27,20 @@ interface Datum {
 
 /**
  * Compact visx sparkline for inline use in metric cards.
- * Replaces hand-rolled SVG with proper visx primitives (AreaClosed + LinePath).
+ * Auto-fills container width when `width` is omitted.
  */
-export function MiniSparkline({
+export function MiniSparkline(props: MiniSparklineProps) {
+  if (props.width != null) return <MiniSparklineInner {...props} width={props.width} />;
+  return (
+    <ParentSize debounceTime={50}>
+      {({ width: parentWidth }) =>
+        parentWidth > 0 ? <MiniSparklineInner {...props} width={parentWidth} /> : null
+      }
+    </ParentSize>
+  );
+}
+
+function MiniSparklineInner({
   values,
   width,
   height,
@@ -35,9 +49,12 @@ export function MiniSparkline({
   strokeOpacity = 0.7,
   strokeWidth = 1.5,
   onHoverIndex,
-}: MiniSparklineProps) {
+  hoverIndex,
+}: MiniSparklineProps & { width: number }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  // External hover index takes priority over internal mouse tracking
+  const activeIdx = hoverIndex !== undefined ? hoverIndex : hoverIdx;
 
   const data: Datum[] = useMemo(
     () => values.map((value, index) => ({ index, value })),
@@ -126,10 +143,10 @@ export function MiniSparkline({
         strokeLinecap="round"
       />
 
-      {hoverIdx !== null && (
+      {activeIdx !== null && activeIdx >= 0 && activeIdx < values.length && (
         <circle
-          cx={xScale(hoverIdx)}
-          cy={yScale(values[hoverIdx])}
+          cx={xScale(activeIdx)}
+          cy={yScale(values[activeIdx])}
           r={3}
           fill={color}
           opacity={0.9}

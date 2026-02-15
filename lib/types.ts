@@ -64,6 +64,8 @@ export interface NFT {
   acquisitionTxHash?: string; // Transaction hash of acquisition
   currentLowestListing?: number;
   currentHighestListing?: number;
+  comparableSalesMedian?: number; // Median GUN price from recent sales of same item+rarity
+  rarityFloor?: number; // Floor price for this item's rarity tier
   metadataDebug?: NFTMetadataDebug; // Debug info for metadata resolution
   /** Raw type_spec from metadata - contains functional tier (rarity field differs from display rarity) */
   typeSpec?: NFTTypeSpec;

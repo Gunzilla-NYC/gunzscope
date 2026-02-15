@@ -7,7 +7,6 @@ import NFTGallery from '@/components/NFTGallery';
 import DebugPanel from '@/components/DebugPanel';
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
-import { OpenSeaService } from '@/lib/api/opensea';
 import { NFT } from '@/lib/types';
 import { NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata, mergeIntoGroups } from '@/lib/utils/nftGrouping';
@@ -33,6 +32,7 @@ import { createEnrichmentUpdater } from '@/lib/utils/mergeEnrichedNFTs';
 import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { useTextScramble } from '@/hooks/useTextScramble';
+import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -99,7 +99,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   // Shared service instances (avoid re-creating per call)
   const marketplaceServiceRef = useRef(new GameMarketplaceService());
-  const openSeaServiceRef = useRef(new OpenSeaService());
 
   // Portfolio aggregation state
   const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
@@ -532,70 +531,27 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         }
       );
 
-      // Fetch collection floor + rarity floors + comparable sales in parallel, then apply in ONE setWalletData
-      const nftContractAddress = process.env.NEXT_PUBLIC_NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
-      const floorPromise = nftContractAddress
-        ? openSeaServiceRef.current.getNFTFloorPrice(nftContractAddress, 'avalanche').catch(() => null)
-        : Promise.resolve(null);
+      // Fetch rarity floors + comparable sales in parallel, then inject into NFTs via applyValuationTables
       const rarityPromise = fetch('/api/opensea/rarity-floors')
         .then(r => r.ok ? r.json() : null)
-        .catch(() => null) as Promise<{ floors: Record<string, number> } | null>;
+        .catch(() => null) as Promise<RarityFloorsData | null>;
       const comparablePromise = fetch('/api/opensea/comparable-sales')
         .then(r => r.ok ? r.json() : null)
-        .catch(() => null) as Promise<{ items: Record<string, { medianGun: number }> } | null>;
+        .catch(() => null) as Promise<ComparableSalesData | null>;
 
-      Promise.all([floorPromise, rarityPromise, comparablePromise]).then(([collectionFloor, rarityData, comparableData]) => {
-        const hasCollectionFloor = collectionFloor !== null && collectionFloor > 0;
-        const rarityFloors = rarityData?.floors && Object.keys(rarityData.floors).length > 0
-          ? rarityData.floors : null;
-        const comparableItems = comparableData?.items && Object.keys(comparableData.items).length > 0
-          ? comparableData.items : null;
-
-        if (!hasCollectionFloor && !rarityFloors && !comparableItems) return;
+      Promise.all([rarityPromise, comparablePromise]).then(([rarityData, comparableData]) => {
+        if (!rarityData && !comparableData) return;
 
         setWalletData(prev => {
           if (!prev || prev.address !== address) return prev;
-          const nfts = prev.avalanche.nfts.map(nft => {
-            // Per-item listing is most accurate — skip if present
-            if (nft.currentLowestListing && nft.currentLowestListing > 0) {
-              // Still apply collection floor as fallback field
-              return hasCollectionFloor ? { ...nft, floorPrice: nft.floorPrice ?? collectionFloor } : nft;
-            }
-            // Comparable sales median (per-item-name, more accurate than rarity-tier)
-            if (comparableItems) {
-              const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
-              const name = nft.name?.trim();
-              if (name && rarity) {
-                const key = `${name}::${rarity}`;
-                const comp = comparableItems[key];
-                if (comp && comp.medianGun > 0) {
-                  return { ...nft, floorPrice: comp.medianGun };
-                }
-              }
-            }
-            // Rarity-tier floor (more accurate than collection-wide)
-            if (rarityFloors) {
-              const rarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'];
-              if (rarity) {
-                const tierFloor = rarityFloors[rarity];
-                if (tierFloor && tierFloor > 0) {
-                  return { ...nft, floorPrice: tierFloor };
-                }
-              }
-            }
-            // Collection-wide floor as final fallback
-            if (hasCollectionFloor) {
-              return { ...nft, floorPrice: nft.floorPrice ?? collectionFloor };
-            }
-            return nft;
-          });
-          return { ...prev, avalanche: { ...prev.avalanche, nfts } };
+          const enrichedNfts = applyValuationTables(prev.avalanche.nfts, rarityData, comparableData);
+          if (enrichedNfts === prev.avalanche.nfts) return prev; // No changes
+          return { ...prev, avalanche: { ...prev.avalanche, nfts: enrichedNfts } };
         });
 
         if (process.env.NODE_ENV === 'development') {
-          if (hasCollectionFloor) console.log(`[Floor Price] Collection floor: ${collectionFloor} GUN`);
-          if (rarityFloors) console.log('[Floor Price] Rarity-tier floors:', rarityFloors);
-          if (comparableItems) console.log(`[Floor Price] Comparable sales: ${Object.keys(comparableItems).length} items`);
+          if (rarityData?.floors) console.log('[Valuation] Rarity-tier floors:', rarityData.floors);
+          if (comparableData?.items) console.log(`[Valuation] Comparable sales: ${Object.keys(comparableData.items).length} items`);
         }
       });
 

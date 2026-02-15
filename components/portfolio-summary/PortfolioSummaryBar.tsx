@@ -79,6 +79,7 @@ export default function PortfolioSummaryBar({
   }, []);
 
   // Acquisition timeline: cumulative NFT count over time (from enriched purchaseDate)
+  // Uses sqrt time scale to compress long gaps while preserving recent activity detail
   const acquisitionTimeline = useMemo(() => {
     const dated = nfts
       .filter(nft => nft.purchaseDate)
@@ -90,15 +91,33 @@ export default function PortfolioSummaryBar({
 
     if (dated.length < 2) return [];
 
+    // Build cumulative series with timestamps
     let cumulative = 0;
-    const points = dated.map(t => ({ t, count: ++cumulative }));
+    const events = dated.map(t => ({ t, count: ++cumulative }));
 
-    // Evenly sample ~60 points for smooth sparkline
-    const count = Math.min(60, points.length);
-    const sampled: number[] = [];
-    for (let i = 0; i < count; i++) {
-      const idx = Math.round((i / (count - 1)) * (points.length - 1));
-      sampled.push(points[idx].count);
+    const tMin = events[0].t;
+    const tMax = events[events.length - 1].t;
+    const slots = 40;
+
+    // If all events happened at the same instant, fall back to step
+    if (tMax - tMin < 1000) return [0, cumulative];
+
+    // Start from zero, add a small margin before first event so curve rises from 0
+    const margin = (tMax - tMin) * 0.08;
+    const rangeStart = tMin - margin;
+    const range = tMax - rangeStart;
+
+    // pct^1.5 — gentler compression than pct² for smoother curves
+    const sampled: number[] = [0]; // leading zero for the margin period
+    let eventIdx = 0;
+    for (let i = 1; i < slots; i++) {
+      const pct = i / (slots - 1);
+      const slotTime = rangeStart + Math.pow(pct, 1.5) * range;
+      while (eventIdx < events.length - 1 && events[eventIdx + 1].t <= slotTime) {
+        eventIdx++;
+      }
+      // Before first event: count is 0; after: use event count
+      sampled.push(slotTime < tMin ? 0 : events[eventIdx].count);
     }
     return sampled;
   }, [nfts]);
