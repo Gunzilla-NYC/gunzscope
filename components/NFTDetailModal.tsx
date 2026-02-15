@@ -2576,9 +2576,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             >
               {/* Panel Header */}
               <div className="h-12 flex-shrink-0 flex items-center justify-between px-4 border-b border-white/[0.06]">
-                <h3 className="text-sm font-semibold text-white">
-                  Weapon Lab
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-white">
+                    Weapon Lab
+                  </h3>
+                  <span className="font-mono text-[8px] uppercase tracking-widest px-1 py-0.5 text-[var(--gs-purple)] border border-[var(--gs-purple)]/30 bg-[var(--gs-purple)]/[0.06]">
+                    Experimental
+                  </span>
+                </div>
                 <button
                   onClick={() => setRelatedItemsExpanded(false)}
                   className="text-gray-400 hover:text-white transition p-1 rounded hover:bg-white/5 flex items-center gap-1 text-xs"
