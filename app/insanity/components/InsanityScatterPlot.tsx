@@ -1,7 +1,9 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { NFT } from '@/lib/types';
-import PnLScatterPlot from '@/components/charts/PnLScatterPlot';
+
+const PnLScatterPlot = dynamic(() => import('@/components/charts/PnLScatterPlot'), { ssr: false });
 import type { NftPnL } from '@/components/portfolio-summary/types';
 
 interface InsanityScatterPlotProps {

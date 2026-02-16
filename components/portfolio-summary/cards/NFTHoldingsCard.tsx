@@ -1,7 +1,9 @@
 import { memo, useState, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { formatUsd } from '@/lib/portfolio/calcPortfolio';
 import { DotIndicator } from '@/components/ui/DotIndicator';
-import { MiniSparkline } from '@/components/charts/MiniSparkline';
+
+const MiniSparkline = dynamic(() => import('@/components/charts/MiniSparkline').then(m => m.MiniSparkline), { ssr: false });
 
 const MINI_H = 36;
 

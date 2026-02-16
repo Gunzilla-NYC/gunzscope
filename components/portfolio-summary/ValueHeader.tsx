@@ -1,10 +1,12 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
 import { clipHex } from '@/lib/utils/styles';
-import BackdropChart from '@/components/charts/BackdropChart';
+
+const BackdropChart = dynamic(() => import('@/components/charts/BackdropChart'), { ssr: false });
 import { ShareDropdown } from './ShareDropdown';
 import { ChangeDisplay } from './types';
 

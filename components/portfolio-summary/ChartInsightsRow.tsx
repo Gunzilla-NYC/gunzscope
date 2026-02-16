@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { NFT } from '@/lib/types';
 import { PortfolioInsight } from '@/lib/portfolio/portfolioInsights';
-import PnLScatterPlot from '@/components/charts/PnLScatterPlot';
-import AcquisitionTimeline from '@/components/charts/AcquisitionTimeline';
 import InsightsPanel from '@/components/ui/InsightsPanel';
+
+const PnLScatterPlot = dynamic(() => import('@/components/charts/PnLScatterPlot'), { ssr: false });
+const AcquisitionTimeline = dynamic(() => import('@/components/charts/AcquisitionTimeline'), { ssr: false });
 
 interface ChartInsightsRowProps {
   nfts: NFT[];

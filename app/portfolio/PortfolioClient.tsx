@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { PortfolioHeader } from '@/components/header';
 import NFTGallery from '@/components/NFTGallery';
-import DebugPanel from '@/components/DebugPanel';
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { NFT } from '@/lib/types';
 import type { NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata, mergeIntoGroups } from '@/lib/utils/nftGrouping';
 import Navbar from '@/components/Navbar';
-import AccountPanel from '@/components/AccountPanel';
+
+const DebugPanel = dynamic(() => import('@/components/DebugPanel'), { ssr: false });
+const AccountPanel = dynamic(() => import('@/components/AccountPanel'), { ssr: false });
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import { PortfolioProvider, PortfolioContextValue } from '@/lib/contexts/PortfolioContext';
 import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';

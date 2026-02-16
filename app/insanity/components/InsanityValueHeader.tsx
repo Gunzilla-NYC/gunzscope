@@ -1,7 +1,9 @@
 'use client';
 
-import BackdropChart from '@/components/charts/BackdropChart';
+import dynamic from 'next/dynamic';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
+
+const BackdropChart = dynamic(() => import('@/components/charts/BackdropChart'), { ssr: false });
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import type { InsanitySummaryData } from '../hooks/useInsanityData';
 
