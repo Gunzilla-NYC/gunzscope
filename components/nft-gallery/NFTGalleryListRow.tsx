@@ -46,7 +46,7 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioVie
       <div className="w-14 h-14 flex-shrink-0 relative bg-[var(--gs-dark-4)] overflow-hidden">
         {/* Quality Badge — rarity abbreviation for singles, ×N for grouped */}
         <span
-          className="absolute top-0.5 left-0.5 z-10 font-mono text-[6px] tracking-wide uppercase px-1 py-0.5"
+          className="absolute top-0.5 left-0.5 z-10 font-mono text-[8px] tracking-wide uppercase px-1 py-0.5"
           style={{
             color: nft.quantity && nft.quantity > 1 ? 'rgba(255,255,255,0.60)' : rarityColor,
             backgroundColor: nft.quantity && nft.quantity > 1 ? 'rgba(255,255,255,0.08)' : `${rarityColor}18`,
@@ -73,7 +73,7 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioVie
             {nft.name}
           </p>
           {portfolioViewMode === 'detailed' && nft.acquisitionVenue && (
-            <span className="font-mono text-[6px] tracking-wide uppercase px-1 py-0.5 bg-white/5 text-[var(--gs-gray-3)] border border-white/[0.06] shrink-0">
+            <span className="font-mono text-[8px] tracking-wide uppercase px-1 py-0.5 bg-white/5 text-[var(--gs-gray-3)] border border-white/[0.06] shrink-0">
               {getVenueLabel(nft.acquisitionVenue)}
             </span>
           )}

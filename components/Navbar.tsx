@@ -94,13 +94,13 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
             {/* Logo — connected users stay on current page, anonymous users go home */}
             <div className="flex items-center gap-4">
               <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center group">
-                <div className="relative w-[12.5rem] overflow-hidden">
+                <div className="relative w-[9rem] sm:w-[12.5rem] overflow-hidden">
                   <Logo size="md" variant="full" glitchOnHover />
                 </div>
               </Link>
               <Link
                 href="/changelog"
-                className="shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
+                className="hidden sm:inline shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
               >
                 v0.1.7 // EARLY ACCESS
               </Link>

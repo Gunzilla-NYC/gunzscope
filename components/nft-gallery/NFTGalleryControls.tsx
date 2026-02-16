@@ -154,7 +154,7 @@ export function NFTGalleryControls({
               onClick={() => setViewMode('small')}
               aria-pressed={viewMode === 'small'}
               aria-label="Small grid view"
-              className={`p-1.5 transition-all duration-150 hover:-translate-y-0.5 ${
+              className={`p-2 transition-all duration-150 hover:-translate-y-0.5 ${
                 viewMode === 'small'
                   ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
@@ -171,7 +171,7 @@ export function NFTGalleryControls({
               onClick={() => setViewMode('medium')}
               aria-pressed={viewMode === 'medium'}
               aria-label="Medium grid view"
-              className={`p-1.5 transition-all duration-150 hover:-translate-y-0.5 ${
+              className={`p-2 transition-all duration-150 hover:-translate-y-0.5 ${
                 viewMode === 'medium'
                   ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
@@ -188,7 +188,7 @@ export function NFTGalleryControls({
               onClick={() => setViewMode('list')}
               aria-pressed={viewMode === 'list'}
               aria-label="List view"
-              className={`p-1.5 transition-all duration-150 hover:-translate-y-0.5 ${
+              className={`p-2 transition-all duration-150 hover:-translate-y-0.5 ${
                 viewMode === 'list'
                   ? 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] border border-[var(--gs-lime)]/50'
                   : 'text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/10 border border-transparent'
@@ -210,7 +210,7 @@ export function NFTGalleryControls({
           <button
             onClick={clearRarities}
             aria-pressed={activeRarities.size === 0}
-            className={`px-2 py-1 rounded-sm border transition-all ${
+            className={`px-2.5 py-1.5 rounded-sm border transition-all ${
               activeRarities.size === 0
                 ? 'bg-white/15 border-white/30 text-[var(--gs-white)]'
                 : 'bg-transparent border-white/10 text-[var(--gs-gray-4)] hover:border-white/20'
@@ -222,7 +222,7 @@ export function NFTGalleryControls({
             <button
               onClick={() => toggleRarity('Epic')}
               aria-pressed={activeRarities.has('Epic')}
-              className="px-2 py-1 rounded-sm border transition-all"
+              className="px-2.5 py-1.5 rounded-sm border transition-all"
               style={{
                 backgroundColor: activeRarities.has('Epic') ? 'rgba(204,68,255,0.2)' : 'rgba(204,68,255,0.08)',
                 borderColor: activeRarities.has('Epic') ? 'rgba(204,68,255,0.5)' : 'rgba(204,68,255,0.25)',
@@ -236,7 +236,7 @@ export function NFTGalleryControls({
             <button
               onClick={() => toggleRarity('Rare')}
               aria-pressed={activeRarities.has('Rare')}
-              className="px-2 py-1 rounded-sm border transition-all"
+              className="px-2.5 py-1.5 rounded-sm border transition-all"
               style={{
                 backgroundColor: activeRarities.has('Rare') ? 'rgba(68,136,255,0.2)' : 'rgba(68,136,255,0.08)',
                 borderColor: activeRarities.has('Rare') ? 'rgba(68,136,255,0.5)' : 'rgba(68,136,255,0.25)',
@@ -250,7 +250,7 @@ export function NFTGalleryControls({
             <button
               onClick={() => toggleRarity('Uncommon')}
               aria-pressed={activeRarities.has('Uncommon')}
-              className="px-2 py-1 rounded-sm border transition-all"
+              className="px-2.5 py-1.5 rounded-sm border transition-all"
               style={{
                 backgroundColor: activeRarities.has('Uncommon') ? 'rgba(68,255,68,0.2)' : 'rgba(68,255,68,0.08)',
                 borderColor: activeRarities.has('Uncommon') ? 'rgba(68,255,68,0.5)' : 'rgba(68,255,68,0.25)',
@@ -264,7 +264,7 @@ export function NFTGalleryControls({
             <button
               onClick={() => toggleRarity('Common')}
               aria-pressed={activeRarities.has('Common')}
-              className="px-2 py-1 rounded-sm border transition-all"
+              className="px-2.5 py-1.5 rounded-sm border transition-all"
               style={{
                 backgroundColor: activeRarities.has('Common') ? 'rgba(136,136,136,0.2)' : 'rgba(136,136,136,0.08)',
                 borderColor: activeRarities.has('Common') ? 'rgba(136,136,136,0.5)' : 'rgba(136,136,136,0.25)',

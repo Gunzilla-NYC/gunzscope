@@ -118,7 +118,7 @@ export function ShareDropdown({
       {/* Trigger button */}
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="group flex items-center gap-1.5 px-2.5 py-1.5 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer"
+        className="group flex items-center gap-1.5 px-3 py-2 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer"
         style={{ clipPath: clipHex(5) }}
         title="Share portfolio"
       >
@@ -145,7 +145,7 @@ export function ShareDropdown({
         {/* Copy Link */}
         <button
           onClick={handleCopyLink}
-          className="flex items-center gap-1.5 px-2 py-1.5 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer shrink-0"
+          className="flex items-center gap-1.5 px-2.5 py-2 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer shrink-0"
           style={{ clipPath: clipHex(4) }}
           title="Copy share link"
         >
@@ -157,7 +157,7 @@ export function ShareDropdown({
         {/* Share on X */}
         <button
           onClick={handleShareX}
-          className="flex items-center gap-1.5 px-2 py-1.5 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer shrink-0"
+          className="flex items-center gap-1.5 px-2.5 py-2 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer shrink-0"
           style={{ clipPath: clipHex(4) }}
           title="Share on X"
         >
@@ -169,7 +169,7 @@ export function ShareDropdown({
         {/* Share on Discord */}
         <button
           onClick={handleShareDiscord}
-          className="flex items-center gap-1.5 px-2 py-1.5 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer shrink-0"
+          className="flex items-center gap-1.5 px-2.5 py-2 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer shrink-0"
           style={{ clipPath: clipHex(4) }}
           title="Share on Discord"
         >

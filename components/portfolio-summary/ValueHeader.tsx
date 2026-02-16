@@ -84,7 +84,7 @@ export function ValueHeader({
                   Calculating
                 </span>
                 <div
-                  className="h-[3px] w-48 bg-[var(--gs-dark-4)] overflow-hidden"
+                  className="h-[3px] w-full max-w-48 bg-[var(--gs-dark-4)] overflow-hidden"
                   style={{ clipPath: clipHex(2) }}
                 >
                   <div

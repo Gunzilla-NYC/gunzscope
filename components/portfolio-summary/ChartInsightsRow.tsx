@@ -75,20 +75,20 @@ export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsi
                 Cost vs Value
               </button>
             </div>
-            <span className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 text-[#FF9F43] border border-[#FF9F43]/30 bg-[#FF9F43]/[0.08]">
+            <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 text-[#FF9F43] border border-[#FF9F43]/30 bg-[#FF9F43]/[0.08]">
               Under Active Dev
             </span>
 
             {/* Zoom controls */}
             <div className="ml-auto flex items-center gap-1">
-              <span className="font-mono text-[8px] uppercase tracking-wider text-[var(--gs-gray-3)] mr-0.5">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-gray-3)] mr-0.5">
                 Zoom
               </span>
               {ZOOM_LEVELS.map(level => (
                 <button
                   key={level}
                   onClick={() => setZoomLevel(level)}
-                  className={`font-mono text-[9px] tabular-nums px-1.5 py-0.5 border transition-colors cursor-pointer ${
+                  className={`font-mono text-[9px] tabular-nums min-h-8 min-w-8 flex items-center justify-center px-1.5 py-0.5 border transition-colors cursor-pointer ${
                     zoomLevel === level
                       ? 'border-white/20 text-white bg-white/[0.08]'
                       : 'border-transparent text-[var(--gs-gray-3)] hover:text-[var(--gs-gray-4)] hover:bg-white/[0.03]'

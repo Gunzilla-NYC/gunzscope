@@ -695,7 +695,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={closeWalletModal}
-                className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer p-1"
+                className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer p-2"
                 aria-label="Close"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
