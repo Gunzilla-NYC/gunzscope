@@ -15,9 +15,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.1.8',
-    date: 'Feb 16, 2026',
+    version: 'v0.1.9',
+    date: 'Feb 16, 2026 \u00B7 3:21 AM EST',
     tag: 'current',
+    items: [
+      'Bundle diet \u2014 removed 15 unused dependencies (210 packages), including Nivo, GSAP, tsparticles, force\u2011graph, reaviz',
+      'Replaced axios with native fetch across all API services (\u221230\u202FKB)',
+      'Replaced framer\u2011motion with a single CSS keyframe for page transitions (\u221245\u202FKB)',
+      'Code\u2011split 13 heavy components via next/dynamic \u2014 charts, modals, debug panels load on demand',
+      'Deferred PostHog initialization to after hydration for faster first paint',
+      'Added optimizePackageImports for visx, ethers, posthog\u2011js \u2014 tree\u2011shakes unused exports',
+      'AVIF image format enabled site\u2011wide (20\u201150% smaller than WebP on supported browsers)',
+      'Converted barrel\u2011file imports to direct imports in key components for better tree\u2011shaking',
+    ],
+  },
+  {
+    version: 'v0.1.8',
+    date: 'Feb 16, 2026 \u00B7 1:10 AM EST',
     items: [
       'Market page \u2014 search all active OpenSea listings, drill into individual items with buy links',
       'Scarcity upgrades \u2014 quality badges, Best Deal sort, price range filter, cross\u2011links to Market',
@@ -31,7 +45,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.7',
-    date: 'Feb 15, 2026',
+    date: 'Feb 15, 2026 \u00B7 8:23 PM EST',
     items: [
       'Acquisition Timeline \u2014 log\u2011scale Y\u2011axis with curated tick marks for better dot distribution',
       'Data\u2011driven dot entrance animation \u2014 new dots materialize as enrichment discovers them',
@@ -47,7 +61,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.6',
-    date: 'Feb 14, 2026',
+    date: 'Feb 14, 2026 \u00B7 8:57 PM EST',
     items: [
       'Social sharing \u2014 Share on X, Discord, or copy link with rich OG preview cards showing portfolio value, P&L, and NFT count',
       'Valuation waterfall upgrade \u2014 per\u2011item listing > comparable sales median > rarity\u2011tier floor > cost basis',
@@ -60,7 +74,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.5',
-    date: 'Feb 14, 2026',
+    date: 'Feb 14, 2026 \u00B7 4:05 PM EST',
     items: [
       'NFT valuation waterfall: per\u2011item listings, rarity\u2011tier floors, comparable sales medians',
       'Dual\u2011value display \u2014 cost basis vs market value side by side',
@@ -78,7 +92,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.4',
-    date: 'Feb 13, 2026',
+    date: 'Feb 13, 2026 \u00B7 4:56 AM EST',
     items: [
       'Scramble\u2011decode loading text matching home hero animation',
       '10pm Easter egg \u2014 because someone had to',
@@ -91,7 +105,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.3',
-    date: 'Feb 12, 2026',
+    date: 'Feb 12, 2026 \u00B7 4:35 PM EST',
     items: [
       'NFT sparkline toggle with historical hover counts',
       'Dynamic Labs SDK upgrade (4.59.1 \u2192 4.61.2)',
@@ -103,7 +117,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.2',
-    date: 'Feb 11, 2026',
+    date: 'Feb 11, 2026 \u00B7 10:37 PM EST',
     items: [
       'GunzScan API migration with infinite scroll',
       'Ambient backdrop sparkline with smooth curves and overlay toggles',
@@ -116,7 +130,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.1',
-    date: 'Feb 10, 2026',
+    date: 'Feb 10, 2026 \u00B7 11:47 PM EST',
     items: [
       'Confidence indicator overhaul with enrichment reliability fixes',
       'Insanity Mode toggle + clip\u2011corner card design',
@@ -128,7 +142,7 @@ const VERSIONS: VersionEntry[] = [
   },
   {
     version: 'v0.1.0',
-    date: 'Feb 9, 2026',
+    date: 'Feb 9, 2026 \u00B7 7:20 PM EST',
     items: [
       'Public feature request and management system',
       'Dynamic wallet onboarding with styled connect flow',

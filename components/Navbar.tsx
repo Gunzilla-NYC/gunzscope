@@ -102,7 +102,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                 href="/changelog"
                 className="hidden sm:inline shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
               >
-                v0.1.8 // EARLY ACCESS
+                v0.1.9 // EARLY ACCESS
               </Link>
             </div>
 
