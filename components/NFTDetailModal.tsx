@@ -48,22 +48,18 @@ import {
 // =============================================================================
 // Import extracted presentational subcomponents
 // =============================================================================
-import {
-  NFTDetailObservedMarketRange,
-  NFTDetailQuickStats,
-  NFTDetailTraitPills,
-  type HoldingAcquisitionData,
-  type ResolvedAcquisitionData,
-  type MetadataDebugData,
-} from '@/components/nft-detail';
-import { LockedWeaponIndicator } from '@/components/weapon';
+import { NFTDetailObservedMarketRange } from '@/components/nft-detail/NFTDetailObservedMarketRange';
+import { NFTDetailQuickStats } from '@/components/nft-detail/NFTDetailQuickStats';
+import { NFTDetailTraitPills } from '@/components/nft-detail/NFTDetailTraitPills';
+import type { HoldingAcquisitionData, ResolvedAcquisitionData, MetadataDebugData } from '@/components/nft-detail/types';
+import LockedWeaponIndicator from '@/components/weapon/LockedWeaponIndicator';
 
 // Dynamic import for NFTDetailDebugPanel - only loaded when debugMode is active
 const NFTDetailDebugPanel = dynamic(
   () => import('@/components/nft-detail/NFTDetailDebugPanel').then(mod => ({ default: mod.NFTDetailDebugPanel })),
   { ssr: false, loading: () => null }
 );
-import { isWeaponLocked, isWeapon, getFunctionalTier } from '@/lib/weapon';
+import { isWeaponLocked, isWeapon, getFunctionalTier } from '@/lib/weapon/weaponCompatibility';
 import TierBadge from '@/components/ui/TierBadge';
 import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
 import { gunzExplorerTxUrl } from '@/lib/explorer';

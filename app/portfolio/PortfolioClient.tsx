@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { PortfolioHeader } from '@/components/header';
+import PortfolioHeader from '@/components/header/PortfolioHeader';
 import NFTGallery from '@/components/NFTGallery';
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';

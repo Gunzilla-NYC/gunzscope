@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { type NFT } from '@/lib/types';
-import { isWeapon, isWeaponLocked } from '@/lib/weapon';
+import { isWeapon, isWeaponLocked } from '@/lib/weapon/weaponCompatibility';
 import { findRelatedItems } from '@/lib/nft/nftDetailHelpers';
 
 // =============================================================================
