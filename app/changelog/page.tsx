@@ -15,9 +15,18 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.2.0',
+    date: 'Feb 16, 2026 \u00B7 5:48 AM EST',
+    tag: 'current',
+    items: [
+      'wGUN cost extraction fix \u2014 OpenSea offer fills now resolve acquisition cost from ERC\u201120 receipt logs',
+      'Offer fill detection \u2014 NFTs acquired via pre\u2011signed OpenSea offers show "OpenSea (Offer)" as source',
+      'Hardcoded wGUN contract address as constant \u2014 no longer depends on env var for cost extraction',
+    ],
+  },
+  {
     version: 'v0.1.9',
     date: 'Feb 16, 2026 \u00B7 3:21 AM EST',
-    tag: 'current',
     items: [
       'Bundle diet \u2014 removed 15 unused dependencies (210 packages), including Nivo, GSAP, tsparticles, force\u2011graph, reaviz',
       'Replaced axios with native fetch across all API services (\u221230\u202FKB)',

@@ -342,6 +342,9 @@ const SEAPORT_SELECTORS = new Set([
 // Seaport contract address on GunzChain (OpenSea's deployed Seaport 1.6)
 const SEAPORT_GUNZCHAIN_ADDRESS = '0x00000000006687982678b03100b9bdc8be440814';
 
+// wGUN (wrapped GUN) ERC-20 contract on GunzChain — used by OpenSea for pre-signed offers
+const WGUN_CONTRACT_ADDRESS = '0x26debd39d5ed069770406fca10a0e4f8d2c743eb';
+
 // Seaport OrderFulfilled event topic0 (keccak256 of event signature)
 // Event: OrderFulfilled(bytes32,address,address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
 const ORDER_FULFILLED_TOPIC0 = '0x9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31';
@@ -1089,7 +1092,7 @@ export class AvalancheService {
 
       // ERC-20 Transfer event signature
       const erc20TransferSignature = ethers.id('Transfer(address,address,uint256)');
-      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE?.toLowerCase();
+      const gunTokenAddress = (process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE || WGUN_CONTRACT_ADDRESS).toLowerCase();
 
       if (txReceipt && txReceipt.logs) {
         for (const log of txReceipt.logs) {
@@ -1377,7 +1380,7 @@ export class AvalancheService {
       let costGun = 0;
       let inGameTradePriceWei: string | undefined;
       const gunIsNative = await this.isGunNative();
-      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE;
+      const gunTokenAddress = process.env.NEXT_PUBLIC_GUN_TOKEN_AVALANCHE || WGUN_CONTRACT_ADDRESS;
 
       // Priority 1: Extract price from in-game marketplace trade event
       if (hasInGameTrade && inGameTradeLog) {
