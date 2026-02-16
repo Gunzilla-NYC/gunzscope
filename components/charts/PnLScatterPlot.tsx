@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { Circle, Line } from '@visx/shape';
 import { scaleSqrt } from '@visx/scale';
 import { AxisBottom, AxisLeft } from '@visx/axis';
-import { GridRows, GridColumns } from '@visx/grid';
+import { GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { NFT } from '@/lib/types';
@@ -35,7 +35,7 @@ interface ScatterDatum {
 }
 
 const MARGIN = { top: 20, right: 20, bottom: 38, left: 58 };
-const CHART_HEIGHT = 230;
+const CHART_HEIGHT = 270;
 
 function ScatterChart({
   data,
@@ -79,19 +79,36 @@ function ScatterChart({
     [data],
   );
 
-  // Custom tick values for clean axis labels on sqrt scale
-  const tickValues = useMemo(() => generateSmartTicks(maxVal, 0, true), [maxVal]);
+  // X-axis ticks — standard smart ticks (horizontal labels don't crowd)
+  const tickValues = useMemo(() => generateSmartTicks(maxVal, 6, true), [maxVal]);
+
+  // Y-axis ticks — evenly spaced in sqrt-space so labels don't bunch
+  const NICE_NUMBERS = [0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  const yTickValues = useMemo(() => {
+    const count = 5;
+    const sqrtMax = Math.sqrt(maxVal * 0.92);
+    const ticks: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const sqrtVal = (sqrtMax * i) / (count - 1);
+      const raw = sqrtVal * sqrtVal;
+      const snapped = NICE_NUMBERS.reduce((best, n) =>
+        Math.abs(n - raw) < Math.abs(best - raw) ? n : best,
+      );
+      if (!ticks.includes(snapped)) ticks.push(snapped);
+    }
+    return ticks;
+  }, [maxVal]);
 
   // Memoize all static gradient defs — never changes
   const staticDefs = useMemo(
     () => (
       <>
         <radialGradient id="zone-profit-glow" cx="15%" cy="15%" r="85%">
-          <stop offset="0%" stopColor={chartTheme.colors.profit} stopOpacity={0.04} />
+          <stop offset="0%" stopColor={chartTheme.colors.profit} stopOpacity={0.08} />
           <stop offset="100%" stopColor={chartTheme.colors.profit} stopOpacity={0} />
         </radialGradient>
         <radialGradient id="zone-loss-glow" cx="85%" cy="85%" r="85%">
-          <stop offset="0%" stopColor={chartTheme.colors.loss} stopOpacity={0.04} />
+          <stop offset="0%" stopColor={chartTheme.colors.loss} stopOpacity={0.06} />
           <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
         </radialGradient>
         <linearGradient id="breakeven-gradient" x1="0" y1="1" x2="1" y2="0">
@@ -107,6 +124,15 @@ function ScatterChart({
           <stop offset="0%" stopColor="white" stopOpacity={0.3} />
           <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
         </radialGradient>
+        {/* Stem gradients — fade from baseline up to dot */}
+        <linearGradient id="stem-profit" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor={chartTheme.colors.profit} stopOpacity={0} />
+          <stop offset="100%" stopColor={chartTheme.colors.profit} stopOpacity={0.4} />
+        </linearGradient>
+        <linearGradient id="stem-loss" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
+          <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0.4} />
+        </linearGradient>
       </>
     ),
     [],
@@ -166,18 +192,12 @@ function ScatterChart({
             fill="url(#zone-loss-glow)"
           />
 
-          {/* Grid */}
-          <GridRows
-            scale={yScale}
-            width={innerWidth}
-            tickValues={tickValues}
-            stroke={chartTheme.colors.gridStrong}
-          />
+          {/* Grid — columns only (matches Timeline's lighter feel) */}
           <GridColumns
             scale={xScale}
             height={innerHeight}
             tickValues={tickValues}
-            stroke={chartTheme.colors.gridStrong}
+            stroke={chartTheme.colors.grid}
           />
 
           {/* Break-even diagonal */}
@@ -207,7 +227,7 @@ function ScatterChart({
             x={innerWidth * 0.06}
             y={innerHeight * 0.18}
             fill={chartTheme.colors.profit}
-            fillOpacity={0.12}
+            fillOpacity={0.20}
             fontSize={9}
             fontFamily={chartTheme.fonts.mono}
             textAnchor="start"
@@ -220,7 +240,7 @@ function ScatterChart({
             x={innerWidth * 0.72}
             y={innerHeight * 0.88}
             fill={chartTheme.colors.loss}
-            fillOpacity={0.12}
+            fillOpacity={0.20}
             fontSize={9}
             fontFamily={chartTheme.fonts.mono}
             textAnchor="start"
@@ -238,9 +258,21 @@ function ScatterChart({
             const r = sizeScale(d.quantity);
             const color = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
             const highlightId = isProfit ? 'dot-highlight-profit' : 'dot-highlight-loss';
+            const stemId = isProfit ? 'stem-profit' : 'stem-loss';
 
             return (
               <g key={d.id}>
+                {/* Gradient stem from baseline to dot */}
+                <line
+                  x1={cx}
+                  y1={innerHeight}
+                  x2={cx}
+                  y2={cy}
+                  stroke={`url(#${stemId})`}
+                  strokeWidth={isLocked ? 2 : 1}
+                  pointerEvents="none"
+                  style={{ transition: 'stroke-width 200ms ease' }}
+                />
                 {/* Outer ambient glow */}
                 <circle
                   cx={cx}
@@ -321,7 +353,7 @@ function ScatterChart({
 
           <AxisLeft
             scale={yScale}
-            tickValues={tickValues}
+            tickValues={yTickValues}
             tickFormat={(v) => formatGun(v as number)}
             stroke={chartTheme.colors.axis}
             tickStroke={chartTheme.colors.axis}
@@ -395,7 +427,7 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1
 
   const hasChartData = scatterData.length >= 2;
 
-  const chartHeight = Math.round(CHART_HEIGHT * Math.min(zoomLevel, 1.5));
+  const chartHeight = CHART_HEIGHT;
 
   // Embedded mode: render chart body only (no header, no collapsible)
   const chartBody = (
@@ -417,15 +449,22 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1
               </ParentSize>
             </div>
           </div>
-          {/* Scale note + locked item data — single inline row */}
-          <div className="flex items-center gap-3 mt-1.5 min-h-[20px]">
-            {gunPrice && gunPrice > 0 && (
-              <span className="font-mono text-micro text-[var(--gs-gray-2)]">
-                1 GUN = ${gunPrice.toFixed(4)} &middot; sqrt scale
-              </span>
-            )}
+          {/* Legend + locked item data — single inline row */}
+          <div className="flex items-center gap-3 mt-2 h-[28px]">
+            {/* P&L legend (left) */}
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.profit, boxShadow: `0 0 4px ${chartTheme.colors.profit}40` }} />
+              <span className="font-mono text-micro text-[var(--gs-gray-3)]">Profit</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.loss, boxShadow: `0 0 4px ${chartTheme.colors.loss}40` }} />
+              <span className="font-mono text-micro text-[var(--gs-gray-3)]">Loss</span>
+            </div>
+            <span className="font-mono text-micro text-[var(--gs-gray-2)]">
+              Size&nbsp;=&nbsp;qty
+            </span>
 
-            {/* Locked item data (right) */}
+            {/* Locked item data (right) — bordered pill matching Timeline style */}
             {lockedDatum && (() => {
               const pnl = lockedDatum.floor - lockedDatum.cost;
               const pnlPct = lockedDatum.cost > 0 ? (pnl / lockedDatum.cost) * 100 : 0;
@@ -433,23 +472,31 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1
               const accentColor = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
               const qualityCol = RARITY_COLORS[lockedDatum.quality] || '#888888';
               return (
-                <div className="ml-auto flex items-center gap-2.5 font-mono" style={{ fontSize: 11 }}>
+                <div
+                  className="ml-auto flex items-center gap-2.5 font-mono"
+                  style={{
+                    fontSize: 11,
+                    background: 'rgba(255,255,255,0.03)',
+                    borderWidth: '1px 1px 1px 2px',
+                    borderStyle: 'solid',
+                    borderColor: `rgba(255,255,255,0.06) rgba(255,255,255,0.06) rgba(255,255,255,0.06) ${qualityCol}`,
+                    padding: '4px 10px',
+                  }}
+                >
                   <span
                     style={{
                       display: 'inline-block',
-                      width: 200,
+                      maxWidth: 200,
                       fontWeight: 700,
                       fontSize: 12,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
-                      color: qualityCol,
-                      border: `1px solid ${qualityCol}30`,
-                      background: `${qualityCol}0A`,
-                      padding: '1px 6px',
+                      color: 'white',
                     }}
                   >
                     {lockedDatum.name}
+                    {lockedDatum.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: 10 }}> &times;{lockedDatum.quantity}</span>}
                   </span>
                   <span style={{ display: 'inline-block', minWidth: 62, color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
                     Cost {formatGun(lockedDatum.cost)}

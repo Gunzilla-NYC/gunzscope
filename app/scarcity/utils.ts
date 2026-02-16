@@ -24,3 +24,15 @@ export function getListingScarcityLabel(count: number): string {
   if (count <= 15) return 'Moderate';
   return 'Available';
 }
+
+export const QUALITY_COLORS: Record<string, string> = {
+  Epic: '#cc44ff',
+  Rare: '#4488ff',
+  Uncommon: '#44ff44',
+  Common: '#888888',
+};
+
+export function getQualityColor(quality: string | null): string {
+  if (!quality) return '#555555';
+  return QUALITY_COLORS[quality] || '#555555';
+}

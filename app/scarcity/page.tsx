@@ -1,22 +1,29 @@
 'use client';
 
-import { Suspense, useRef, useEffect, useState } from 'react';
+import { Suspense, useRef, useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useScarcity, getRelativeTime, type ScarcitySortField } from '@/lib/hooks/useScarcity';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import WalletRequiredGate from '@/components/WalletRequiredGate';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
-import { formatGun, getListingScarcityColor, getListingScarcityLabel } from './utils';
+import { formatGun, getListingScarcityColor, getListingScarcityLabel, getQualityColor } from './utils';
 import { SortArrow } from './components/SortArrow';
 import { TraitBar } from './components/TraitBar';
 
 type DataSource = 'opensea' | 'onchain';
 
 function ScarcityContent() {
+  const router = useRouter();
   const [dataSource, setDataSource] = useState<DataSource>('opensea');
   const hasAnimatedRef = useRef(false);
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const browseOnMarket = useCallback((itemName: string) => {
+    router.push(`/market?q=${encodeURIComponent(itemName)}`);
+  }, [router]);
 
   // Sticky header detection
   const [isSticky, setIsSticky] = useState(false);
@@ -48,6 +55,10 @@ function ScarcityContent() {
     refetch,
     traitFilter,
     setTraitFilter,
+    priceMin,
+    setPriceMin,
+    priceMax,
+    setPriceMax,
     resultCount,
     totalCount,
   } = useScarcity();
@@ -81,7 +92,13 @@ function ScarcityContent() {
   const qualityColors: Record<string, string> = { Epic: '#cc44ff', Rare: '#4488ff', Uncommon: '#44ff44', Common: '#888888' };
   const maxQualityCount = traitStats ? Math.max(...Object.values(traitStats.qualities)) : 0;
 
-  const isFiltered = !!(searchQuery || traitFilter);
+  // Classes distribution (sorted by count ascending = rarest first)
+  const classesSorted = traitStats
+    ? Object.entries(traitStats.classes).sort(([, a], [, b]) => a - b)
+    : [];
+  const maxClassCount = classesSorted.length > 0 ? classesSorted[classesSorted.length - 1][1] : 0;
+
+  const isFiltered = !!(searchQuery || traitFilter || priceMin || priceMax);
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
@@ -99,9 +116,17 @@ function ScarcityContent() {
               Experimental
             </span>
           </div>
-          <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)] mb-3">
-            Marketplace availability and trait distribution across the OTG collection
-          </p>
+          <div className="flex items-center gap-3 mb-3">
+            <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
+              Marketplace availability and trait distribution across the OTG collection
+            </p>
+            <Link
+              href="/market"
+              className="shrink-0 font-mono text-caption uppercase tracking-wider text-[var(--gs-lime)]/60 hover:text-[var(--gs-lime)] transition-colors"
+            >
+              Market &rarr;
+            </Link>
+          </div>
         </div>
 
         {/* Data Source Toggle */}
@@ -240,7 +265,7 @@ function ScarcityContent() {
 
             {/* Trait Distribution Cards */}
             {traitStats && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Weapon Types — clickable bars */}
                 <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
                   <div className="h-[2px] gradient-accent-line" />
@@ -304,11 +329,44 @@ function ScarcityContent() {
                     </div>
                   </div>
                 </div>
+
+                {/* Classes Distribution — clickable bars */}
+                {classesSorted.length > 0 && (
+                  <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden clip-corner">
+                    <div className="h-[2px] gradient-accent-line" />
+                    <div className="p-4">
+                      <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)] mb-3">
+                        Class Distribution
+                      </p>
+                      <div className="space-y-0 max-h-48 overflow-auto scrollbar-premium">
+                        {classesSorted.map(([cls, count]) => (
+                          <button
+                            key={cls}
+                            onClick={() => setTraitFilter(
+                              traitFilter?.value === cls && traitFilter?.type === 'class' ? null : { type: 'class', value: cls }
+                            )}
+                            className={`w-full text-left cursor-pointer hover:bg-white/[0.03] -mx-2 px-2 rounded transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)] ${
+                              traitFilter?.value === cls && traitFilter?.type === 'class' ? 'bg-white/[0.06] ring-1 ring-[var(--gs-lime)]/20' : ''
+                            }`}
+                            aria-pressed={traitFilter?.value === cls && traitFilter?.type === 'class'}
+                          >
+                            <TraitBar
+                              label={cls}
+                              count={count}
+                              maxCount={maxClassCount}
+                              color="var(--gs-purple)"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Sticky sentinel — goes invisible above the sticky zone */}
-            <div ref={stickysentinelRef} className="h-0" />
+            <div ref={stickysentinelRef} className="h-0 mt-2" />
 
             {/* Marketplace Listings Section */}
             <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] clip-corner">
@@ -319,7 +377,7 @@ function ScarcityContent() {
                 }`}
               >
                 <div className="h-[2px] gradient-accent-line -mx-4 -mt-4" />
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 mt-5">
                   <div className="flex items-center gap-2">
                     <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
                       Marketplace Listings
@@ -362,16 +420,41 @@ function ScarcityContent() {
                   </div>
                 )}
 
-                {/* Search */}
-                <div role="search" className="mb-4">
-                  <input
-                    type="search"
-                    aria-label="Search items by name"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search items..."
-                    className="w-full max-w-xs px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gs-lime)]"
-                  />
+                {/* Search + Price Filter */}
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <div role="search">
+                    <input
+                      type="search"
+                      aria-label="Search items by name"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search items..."
+                      className="w-full max-w-xs px-3 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gs-lime)]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-label uppercase tracking-widest text-[var(--gs-gray-3)]">Floor</span>
+                    <input
+                      type="number"
+                      aria-label="Min floor price (GUN)"
+                      value={priceMin}
+                      onChange={(e) => setPriceMin(e.target.value)}
+                      placeholder="Min"
+                      min={0}
+                      className="w-20 px-2 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono tabular-nums text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                    />
+                    <span className="text-[var(--gs-gray-3)]">&ndash;</span>
+                    <input
+                      type="number"
+                      aria-label="Max floor price (GUN)"
+                      value={priceMax}
+                      onChange={(e) => setPriceMax(e.target.value)}
+                      placeholder="Max"
+                      min={0}
+                      className="w-20 px-2 py-2 bg-[var(--gs-dark-3)] border border-white/[0.08] text-sm font-mono tabular-nums text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                    />
+                    <span className="font-mono text-label text-[var(--gs-gray-3)]">GUN</span>
+                  </div>
                 </div>
 
                 {/* Desktop table column headers — inside sticky zone */}
@@ -430,6 +513,17 @@ function ScarcityContent() {
                         <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
                           Avg Sale
                         </th>
+                        <th className="text-right font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] py-3 px-2">
+                          <button
+                            onClick={() => handleSort('dealScore')}
+                            aria-label={`Sort by deal score, currently ${sortField === 'dealScore' ? sortOrder : 'none'}`}
+                            aria-sort={sortField === 'dealScore' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                            className="inline-flex items-center cursor-pointer hover:text-[var(--gs-white)] transition-colors ml-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--gs-lime)]"
+                          >
+                            Deal
+                            <SortArrow active={sortField === 'dealScore'} order={sortOrder} />
+                          </button>
+                        </th>
                       </tr>
                     </thead>
                   </table>
@@ -470,9 +564,10 @@ function ScarcityContent() {
                               ...(shouldAnimate ? { animationDelay: `${Math.min(virtualRow.index * 15, 300)}ms` } : {}),
                             }}
                           >
-                            <div
-                              className={`flex items-center border-b border-white/[0.03] hover:bg-[var(--gs-lime)]/[0.03] hover:border-l-2 hover:border-l-[var(--gs-lime)]/40 transition-colors cursor-default ${
-                                isUnresolved ? 'opacity-40' : ''
+                            <button
+                              onClick={() => !isUnresolved && browseOnMarket(listing.itemName)}
+                              className={`w-full flex items-center border-b border-white/[0.03] hover:bg-[var(--gs-lime)]/[0.03] hover:border-l-2 hover:border-l-[var(--gs-lime)]/40 transition-colors text-left ${
+                                isUnresolved ? 'opacity-40 cursor-default' : 'cursor-pointer'
                               }`}
                             >
                               {/* # */}
@@ -494,6 +589,14 @@ function ScarcityContent() {
                                   <span className="font-mono text-sm text-[var(--gs-white)] truncate max-w-[250px]">
                                     {listing.itemName}
                                   </span>
+                                  {listing.quality && (
+                                    <span
+                                      className="shrink-0 font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border clip-corner-sm"
+                                      style={{ color: getQualityColor(listing.quality), borderColor: getQualityColor(listing.quality) + '40' }}
+                                    >
+                                      {listing.quality}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               {/* Listed */}
@@ -527,7 +630,19 @@ function ScarcityContent() {
                               <div className="py-3 px-2 w-24 text-right font-mono text-sm tabular-nums text-[var(--gs-gray-4)] shrink-0">
                                 {listing.avgSalePriceGun ? formatGun(listing.avgSalePriceGun) : '\u2014'}
                               </div>
-                            </div>
+                              {/* Deal */}
+                              <div className={`py-3 px-2 w-20 text-right font-mono text-sm tabular-nums shrink-0 ${
+                                sortField === 'dealScore' ? 'bg-white/[0.02]' : ''
+                              }`}>
+                                {(() => {
+                                  if (!listing.avgSalePriceGun || listing.floorPriceGun <= 0) return '\u2014';
+                                  const pct = ((listing.avgSalePriceGun - listing.floorPriceGun) / listing.avgSalePriceGun) * 100;
+                                  if (pct > 5) return <span className="text-[var(--gs-profit)]">{pct.toFixed(0)}%</span>;
+                                  if (pct < -5) return <span className="text-[var(--gs-loss)]">{pct.toFixed(0)}%</span>;
+                                  return <span className="text-[var(--gs-gray-3)]">~0%</span>;
+                                })()}
+                              </div>
+                            </button>
                           </div>
                         );
                       })}
@@ -561,6 +676,7 @@ function ScarcityContent() {
                       <option value="floorPriceGun-desc">Highest Floor</option>
                       <option value="floorPriceGun-asc">Lowest Floor</option>
                       <option value="recentSales-desc">Most Sold (7d)</option>
+                      <option value="dealScore-desc">Best Deals</option>
                       <option value="itemName-asc">Name A-Z</option>
                     </select>
                   </div>
@@ -570,9 +686,10 @@ function ScarcityContent() {
                     const scarcityLabel = getListingScarcityLabel(listing.listingCount);
                     const isUnresolved = listing.itemName.startsWith('Token #');
                     return (
-                      <div
+                      <button
                         key={listing.itemName}
-                        className={`flex items-center gap-3 py-3 border-b border-white/[0.04] ${isUnresolved ? 'opacity-40' : ''}`}
+                        onClick={() => !isUnresolved && browseOnMarket(listing.itemName)}
+                        className={`w-full flex items-center gap-3 py-3 border-b border-white/[0.04] text-left ${isUnresolved ? 'opacity-40 cursor-default' : 'cursor-pointer hover:bg-white/[0.02]'}`}
                       >
                         <span className="font-mono text-caption tabular-nums text-[var(--gs-gray-2)] w-6 shrink-0">{idx + 1}</span>
                         {listing.imageUrl && (
@@ -585,7 +702,17 @@ function ScarcityContent() {
                           />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-mono text-body-sm text-[var(--gs-white)] truncate">{listing.itemName}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-mono text-body-sm text-[var(--gs-white)] truncate">{listing.itemName}</p>
+                            {listing.quality && (
+                              <span
+                                className="shrink-0 font-mono text-[8px] uppercase tracking-wider px-1 py-px border clip-corner-sm"
+                                style={{ color: getQualityColor(listing.quality), borderColor: getQualityColor(listing.quality) + '40' }}
+                              >
+                                {listing.quality}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="font-mono text-caption tabular-nums" style={{ color: scarcityColor }}>
                               {listing.listingCount} listed
@@ -606,7 +733,7 @@ function ScarcityContent() {
                             </p>
                           )}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
 

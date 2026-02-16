@@ -189,12 +189,41 @@ export interface MarketplaceListing {
   floorPriceGun: number;
   recentSales: number;
   avgSalePriceGun: number | null;
+  quality: string | null;
 }
 
 export interface ScarcityPageData {
   traitStats: ScarcityTraitStats;
   listings: MarketplaceListing[];
   lastUpdated: string;
+}
+
+// Market page — individual listings per item
+export interface MarketListing {
+  tokenId: string;
+  priceGun: number;
+  itemName: string;
+  imageUrl: string | null;
+  sellerAddress: string;
+  orderHash: string;
+}
+
+export interface MarketItemGroup {
+  itemName: string;
+  imageUrl: string | null;
+  floorPriceGun: number;
+  listingCount: number;
+  listings: MarketListing[];
+  recentSales: number;
+  avgSalePriceGun: number | null;
+}
+
+export interface MarketListingsResponse {
+  items: MarketItemGroup[];
+  totalListingCount: number;
+  uniqueItemCount: number;
+  lastUpdated: string;
+  error?: string;
 }
 
 // Leaderboard entry from /api/leaderboard

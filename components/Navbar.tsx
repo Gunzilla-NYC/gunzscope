@@ -47,7 +47,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
   }, [primaryWallet?.address, user, handleLogOut]);
 
   const activeAddress = searchParams.get('address');
-  const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/scarcity' || pathname === '/account' || pathname === '/feature-requests';
+  const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/scarcity' || pathname === '/market' || pathname === '/account' || pathname === '/feature-requests';
   const isProfileActive = pathname === '/account' || pathname === '/feature-requests';
   const isAnonymous = !user;
   const isConnected = !!primaryWallet?.address;
@@ -114,6 +114,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                     <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
                     {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
                     {hasWallet && <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />}
+                    {hasWallet && <GlitchLink href="/market" label="Market" isActive={pathname === '/market'} />}
                   </>
                 )}
                 {isAnonymous ? (
@@ -193,6 +194,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                     ...(hasWallet ? [
                       { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
                       { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
+                      { href: '/market', label: 'Market', active: pathname === '/market' },
                     ] : []),
               ].map(item => (
                 <Link

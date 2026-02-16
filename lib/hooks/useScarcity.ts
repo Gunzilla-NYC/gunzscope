@@ -4,12 +4,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { ScarcityTraitStats, MarketplaceListing, ScarcityPageData } from '@/lib/types';
 
-export type ScarcitySortField = 'listingCount' | 'floorPriceGun' | 'recentSales' | 'itemName';
+export type ScarcitySortField = 'listingCount' | 'floorPriceGun' | 'recentSales' | 'itemName' | 'dealScore';
 
 type SortOrder = 'asc' | 'desc';
 
 export interface TraitFilter {
-  type: 'weapon' | 'quality';
+  type: 'weapon' | 'quality' | 'class';
   value: string;
 }
 
@@ -28,6 +28,10 @@ export interface UseScarcityResult {
   refetch: () => void;
   traitFilter: TraitFilter | null;
   setTraitFilter: (filter: TraitFilter | null) => void;
+  priceMin: string;
+  setPriceMin: (v: string) => void;
+  priceMax: string;
+  setPriceMax: (v: string) => void;
   resultCount: number;
   totalCount: number;
 }
@@ -71,6 +75,8 @@ export function useScarcity(): UseScarcityResult {
   );
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [traitFilter, setTraitFilter] = useState<TraitFilter | null>(null);
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
 
   // Persist state to URL params
   useEffect(() => {
@@ -124,10 +130,31 @@ export function useScarcity(): UseScarcityResult {
       filtered = filtered.filter((l) => l.itemName.toLowerCase().includes(q));
     }
 
-    // Apply trait filter (name-based matching — listings don't carry structured trait fields)
+    // Apply price range filter
+    const minPrice = parseFloat(priceMin);
+    const maxPrice = parseFloat(priceMax);
+    if (!isNaN(minPrice) && minPrice > 0) {
+      filtered = filtered.filter((l) => l.floorPriceGun >= minPrice);
+    }
+    if (!isNaN(maxPrice) && maxPrice > 0) {
+      filtered = filtered.filter((l) => l.floorPriceGun > 0 && l.floorPriceGun <= maxPrice);
+    }
+
+    // Apply trait filter
     if (traitFilter) {
       const val = traitFilter.value.toLowerCase();
-      filtered = filtered.filter((l) => l.itemName.toLowerCase().includes(val));
+      if (traitFilter.type === 'quality') {
+        // Use structured quality field when available, fall back to name matching
+        filtered = filtered.filter((l) =>
+          l.quality ? l.quality.toLowerCase() === val : l.itemName.toLowerCase().includes(val)
+        );
+      } else if (traitFilter.type === 'class') {
+        // Class filter — name-based matching (class names appear in item names)
+        filtered = filtered.filter((l) => l.itemName.toLowerCase().includes(val));
+      } else {
+        // Weapon type — name-based matching
+        filtered = filtered.filter((l) => l.itemName.toLowerCase().includes(val));
+      }
     }
 
     // Sort
@@ -136,13 +163,24 @@ export function useScarcity(): UseScarcityResult {
         const cmp = a.itemName.localeCompare(b.itemName);
         return sortOrder === 'asc' ? cmp : -cmp;
       }
+      if (sortField === 'dealScore') {
+        // Deal score: % discount of floor vs avg sale. Higher = better deal.
+        // Items without both floor + avg sale go to the bottom.
+        const scoreA = (a.avgSalePriceGun && a.floorPriceGun > 0)
+          ? (a.avgSalePriceGun - a.floorPriceGun) / a.avgSalePriceGun
+          : -Infinity;
+        const scoreB = (b.avgSalePriceGun && b.floorPriceGun > 0)
+          ? (b.avgSalePriceGun - b.floorPriceGun) / b.avgSalePriceGun
+          : -Infinity;
+        return sortOrder === 'asc' ? scoreA - scoreB : scoreB - scoreA;
+      }
       const aVal = a[sortField] ?? -Infinity;
       const bVal = b[sortField] ?? -Infinity;
       return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
     });
 
     return sorted;
-  }, [listings, sortField, sortOrder, searchQuery, traitFilter]);
+  }, [listings, sortField, sortOrder, searchQuery, traitFilter, priceMin, priceMax]);
 
   return {
     traitStats,
@@ -159,6 +197,10 @@ export function useScarcity(): UseScarcityResult {
     refetch: fetchScarcity,
     traitFilter,
     setTraitFilter,
+    priceMin,
+    setPriceMin,
+    priceMax,
+    setPriceMax,
     resultCount: sortedListings.length,
     totalCount: listings.length,
   };

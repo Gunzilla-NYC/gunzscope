@@ -15,9 +15,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.1.8',
+    date: 'Feb 16, 2026',
+    tag: 'current',
+    items: [
+      'Market page \u2014 search all active OpenSea listings, drill into individual items with buy links',
+      'Scarcity upgrades \u2014 quality badges, Best Deal sort, price range filter, cross\u2011links to Market',
+      'OpenSea listing coverage tripled \u2014 fetches up to 3,000 listings (was 1,000)',
+      'PnL scatter plot redesign \u2014 gradient stems, lighter grid, boosted zone labels, legend row, bordered data strip',
+      'Sqrt\u2011aware Y\u2011axis ticks \u2014 labels evenly spaced in visual space instead of bunching at the bottom',
+      'Chart height increase \u2014 both charts get more vertical breathing room',
+      'Fixed zoom height jump \u2014 switching between charts no longer causes jarring layout shift',
+      'Quality metadata pipeline \u2014 GunzScan rarity trait extracted and propagated end\u2011to\u2011end',
+    ],
+  },
+  {
     version: 'v0.1.7',
     date: 'Feb 15, 2026',
-    tag: 'current',
     items: [
       'Acquisition Timeline \u2014 log\u2011scale Y\u2011axis with curated tick marks for better dot distribution',
       'Data\u2011driven dot entrance animation \u2014 new dots materialize as enrichment discovers them',

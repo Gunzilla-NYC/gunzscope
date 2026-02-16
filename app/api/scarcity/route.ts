@@ -40,6 +40,7 @@ export async function GET(): Promise<Response> {
         floorPriceGun: listing.floorPriceGun,
         recentSales: sales?.count ?? 0,
         avgSalePriceGun: sales && sales.count > 0 ? sales.totalPrice / sales.count : null,
+        quality: listing.quality,
       };
     });
 
@@ -53,6 +54,7 @@ export async function GET(): Promise<Response> {
           floorPriceGun: 0,
           recentSales: sales.count,
           avgSalePriceGun: sales.count > 0 ? sales.totalPrice / sales.count : null,
+          quality: null,
         });
       }
     }

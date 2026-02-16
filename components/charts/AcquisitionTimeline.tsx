@@ -34,7 +34,7 @@ interface TimelineDatum {
 }
 
 const MARGIN = { top: 14, right: 16, bottom: 32, left: 16 };
-const CHART_HEIGHT = 195;
+const CHART_HEIGHT = 240;
 
 const VENUE_COLORS: Record<string, string> = {
   decode: chartTheme.colors.lime,

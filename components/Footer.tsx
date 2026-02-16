@@ -20,18 +20,20 @@ export default function Footer({ variant = 'full' }: FooterProps) {
   return (
     <footer className="relative z-10 border-t border-white/[0.06]">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center sm:justify-between gap-3 sm:gap-6">
-        {/* Copyright */}
-        <p className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
-          &copy; {new Date().getFullYear()} GUNZscope
-          <span className="text-[var(--gs-gray-2)] mx-2">&middot;</span>
-          <Link href="/terms" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Terms</Link>
-          <span className="text-[var(--gs-gray-2)] mx-2">&middot;</span>
-          <Link href="/privacy" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Privacy</Link>
-          <span className="text-[var(--gs-gray-2)] mx-2">&middot;</span>
-          <Link href="/credits" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Credits</Link>
-          <span className="text-[var(--gs-gray-2)] mx-2">&middot;</span>
-          <a href="https://x.com/gunzscope" target="_blank" rel="noopener noreferrer" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">X</a>
-        </p>
+        {/* Copyright + links */}
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-0 font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
+          <span>&copy; {new Date().getFullYear()} GUNZscope</span>
+          <div className="flex items-center gap-2 sm:gap-0">
+            <span className="hidden sm:inline text-[var(--gs-gray-2)] mx-2">&middot;</span>
+            <Link href="/terms" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Terms</Link>
+            <span className="text-[var(--gs-gray-2)] mx-1 sm:mx-2">&middot;</span>
+            <Link href="/privacy" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Privacy</Link>
+            <span className="text-[var(--gs-gray-2)] mx-1 sm:mx-2">&middot;</span>
+            <Link href="/credits" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Credits</Link>
+            <span className="text-[var(--gs-gray-2)] mx-1 sm:mx-2">&middot;</span>
+            <a href="https://x.com/gunzscope" target="_blank" rel="noopener noreferrer" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">X</a>
+          </div>
+        </div>
 
         {/* Credit */}
         <p className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">

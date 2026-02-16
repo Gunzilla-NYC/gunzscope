@@ -13,5 +13,6 @@ export const SORT_COLUMNS: { field: ScarcitySortField; label: string; shortLabel
   { field: 'listingCount', label: 'Listed', shortLabel: 'Listed' },
   { field: 'floorPriceGun', label: 'Floor (GUN)', shortLabel: 'Floor' },
   { field: 'recentSales', label: '7d Sales', shortLabel: 'Sales' },
+  { field: 'dealScore', label: 'Best Deal', shortLabel: 'Deal' },
   { field: 'itemName', label: 'Item Name', shortLabel: 'Name' },
 ];

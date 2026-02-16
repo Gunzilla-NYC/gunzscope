@@ -74,8 +74,8 @@ const RESOLVE_BATCH_DELAY_MS = 50;
 async function resolveTokenMetadata(
   contractAddress: string,
   tokenIds: string[]
-): Promise<Map<string, { name: string; imageUrl: string | null }>> {
-  const result = new Map<string, { name: string; imageUrl: string | null }>();
+): Promise<Map<string, { name: string; imageUrl: string | null; quality: string | null }>> {
+  const result = new Map<string, { name: string; imageUrl: string | null; quality: string | null }>();
   if (tokenIds.length === 0) return result;
 
   const contract = contractAddress.toLowerCase();
@@ -101,10 +101,15 @@ async function resolveTokenMetadata(
           const metadata = data?.metadata;
           if (!metadata?.name) return null;
 
+          // Extract quality from "Rarity" attribute (confusingly named — it's actually cosmetic quality)
+          const attributes = metadata.attributes as Array<{ trait_type: string; value: string }> | undefined;
+          const quality = attributes?.find((a) => a.trait_type === 'Rarity')?.value || null;
+
           return {
             tokenId,
             name: metadata.name as string,
             imageUrl: (metadata.image as string) || null,
+            quality,
           };
         } catch {
           return null;
@@ -119,6 +124,7 @@ async function resolveTokenMetadata(
         result.set(entry.value.tokenId, {
           name: entry.value.name,
           imageUrl: entry.value.imageUrl,
+          quality: entry.value.quality,
         });
       }
     }
@@ -1116,8 +1122,8 @@ export class OpenSeaService {
    */
   async getActiveListingsByItem(
     collectionSlug: string = 'off-the-grid',
-    maxPages: number = 10
-  ): Promise<Array<{ itemName: string; imageUrl: string | null; listingCount: number; floorPriceGun: number }>> {
+    maxPages: number = 30
+  ): Promise<Array<{ itemName: string; imageUrl: string | null; listingCount: number; floorPriceGun: number; quality: string | null }>> {
     try {
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
 
@@ -1169,20 +1175,22 @@ export class OpenSeaService {
       const resolvedMap = await resolveTokenMetadata(nftContract, unresolvedTokenIds);
 
       // Phase 3: Group by resolved name
-      const itemMap = new Map<string, { count: number; minPrice: number; imageUrl: string | null }>();
+      const itemMap = new Map<string, { count: number; minPrice: number; imageUrl: string | null; quality: string | null }>();
 
       for (const listing of rawListings) {
         const resolved = resolvedMap.get(listing.tokenId);
         const name = listing.name || resolved?.name || `Token #${listing.tokenId}`;
         const imageUrl = listing.imageUrl || resolved?.imageUrl || null;
+        const quality = resolved?.quality || null;
 
         const existing = itemMap.get(name);
         if (existing) {
           existing.count++;
           existing.minPrice = Math.min(existing.minPrice, listing.priceGun);
           if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
+          if (!existing.quality && quality) existing.quality = quality;
         } else {
-          itemMap.set(name, { count: 1, minPrice: listing.priceGun, imageUrl });
+          itemMap.set(name, { count: 1, minPrice: listing.priceGun, imageUrl, quality });
         }
       }
 
@@ -1192,10 +1200,147 @@ export class OpenSeaService {
           imageUrl: data.imageUrl,
           listingCount: data.count,
           floorPriceGun: data.minPrice,
+          quality: data.quality,
         }))
         .sort((a, b) => a.listingCount - b.listingCount);
     } catch (error) {
       console.warn('[OpenSea] Error fetching active listings:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch active listings with full per-listing detail (price, seller, tokenId).
+   * Same pagination + GunzScan resolution as getActiveListingsByItem, but preserves
+   * individual listings per item group instead of aggregating to count + floor.
+   */
+  async getActiveListingsDetailed(
+    collectionSlug: string = 'off-the-grid',
+    maxPages: number = 30
+  ): Promise<Array<{
+    itemName: string;
+    imageUrl: string | null;
+    floorPriceGun: number;
+    listingCount: number;
+    listings: Array<{
+      tokenId: string;
+      priceGun: number;
+      itemName: string;
+      imageUrl: string | null;
+      sellerAddress: string;
+      orderHash: string;
+    }>;
+  }>> {
+    try {
+      const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
+
+      // Phase 1: Collect raw per-token listings from OpenSea
+      const rawListings: Array<{
+        tokenId: string;
+        priceGun: number;
+        name: string | null;
+        imageUrl: string | null;
+        sellerAddress: string;
+        orderHash: string;
+      }> = [];
+      let cursor: string | null = null;
+      let page = 0;
+
+      do {
+        const params: Record<string, string | number> = { limit: 100 };
+        if (cursor) params.next = cursor;
+
+        const response = await axios.get(
+          `${OPENSEA_API_BASE}/listings/collection/${collectionSlug}/all`,
+          { headers, params }
+        );
+
+        const listings = response.data?.listings || [];
+        cursor = response.data?.next || null;
+        page++;
+
+        for (const listing of listings) {
+          const orderPrice = listing.price?.current?.value;
+          const orderDecimals = listing.price?.current?.decimals ?? 18;
+          let priceGun = 0;
+          if (orderPrice) {
+            priceGun = parseFloat(orderPrice) / Math.pow(10, orderDecimals);
+          }
+
+          const asset = listing.maker_asset_bundle?.assets?.[0];
+          const tokenId = listing.protocol_data?.parameters?.offer?.[0]?.identifierOrCriteria;
+          const name = asset?.name || null;
+          const imageUrl = asset?.image_url || null;
+          const sellerAddress = listing.protocol_data?.parameters?.offerer || '';
+          const orderHash = listing.order_hash || '';
+
+          if (priceGun > 0 && tokenId) {
+            rawListings.push({ tokenId, priceGun, name, imageUrl, sellerAddress, orderHash });
+          }
+        }
+
+        if (listings.length === 0) break;
+      } while (cursor && page < maxPages);
+
+      // Phase 2: Resolve unresolved token IDs via GunzScan
+      const unresolvedTokenIds = [...new Set(
+        rawListings.filter((l) => !l.name).map((l) => l.tokenId)
+      )];
+
+      const nftContract = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
+      const resolvedMap = await resolveTokenMetadata(nftContract, unresolvedTokenIds);
+
+      // Phase 3: Group by resolved name, keeping individual listings
+      const itemMap = new Map<string, {
+        imageUrl: string | null;
+        listings: Array<{
+          tokenId: string;
+          priceGun: number;
+          itemName: string;
+          imageUrl: string | null;
+          sellerAddress: string;
+          orderHash: string;
+        }>;
+      }>();
+
+      for (const listing of rawListings) {
+        const resolved = resolvedMap.get(listing.tokenId);
+        const name = listing.name || resolved?.name || `Token #${listing.tokenId}`;
+        const imageUrl = listing.imageUrl || resolved?.imageUrl || null;
+
+        const existing = itemMap.get(name);
+        const detailedListing = {
+          tokenId: listing.tokenId,
+          priceGun: listing.priceGun,
+          itemName: name,
+          imageUrl,
+          sellerAddress: listing.sellerAddress,
+          orderHash: listing.orderHash,
+        };
+
+        if (existing) {
+          existing.listings.push(detailedListing);
+          if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
+        } else {
+          itemMap.set(name, { imageUrl, listings: [detailedListing] });
+        }
+      }
+
+      return Array.from(itemMap.entries())
+        .map(([itemName, data]) => {
+          // Sort listings within each group cheapest first
+          data.listings.sort((a, b) => a.priceGun - b.priceGun);
+          return {
+            itemName,
+            imageUrl: data.imageUrl,
+            floorPriceGun: data.listings[0]?.priceGun ?? 0,
+            listingCount: data.listings.length,
+            listings: data.listings,
+          };
+        })
+        .sort((a, b) => a.listingCount - b.listingCount);
+    } catch (error) {
+      console.warn('[OpenSea] Error fetching detailed listings:', error);
       return [];
     }
   }
