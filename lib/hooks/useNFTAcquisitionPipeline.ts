@@ -342,6 +342,9 @@ export interface AcquisitionData {
   decodeCostGun?: number;      // Cost paid to decode/mint (in-game currency)
   decodeCostUsd?: number;      // Calculated from decodeCostGun at historical rate
 
+  // Offer fill detection
+  isOfferFill?: boolean;       // True when acquired via a pre-signed OpenSea offer (wGUN)
+
   // Legacy compatibility
   transferredFrom?: string;    // Alias for fromAddress when acquisitionType=TRANSFER
   isFreeTransfer?: boolean;    // True if TRANSFER with no price (not applicable to paid decodes)
@@ -619,6 +622,9 @@ export function useNFTAcquisitionPipeline(
         // Legacy
         transferredFrom: cachedData.transferredFrom,
         isFreeTransfer: cachedData.isFreeTransfer,
+
+        // Offer fill detection
+        isOfferFill: cachedData.isOfferFill,
       };
 
       setItemPurchaseData(prev => ({
@@ -1518,6 +1524,9 @@ export function useNFTAcquisitionPipeline(
           decodeCostGun: finalDecodeCostGun,
           decodeCostUsd: finalDecodeCostUsd,
 
+          // Offer fill detection
+          isOfferFill: acquisition?.isOfferFill,
+
           // Legacy compatibility
           transferredFrom: (hasTransferData && finalAcquisitionType === 'TRANSFER') ? fromAddress : undefined,
           isFreeTransfer: finalIsFreeTransfer,
@@ -1652,6 +1661,7 @@ export function useNFTAcquisitionPipeline(
             isFreeTransfer: freshAcquisition.isFreeTransfer,
             acquisitionVenue: acquisitionVenue,
             acquisitionTxHash: acquisitionTxHash ?? undefined,
+            isOfferFill: freshAcquisition.isOfferFill,
           });
 
           if (debugMode) {

@@ -404,6 +404,9 @@ interface AcquisitionData {
   decodeCostGun?: number;      // Cost paid to decode/mint (in-game currency)
   decodeCostUsd?: number;      // Calculated from decodeCostGun at historical rate
 
+  // Offer fill detection
+  isOfferFill?: boolean;       // True when acquired via a pre-signed OpenSea offer (wGUN)
+
   // Legacy compatibility
   transferredFrom?: string;    // Alias for fromAddress when acquisitionType=TRANSFER
   isFreeTransfer?: boolean;    // True if TRANSFER with no price (not applicable to paid decodes)
@@ -719,6 +722,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         purchasePriceUsd: cachedData.purchasePriceUsd,
         purchaseDate: cachedData.purchaseDate ? new Date(cachedData.purchaseDate) : undefined,
         marketplaceTxHash: cachedData.acquisitionTxHash,
+
+        // Offer fill detection
+        isOfferFill: cachedData.isOfferFill,
 
         // Legacy
         transferredFrom: cachedData.transferredFrom,
@@ -1622,6 +1628,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           decodeCostGun: finalDecodeCostGun,
           decodeCostUsd: finalDecodeCostUsd,
 
+          // Offer fill detection
+          isOfferFill: acquisition?.isOfferFill,
+
           // Legacy compatibility
           transferredFrom: (hasTransferData && finalAcquisitionType === 'TRANSFER') ? fromAddress : undefined,
           isFreeTransfer: finalIsFreeTransfer,
@@ -1756,6 +1765,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             isFreeTransfer: freshAcquisition.isFreeTransfer,
             acquisitionVenue: acquisitionVenue,
             acquisitionTxHash: acquisitionTxHash ?? undefined,
+            isOfferFill: freshAcquisition.isOfferFill,
           });
 
           if (debugMode) {
@@ -2244,7 +2254,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                 currentPurchaseData.acquisitionVenue === 'decode' || currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-[var(--gs-lime)]' :
                                 'text-white/90'
                               }`}>
-                                {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0)}
+                                {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0, currentPurchaseData.isOfferFill)}
                               </span>
                             ) : (
                               <span className="text-[13px] font-medium text-pink-400">DEBUG: no source</span>

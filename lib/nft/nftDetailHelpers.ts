@@ -406,14 +406,18 @@ export function getPositionLabel(input: GetPositionLabelInput): PositionLabelRes
  * Get human-readable label for acquisition venue.
  * Note: Labels do NOT include "Purchased" prefix - purchase context is implied by the Cost line.
  */
-export function getVenueDisplayLabel(venue: AcquisitionVenue | undefined, hasDecodeCost?: boolean): string {
+export function getVenueDisplayLabel(
+  venue: AcquisitionVenue | undefined,
+  hasDecodeCost?: boolean,
+  isOfferFill?: boolean,
+): string {
   switch (venue) {
     case 'decode':
       return 'Decoded (in-game)';
     case 'system_mint':
       return 'System Reward / Airdrop';
     case 'opensea':
-      return 'OpenSea';
+      return isOfferFill ? 'OpenSea (Offer)' : 'OpenSea';
     case 'otg_marketplace':
       return 'OTG Marketplace';
     case 'in_game_marketplace':

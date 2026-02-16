@@ -442,6 +442,8 @@ export interface NFTHoldingAcquisition {
   costGun: number;
   fromAddress?: string;
   isMint?: boolean;
+  /** True when acquired via a pre-signed OpenSea offer (seller fills, buyer doesn't initiate tx) */
+  isOfferFill?: boolean;
   debug?: {
     txTo?: string;
     selector?: string;
@@ -1437,6 +1439,10 @@ export class AvalancheService {
         }
       }
 
+      // Offer fill: OpenSea venue but tx initiated by someone other than the wallet
+      // (seller fills the buyer's pre-signed offer, so tx.from !== buyer)
+      const isOfferFill = venue === 'opensea' && tx != null && normalizeAddr(tx.from) !== walletLower;
+
       return {
         owned: true,
         acquiredAtIso,
@@ -1445,6 +1451,7 @@ export class AvalancheService {
         costGun,
         fromAddress: isMint ? undefined : acquisitionEvent.from,
         isMint,
+        isOfferFill,
         debug: DEBUG_ACQUISITION
           ? {
               txTo: txTo ?? undefined,

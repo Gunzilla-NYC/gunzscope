@@ -230,6 +230,8 @@ export interface CachedNFTDetailData {
   currentLowestListing?: number;  // Lowest active listing in GUN
   currentHighestListing?: number; // Highest active listing in GUN
   listingFetchedAt?: string;      // ISO timestamp of listing fetch
+  // v11: Offer fill detection
+  isOfferFill?: boolean;          // True when acquired via a pre-signed OpenSea offer (wGUN)
 }
 
 export interface CachedTransferData {
