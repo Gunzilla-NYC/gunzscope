@@ -1,8 +1,34 @@
-import axios from 'axios';
 import { PriceData } from '../types';
 
 // Check if running in browser
 const isBrowser = typeof window !== 'undefined';
+
+/** Drop-in replacement for axios.get — removes ~30KB from client bundle */
+async function fetchGet<T = any>(
+  url: string,
+  config?: { params?: Record<string, any>; headers?: Record<string, string | undefined> }
+): Promise<{ data: T }> {
+  let fullUrl = url;
+  if (config?.params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(config.params)) {
+      if (v != null) sp.set(k, String(v));
+    }
+    const qs = sp.toString();
+    if (qs) fullUrl += (url.includes('?') ? '&' : '?') + qs;
+  }
+  // Strip undefined header values for fetch compatibility
+  const headers: Record<string, string> = {};
+  if (config?.headers) {
+    for (const [k, v] of Object.entries(config.headers)) {
+      if (v !== undefined) headers[k] = v;
+    }
+  }
+  const res = await fetch(fullUrl, { headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return { data };
+}
 
 export class CoinGeckoService {
   private apiKey?: string;
@@ -44,7 +70,7 @@ export class CoinGeckoService {
         ? { 'x-cg-demo-api-key': this.apiKey }
         : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${this.apiBase}/simple/price`,
         {
           params: {
@@ -82,7 +108,7 @@ export class CoinGeckoService {
         ? { 'x-cg-demo-api-key': this.apiKey }
         : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${this.apiBase}/simple/token_price/${platformId}`,
         {
           params: {
@@ -107,7 +133,7 @@ export class CoinGeckoService {
         ? { 'x-cg-demo-api-key': this.apiKey }
         : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${this.apiBase}/search`,
         {
           params: { query },
@@ -140,7 +166,7 @@ export class CoinGeckoService {
       const year = date.getFullYear();
       const dateString = `${day}-${month}-${year}`;
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${this.apiBase}/coins/${coinId}/history`,
         {
           params: {

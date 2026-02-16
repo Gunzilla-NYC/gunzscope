@@ -1,5 +1,31 @@
-import axios from 'axios';
 import { toOpenSeaChain } from '@/lib/utils/openseaChain';
+
+/** Drop-in replacement for axios.get — removes ~30KB from client bundle */
+async function fetchGet<T = any>(
+  url: string,
+  config?: { params?: Record<string, any>; headers?: Record<string, string | undefined> }
+): Promise<{ data: T }> {
+  let fullUrl = url;
+  if (config?.params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(config.params)) {
+      if (v != null) sp.set(k, String(v));
+    }
+    const qs = sp.toString();
+    if (qs) fullUrl += (url.includes('?') ? '&' : '?') + qs;
+  }
+  // Strip undefined header values for fetch compatibility
+  const headers: Record<string, string> = {};
+  if (config?.headers) {
+    for (const [k, v] of Object.entries(config.headers)) {
+      if (v !== undefined) headers[k] = v;
+    }
+  }
+  const res = await fetch(fullUrl, { headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return { data };
+}
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
@@ -239,7 +265,7 @@ export class OpenSeaService {
         ? { 'X-API-KEY': this.apiKey }
         : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/collections/${collectionSlug}/stats`,
         { headers }
       );
@@ -281,7 +307,7 @@ export class OpenSeaService {
 
       const mappedChain = toOpenSeaChain(chain);
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/chain/${mappedChain}/contract/${contractAddress}`,
         { headers }
       );
@@ -305,7 +331,7 @@ export class OpenSeaService {
 
       const mappedChain = toOpenSeaChain(chain);
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/chain/${mappedChain}/account/${walletAddress}/nfts`,
         {
           headers,
@@ -326,7 +352,7 @@ export class OpenSeaService {
         ? { 'X-API-KEY': this.apiKey }
         : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/listings/collection/${contractAddress}`,
         { headers }
       );
@@ -381,7 +407,7 @@ export class OpenSeaService {
 
       const mappedChain = toOpenSeaChain(chain);
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/orders/${mappedChain}/seaport/listings?asset_contract_address=${contractAddress}&token_ids=${tokenId}&limit=50`,
         { headers }
       );
@@ -428,7 +454,7 @@ export class OpenSeaService {
 
       const mappedChain = toOpenSeaChain(chain);
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/chain/${mappedChain}/contract/${contractAddress}/nfts/${tokenId}`,
         { headers }
       );
@@ -458,7 +484,7 @@ export class OpenSeaService {
       const mappedChain = toOpenSeaChain(chain);
 
       // Try to get events for this NFT
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/events/chain/${mappedChain}/contract/${contractAddress}/nfts/${tokenId}`,
         {
           headers,
@@ -556,7 +582,7 @@ export class OpenSeaService {
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
       const mappedChain = toOpenSeaChain(chain);
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/events/chain/${mappedChain}/contract/${contractAddress}/nfts/${tokenId}`,
         {
           headers,
@@ -607,7 +633,7 @@ export class OpenSeaService {
           ? { ...params, next: cursor }
           : params;
 
-        const response = await axios.get<{
+        const response = await fetchGet<{
           asset_events?: any[];
           next?: string | null;
         }>(`${OPENSEA_API_BASE}/events/collection/${collectionSlug}`, {
@@ -646,7 +672,7 @@ export class OpenSeaService {
     try {
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/collections/${collectionSlug}/stats`,
         { headers }
       );
@@ -1084,7 +1110,7 @@ export class OpenSeaService {
     try {
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/traits/${collectionSlug}`,
         { headers }
       );
@@ -1136,7 +1162,7 @@ export class OpenSeaService {
         const params: Record<string, string | number> = { limit: 100 };
         if (cursor) params.next = cursor;
 
-        const response = await axios.get(
+        const response = await fetchGet(
           `${OPENSEA_API_BASE}/listings/collection/${collectionSlug}/all`,
           { headers, params }
         );
@@ -1250,7 +1276,7 @@ export class OpenSeaService {
         const params: Record<string, string | number> = { limit: 100 };
         if (cursor) params.next = cursor;
 
-        const response = await axios.get(
+        const response = await fetchGet(
           `${OPENSEA_API_BASE}/listings/collection/${collectionSlug}/all`,
           { headers, params }
         );
@@ -1464,7 +1490,7 @@ export class OpenSeaService {
     try {
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
 
-      const response = await axios.get(
+      const response = await fetchGet(
         `${OPENSEA_API_BASE}/chain/${mappedChain}/contract/${contract}/nfts/${identifier}`,
         { headers }
       );

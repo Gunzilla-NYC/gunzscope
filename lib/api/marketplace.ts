@@ -1,5 +1,41 @@
-import axios from 'axios';
 import { MarketplaceData, MarketplacePurchase } from '../types';
+
+/** Error class preserving response status/data for catch-block inspection */
+class FetchError extends Error {
+  response?: { status: number; data?: any };
+  constructor(message: string, status?: number, data?: any) {
+    super(message);
+    if (status !== undefined) this.response = { status, data };
+  }
+}
+
+/** Drop-in replacement for axios.get — removes ~30KB from client bundle */
+async function fetchGet<T = any>(
+  url: string,
+  config?: { params?: Record<string, any>; headers?: Record<string, string>; timeout?: number }
+): Promise<{ data: T; status: number }> {
+  let fullUrl = url;
+  if (config?.params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(config.params)) {
+      if (v != null) sp.set(k, String(v));
+    }
+    const qs = sp.toString();
+    if (qs) fullUrl += (url.includes('?') ? '&' : '?') + qs;
+  }
+  const signal = config?.timeout ? AbortSignal.timeout(config.timeout) : undefined;
+  const res = await fetch(fullUrl, { headers: config?.headers, signal });
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    throw new FetchError(`HTTP ${res.status}`, res.status, data);
+  }
+  return { data: data as T, status: res.status };
+}
 
 /**
  * Client-side marketplace service that uses server-side proxy routes
@@ -66,7 +102,7 @@ export class GameMarketplaceService {
   }> {
     try {
       // Test via server proxy with a minimal wallet query
-      const response = await axios.get('/api/marketplace/purchases/wallet', {
+      const response = await fetchGet('/api/marketplace/purchases/wallet', {
         params: { wallet: '0x0000000000000000000000000000000000000000', limit: 1 },
         timeout: 10000,
       });
@@ -110,12 +146,12 @@ export class GameMarketplaceService {
         serverProxyUsed: true,
       };
     } catch (error) {
-      const axiosError = error as any;
-      const statusCode = axiosError?.response?.status;
+      const fetchErr = error as any;
+      const statusCode = fetchErr?.response?.status;
 
       // Check for 503 (not configured) from server
       if (statusCode === 503) {
-        const errorData = axiosError?.response?.data;
+        const errorData = fetchErr?.response?.data;
         return {
           success: false,
           statusCode,
@@ -124,7 +160,7 @@ export class GameMarketplaceService {
         };
       }
 
-      const errorMessage = axiosError?.message || 'Connection failed';
+      const errorMessage = fetchErr?.message || 'Connection failed';
 
       return {
         success: false,
@@ -149,7 +185,7 @@ export class GameMarketplaceService {
 
       // Note: This endpoint doesn't use server proxy yet
       // Could be added if needed for sensitive data
-      const response = await axios.get(
+      const response = await fetchGet(
         `${this.displayUrl}/marketplace/stats`,
         { timeout: 10000 }
       );
@@ -174,7 +210,7 @@ export class GameMarketplaceService {
       }
 
       // Note: This endpoint doesn't use server proxy yet
-      const response = await axios.get(
+      const response = await fetchGet(
         `${this.displayUrl}/player/${walletAddress}/assets`,
         { timeout: 10000 }
       );
@@ -193,7 +229,7 @@ export class GameMarketplaceService {
       }
 
       // Note: This endpoint doesn't use server proxy yet
-      const response = await axios.get(
+      const response = await fetchGet(
         `${this.displayUrl}/mints/live`,
         { timeout: 10000 }
       );
@@ -222,7 +258,7 @@ export class GameMarketplaceService {
       }
 
       // Call server proxy instead of direct API
-      const response = await axios.get('/api/marketplace/purchases/token', {
+      const response = await fetchGet('/api/marketplace/purchases/token', {
         params: { chain, contract, tokenId },
         timeout: 15000,
       });
@@ -247,9 +283,9 @@ export class GameMarketplaceService {
 
       return purchases;
     } catch (error) {
-      const axiosError = error as any;
+      const fetchErr = error as any;
       // 503 means not configured - don't log as error
-      if (axiosError?.response?.status === 503) {
+      if (fetchErr?.response?.status === 503) {
         console.warn('Marketplace not configured on server');
         return [];
       }
@@ -287,7 +323,7 @@ export class GameMarketplaceService {
       }
 
       // Call server proxy instead of direct API
-      const response = await axios.get('/api/marketplace/purchases/wallet', {
+      const response = await fetchGet('/api/marketplace/purchases/wallet', {
         params,
         timeout: 15000,
       });
@@ -312,9 +348,9 @@ export class GameMarketplaceService {
 
       return purchases;
     } catch (error) {
-      const axiosError = error as any;
+      const fetchErr = error as any;
       // 503 means not configured - don't log as error
-      if (axiosError?.response?.status === 503) {
+      if (fetchErr?.response?.status === 503) {
         console.warn('Marketplace not configured on server');
         return [];
       }
