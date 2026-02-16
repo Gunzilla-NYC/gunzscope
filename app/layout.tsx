@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
-import CrosshairCursor from "@/components/CrosshairCursor";
-import OnboardingChecklist from "@/components/OnboardingChecklist";
-import UXRWelcomePopup from "@/components/UXRWelcomePopup";
 import { Toaster } from "sonner";
+
+const CrosshairCursor = dynamic(() => import("@/components/CrosshairCursor"));
+const OnboardingChecklist = dynamic(() => import("@/components/OnboardingChecklist"));
+const UXRWelcomePopup = dynamic(() => import("@/components/UXRWelcomePopup"));
 
 // GUNZscope Brand Fonts
 const chakraPetch = Chakra_Petch({
@@ -31,6 +33,18 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono",
   display: "swap",
 });
+
+const toasterStyle = {
+  background: 'var(--gs-dark-2)',
+  color: 'var(--gs-white)',
+  border: '1px solid rgba(255,255,255,0.06)',
+  fontFamily: 'var(--font-body)',
+} as const;
+
+const toasterClassNames = {
+  success: 'text-[var(--gs-profit)]',
+  error: 'text-[var(--gs-loss)]',
+} as const;
 
 export const metadata: Metadata = {
   title: "GUNZScope - GUN Token & NFT Portfolio Tracker",
@@ -61,18 +75,7 @@ export default function RootLayout({
           <OnboardingChecklist />
           <Toaster
             position="top-right"
-            toastOptions={{
-              style: {
-                background: 'var(--gs-dark-2)',
-                color: 'var(--gs-white)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                fontFamily: 'var(--font-body)',
-              },
-              classNames: {
-                success: 'text-[var(--gs-profit)]',
-                error: 'text-[var(--gs-loss)]',
-              },
-            }}
+            toastOptions={{ style: toasterStyle, classNames: toasterClassNames }}
           />
         </DynamicProvider>
         </PostHogProvider>
