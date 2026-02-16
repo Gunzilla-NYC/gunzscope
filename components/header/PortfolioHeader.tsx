@@ -37,20 +37,22 @@ export default function PortfolioHeader({
   // Get data from context
   const { walletData } = usePortfolioWallet();
   const portfolioResult = usePortfolioResult();
-  const { allNfts } = usePortfolioNFTs();
+  const { allNfts, isEnriching, enrichmentProgress } = usePortfolioNFTs();
 
   // Total value and NFT count for history tracking.
   // Prefer market value (listing > floor > cost) when available, fall back to cost basis.
   const totalTokenValue = portfolioResult?.totalMarketValueUsd ?? portfolioResult?.totalUsd ?? 0;
   const nftCount = portfolioResult?.nftCount ?? allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
 
-  // Add portfolio snapshot for history tracking
-  // Must be called unconditionally (React hooks rules)
+  // Only record snapshots once enrichment is complete to avoid storing partial
+  // values that make the sparkline jump up and down across page reloads.
+  const enrichmentDone = !isEnriching && enrichmentProgress != null && enrichmentProgress.total > 0;
+
   useEffect(() => {
-    if (walletData?.address && totalTokenValue > 0) {
+    if (walletData?.address && totalTokenValue > 0 && enrichmentDone) {
       addPortfolioSnapshot(walletData.address, totalTokenValue, nftCount);
     }
-  }, [walletData?.address, totalTokenValue, nftCount]);
+  }, [walletData?.address, totalTokenValue, nftCount, enrichmentDone]);
 
   // Determine if WalletIdentity would render in "hidden" mode
   const isOwnWallet = useMemo(() => {

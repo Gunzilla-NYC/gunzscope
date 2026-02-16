@@ -11,7 +11,7 @@ export function formatChangeDisplay(
     return { text: 'Calculating\u2026', colorClass: 'text-[var(--gs-gray-2)]', isCalculating: true };
   }
 
-  const colorClass = value > 0 ? 'text-[#beffd2]' : value < 0 ? 'text-[#ff6b6b]' : 'text-[var(--gs-gray-3)]';
+  const colorClass = value > 0 ? 'text-[var(--gs-profit)]' : value < 0 ? 'text-[var(--gs-loss)]' : 'text-[var(--gs-gray-3)]';
 
   if (isPercent) {
     const sign = value >= 0 ? '+' : '';

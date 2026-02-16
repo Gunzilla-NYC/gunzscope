@@ -8,6 +8,8 @@ import Footer from '@/components/Footer';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { useAlertPreferences, type AlertType } from '@/lib/hooks/useAlertPreferences';
 import { useFeatureRequests } from '@/lib/hooks/useFeatureRequests';
+import { useShareStats } from '@/lib/hooks/useShareStats';
+import { getRelativeTime } from '@/lib/hooks/useScarcity';
 import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
 
@@ -154,6 +156,7 @@ function AccountContent() {
   } = useAlertPreferences();
 
   const { requests: featureRequests } = useFeatureRequests();
+  const { stats: shareStats } = useShareStats();
 
   // Local state
   const [newAddress, setNewAddress] = useState('');
@@ -979,6 +982,54 @@ function AccountContent() {
                           <span className={`font-mono text-label uppercase tracking-wider px-1.5 py-0.5 shrink-0 ${statusStyle.bg} ${statusStyle.text}`}>
                             {statusStyle.label}
                           </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ── Share Stats ── */}
+            {shareStats && shareStats.totalShares > 0 && (
+              <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
+                <div className="h-[2px] gradient-accent-line" />
+                <div className="p-6">
+                  <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-4">
+                    Share Stats
+                  </p>
+                  <div className="flex gap-6 mb-4">
+                    <div>
+                      <p className="font-display text-2xl font-bold text-[var(--gs-lime)]">{shareStats.totalShares}</p>
+                      <p className="font-mono text-caption text-[var(--gs-gray-3)]">Shares</p>
+                    </div>
+                    <div>
+                      <p className="font-display text-2xl font-bold text-[var(--gs-purple)]">{shareStats.totalViews}</p>
+                      <p className="font-mono text-caption text-[var(--gs-gray-3)]">Views</p>
+                    </div>
+                  </div>
+                  <div className="space-y-0">
+                    {shareStats.shares.slice(0, 10).map((s) => {
+                      const shortAddr = `${s.address.slice(0, 6)}\u2026${s.address.slice(-4)}`;
+                      const platformLabel = { x: 'X', discord: 'Discord', copy: 'Link' }[s.platform] ?? s.platform;
+                      const timeAgo = getRelativeTime(s.createdAt);
+                      return (
+                        <div
+                          key={s.code}
+                          className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-b-0"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="font-mono text-data text-[var(--gs-gray-4)]">{shortAddr}</span>
+                            <span className="font-mono text-caption uppercase tracking-wider px-1.5 py-0.5 bg-white/[0.04] text-[var(--gs-gray-3)]">
+                              {platformLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="font-mono text-data tabular-nums text-[var(--gs-gray-4)]">
+                              {s.viewCount} {s.viewCount === 1 ? 'view' : 'views'}
+                            </span>
+                            <span className="font-mono text-caption text-[var(--gs-gray-2)]">{timeAgo}</span>
+                          </div>
                         </div>
                       );
                     })}

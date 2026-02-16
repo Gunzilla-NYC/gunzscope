@@ -7,7 +7,7 @@
 
 'use client';
 
-import Image from 'next/image';
+import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel } from './utils';
 import type { NFTGalleryListRowProps } from './types';
@@ -56,26 +56,14 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioVie
           {nft.quantity && nft.quantity > 1 ? `×${nft.quantity}` : (rarityName === 'Unknown' ? '—' : rarityName.slice(0, 4))}
         </span>
 
-        {nft.image ? (
-          <Image
-            src={nft.image}
-            alt={nft.name}
-            fill
-            className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-            loading="lazy"
-            sizes="56px"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="font-display text-lg font-bold text-[var(--gs-gray-1)]">
-              {nameInitials}
-            </span>
-          </div>
-        )}
+        <NFTImage
+          src={nft.image}
+          alt={nft.name}
+          fill
+          className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+          sizes="56px"
+          fallbackInitials={nameInitials}
+        />
       </div>
 
       {/* Info */}

@@ -6,6 +6,7 @@ import { NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
 import InsightsPanel from '@/components/ui/InsightsPanel';
+import { clipHex } from '@/lib/utils/styles';
 import ChartInsightsRow from './ChartInsightsRow';
 import { usePortfolioSummaryData } from './usePortfolioSummaryData';
 import { ValueHeader } from './ValueHeader';
@@ -145,7 +146,7 @@ export default function PortfolioSummaryBar({
   return (
     <div
       className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden"
-      style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+      style={{ clipPath: clipHex(10) }}
     >
       {/* Value Header */}
       <ValueHeader

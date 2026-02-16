@@ -1,5 +1,6 @@
 import { EnrichmentProgress } from '@/lib/types';
 import { formatUsd } from '@/lib/portfolio/calcPortfolio';
+import { clipHex } from '@/lib/utils/styles';
 import InfoTooltip from '@/components/ui/InfoTooltip';
 import { NftPnL, AcquisitionBreakdown } from './types';
 
@@ -138,7 +139,7 @@ export function DetailedGrid({
 
             <div
               className="h-[3px] w-full flex mb-3 overflow-hidden"
-              style={{ clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))' }}
+              style={{ clipPath: clipHex(2) }}
             >
               <div className="h-full bg-[var(--gs-lime)]" style={{ width: `${gunPct}%` }} />
               <div className="h-full bg-[var(--gs-purple)]" style={{ width: `${nftPct}%` }} />

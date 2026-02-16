@@ -7,7 +7,7 @@
 
 'use client';
 
-import Image from 'next/image';
+import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel } from './utils';
 import type { NFTGalleryGridCardProps } from './types';
@@ -53,26 +53,15 @@ export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, p
         />
 
         {/* Image or Placeholder */}
-        {nft.image ? (
-          <Image
-            src={nft.image}
-            alt={nft.name}
-            fill
-            className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-            loading="lazy"
-            sizes={viewMode === 'small' ? '(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="font-display text-3xl font-bold text-[var(--gs-gray-1)] group-hover:text-[var(--gs-gray-2)] transition-colors">
-              {nameInitials}
-            </span>
-          </div>
-        )}
+        <NFTImage
+          src={nft.image}
+          alt={nft.name}
+          fill
+          className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+          sizes={viewMode === 'small' ? '(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
+          fallbackInitials={nameInitials}
+          fallbackClassName="font-display text-3xl font-bold text-[var(--gs-gray-1)] group-hover:text-[var(--gs-gray-2)] transition-colors"
+        />
       </div>
 
       {/* Name */}
@@ -166,7 +155,7 @@ export function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, p
       >
         {mintData.length > 1 ? (
           mintData.map((m, i) => (
-            <span key={m.mint}>
+            <span key={`${m.mint}-${i}`}>
               <span style={{ color: getRarityColorByName(m.rarity) }}>{m.mint}</span>
               {i < mintData.length - 1 && <span className="text-[var(--gs-gray-3)]">, </span>}
             </span>

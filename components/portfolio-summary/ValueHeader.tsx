@@ -3,6 +3,7 @@
 import { EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
+import { clipHex } from '@/lib/utils/styles';
 import BackdropChart from '@/components/charts/BackdropChart';
 import { ShareDropdown } from './ShareDropdown';
 import { ChangeDisplay } from './types';
@@ -47,7 +48,7 @@ export function ValueHeader({
   const is7dDown = changePercent7d.text.startsWith('-');
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden" style={{ minHeight: 140 }}>
       {/* Visx backdrop chart — top-fade mask prevents overlap with text */}
       {hasSparkline && (
         <div
@@ -84,7 +85,7 @@ export function ValueHeader({
                 </span>
                 <div
                   className="h-[3px] w-48 bg-[var(--gs-dark-4)] overflow-hidden"
-                  style={{ clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))' }}
+                  style={{ clipPath: clipHex(2) }}
                 >
                   <div
                     className="h-full bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)] animate-loading-bar"
@@ -111,7 +112,7 @@ export function ValueHeader({
                         ? 'bg-[var(--gs-loss)]/8 border-[var(--gs-loss)]/20 text-[var(--gs-loss)]'
                         : 'bg-white/5 border-white/10 text-[var(--gs-gray-4)]'
                     }`}
-                    style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+                    style={{ clipPath: clipHex(4) }}
                   >
                     {is7dUp && (
                       <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">

@@ -20,8 +20,6 @@ export interface PortfolioContextValue {
 
   // Price data
   gunPrice: number | undefined;
-  gunPriceChange24h: number | undefined;
-  gunPriceChangePercent24h: number | undefined;
 
   // Network info
   networkInfo: NetworkInfo | null;
@@ -51,8 +49,6 @@ const defaultValue: PortfolioContextValue = {
   walletData: null,
   address: null,
   gunPrice: undefined,
-  gunPriceChange24h: undefined,
-  gunPriceChangePercent24h: undefined,
   networkInfo: null,
   walletType: 'unknown',
   portfolioResult: null,
@@ -112,8 +108,8 @@ export function usePortfolioContext() {
  * Re-renders only when price values change.
  */
 export function usePortfolioGunPrice() {
-  const { gunPrice, gunPriceChange24h, gunPriceChangePercent24h } = usePortfolioContext();
-  return { gunPrice, gunPriceChange24h, gunPriceChangePercent24h };
+  const { gunPrice } = usePortfolioContext();
+  return { gunPrice };
 }
 
 /**

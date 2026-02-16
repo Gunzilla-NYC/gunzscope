@@ -118,7 +118,9 @@ export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsi
 
         {/* Right: Insights */}
         {hasInsights && (
-          <div className="border-t lg:border-t-0 lg:border-l border-white/[0.06] px-4 pt-3 pb-4">
+          <div
+            className="border-t-[1px] border-t-white/[0.06] border-l-0 lg:border-t-0 lg:border-l-[1px] lg:border-l-white/[0.06] px-4 pt-3 pb-4"
+          >
             <InsightsPanel insights={insights} />
           </div>
         )}

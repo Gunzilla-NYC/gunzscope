@@ -15,9 +15,25 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.1.7',
+    date: 'Feb 15, 2026',
+    tag: 'current',
+    items: [
+      'Acquisition Timeline \u2014 log\u2011scale Y\u2011axis with curated tick marks for better dot distribution',
+      'Data\u2011driven dot entrance animation \u2014 new dots materialize as enrichment discovers them',
+      'Portfolio sparkline stability \u2014 snapshots only record after enrichment completes, eliminating jagged reloads',
+      'Backdrop sparkline clipping fix \u2014 increased top margin and enforced minimum container height',
+      'Hydration fix \u2014 loading text no longer mismatches between server and client renders',
+      'CSS shorthand/longhand conflict resolved in chart metadata card and insights border',
+      'Chart zoom no longer inflates container height \u2014 fixed\u2011height chart area with hidden scrollbar',
+      'ShareDropdown cleanup \u2014 removed dead code, simplified conditional logic',
+      'SimpleMetrics and usePortfolioSummaryData reduced by ~700 lines of dead code',
+      'PnLScatterPlot simplified \u2014 removed unused tooltip state and redundant computations',
+    ],
+  },
+  {
     version: 'v0.1.6',
     date: 'Feb 14, 2026',
-    tag: 'current',
     items: [
       'Social sharing \u2014 Share on X, Discord, or copy link with rich OG preview cards showing portfolio value, P&L, and NFT count',
       'Valuation waterfall upgrade \u2014 per\u2011item listing > comparable sales median > rarity\u2011tier floor > cost basis',

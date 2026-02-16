@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Circle, Line } from '@visx/shape';
-import { scaleSqrt, scaleTime } from '@visx/scale';
+import { scaleLog, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
 import { GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
@@ -12,6 +12,7 @@ import { chartTheme } from './theme';
 import { useProximityLock, LockPoint } from './useProximityLock';
 import { useGrabScroll } from './useGrabScroll';
 import { RARITY_COLORS } from '@/components/nft-gallery/utils';
+import { formatGun, HUD_KEYFRAMES, GlowFilterDef, HudLockOverlay } from './utils';
 
 interface AcquisitionTimelineProps {
   nfts: NFT[];
@@ -33,7 +34,7 @@ interface TimelineDatum {
 }
 
 const MARGIN = { top: 14, right: 16, bottom: 32, left: 16 };
-const CHART_HEIGHT = 180;
+const CHART_HEIGHT = 195;
 
 const VENUE_COLORS: Record<string, string> = {
   decode: chartTheme.colors.lime,
@@ -59,12 +60,6 @@ function venueLabel(venue: string): string {
     case 'transfer': return 'Transfer';
     default: return venue.replace(/_/g, ' ');
   }
-}
-
-function formatGun(val: number): string {
-  if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
-  if (val >= 100) return val.toFixed(0);
-  return val.toFixed(1);
 }
 
 function TimelineChart({
@@ -104,18 +99,34 @@ function TimelineChart({
     [dateExtent, innerWidth],
   );
 
-  // sqrt scale for cost — compresses big outliers, spreads small values
+  // Log scale for cost — spreads small values across the full height
+  // while compressing outliers. Domain starts at 0.5 (log can't start at 0).
   const yScale = useMemo(
-    () => scaleSqrt<number>({ domain: [0, maxCost * 1.2], range: [innerHeight, 0] }),
+    () => scaleLog<number>({ domain: [0.5, maxCost * 1.3], range: [innerHeight, 0], base: 10, clamp: true }),
     [maxCost, innerHeight],
   );
 
-  // Collect unique venue colors for stem gradients
+  // Memoize stem gradient defs — only changes when data venues change
   const uniqueColors = useMemo(() => {
     const colors = new Set<string>();
     for (const d of data) colors.add(venueColor(d.venue));
     return Array.from(colors);
   }, [data]);
+
+  const stemGradientDefs = useMemo(
+    () =>
+      uniqueColors.map(color => (
+        <linearGradient
+          key={color}
+          id={`stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`}
+          x1="0" y1="1" x2="0" y2="0"
+        >
+          <stop offset="0%" stopColor={color} stopOpacity={0} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.5} />
+        </linearGradient>
+      )),
+    [uniqueColors],
+  );
 
   // Build lock-on points from data (in group coordinate space)
   const lockPoints: LockPoint[] = useMemo(
@@ -129,6 +140,21 @@ function TimelineChart({
     { left: MARGIN.left, top: MARGIN.top },
     40,
   );
+
+  // Track which dots have been seen so only newly-arriving dots animate
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const newIds = useMemo(() => {
+    const fresh = new Set<string>();
+    for (const d of data) {
+      if (!seenIdsRef.current.has(d.id)) fresh.add(d.id);
+    }
+    return fresh;
+  }, [data]);
+
+  // After render, mark all current dots as seen
+  useEffect(() => {
+    for (const d of data) seenIdsRef.current.add(d.id);
+  }, [data]);
 
   // Lookup the locked datum for tooltip
   const lockedDatum = useMemo(
@@ -154,29 +180,14 @@ function TimelineChart({
         style={{ cursor: lockedId ? 'crosshair' : 'default' }}
       >
         <defs>
-          <style>{`
-            @keyframes timeline-scan-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-            @keyframes timeline-lock-pulse { 0% { r: 0; opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0.5; } }
+          <style>{HUD_KEYFRAMES}{`
+            @keyframes dot-materialize {
+              0%   { opacity: 0; transform: scale(0); }
+              100% { opacity: 1; transform: scale(1); }
+            }
           `}</style>
-          {/* Glow filter */}
-          <filter id="timeline-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          {/* Stem gradients — one per unique venue color */}
-          {uniqueColors.map(color => (
-            <linearGradient
-              key={color}
-              id={`stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`}
-              x1="0" y1="1" x2="0" y2="0"
-            >
-              <stop offset="0%" stopColor={color} stopOpacity={0} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.5} />
-            </linearGradient>
-          ))}
+          <GlowFilterDef id="timeline-glow" />
+          {stemGradientDefs}
         </defs>
 
         <Group left={MARGIN.left} top={MARGIN.top}>
@@ -196,16 +207,23 @@ function TimelineChart({
             strokeWidth={1}
           />
 
-          {/* Data points */}
+          {/* Data points — new dots animate in as enrichment data arrives */}
           {data.map(d => {
             const cx = xScale(d.date);
             const cy = yScale(d.costGun);
             const isLocked = lockedId === d.id;
             const color = venueColor(d.venue);
             const gradientId = `stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+            const isNew = newIds.has(d.id);
 
             return (
-              <g key={d.id}>
+              <g
+                key={d.id}
+                style={isNew ? {
+                  animation: 'dot-materialize 450ms cubic-bezier(0.34,1.56,0.64,1) both',
+                  transformOrigin: `${cx}px ${cy}px`,
+                } : undefined}
+              >
                 {/* Gradient stem from baseline to dot */}
                 <line
                   x1={cx}
@@ -245,57 +263,15 @@ function TimelineChart({
           })}
 
           {/* HUD lock-on overlay — rendered above all dots */}
-          {lockedId && lockedPoint && lockedDatum && (() => {
-            const color = venueColor(lockedDatum.venue);
-            return (
-              <g pointerEvents="none">
-                {/* Crosshair guide lines — vertical to baseline, horizontal to left edge */}
-                <line
-                  x1={lockedPoint.x}
-                  y1={lockedPoint.y}
-                  x2={lockedPoint.x}
-                  y2={innerHeight}
-                  stroke={color}
-                  strokeOpacity={0.15}
-                  strokeWidth={1}
-                  strokeDasharray="3 3"
-                />
-                <line
-                  x1={lockedPoint.x}
-                  y1={lockedPoint.y}
-                  x2={0}
-                  y2={lockedPoint.y}
-                  stroke={color}
-                  strokeOpacity={0.15}
-                  strokeWidth={1}
-                  strokeDasharray="3 3"
-                />
-                {/* Scanning ring — dashed, slowly rotates */}
-                <circle
-                  cx={lockedPoint.x}
-                  cy={lockedPoint.y}
-                  r={20}
-                  fill="none"
-                  stroke={color}
-                  strokeOpacity={0.3}
-                  strokeWidth={1}
-                  strokeDasharray="4 6"
-                  style={{ transformOrigin: `${lockedPoint.x}px ${lockedPoint.y}px`, animation: 'timeline-scan-spin 4s linear infinite' }}
-                />
-                {/* Lock ring — solid, pulses on acquire */}
-                <circle
-                  cx={lockedPoint.x}
-                  cy={lockedPoint.y}
-                  r={14}
-                  fill="none"
-                  stroke={color}
-                  strokeOpacity={0.5}
-                  strokeWidth={1.5}
-                  style={{ animation: 'timeline-lock-pulse 600ms ease-out' }}
-                />
-              </g>
-            );
-          })()}
+          {lockedId && lockedPoint && lockedDatum && (
+            <HudLockOverlay
+              point={lockedPoint}
+              color={venueColor(lockedDatum.venue)}
+              scanRadius={20}
+              lockRadius={14}
+              yExtent={innerHeight}
+            />
+          )}
 
           {/* Time axis — smart formatting based on date range */}
           <AxisBottom
@@ -337,15 +313,8 @@ function TimelineChart({
             GUN
           </text>
 
-          {/* Cost scale markers — right-aligned for proper number column */}
-          {(() => {
-            const candidates = [1, 2, 5, 10, 15, 20, 25, 30, 50, 75, 100, 150, 200, 250, 500, 750, 1000, 2000, 5000];
-            const ticks = candidates.filter(v => v > 0 && v < maxCost * 0.95);
-            // Keep at most 6 ticks to avoid clutter
-            const step = Math.max(1, Math.floor(ticks.length / 6));
-            const selected = ticks.filter((_, i) => i % step === 0).slice(0, 6);
-            return selected;
-          })().map((val, i) => (
+          {/* Cost scale markers — clean log-spaced ticks */}
+          {[1, 2, 5, 10, 25, 50, 100, 200, 500, 1000, 2500, 5000].filter(v => v >= 1 && v <= maxCost * 1.1).map((val, i) => (
             <text
               key={i}
               x={30}
@@ -397,7 +366,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
 
   const hasData = timelineData.length >= 2;
 
-  const chartHeight = Math.round(CHART_HEIGHT * Math.min(zoomLevel, 1.5));
+  const chartHeight = CHART_HEIGHT;
 
   // Chart body content (shared between embedded and standalone)
   const chartBody = (
@@ -405,8 +374,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
       {hasData ? (
         <div
           ref={grabScrollRef}
-          className="overflow-x-auto"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}
+          className="overflow-x-auto scrollbar-hidden"
         >
           <div style={{ width: `${100 * zoomLevel}%`, minWidth: '100%' }}>
             <ParentSize debounceTime={100}>
@@ -426,7 +394,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
 
       {/* Legend + locked item data — single inline row */}
       {hasData && (
-        <div className="flex items-center gap-3 mt-2 min-h-[20px]">
+        <div className="flex items-center gap-3 mt-2 h-[28px]">
           {/* Venue legend (left) */}
           {venueCounts.map(([venue]) => {
             const originalKey = timelineData.find(d => venueLabel(d.venue) === venue)?.venue ?? 'unknown';
@@ -450,20 +418,27 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
             const venueCol = venueColor(lockedDatum.venue);
             const qualityCol = RARITY_COLORS[lockedDatum.quality] || '#888888';
             return (
-              <div className="ml-auto flex items-center gap-2.5 font-mono" style={{ fontSize: 11 }}>
+              <div
+                className="ml-auto flex items-center gap-2.5 font-mono"
+                style={{
+                  fontSize: 11,
+                  background: 'rgba(255,255,255,0.03)',
+                  borderWidth: '1px 1px 1px 2px',
+                  borderStyle: 'solid',
+                  borderColor: `rgba(255,255,255,0.06) rgba(255,255,255,0.06) rgba(255,255,255,0.06) ${qualityCol}`,
+                  padding: '4px 10px',
+                }}
+              >
                 <span
                   style={{
                     display: 'inline-block',
-                    width: 200,
+                    maxWidth: 200,
                     fontWeight: 700,
                     fontSize: 12,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    color: qualityCol,
-                    border: `1px solid ${qualityCol}30`,
-                    background: `${qualityCol}0A`,
-                    padding: '1px 6px',
+                    color: 'white',
                   }}
                 >
                   {lockedDatum.name}

@@ -57,7 +57,7 @@ export async function GET(
               fontFamily: 'JetBrains Mono',
             }}
           >
-            v0.1.6
+            v0.1.7
           </span>
         </div>
 

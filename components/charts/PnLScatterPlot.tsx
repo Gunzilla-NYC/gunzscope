@@ -12,6 +12,7 @@ import { chartTheme } from './theme';
 import { useProximityLock, LockPoint } from './useProximityLock';
 import { useGrabScroll } from './useGrabScroll';
 import { RARITY_COLORS } from '@/components/nft-gallery/utils';
+import { formatGun, generateSmartTicks, HUD_KEYFRAMES, GlowFilterDef, HudLockOverlay } from './utils';
 
 interface PnLScatterPlotProps {
   nfts: NFT[];
@@ -35,13 +36,6 @@ interface ScatterDatum {
 
 const MARGIN = { top: 20, right: 20, bottom: 38, left: 58 };
 const CHART_HEIGHT = 230;
-
-function formatGun(val: number): string {
-  if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
-  if (val >= 100) return val.toFixed(0);
-  if (val >= 10) return val.toFixed(0);
-  return val.toFixed(1);
-}
 
 function ScatterChart({
   data,
@@ -86,10 +80,37 @@ function ScatterChart({
   );
 
   // Custom tick values for clean axis labels on sqrt scale
-  const tickValues = useMemo(() => {
-    const candidates = [0, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000, 10000];
-    return candidates.filter(v => v <= maxVal * 0.95);
-  }, [maxVal]);
+  const tickValues = useMemo(() => generateSmartTicks(maxVal, 0, true), [maxVal]);
+
+  // Memoize all static gradient defs — never changes
+  const staticDefs = useMemo(
+    () => (
+      <>
+        <radialGradient id="zone-profit-glow" cx="15%" cy="15%" r="85%">
+          <stop offset="0%" stopColor={chartTheme.colors.profit} stopOpacity={0.04} />
+          <stop offset="100%" stopColor={chartTheme.colors.profit} stopOpacity={0} />
+        </radialGradient>
+        <radialGradient id="zone-loss-glow" cx="85%" cy="85%" r="85%">
+          <stop offset="0%" stopColor={chartTheme.colors.loss} stopOpacity={0.04} />
+          <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
+        </radialGradient>
+        <linearGradient id="breakeven-gradient" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stopColor="white" stopOpacity={0.04} />
+          <stop offset="50%" stopColor="white" stopOpacity={0.15} />
+          <stop offset="100%" stopColor="white" stopOpacity={0.04} />
+        </linearGradient>
+        <radialGradient id="dot-highlight-profit" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="white" stopOpacity={0.3} />
+          <stop offset="100%" stopColor={chartTheme.colors.profit} stopOpacity={0} />
+        </radialGradient>
+        <radialGradient id="dot-highlight-loss" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="white" stopOpacity={0.3} />
+          <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
+        </radialGradient>
+      </>
+    ),
+    [],
+  );
 
   // Build lock-on points from data (in group coordinate space)
   const lockPoints: LockPoint[] = useMemo(
@@ -128,42 +149,9 @@ function ScatterChart({
         style={{ cursor: lockedId ? 'crosshair' : 'default' }}
       >
         <defs>
-          <style>{`
-            @keyframes scatter-scan-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-            @keyframes scatter-lock-pulse { 0% { r: 0; opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0.5; } }
-          `}</style>
-          {/* Glow filter for locked dots */}
-          <filter id="scatter-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          {/* Zone radial gradients */}
-          <radialGradient id="zone-profit-glow" cx="15%" cy="15%" r="85%">
-            <stop offset="0%" stopColor={chartTheme.colors.profit} stopOpacity={0.04} />
-            <stop offset="100%" stopColor={chartTheme.colors.profit} stopOpacity={0} />
-          </radialGradient>
-          <radialGradient id="zone-loss-glow" cx="85%" cy="85%" r="85%">
-            <stop offset="0%" stopColor={chartTheme.colors.loss} stopOpacity={0.04} />
-            <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
-          </radialGradient>
-          {/* Break-even line gradient — brighter at center */}
-          <linearGradient id="breakeven-gradient" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="white" stopOpacity={0.04} />
-            <stop offset="50%" stopColor="white" stopOpacity={0.15} />
-            <stop offset="100%" stopColor="white" stopOpacity={0.04} />
-          </linearGradient>
-          {/* Dot inner highlight gradient */}
-          <radialGradient id="dot-highlight-profit" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="white" stopOpacity={0.3} />
-            <stop offset="100%" stopColor={chartTheme.colors.profit} stopOpacity={0} />
-          </radialGradient>
-          <radialGradient id="dot-highlight-loss" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="white" stopOpacity={0.3} />
-            <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
-          </radialGradient>
+          <style>{HUD_KEYFRAMES}</style>
+          <GlowFilterDef id="scatter-glow" stdDeviation={3} />
+          {staticDefs}
         </defs>
 
         <Group left={MARGIN.left} top={MARGIN.top}>
@@ -296,52 +284,13 @@ function ScatterChart({
             const color = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
             const r = sizeScale(lockedDatum.quantity);
             return (
-              <g pointerEvents="none">
-                {/* Crosshair guide lines to axes */}
-                <line
-                  x1={lockedPoint.x}
-                  y1={lockedPoint.y}
-                  x2={lockedPoint.x}
-                  y2={innerHeight}
-                  stroke={color}
-                  strokeOpacity={0.15}
-                  strokeWidth={1}
-                  strokeDasharray="3 3"
-                />
-                <line
-                  x1={lockedPoint.x}
-                  y1={lockedPoint.y}
-                  x2={0}
-                  y2={lockedPoint.y}
-                  stroke={color}
-                  strokeOpacity={0.15}
-                  strokeWidth={1}
-                  strokeDasharray="3 3"
-                />
-                {/* Scanning ring — dashed, slowly rotates */}
-                <circle
-                  cx={lockedPoint.x}
-                  cy={lockedPoint.y}
-                  r={r + 16}
-                  fill="none"
-                  stroke={color}
-                  strokeOpacity={0.3}
-                  strokeWidth={1}
-                  strokeDasharray="4 6"
-                  style={{ transformOrigin: `${lockedPoint.x}px ${lockedPoint.y}px`, animation: 'scatter-scan-spin 4s linear infinite' }}
-                />
-                {/* Lock ring — solid, pulses on acquire */}
-                <circle
-                  cx={lockedPoint.x}
-                  cy={lockedPoint.y}
-                  r={r + 10}
-                  fill="none"
-                  stroke={color}
-                  strokeOpacity={0.5}
-                  strokeWidth={1.5}
-                  style={{ animation: 'scatter-lock-pulse 600ms ease-out' }}
-                />
-              </g>
+              <HudLockOverlay
+                point={lockedPoint}
+                color={color}
+                scanRadius={r + 16}
+                lockRadius={r + 10}
+                yExtent={innerHeight}
+              />
             );
           })()}
 

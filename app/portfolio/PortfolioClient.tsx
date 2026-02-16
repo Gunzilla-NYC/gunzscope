@@ -8,7 +8,7 @@ import DebugPanel from '@/components/DebugPanel';
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { NFT } from '@/lib/types';
-import { NetworkInfo } from '@/lib/utils/networkDetector';
+import type { NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata, mergeIntoGroups } from '@/lib/utils/nftGrouping';
 import Navbar from '@/components/Navbar';
 import AccountPanel from '@/components/AccountPanel';
@@ -69,14 +69,20 @@ export default function PortfolioClient() {
   );
 }
 
+// Hardcoded — we always target GunzChain mainnet
+const NETWORK_INFO: NetworkInfo = {
+  environment: 'mainnet',
+  chainId: 43419,
+  name: 'GunzChain Mainnet',
+  explorerUrl: 'https://gunzscan.io',
+};
+
 function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; initialAddress: string | null }) {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
   const [gunPriceSparkline, setGunPriceSparkline] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
-  const [walletType, setWalletType] = useState<'in-game' | 'external' | 'unknown'>('unknown');
   const [searchAddress, setSearchAddress] = useState('');
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
   // noWalletDetected, showFoundMessage — owned by usePortfolioAutoLoad below
@@ -142,6 +148,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     { includePortfolio: portfolioWalletsData.length > 0 }
   );
 
+  // portfolioMergedRef: tracks whether late-arriving portfolio wallets have been merged.
+  // Reset in handleWalletSubmit and handleWalletDisconnect.
+  const portfolioMergedRef = useRef(false);
+
   // Wallet search dropdown state
   const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
@@ -167,6 +177,53 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   ) ?? false;
   const addressInPortfolio = isInPortfolio(searchAddress);
   const isAtPortfolioLimit = (profile?.portfolioAddresses?.length ?? 0) >= 5;
+
+  // Late portfolio merge: when portfolioAddresses arrive after the initial
+  // single-wallet load, fetch the missing wallets and merge them in.
+  // Handles the race where usePortfolioAutoLoad fires before /api/me returns.
+  useEffect(() => {
+    if (portfolioMergedRef.current) return;
+    if (!walletData || loading) return;
+    if (!isConnected || portfolioAddresses.length === 0) return;
+
+    const loadedSet = new Set(aggregatedAddresses.map(a => a.toLowerCase()));
+    const missingAddresses = portfolioAddresses
+      .map(p => p.address)
+      .filter(a => !loadedSet.has(a.toLowerCase()));
+
+    if (missingAddresses.length === 0) return;
+    portfolioMergedRef.current = true;
+
+    const { avalanche: avalancheService } = getServices();
+    const marketplaceService = marketplaceServiceRef.current;
+
+    Promise.all(
+      missingAddresses.map(addr => walletFetcher.fetchSingleWallet(addr))
+    ).then(results => {
+      const successful = results.filter(
+        (r): r is NonNullable<typeof r> => r !== null
+      );
+      if (successful.length === 0) return;
+
+      const newWallets = successful.map(r => r.walletData);
+      setPortfolioWalletsData(prev => [...prev, ...newWallets]);
+      setAggregatedAddresses(prev => [...prev, ...newWallets.map(w => w.address)]);
+
+      // Enrich the new NFTs (cache means already-enriched items are instant)
+      const newNfts = newWallets.flatMap(w => w.avalanche.nfts);
+      if (newNfts.length > 0) {
+        const marketplaceConfigured = marketplaceService.isConfigured();
+        startEnrichment(
+          newNfts,
+          walletData.address,
+          avalancheService,
+          marketplaceConfigured ? marketplaceService : null,
+          createUpdateCallback(walletData.address)
+        );
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portfolioAddresses, walletData, loading, isConnected, aggregatedAddresses]);
 
   // Auto-save enriched portfolio to server cache when enrichment completes
   useEffect(() => {
@@ -235,13 +292,15 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   });
 
   // SDK init loading messages — displayed while waiting for wallet SDK to resolve
-  const SDK_INIT_WORDS = useMemo(() => {
+  // Stable first word avoids SSR/client hydration mismatch from Math.random().
+  // Shuffle happens on the client after mount via useEffect.
+  const SDK_INIT_POOL = useMemo(() => {
     if (is10pmWindow) return [TEN_PM_MESSAGE];
-    const pool = [
+    return [
+      'Hold on, the hamster powering the server tripped',
       'How many hexes did you have to open to collect all this shit',
       'Somewhere on Teardrop Island, your wallet is being looted',
       'Wallet SDK is being a little bitch rn',
-      'Hold on, the hamster powering the server tripped',
       'Loading\u2026 faster than it takes to find you a match',
       'This is taking longer than a hot drop wipe',
       'Patience is a virtue. You don\u2019t have it.',
@@ -251,8 +310,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       'Almost there. Maybe. No promises.',
       'Screaming into the void while your wallet connects',
     ];
-    return pool.sort(() => Math.random() - 0.5);
   }, [is10pmWindow]);
+  const [SDK_INIT_WORDS, setSdkInitWords] = useState(SDK_INIT_POOL);
+  useEffect(() => {
+    setSdkInitWords(prev => [...prev].sort(() => Math.random() - 0.5));
+  }, []);
   const sdkScramble = useTextScramble({
     words: SDK_INIT_WORDS,
     scrambleDuration: 600,
@@ -408,6 +470,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Cancel any ongoing enrichment
     cancelEnrichment();
+    portfolioMergedRef.current = false;
 
     // Cache-first hydration for authenticated users — render cached portfolio instantly
     let hydratedFromCache = false;
@@ -519,16 +582,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         }
       }
 
-      // Set network info and wallet type (from primary address)
-      // Network info is hardcoded — we know it's GunzChain mainnet
-      setNetworkInfo({
-        environment: 'mainnet',
-        chainId: 43419,
-        name: 'GunzChain Mainnet',
-        explorerUrl: 'https://gunzscan.io',
-      });
-      setWalletType('unknown');
-
       setWalletData(mergedData);
       setLoading(false);
 
@@ -609,14 +662,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   };
 
   // Detect wallet address chain type
-  const detectChain = (addr: string): 'gunzchain' | 'solana' | null => {
-    const trimmed = addr.trim();
-    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return 'gunzchain';
-    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return 'solana';
+  const detectedChain = useMemo(() => {
+    const trimmed = searchAddress.trim();
+    if (!trimmed) return null;
+    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return 'gunzchain' as const;
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return 'solana' as const;
     return null;
-  };
-
-  const detectedChain = searchAddress.trim() ? detectChain(searchAddress) : null;
+  }, [searchAddress]);
 
   // Handle CTA form submit — the "Analyze a Wallet" entry form is ungated
   const handleCtaSearch = (e: React.FormEvent) => {
@@ -643,9 +695,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const handleWalletDisconnect = () => {
     flushPendingUpdates();
     cancelEnrichment();
+    portfolioMergedRef.current = false;
     setWalletData(null);
-    setNetworkInfo(null);
-    setWalletType('unknown');
     setGunPrice(undefined);
     setGunPriceSparkline([]);
     setError(null);
@@ -821,10 +872,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     walletData: effectiveWalletData,
     address: effectiveWalletData?.address ?? null,
     gunPrice,
-    gunPriceChange24h: undefined, // TODO: Add when available
-    gunPriceChangePercent24h: undefined, // TODO: Add when available
-    networkInfo,
-    walletType,
+    networkInfo: NETWORK_INFO,
+    walletType: 'unknown',
     portfolioResult,
     enrichmentProgress,
     isEnriching: enrichingNFTs,
@@ -835,8 +884,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   }), [
     effectiveWalletData,
     gunPrice,
-    networkInfo,
-    walletType,
     portfolioResult,
     enrichmentProgress,
     enrichingNFTs,

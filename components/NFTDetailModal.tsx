@@ -9,8 +9,8 @@
 // =============================================================================
 
 import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
-import Image from 'next/image';
 import dynamic from 'next/dynamic';
+import { NFTImage } from '@/components/ui/NFTImage';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -2024,21 +2024,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         >
                           {loadingDetails && isActive ? (
                             <div className="w-full h-full bg-[var(--gs-dark-2)] animate-pulse" />
-                          ) : nft.image ? (
-                            <Image
+                          ) : (
+                            <NFTImage
                               src={nft.image}
                               alt={`${nft.name} #${item.mintNumber}`}
                               fill
                               className="object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                              }}
                             />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-[var(--gs-dark-2)] text-gray-600 text-xs">
-                              No Image
-                            </div>
                           )}
                           {/* Mint badge — rarity-colored text, transparent fill, colored border */}
                           <div
@@ -2067,21 +2059,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     >
                       {loadingDetails ? (
                         <div className="w-full h-full bg-[var(--gs-dark-2)] animate-pulse" />
-                      ) : nft.image ? (
-                        <Image
+                      ) : (
+                        <NFTImage
                           src={nft.image}
                           alt={nft.name}
                           fill
                           className="object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
                         />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-[var(--gs-dark-2)] text-gray-600">
-                          No Image
-                        </div>
                       )}
                     </div>
                   </div>
@@ -2620,21 +2604,13 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         >
                           {/* Thumbnail */}
                           <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-black/50">
-                            {item.image ? (
-                              <Image
-                                src={item.image}
-                                alt={item.name}
-                                width={48}
-                                height={48}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              </div>
-                            )}
+                            <NFTImage
+                              src={item.image}
+                              alt={item.name}
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
 
                           {/* Item Info */}

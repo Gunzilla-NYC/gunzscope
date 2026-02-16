@@ -23,7 +23,7 @@ interface ChartDatum {
   value: number;
 }
 
-const MARGIN = { top: 4, right: 44, bottom: 16, left: 0 };
+const MARGIN = { top: 16, right: 44, bottom: 16, left: 0 };
 
 function Chart({
   values,
