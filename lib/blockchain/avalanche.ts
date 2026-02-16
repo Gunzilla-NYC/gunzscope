@@ -1424,6 +1424,17 @@ export class AvalancheService {
             console.log(`[getNFTHoldingAcquisition] Native GUN payment: ${costGun}`);
           }
         }
+
+        // Fallback: try wGUN (ERC-20) if native GUN didn't yield a cost.
+        // OpenSea offer fills use wGUN even on chains where GUN is native,
+        // because you can't escrow native tokens in a pre-signed offer.
+        if (costGun === 0 && receipt && gunTokenAddress) {
+          costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
+
+          if (DEBUG_ACQUISITION && costGun > 0) {
+            console.log(`[getNFTHoldingAcquisition] wGUN fallback payment: ${costGun}`);
+          }
+        }
       }
 
       return {
