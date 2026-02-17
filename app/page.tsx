@@ -351,7 +351,7 @@ export default function HomePage() {
             href="/changelog"
             className="font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
           >
-            v0.1.7 // EARLY ACCESS
+            v0.2.3 // EARLY ACCESS
           </Link>
         </div>
 
