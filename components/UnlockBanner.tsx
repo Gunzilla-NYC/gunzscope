@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface UnlockBannerProps {
   onConnect: () => void;
@@ -14,6 +15,8 @@ const FEATURES = [
   'Get your leaderboard ranking',
   'Access full P&L enrichment history',
 ];
+
+const SPRING = { stiffness: 300, damping: 30, mass: 0.8 };
 
 export default function UnlockBanner({ onConnect, searchCount }: UnlockBannerProps) {
   const [showTrust, setShowTrust] = useState(false);
@@ -90,11 +93,21 @@ export default function UnlockBanner({ onConnect, searchCount }: UnlockBannerPro
             </svg>
             What happens when I create an account?
           </button>
-          {showTrust && (
-            <p className="font-body text-xs text-[var(--gs-gray-3)] mt-2 ml-4.5 max-w-lg leading-relaxed">
-              Creating an account links your wallet read&#8209;only via Dynamic. We never request transaction signing or access to your funds. Your wallet address is only used to look up public blockchain data.
-            </p>
-          )}
+          <AnimatePresence>
+            {showTrust && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ height: { type: 'spring', ...SPRING }, opacity: { duration: 0.2 } }}
+                style={{ overflow: 'hidden' }}
+              >
+                <p className="font-body text-xs text-[var(--gs-gray-3)] mt-2 ml-4.5 max-w-lg leading-relaxed">
+                  Creating an account links your wallet read&#8209;only via Dynamic. We never request transaction signing or access to your funds. Your wallet address is only used to look up public blockchain data.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

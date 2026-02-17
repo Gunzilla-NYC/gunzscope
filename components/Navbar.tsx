@@ -90,9 +90,9 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center h-16">
             {/* Logo — connected users stay on current page, anonymous users go home */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 shrink-0">
               <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center group">
                 <div className="relative w-[9rem] sm:w-[12.5rem] overflow-hidden">
                   <Logo size="md" variant="full" glitchOnHover />
@@ -102,86 +102,88 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                 href="/changelog"
                 className="hidden sm:inline shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
               >
-                v0.2.0 // EARLY ACCESS
+                v0.2.1 // EARLY ACCESS
               </Link>
             </div>
 
-            {/* Navigation Links + Auth */}
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-5">
-                {isInApp && !isAnonymous && (
-                  <>
-                    <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
-                    {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
-                    {hasWallet && <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />}
-                    {hasWallet && <GlitchLink href="/market" label="Market" isActive={pathname === '/market'} />}
-                  </>
-                )}
-                {isAnonymous ? (
-                  !isInApp ? (
-                    isStaticPage ? (
-                      <button
-                        onClick={() => router.back()}
-                        className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
-                      >
-                        Back
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setShowAuthFlow(true)}
-                        className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                      >
-                        Login
-                      </button>
-                    )
-                  ) : null
-                ) : isConnected ? (
-                  <WalletDropdown
-                    walletAddress={walletAddress}
-                    connectorName={connectorName}
-                    isActive={isProfileActive}
-                    pathname={pathname}
-                    onDisconnect={handleDisconnect}
-                    onSwitchWallet={onSwitchWallet}
-                  />
-                ) : (
-                  <ProfileDropdown isActive={isProfileActive} pathname={pathname} />
-                )}
-              </div>
+            {/* Navigation links — pinned, unaffected by wallet width changes */}
+            <nav className="hidden md:flex items-center gap-5 ml-auto">
+              {isInApp && !isAnonymous && (
+                <>
+                  <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
+                  {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
+                  {hasWallet && <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />}
+                  {hasWallet && <GlitchLink href="/market" label="Market" isActive={pathname === '/market'} />}
+                </>
+              )}
+            </nav>
 
-              {/* Mobile: hamburger when authenticated, Login when anonymous + not in app */}
-              {!isAnonymous ? (
-                <button
-                  onClick={() => setMobileMenuOpen(prev => !prev)}
-                  className="md:hidden p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
-                  aria-label="Toggle menu"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    {mobileMenuOpen ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                    )}
-                  </svg>
-                </button>
-              ) : !isInApp ? (
-                isStaticPage ? (
-                  <button
-                    onClick={() => router.back()}
-                    className="md:hidden font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
-                  >
-                    Back
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowAuthFlow(true)}
-                    className="md:hidden font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                  >
-                    Login
-                  </button>
-                )
-              ) : null}
+            {/* Wallet / Auth — separate group so width changes don't shift nav links */}
+            <div className="hidden md:flex items-center ml-5">
+              {isAnonymous ? (
+                !isInApp ? (
+                  isStaticPage ? (
+                    <button
+                      onClick={() => router.back()}
+                      className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
+                    >
+                      Back
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowAuthFlow(true)}
+                      className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                    >
+                      Login
+                    </button>
+                  )
+                ) : null
+              ) : isConnected ? (
+                <WalletDropdown
+                  walletAddress={walletAddress}
+                  connectorName={connectorName}
+                  isActive={isProfileActive}
+                  pathname={pathname}
+                  onDisconnect={handleDisconnect}
+                  onSwitchWallet={onSwitchWallet}
+                />
+              ) : (
+                <ProfileDropdown isActive={isProfileActive} pathname={pathname} />
+              )}
             </div>
+
+            {/* Mobile: hamburger when authenticated, Login when anonymous + not in app */}
+            {!isAnonymous ? (
+              <button
+                onClick={() => setMobileMenuOpen(prev => !prev)}
+                className="md:hidden ml-auto p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
+                aria-label="Toggle menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  {mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                  )}
+                </svg>
+              </button>
+            ) : !isInApp ? (
+              isStaticPage ? (
+                <button
+                  onClick={() => router.back()}
+                  className="md:hidden ml-auto font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
+                >
+                  Back
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowAuthFlow(true)}
+                  className="md:hidden ml-auto font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                >
+                  Login
+                </button>
+              )
+            ) : null}
           </div>
         </div>
 

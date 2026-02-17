@@ -15,9 +15,24 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.2.1',
+    date: 'Feb 17, 2026 \u00B7 6:30 AM EST',
+    tag: 'current',
+    items: [
+      'Spring\u2011physics animations site\u2011wide \u2014 all panels, modals, drawers, and accordions now use motion/react with consistent spring config',
+      'Custom green arrow cursor \u2014 replaces default pointer everywhere, zero\u2011lag tracking via direct mousemove transform',
+      'Drop\u2011panel close fix \u2014 resolved race condition where trigger button click re\u2011opened panel immediately after click\u2011outside closed it',
+      'Active\u2011state indicators \u2014 wallet\u2011switcher and share trigger icons stay green while their panels are open',
+      'Navbar layout stability \u2014 three\u2011group flex prevents wallet address from shifting navigation links',
+      'BreakdownDrawer accordion \u2014 smooth height expand/collapse replaces instant show/hide',
+      'UnlockBanner trust section \u2014 spring\u2011animated height reveal instead of instant toggle',
+      'WeaponLabDrawer exit animation \u2014 drawer now slides out instead of vanishing on close',
+      'ConnectPromptModal entrance \u2014 scale + fade spring animation replaces no\u2011animation mount',
+    ],
+  },
+  {
     version: 'v0.2.0',
     date: 'Feb 16, 2026 \u00B7 5:48 AM EST',
-    tag: 'current',
     items: [
       'wGUN cost extraction fix \u2014 OpenSea offer fills now resolve acquisition cost from ERC\u201120 receipt logs',
       'Offer fill detection \u2014 NFTs acquired via pre\u2011signed OpenSea offers show "OpenSea (Offer)" as source',

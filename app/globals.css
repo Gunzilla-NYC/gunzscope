@@ -144,11 +144,9 @@ body {
   cursor: none;
 }
 
-/* Hide native cursor on interactive elements whose UA stylesheet sets a visible cursor.
-   body { cursor: none } handles everything via inheritance; the list below overrides
-   UA defaults and Tailwind cursor-* utilities on the specific elements that fight back. */
-a, button, input, select, textarea, summary, label,
-[role="button"], [tabindex]:not([tabindex="-1"]) {
+/* Hide native cursor globally — covers UA defaults, Tailwind cursor-* utilities,
+   and any inline cursor styles on every element. */
+*, *::before, *::after {
   cursor: none !important;
 }
 
@@ -744,20 +742,20 @@ a, button, input, select, textarea, summary, label,
   background: var(--gs-purple);
 }
 
-/* ── Targeting Reticle (SVG crosshair cursor) ── */
+/* ── Arrow Cursor (SVG pointer cursor) ── */
 
-.crosshair-reticle {
-  shape-rendering: crispEdges;
+.cursor-arrow {
+  shape-rendering: geometricPrecision;
 }
 
-/* Crosshair group — contracts when hovering clickable elements */
-.crosshair-scope {
-  transform-origin: 12px 12px;
+/* Arrow shape — subtle scale on interactive elements */
+.cursor-arrow-shape {
+  transform-origin: 0.8px 0.8px;
   transition: transform 0.15s ease-out;
 }
 
-.is-interactive .crosshair-scope {
-  transform: scale(0.65);
+.is-interactive .cursor-arrow-shape {
+  transform: scale(0.88);
 }
 
 /* Confidence dot slow blink — full opacity to near-invisible */

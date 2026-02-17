@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePortfolioWallet } from '@/lib/contexts/PortfolioContext';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
@@ -25,6 +25,7 @@ export function WalletDropdown({
   onSwitchWallet,
 }: WalletDropdownProps) {
   const [copied, setCopied] = useState(false);
+  const triggerBtnRef = useRef<HTMLButtonElement>(null);
 
   // Wallet details — only available on portfolio page (inside PortfolioProvider)
   const { walletData, networkInfo, walletType } = usePortfolioWallet();
@@ -35,14 +36,17 @@ export function WalletDropdown({
   const panelCtx = useSlidePanelContext();
   const [localOpen, setLocalOpen] = useState(false);
   const isOpen = panelCtx ? panelCtx.activePanel === 'wallet' : localOpen;
+  // Extract stable function refs — avoids re-triggering the route-change effect
+  const ctxToggle = panelCtx?.togglePanel;
+  const ctxClose = panelCtx?.closePanel;
   const toggle = useCallback(() => {
-    if (panelCtx) panelCtx.togglePanel('wallet');
+    if (ctxToggle) ctxToggle('wallet');
     else setLocalOpen((prev) => !prev);
-  }, [panelCtx]);
+  }, [ctxToggle]);
   const close = useCallback(() => {
-    if (panelCtx) panelCtx.closePanel();
+    if (ctxClose) ctxClose();
     else setLocalOpen(false);
-  }, [panelCtx]);
+  }, [ctxClose]);
 
   const displayLabel = profile?.displayName || truncateAddress(walletAddress).toUpperCase();
 
@@ -78,6 +82,7 @@ export function WalletDropdown({
     <>
       {/* Trigger — truncated wallet address with glitch effect */}
       <button
+        ref={triggerBtnRef}
         onClick={toggle}
         onMouseEnter={scramble}
         onMouseLeave={reset}
@@ -102,7 +107,7 @@ export function WalletDropdown({
       </button>
 
       {/* Slide-out panel */}
-      <SlidePanel isOpen={isOpen} onClose={close} title="Wallet">
+      <SlidePanel isOpen={isOpen} onClose={close} title="Wallet" triggerRef={triggerBtnRef}>
         {/* Identity section */}
         <div className="px-4 py-3 border-b border-white/[0.06]">
           <div className="flex items-center justify-between mb-1.5">

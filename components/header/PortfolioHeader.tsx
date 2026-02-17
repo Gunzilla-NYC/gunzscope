@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import WalletIdentity from './WalletIdentity';
 import { addPortfolioSnapshot } from '@/lib/utils/portfolioHistory';
 import {
@@ -8,6 +8,7 @@ import {
   usePortfolioResult,
   usePortfolioNFTs,
 } from '@/lib/contexts/PortfolioContext';
+import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
 import { PortfolioAddress } from '@/lib/hooks/useUserProfile';
 
 /**
@@ -54,6 +55,18 @@ export default function PortfolioHeader({
     }
   }, [walletData?.address, totalTokenValue, nftCount, enrichmentDone]);
 
+  // Register the panel slot div with SlidePanelContext so child
+  // components (WalletIdentity, ShareDropdown) can portal drop-panels into it.
+  const panelSlotRef = useRef<HTMLDivElement>(null);
+  const panelCtx = useSlidePanelContext();
+
+  useEffect(() => {
+    if (panelCtx?.setPanelSlotNode) {
+      panelCtx.setPanelSlotNode(panelSlotRef.current);
+      return () => panelCtx.setPanelSlotNode(null);
+    }
+  }, [panelCtx?.setPanelSlotNode]);
+
   // Determine if WalletIdentity would render in "hidden" mode
   const isOwnWallet = useMemo(() => {
     if (!walletData?.address || !primaryWalletAddress) return false;
@@ -69,19 +82,24 @@ export default function PortfolioHeader({
   if (shouldHide) return null;
 
   return (
-    <div
-      className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] px-4 py-2.5 overflow-hidden"
-      style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
-    >
-      <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-      <WalletIdentity
-        portfolioAddresses={portfolioAddresses}
-        aggregatedAddresses={aggregatedAddresses}
-        primaryWalletAddress={primaryWalletAddress}
-        isAuthenticated={isAuthenticated}
-        onSwitchWallet={onSwitchWallet}
-        onBackToOwnWallet={onBackToOwnWallet}
-      />
+    <div className="relative z-10">
+      {/* Visual header bar */}
+      <div
+        className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] px-6 py-2.5 overflow-hidden"
+        style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+      >
+        <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
+        <WalletIdentity
+          portfolioAddresses={portfolioAddresses}
+          aggregatedAddresses={aggregatedAddresses}
+          primaryWalletAddress={primaryWalletAddress}
+          isAuthenticated={isAuthenticated}
+          onSwitchWallet={onSwitchWallet}
+          onBackToOwnWallet={onBackToOwnWallet}
+        />
+      </div>
+      {/* Panel slot: drop-down panels portal into this div */}
+      <div ref={panelSlotRef} />
     </div>
   );
 }

@@ -3,20 +3,20 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Custom crosshair cursor — performance-optimized.
+ * Custom green arrow cursor — performance-optimized.
  *
  * Key optimizations:
+ * - Zero-lag: transform applied directly in mousemove handler (no rAF delay)
  * - Uses CSS translate3d (GPU-composited) instead of translate
  * - Caches interactive-element detection to avoid closest() on every mousemove
  * - Passive mousemove listener (no preventDefault needed)
- * - Idle detection stops rAF loop when cursor is still
- * - willChange only active during movement, removed when idle
  * - No React state — pure DOM refs for zero re-renders
  */
 
-const HALF = 12; // 24px reticle / 2
-const SMOOTHING = 0.7;
-const IDLE_THRESHOLD = 0.05; // sub-pixel — stop rAF when essentially still
+// Arrow tip offset — the green fill tip is at SVG coord (0.8, 0.8).
+// Offset the div so the tip lands exactly at the mouse position.
+const TIP_X = 1;
+const TIP_Y = 1;
 
 // Matches: <a>, <button>, [role="button"], <input>, <select>, <textarea>, <summary>, [tabindex]
 function isInteractive(el: Element | null): boolean {
@@ -37,7 +37,6 @@ function isInteractive(el: Element | null): boolean {
 
 export default function CrosshairCursor() {
   const elRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef(0);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -45,52 +44,21 @@ export default function CrosshairCursor() {
     const el = elRef.current;
     if (!el) return;
 
-    // Position state — plain numbers, no object allocation per frame
-    let tx = 0, ty = 0;   // target
-    let cx = 0, cy = 0;   // current (interpolated)
-    let idle = true;
     let visible = false;
     let interactive = false;
-
-    const animate = () => {
-      const dx = tx - cx;
-      const dy = ty - cy;
-      cx += dx * SMOOTHING;
-      cy += dy * SMOOTHING;
-
-      // translate3d triggers GPU compositing — no layout/paint
-      el.style.transform = `translate3d(${cx - HALF}px,${cy - HALF}px,0)`;
-
-      if (Math.abs(dx) < IDLE_THRESHOLD && Math.abs(dy) < IDLE_THRESHOLD) {
-        idle = true;
-        // Remove willChange when idle to free compositor memory
-        el.style.willChange = 'auto';
-        return;
-      }
-      rafRef.current = requestAnimationFrame(animate);
-    };
-
-    const wake = () => {
-      if (!idle) return;
-      idle = false;
-      el.style.willChange = 'transform';
-      rafRef.current = requestAnimationFrame(animate);
-    };
 
     // Cache the last inspected target to skip redundant DOM walks
     let lastTarget: Element | null = null;
     let lastResult = false;
 
     const onMove = (e: MouseEvent) => {
-      tx = e.clientX;
-      ty = e.clientY;
+      // Apply transform directly — no rAF delay, tip tracks mouse exactly
+      el.style.transform = `translate3d(${e.clientX - TIP_X}px,${e.clientY - TIP_Y}px,0)`;
 
       if (!visible) {
         visible = true;
         el.style.opacity = '1';
       }
-
-      wake();
 
       // Interactive detection — skip DOM walk if target hasn't changed
       const target = e.target as Element;
@@ -112,7 +80,6 @@ export default function CrosshairCursor() {
     const onEnter = () => {
       visible = true;
       el.style.opacity = '1';
-      wake();
     };
 
     // passive: true — we never call preventDefault, so tell the browser to skip that check
@@ -124,7 +91,6 @@ export default function CrosshairCursor() {
       window.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseleave', onLeave);
       document.removeEventListener('mouseenter', onEnter);
-      cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
@@ -139,26 +105,32 @@ export default function CrosshairCursor() {
         top: 0,
         opacity: 0,
         zIndex: 9999,
-        willChange: 'auto',
+        willChange: 'transform',
         contain: 'layout paint',
       }}
     >
-      {/* Inline SVG — 4 lines, no filters, crispEdges. Lighter than an <img> data-URI
-          because React hydrates it once and the browser composites it with the parent transform. */}
+      {/* Green arrow cursor — standard pointer shape, brand-colored */}
       <svg
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
+        width="16"
+        height="19"
+        viewBox="0 0 16 19"
         fill="none"
-        className="crosshair-reticle"
+        className="cursor-arrow"
       >
-        <g className="crosshair-scope">
-          {/* Glow (wide, semi-transparent) */}
-          <line x1="12" y1="0" x2="12" y2="24" stroke="rgba(166,247,0,0.3)" strokeWidth="3" />
-          <line x1="0" y1="12" x2="24" y2="12" stroke="rgba(166,247,0,0.3)" strokeWidth="3" />
-          {/* Crisp center lines */}
-          <line x1="12" y1="0" x2="12" y2="24" stroke="#A6F700" strokeWidth="1" />
-          <line x1="0" y1="12" x2="24" y2="12" stroke="#A6F700" strokeWidth="1" />
+        <g className="cursor-arrow-shape">
+          {/* Dark outline for definition */}
+          <path
+            d="M 0.8 0.8 L 0.8 15.2 L 4.4 11.6 L 7.6 17.6 L 10 16.4 L 6.8 10 L 11.2 10 Z"
+            stroke="#0A0A0A"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          {/* Green fill */}
+          <path
+            d="M 0.8 0.8 L 0.8 15.2 L 4.4 11.6 L 7.6 17.6 L 10 16.4 L 6.8 10 L 11.2 10 Z"
+            fill="#A6F700"
+          />
         </g>
       </svg>
     </div>

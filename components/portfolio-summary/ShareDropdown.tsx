@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { getAuthToken } from '@dynamic-labs/sdk-react-core';
 import { clipHex } from '@/lib/utils/styles';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
-import SlidePanel from '@/components/ui/SlidePanel';
+import DropPanel from '@/components/ui/DropPanel';
 
 interface ShareDropdownProps {
   walletAddress: string;
@@ -42,19 +42,23 @@ export function ShareDropdown({
   nftPnlPct,
 }: ShareDropdownProps) {
   const [copied, setCopied] = useState(false);
+  const triggerBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Panel state — use context if available, else local state
+  // Panel state — use context if available (portfolio page), else local state
   const panelCtx = useSlidePanelContext();
   const [localOpen, setLocalOpen] = useState(false);
   const isOpen = panelCtx ? panelCtx.activePanel === 'share' : localOpen;
+  // Extract stable function refs — avoids re-triggering effects when context value changes
+  const ctxToggle = panelCtx?.togglePanel;
+  const ctxClose = panelCtx?.closePanel;
   const toggle = useCallback(() => {
-    if (panelCtx) panelCtx.togglePanel('share');
-    else setLocalOpen((prev) => !prev);
-  }, [panelCtx]);
+    if (ctxToggle) ctxToggle('share');
+    else setLocalOpen(prev => !prev);
+  }, [ctxToggle]);
   const close = useCallback(() => {
-    if (panelCtx) panelCtx.closePanel();
+    if (ctxClose) ctxClose();
     else setLocalOpen(false);
-  }, [panelCtx]);
+  }, [ctxClose]);
 
   /** Create a short URL via the API, falling back to the long URL on failure */
   const getShareUrl = useCallback(async (platform: 'x' | 'discord' | 'copy'): Promise<string> => {
@@ -125,11 +129,12 @@ export function ShareDropdown({
 
   return (
     <>
-      {/* Trigger button */}
+      {/* Trigger button — icon-only */}
       <button
+        ref={triggerBtnRef}
         onClick={toggle}
-        className="group flex items-center gap-1.5 px-3 py-2 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all duration-200 cursor-pointer"
-        style={{ clipPath: clipHex(5) }}
+        className={`p-1.5 transition-colors cursor-pointer ${isOpen ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'}`}
+        aria-label="Share portfolio"
         title="Share portfolio"
       >
         {copied ? (
@@ -137,17 +142,14 @@ export function ShareDropdown({
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         ) : (
-          <svg className="w-3.5 h-3.5 text-[var(--gs-gray-4)] group-hover:text-[var(--gs-lime)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
           </svg>
         )}
-        <span className={`font-mono text-[10px] tracking-wider uppercase ${copied ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-gray-4)] group-hover:text-[var(--gs-lime)]'} transition-colors`}>
-          {copied ? 'Copied' : 'Share'}
-        </span>
       </button>
 
-      {/* Slide-out share panel */}
-      <SlidePanel isOpen={isOpen} onClose={close} title="Share Portfolio">
+      {/* Drop-down share panel */}
+      <DropPanel isOpen={isOpen} onClose={close} title="Share Portfolio" portalTarget={panelCtx?.panelSlotNode ?? null} triggerRef={triggerBtnRef}>
         {/* Portfolio preview */}
         <div className="px-4 py-3 border-b border-white/[0.06]">
           <div className="space-y-1.5">
@@ -231,7 +233,7 @@ export function ShareDropdown({
             </div>
           </button>
         </div>
-      </SlidePanel>
+      </DropPanel>
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'motion/react';
 import { NFT } from '@/lib/types';
 import { findCompatibleItems, getFunctionalTier, CompatibleItem } from '@/lib/weapon/weaponCompatibility';
 import { getRarityColors } from '@/lib/utils/rarityColors';
@@ -13,6 +14,8 @@ interface WeaponLabDrawerProps {
   weapon: NFT;
   inventory: NFT[];
 }
+
+const SPRING = { stiffness: 300, damping: 30, mass: 0.8 };
 
 function CompatibleItemCard({ item }: { item: CompatibleItem }) {
   const [imageError, setImageError] = useState(false);
@@ -91,105 +94,111 @@ export default function WeaponLabDrawer({ isOpen, onClose, weapon, inventory }: 
     }
   }, [isOpen, handleKeyDown]);
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Drawer */}
-      <div
-        className={`
-          fixed top-0 right-0 h-full w-80 max-w-[90vw]
-          bg-[#181818] border-l border-[#64ffff]/20
-          z-50 flex flex-col
-          transform transition-transform duration-300 ease-out
-          ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-        `}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Weapon Lab"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">Weapon Lab</h2>
-          <button
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="wl-backdrop"
+            className="fixed inset-0 bg-black/50 z-40"
             onClick={onClose}
-            className="text-sm text-[#64ffff] hover:text-[#96aaff] transition flex items-center gap-1"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+
+          {/* Drawer */}
+          <motion.div
+            key="wl-drawer"
+            className="fixed top-0 right-0 h-full w-80 max-w-[90vw] bg-[#181818] border-l border-[#64ffff]/20 z-50 flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Weapon Lab"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', ...SPRING }}
           >
-            Exit Armory
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {/* Available Modifications Section */}
-          <section>
-            <h3 className="text-data uppercase tracking-wider text-gray-400 font-medium mb-3">
-              Available Modifications
-            </h3>
-
-            {compatibleItems.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold text-white">Weapon Lab</h2>
+              <button
+                onClick={onClose}
+                className="text-sm text-[#64ffff] hover:text-[#96aaff] transition flex items-center gap-1"
+              >
+                Exit Armory
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                <p className="text-sm">No modifications found in your inventory</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {skins.length > 0 && (
-                  <div>
-                    <div className="text-caption text-gray-500 mb-2">Skins ({skins.length})</div>
-                    <div className="space-y-2">
-                      {skins.map(item => (
-                        <CompatibleItemCard key={item.nft.tokenId} item={item} />
-                      ))}
-                    </div>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {/* Available Modifications Section */}
+              <section>
+                <h3 className="text-data uppercase tracking-wider text-gray-400 font-medium mb-3">
+                  Available Modifications
+                </h3>
+
+                {compatibleItems.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <p className="text-sm">No modifications found in your inventory</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {skins.length > 0 && (
+                      <div>
+                        <div className="text-caption text-gray-500 mb-2">Skins ({skins.length})</div>
+                        <div className="space-y-2">
+                          {skins.map(item => (
+                            <CompatibleItemCard key={item.nft.tokenId} item={item} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {attachments.length > 0 && (
+                      <div className={skins.length > 0 ? 'mt-4' : ''}>
+                        <div className="text-caption text-gray-500 mb-2">Attachments ({attachments.length})</div>
+                        <div className="space-y-2">
+                          {attachments.map(item => (
+                            <CompatibleItemCard key={item.nft.tokenId} item={item} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+              </section>
 
-                {attachments.length > 0 && (
-                  <div className={skins.length > 0 ? 'mt-4' : ''}>
-                    <div className="text-caption text-gray-500 mb-2">Attachments ({attachments.length})</div>
-                    <div className="space-y-2">
-                      {attachments.map(item => (
-                        <CompatibleItemCard key={item.nft.tokenId} item={item} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* Weapon Prototypes Section */}
-          <section className="border-t border-white/10 pt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-data uppercase tracking-wider text-gray-400 font-medium">
-                WEAPON PROTOTYPES
-              </h3>
-              <span className="text-label px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 bg-amber-500/10">
-                Experimental
-              </span>
+              {/* Weapon Prototypes Section */}
+              <section className="border-t border-white/10 pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-data uppercase tracking-wider text-gray-400 font-medium">
+                    WEAPON PROTOTYPES
+                  </h3>
+                  <span className="text-label px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 bg-amber-500/10">
+                    Experimental
+                  </span>
+                </div>
+                <p className="text-data text-gray-500 mb-4">
+                  Configure, upgrade, and prototype weapons
+                </p>
+                <div className="text-center py-6 text-gray-600 border border-dashed border-gray-700 rounded-lg">
+                  <span className="text-sm">Coming soon</span>
+                </div>
+              </section>
             </div>
-            <p className="text-data text-gray-500 mb-4">
-              Configure, upgrade, and prototype weapons
-            </p>
-            <div className="text-center py-6 text-gray-600 border border-dashed border-gray-700 rounded-lg">
-              <span className="text-sm">Coming soon</span>
-            </div>
-          </section>
-        </div>
-      </div>
-    </>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
