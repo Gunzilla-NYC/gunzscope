@@ -16,6 +16,7 @@ const DebugPanel = dynamic(() => import('@/components/DebugPanel'), { ssr: false
 const AccountPanel = dynamic(() => import('@/components/AccountPanel'), { ssr: false });
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import { PortfolioProvider, PortfolioContextValue } from '@/lib/contexts/PortfolioContext';
+import { SlidePanelProvider } from '@/lib/contexts/SlidePanelContext';
 import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
@@ -897,6 +898,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   return (
     <PortfolioProvider value={contextValue}>
+    <SlidePanelProvider>
     <div className="min-h-screen bg-gunzscope">
       <Navbar onSwitchWallet={handleTrackedAddressSelect} />
 
@@ -1188,6 +1190,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         isVisible={debugMode}
       />
     </div>
+    </SlidePanelProvider>
     </PortfolioProvider>
   );
 }
