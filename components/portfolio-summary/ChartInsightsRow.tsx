@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import { motion } from 'motion/react';
 import { NFT } from '@/lib/types';
 import { PortfolioInsight } from '@/lib/portfolio/portfolioInsights';
 import InsightsPanel from '@/components/ui/InsightsPanel';
@@ -21,6 +22,8 @@ const ZOOM_LEVELS = [1, 2, 3] as const;
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 4;
 const ZOOM_STEP = 0.25;
+
+const chartTransition = { duration: 0.2, ease: 'easeInOut' as const };
 
 export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsightsRowProps) {
   const [tab, setTab] = useState<ChartTab>('timeline');
@@ -108,13 +111,24 @@ export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsi
             </div>
           </div>
 
-          {/* Chart body — shift+scroll to zoom */}
-          <div ref={chartBodyRef}>
-            {tab === 'timeline' ? (
+          {/* Chart body — both charts stay mounted, crossfade via opacity */}
+          <div ref={chartBodyRef} className="grid" style={{ gridTemplate: '1fr / 1fr' }}>
+            <motion.div
+              style={{ gridArea: '1/1' }}
+              animate={{ opacity: tab === 'timeline' ? 1 : 0 }}
+              transition={chartTransition}
+              className={tab !== 'timeline' ? 'pointer-events-none' : ''}
+            >
               <AcquisitionTimeline nfts={nfts} gunPrice={gunPrice} embedded zoomLevel={zoomLevel} />
-            ) : (
+            </motion.div>
+            <motion.div
+              style={{ gridArea: '1/1' }}
+              animate={{ opacity: tab === 'scatter' ? 1 : 0 }}
+              transition={chartTransition}
+              className={tab !== 'scatter' ? 'pointer-events-none' : ''}
+            >
               <PnLScatterPlot nfts={nfts} gunPrice={gunPrice} embedded zoomLevel={zoomLevel} />
-            )}
+            </motion.div>
           </div>
         </div>
 

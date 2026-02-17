@@ -40,16 +40,13 @@ export function useSlidePanelContext(): SlidePanelContextValue | null {
 }
 
 /**
- * Wrapper that adds right padding on xl+ screens when the navbar wallet
- * side-panel is open. Drop-down panels (wallet-switcher, share) overlay
- * content vertically and don't need side padding.
+ * Layout wrapper for panel-aware pages. No side padding is needed since
+ * all panels (wallet dropdown, drop-panels) overlay content rather than
+ * pushing it aside.
  */
 export function SlidePanelLayout({ children, className }: { children: ReactNode; className?: string }) {
-  const ctx = useSlidePanelContext();
-  const needsSidePadding = ctx?.activePanel === 'wallet';
-
   return (
-    <div className={`transition-[padding] duration-200 ease-out ${needsSidePadding ? 'xl:pr-[21rem]' : ''} ${className ?? ''}`}>
+    <div className={className ?? ''}>
       {children}
     </div>
   );

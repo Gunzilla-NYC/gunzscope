@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'motion/react';
 import { usePortfolioWallet } from '@/lib/contexts/PortfolioContext';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { useGlitchScramble } from './hooks/useGlitchScramble';
 import { truncateAddress } from './utils';
-import SlidePanel from '@/components/ui/SlidePanel';
 
 interface WalletDropdownProps {
   walletAddress: string;
@@ -15,6 +16,8 @@ interface WalletDropdownProps {
   onDisconnect: () => void;
   onSwitchWallet?: (address: string) => void;
 }
+
+const SPRING = { stiffness: 300, damping: 30, mass: 0.8 };
 
 export function WalletDropdown({
   walletAddress,
@@ -26,6 +29,8 @@ export function WalletDropdown({
 }: WalletDropdownProps) {
   const [copied, setCopied] = useState(false);
   const triggerBtnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
 
   // Wallet details — only available on portfolio page (inside PortfolioProvider)
   const { walletData, networkInfo, walletType } = usePortfolioWallet();
@@ -64,6 +69,43 @@ export function WalletDropdown({
 
   // Close on route change
   useEffect(() => { close(); }, [pathname, close]);
+
+  // Position dropdown below trigger
+  useEffect(() => {
+    if (!isOpen || !triggerBtnRef.current) return;
+    const update = () => {
+      const rect = triggerBtnRef.current!.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [isOpen]);
+
+  // ESC key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, close]);
+
+  // Click outside — excludes trigger to prevent toggle race
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (triggerBtnRef.current?.contains(target)) return;
+      close();
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [isOpen, close]);
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(walletAddress);
@@ -106,157 +148,187 @@ export function WalletDropdown({
         <span className={`inline-block transition-opacity duration-150 ${showBrackets ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--gs-lime)' }}>&nbsp;]</span>
       </button>
 
-      {/* Slide-out panel */}
-      <SlidePanel isOpen={isOpen} onClose={close} title="Wallet" triggerRef={triggerBtnRef}>
-        {/* Identity section */}
-        <div className="px-4 py-3 border-b border-white/[0.06]">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Connected Wallet</span>
-            <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5">
-              GunzChain
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-data text-[var(--gs-white)] tracking-wider">
-              {walletAddress.slice(0, 6)}&hellip;{walletAddress.slice(-4)}
-            </span>
-            <button
-              onClick={handleCopy}
-              className="p-1 text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors cursor-pointer"
-              title={copied ? 'Copied!' : 'Copy address'}
+      {/* Dropdown — portaled below trigger */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              ref={panelRef}
+              className="fixed w-72 max-w-[calc(100vw-48px)] z-[60] flex flex-col bg-[var(--gs-dark-2)] border border-white/[0.06] shadow-xl shadow-black/40 overflow-hidden"
+              style={{
+                top: pos.top,
+                right: pos.right,
+                maxHeight: `calc(100dvh - ${pos.top}px - 24px)`,
+                clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+              }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Wallet"
+              tabIndex={-1}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: 'spring', ...SPRING }}
             >
-              {copied ? (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                </svg>
-              )}
-            </button>
-          </div>
-          {connectorName && (
-            <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-2)] mt-1 block">
-              via {connectorName}
-            </span>
-          )}
-        </div>
+              {/* Accent line */}
+              <div className="h-[2px] shrink-0 bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)]" />
 
-        {/* Wallet details — only on portfolio page when wallet data is loaded */}
-        {walletData && (
-          <div className="px-4 py-2.5 border-b border-white/[0.06] space-y-1.5">
-            {chainId && (
-              <div className="flex items-center justify-between gap-4 whitespace-nowrap">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Chain ID</span>
-                <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">{chainId}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-4 whitespace-nowrap">
-              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Network</span>
-              <span className="font-mono text-data text-[var(--gs-white)] flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] flex-shrink-0" />
-                {networkLabel}
-              </span>
-            </div>
-            {walletTypeLabel && (
-              <div className="flex items-center justify-between gap-4 whitespace-nowrap">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Wallet Type</span>
-                <span className="font-mono text-data font-semibold text-[var(--gs-white)]">{walletTypeLabel}</span>
-              </div>
-            )}
-            {lastUpdated && (
-              <div className="flex items-center justify-between gap-4 whitespace-nowrap">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Last Updated</span>
-                <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">
-                  {lastUpdated.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })},{' '}
-                  {lastUpdated.toLocaleTimeString()}
-                </span>
-              </div>
-            )}
-            <span className="font-mono text-[9px] text-[var(--gs-gray-2)] block pt-0.5">Data from GunzChain RPC</span>
-          </div>
-        )}
-
-        {/* Navigation links */}
-        <div className="py-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={close}
-              className={`block px-4 py-2.5 font-mono text-data tracking-wider uppercase transition-colors ${
-                item.active
-                  ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
-                  : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-
-        {/* Portfolio wallets — shown when user has portfolio addresses */}
-        {portfolioAddresses.length > 0 && (
-          <div className="border-t border-white/[0.06]">
-            <div className="flex items-center justify-between px-4 pt-2.5 pb-1">
-              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Portfolio Wallets</span>
-              <span className="font-mono text-[9px] text-[var(--gs-gray-2)] tabular-nums">{portfolioAddresses.length}/5</span>
-            </div>
-            {portfolioAddresses.map((pa) => {
-              const isViewed = viewedAddress?.toLowerCase() === pa.address.toLowerCase();
-              return (
-                <button
-                  key={pa.id}
-                  onClick={() => {
-                    close();
-                    if (onSwitchWallet) {
-                      onSwitchWallet(pa.address);
-                    } else {
-                      window.location.href = `/portfolio?address=${pa.address}`;
-                    }
-                  }}
-                  className={`w-full flex items-center gap-2 px-4 py-2 text-left transition-colors cursor-pointer ${
-                    isViewed
-                      ? 'bg-[var(--gs-lime)]/[0.05] border-l-2 border-l-[var(--gs-lime)]'
-                      : 'hover:bg-white/[0.03] border-l-2 border-l-transparent'
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isViewed ? 'bg-[var(--gs-lime)]' : 'bg-[var(--gs-gray-2)]'}`} />
-                  <span className="font-mono text-data text-[var(--gs-white)] tracking-wider">
-                    {pa.address.slice(0, 6)}&hellip;{pa.address.slice(-4)}
-                  </span>
-                  {pa.label && (
-                    <span className="font-mono text-[9px] text-[var(--gs-gray-3)] ml-auto truncate max-w-[80px]">{pa.label}</span>
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Identity section */}
+                <div className="px-4 py-3 border-b border-white/[0.06]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Connected Wallet</span>
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5">
+                      GunzChain
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-data text-[var(--gs-white)] tracking-wider">
+                      {walletAddress.slice(0, 6)}&hellip;{walletAddress.slice(-4)}
+                    </span>
+                    <button
+                      onClick={handleCopy}
+                      className="p-1 text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors cursor-pointer"
+                      title={copied ? 'Copied!' : 'Copy address'}
+                    >
+                      {copied ? (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  {connectorName && (
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-2)] mt-1 block">
+                      via {connectorName}
+                    </span>
                   )}
-                </button>
-              );
-            })}
-            <Link
-              href="/account"
-              onClick={close}
-              className="flex items-center gap-1.5 px-4 py-2 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] hover:text-[var(--gs-purple)] transition-colors"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Manage Wallets
-            </Link>
-          </div>
-        )}
+                </div>
 
-        {/* Disconnect */}
-        <div className="border-t border-white/[0.06] px-4 py-2.5">
-          <button
-            onClick={() => { close(); onDisconnect(); }}
-            className="w-full font-mono text-data tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[#FF4444] transition-colors text-left cursor-pointer"
-          >
-            Disconnect
-          </button>
-        </div>
-      </SlidePanel>
+                {/* Wallet details — only on portfolio page when wallet data is loaded */}
+                {walletData && (
+                  <div className="px-4 py-2.5 border-b border-white/[0.06] space-y-1.5">
+                    {chainId && (
+                      <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                        <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Chain ID</span>
+                        <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">{chainId}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Network</span>
+                      <span className="font-mono text-data text-[var(--gs-white)] flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] flex-shrink-0" />
+                        {networkLabel}
+                      </span>
+                    </div>
+                    {walletTypeLabel && (
+                      <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                        <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Wallet Type</span>
+                        <span className="font-mono text-data font-semibold text-[var(--gs-white)]">{walletTypeLabel}</span>
+                      </div>
+                    )}
+                    {lastUpdated && (
+                      <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+                        <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Last Updated</span>
+                        <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">
+                          {lastUpdated.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })},{' '}
+                          {lastUpdated.toLocaleTimeString()}
+                        </span>
+                      </div>
+                    )}
+                    <span className="font-mono text-[9px] text-[var(--gs-gray-2)] block pt-0.5">Data from GunzChain RPC</span>
+                  </div>
+                )}
+
+                {/* Navigation links */}
+                <div className="py-1">
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={close}
+                      className={`block px-4 py-2.5 font-mono text-data tracking-wider uppercase transition-colors ${
+                        item.active
+                          ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
+                          : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Portfolio wallets — shown when user has portfolio addresses */}
+                {portfolioAddresses.length > 0 && (
+                  <div className="border-t border-white/[0.06]">
+                    <div className="flex items-center justify-between px-4 pt-2.5 pb-1">
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Portfolio Wallets</span>
+                      <span className="font-mono text-[9px] text-[var(--gs-gray-2)] tabular-nums">{portfolioAddresses.length}/5</span>
+                    </div>
+                    {portfolioAddresses.map((pa) => {
+                      const isViewed = viewedAddress?.toLowerCase() === pa.address.toLowerCase();
+                      return (
+                        <button
+                          key={pa.id}
+                          onClick={() => {
+                            close();
+                            if (onSwitchWallet) {
+                              onSwitchWallet(pa.address);
+                            } else {
+                              window.location.href = `/portfolio?address=${pa.address}`;
+                            }
+                          }}
+                          className={`w-full flex items-center gap-2 px-4 py-2 text-left transition-colors cursor-pointer ${
+                            isViewed
+                              ? 'bg-[var(--gs-lime)]/[0.05] border-l-2 border-l-[var(--gs-lime)]'
+                              : 'hover:bg-white/[0.03] border-l-2 border-l-transparent'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isViewed ? 'bg-[var(--gs-lime)]' : 'bg-[var(--gs-gray-2)]'}`} />
+                          <span className="font-mono text-data text-[var(--gs-white)] tracking-wider">
+                            {pa.address.slice(0, 6)}&hellip;{pa.address.slice(-4)}
+                          </span>
+                          {pa.label && (
+                            <span className="font-mono text-[9px] text-[var(--gs-gray-3)] ml-auto truncate max-w-[80px]">{pa.label}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                    <Link
+                      href="/account"
+                      onClick={close}
+                      className="flex items-center gap-1.5 px-4 py-2 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] hover:text-[var(--gs-purple)] transition-colors"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Manage Wallets
+                    </Link>
+                  </div>
+                )}
+
+                {/* Disconnect */}
+                <div className="border-t border-white/[0.06] px-4 py-2.5">
+                  <button
+                    onClick={() => { close(); onDisconnect(); }}
+                    className="w-full font-mono text-data tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[#FF4444] transition-colors text-left cursor-pointer"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   );
 }

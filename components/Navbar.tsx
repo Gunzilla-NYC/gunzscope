@@ -102,12 +102,12 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                 href="/changelog"
                 className="hidden sm:inline shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
               >
-                v0.2.1 // EARLY ACCESS
+                v0.2.2 // EARLY ACCESS
               </Link>
             </div>
 
-            {/* Navigation links — pinned, unaffected by wallet width changes */}
-            <nav className="hidden md:flex items-center gap-5 ml-auto">
+            {/* Navigation links — left-anchored so wallet width changes can't shift them */}
+            <nav className="hidden md:flex items-center gap-5 ml-6 shrink-0">
               {isInApp && !isAnonymous && (
                 <>
                   <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
@@ -118,8 +118,8 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
               )}
             </nav>
 
-            {/* Wallet / Auth — separate group so width changes don't shift nav links */}
-            <div className="hidden md:flex items-center ml-5">
+            {/* Wallet / Auth — ml-auto pushes to right edge, width changes absorbed by auto margin */}
+            <div className="hidden md:flex items-center ml-auto shrink-0">
               {isAnonymous ? (
                 !isInApp ? (
                   isStaticPage ? (

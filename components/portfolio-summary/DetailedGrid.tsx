@@ -78,22 +78,16 @@ export function DetailedGrid({
           >
             <div className="space-y-1.5">
               {acquisitionBreakdown.minted > 0 && (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center">
                   <span className="font-mono text-caption text-[var(--gs-gray-4)]">
                     <span className="text-[var(--gs-lime)]">{'\u25C6'}</span> {acquisitionBreakdown.minted} Minted
-                  </span>
-                  <span className="font-mono text-caption text-[var(--gs-white)] tabular-nums">
-                    {acquisitionBreakdown.mintedGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
                   </span>
                 </div>
               )}
               {acquisitionBreakdown.bought > 0 && (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center">
                   <span className="font-mono text-caption text-[var(--gs-gray-4)]">
                     <span className="text-[var(--gs-purple)]">{'\u25C6'}</span> {acquisitionBreakdown.bought} Bought
-                  </span>
-                  <span className="font-mono text-caption text-[var(--gs-white)] tabular-nums">
-                    {acquisitionBreakdown.boughtGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
                   </span>
                 </div>
               )}

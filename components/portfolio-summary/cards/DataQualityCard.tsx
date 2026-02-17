@@ -80,32 +80,29 @@ export const DataQualityCard = memo(function DataQualityCard({
               </div>
             ) : (
               <>
-                {acquisitionBreakdown.minted > 0 && (
-                  <div>
-                    <span className="font-mono text-xs">
-                      <span className="text-[var(--gs-lime)] mr-1.5">&#9670;</span>
-                      <span className="text-[var(--gs-white)]">{acquisitionBreakdown.minted}</span>
-                      <span className="text-[var(--gs-gray-3)] ml-1">Minted</span>
-                    </span>
-                    <p className="font-mono text-micro text-[var(--gs-gray-3)]/60 ml-[14px] tabular-nums">
-                      {acquisitionBreakdown.mintedGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
-                    </p>
-                  </div>
-                )}
-                {acquisitionBreakdown.bought > 0 && (
-                  <div>
-                    <span className="font-mono text-xs">
-                      <span className="text-[var(--gs-purple)] mr-1.5">&#9670;</span>
-                      <span className="text-[var(--gs-white)]">{acquisitionBreakdown.bought}</span>
-                      <span className="text-[var(--gs-gray-3)] ml-1">Bought</span>
-                    </span>
-                    <p className="font-mono text-micro text-[var(--gs-gray-3)]/60 ml-[14px] tabular-nums">
-                      {acquisitionBreakdown.boughtGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
-                    </p>
-                  </div>
+                {(acquisitionBreakdown.minted > 0 || acquisitionBreakdown.bought > 0) && (
+                  <span className="font-mono text-xs block">
+                    {acquisitionBreakdown.bought > 0 && (
+                      <>
+                        <span className="text-[var(--gs-purple)] mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{acquisitionBreakdown.bought}</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Bought</span>
+                      </>
+                    )}
+                    {acquisitionBreakdown.bought > 0 && acquisitionBreakdown.minted > 0 && (
+                      <span className="text-[var(--gs-gray-3)]/30 mx-2">&middot;</span>
+                    )}
+                    {acquisitionBreakdown.minted > 0 && (
+                      <>
+                        <span className="text-[var(--gs-lime)] mr-1.5">&#9670;</span>
+                        <span className="text-[var(--gs-white)]">{acquisitionBreakdown.minted}</span>
+                        <span className="text-[var(--gs-gray-3)] ml-1">Minted</span>
+                      </>
+                    )}
+                  </span>
                 )}
                 {acquisitionBreakdown.transferred > 0 && (
-                  <span className="font-mono text-xs">
+                  <span className="font-mono text-xs block">
                     <span className="text-[var(--gs-gray-2)] mr-1.5">&#9670;</span>
                     <span className="text-[var(--gs-white)]">{acquisitionBreakdown.transferred}</span>
                     <span className="text-[var(--gs-gray-3)] ml-1">Free</span>

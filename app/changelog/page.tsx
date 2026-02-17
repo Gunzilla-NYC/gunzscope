@@ -15,9 +15,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.2.2',
+    date: 'Feb 17, 2026',
+    tag: 'current',
+    items: [
+      'Chart crossfade \u2014 Timeline and Cost\u2011vs\u2011Value charts stay mounted simultaneously, opacity crossfade via motion/react eliminates DOM rebuild flicker',
+      'Aligned chart dimensions \u2014 embedded Timeline now matches Scatter plot margins and height so content doesn\u2019t shift during crossfade',
+      'Multi\u2011wallet NFT total fix \u2014 portfolio wallets that load after the primary wallet now correctly update the NFT count',
+      'NFT count includes duplicates \u2014 gallery item count sums quantities instead of unique token count',
+      'Holdings card cleanup \u2014 removed per\u2011category GUN amounts, combined Bought+Minted on one row, consistent vertical spacing',
+      'Navbar wallet dropdown \u2014 converted from slide\u2011out panel to positioned dropdown with spring animation, click\u2011outside and ESC\u2011key close',
+      'Navbar layout fix \u2014 three\u2011group flex prevents wallet address width changes from shifting navigation links',
+      'Transition demo \u2014 interactive comparison of four chart transition styles added to brand page',
+    ],
+  },
+  {
     version: 'v0.2.1',
     date: 'Feb 17, 2026 \u00B7 6:30 AM EST',
-    tag: 'current',
     items: [
       'Spring\u2011physics animations site\u2011wide \u2014 all panels, modals, drawers, and accordions now use motion/react with consistent spring config',
       'Custom green arrow cursor \u2014 replaces default pointer everywhere, zero\u2011lag tracking via direct mousemove transform',

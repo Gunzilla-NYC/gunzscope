@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
 import SparklineConcepts from './SparklineConcepts';
+import TransitionDemo from './TransitionDemo';
 import UXRWelcomePopup from '@/components/UXRWelcomePopup';
 
 // Color swatches data
@@ -1443,6 +1444,9 @@ export default function BrandPage() {
           </div>
         </div>
       </section>
+
+      {/* Chart Transition Demos */}
+      <TransitionDemo />
 
       {/* Footer */}
       <Footer />

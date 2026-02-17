@@ -212,6 +212,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       setPortfolioWalletsData(prev => [...prev, ...newWallets]);
       setAggregatedAddresses(prev => [...prev, ...newWallets.map(w => w.address)]);
 
+      // Update pagination with additional wallet NFT counts
+      const additionalCount = successful.reduce((sum, r) => sum + r.nftResult.totalCount, 0);
+      setNftPagination(prev => ({
+        ...prev,
+        totalOwnedCount: prev.totalOwnedCount + additionalCount,
+      }));
+
       // Enrich the new NFTs (cache means already-enriched items are instant)
       const newNfts = newWallets.flatMap(w => w.avalanche.nfts);
       if (newNfts.length > 0) {
@@ -1158,7 +1165,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   {activeGalleryWallet.slice(0, 6)}&hellip;{activeGalleryWallet.slice(-4)}
                 </span>
                 <span className="font-mono text-[9px] text-[var(--gs-gray-2)]">
-                  &middot; {galleryNfts.length} items
+                  &middot; {galleryNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0)} items
                 </span>
               </div>
             )}

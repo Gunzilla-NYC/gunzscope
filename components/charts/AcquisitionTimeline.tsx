@@ -34,7 +34,10 @@ interface TimelineDatum {
 }
 
 const MARGIN = { top: 14, right: 16, bottom: 32, left: 16 };
+/** Embedded mode uses the same dimensions as PnLScatterPlot for seamless crossfade. */
+const MARGIN_EMBEDDED = { top: 20, right: 20, bottom: 38, left: 58 };
 const CHART_HEIGHT = 240;
+const CHART_HEIGHT_EMBEDDED = 270;
 
 const VENUE_COLORS: Record<string, string> = {
   decode: chartTheme.colors.lime,
@@ -66,17 +69,19 @@ function TimelineChart({
   data,
   width,
   height,
+  margin,
   onLockedDatumChange,
 }: {
   data: TimelineDatum[];
   width: number;
   height: number;
+  margin: { top: number; right: number; bottom: number; left: number };
   onLockedDatumChange?: (datum: TimelineDatum | null) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const innerWidth = width - MARGIN.left - MARGIN.right;
-  const innerHeight = height - MARGIN.top - MARGIN.bottom;
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
 
   const dateExtent = useMemo(() => {
     const dates = data.map(d => d.date.getTime());
@@ -137,7 +142,7 @@ function TimelineChart({
   const { lockedId, lockedPoint, handleMouseMove, handleMouseLeave } = useProximityLock(
     lockPoints,
     svgRef,
-    { left: MARGIN.left, top: MARGIN.top },
+    { left: margin.left, top: margin.top },
     40,
   );
 
@@ -190,7 +195,7 @@ function TimelineChart({
           {stemGradientDefs}
         </defs>
 
-        <Group left={MARGIN.left} top={MARGIN.top}>
+        <Group left={margin.left} top={margin.top}>
           {/* Grid */}
           <GridColumns
             scale={xScale}
@@ -302,32 +307,40 @@ function TimelineChart({
           />
 
           {/* Cost axis label (left side — right-aligned column) */}
-          <text
-            x={30}
-            y={-4}
-            fill="rgba(255,255,255,0.3)"
-            fontSize={10}
-            fontFamily={chartTheme.fonts.mono}
-            textAnchor="end"
-          >
-            GUN
-          </text>
+          {(() => {
+            // Wide left margin (embedded mode): labels go in margin area; narrow: inline at x=30
+            const labelX = margin.left >= 40 ? -8 : 30;
+            return (
+              <>
+                <text
+                  x={labelX}
+                  y={-4}
+                  fill="rgba(255,255,255,0.3)"
+                  fontSize={10}
+                  fontFamily={chartTheme.fonts.mono}
+                  textAnchor="end"
+                >
+                  GUN
+                </text>
 
-          {/* Cost scale markers — clean log-spaced ticks */}
-          {[1, 2, 5, 10, 25, 50, 100, 200, 500, 1000, 2500, 5000].filter(v => v >= 1 && v <= maxCost * 1.1).map((val, i) => (
-            <text
-              key={i}
-              x={30}
-              y={yScale(val)}
-              fill={chartTheme.colors.axisLabel}
-              fontSize={10}
-              fontFamily={chartTheme.fonts.mono}
-              textAnchor="end"
-              dominantBaseline="middle"
-            >
-              {formatGun(val)}
-            </text>
-          ))}
+                {/* Cost scale markers — clean log-spaced ticks */}
+                {[1, 2, 5, 10, 25, 50, 100, 200, 500, 1000, 2500, 5000].filter(v => v >= 1 && v <= maxCost * 1.1).map((val, i) => (
+                  <text
+                    key={i}
+                    x={labelX}
+                    y={yScale(val)}
+                    fill={chartTheme.colors.axisLabel}
+                    fontSize={10}
+                    fontFamily={chartTheme.fonts.mono}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                  >
+                    {formatGun(val)}
+                  </text>
+                ))}
+              </>
+            );
+          })()}
         </Group>
       </svg>
     </div>
@@ -338,6 +351,8 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
   const [expanded, setExpanded] = useState(false);
   const [lockedDatum, setLockedDatum] = useState<TimelineDatum | null>(null);
   const grabScrollRef = useGrabScroll(zoomLevel > 1);
+
+  const chartMargin = embedded ? MARGIN_EMBEDDED : MARGIN;
 
   const timelineData = useMemo<TimelineDatum[]>(() => {
     return nfts
@@ -366,7 +381,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
 
   const hasData = timelineData.length >= 2;
 
-  const chartHeight = CHART_HEIGHT;
+  const chartHeight = embedded ? CHART_HEIGHT_EMBEDDED : CHART_HEIGHT;
 
   // Chart body content (shared between embedded and standalone)
   const chartBody = (
@@ -381,7 +396,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
               {({ width: rawWidth }: { width: number }) => {
                 const width = Math.floor(rawWidth);
                 return width > 0 ? (
-                  <TimelineChart data={timelineData} width={width} height={chartHeight} onLockedDatumChange={setLockedDatum} />
+                  <TimelineChart data={timelineData} width={width} height={chartHeight} margin={chartMargin} onLockedDatumChange={setLockedDatum} />
                 ) : null;
               }}
             </ParentSize>
