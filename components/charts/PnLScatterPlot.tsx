@@ -441,11 +441,12 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1
           >
             <div style={{ width: `${100 * zoomLevel}%`, minWidth: '100%' }}>
               <ParentSize debounceTime={100}>
-                {({ width }: { width: number }) =>
-                  width > 0 ? (
+                {({ width: rawWidth }: { width: number }) => {
+                  const width = Math.floor(rawWidth);
+                  return width > 0 ? (
                     <ScatterChart data={scatterData} width={width} height={chartHeight} onLockedDatumChange={setLockedDatum} />
-                  ) : null
-                }
+                  ) : null;
+                }}
               </ParentSize>
             </div>
           </div>

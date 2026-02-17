@@ -12,6 +12,7 @@ export default function UXRWelcomePopup() {
 
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   // Show popup after login, once per user
   useEffect(() => {
@@ -26,9 +27,11 @@ export default function UXRWelcomePopup() {
 
   const dismiss = useCallback(() => {
     setClosing(true);
-    try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* ignore */ }
+    if (dontShowAgain) {
+      try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* ignore */ }
+    }
     setTimeout(() => setVisible(false), 300);
-  }, []);
+  }, [dontShowAgain]);
 
   // ESC key to dismiss
   useEffect(() => {
@@ -120,8 +123,28 @@ export default function UXRWelcomePopup() {
             </p>
           </div>
 
+          {/* Don't show again */}
+          <label className="flex items-center gap-2 mt-5 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={dontShowAgain}
+              onChange={(e) => setDontShowAgain(e.target.checked)}
+              className="sr-only peer"
+            />
+            <span className="shrink-0 size-4 border border-white/20 peer-checked:bg-[var(--gs-lime)] peer-checked:border-[var(--gs-lime)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--gs-lime)]/50 transition flex items-center justify-center">
+              {dontShowAgain && (
+                <svg className="size-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </span>
+            <span className="text-xs text-[var(--gs-gray-3)] group-hover:text-[var(--gs-gray-4)] transition select-none">
+              Don&apos;t show this again
+            </span>
+          </label>
+
           {/* CTA */}
-          <div className="mt-6 space-y-2.5">
+          <div className="mt-4 space-y-2.5">
             <Link
               href="/feature-requests"
               onClick={dismiss}

@@ -68,8 +68,8 @@ export function ValueHeader({
         </div>
       )}
 
-      {/* Content layer */}
-      <div className="relative z-10 p-6 pb-4">
+      {/* Content layer — pointer-events:none so backdrop chart hover works through it */}
+      <div className="relative z-10 p-6 pb-4 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
         <div className="flex justify-between items-start">
           <div aria-live="polite" aria-busy={isInitializing}>
             <div className="flex items-center gap-2 mb-1">
