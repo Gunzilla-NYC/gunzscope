@@ -12,8 +12,8 @@ import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey, LISTING_S
 // =============================================================================
 
 const ENRICHMENT_BATCH_SIZE = 6;
-const ENRICHMENT_BATCH_DELAY_MS = 800;
-const PRIORITY_ABOVE_FOLD_COUNT = 12;
+const ENRICHMENT_BATCH_DELAY_MS = 200;
+const PRIORITY_ABOVE_FOLD_COUNT = 18;
 
 // NFT contract address (hardcoded fallback for client-side)
 const NFT_CONTRACT_ADDRESS = '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';

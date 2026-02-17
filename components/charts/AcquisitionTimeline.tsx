@@ -70,18 +70,22 @@ function TimelineChart({
   width,
   height,
   margin,
+  zoomLevel = 1,
   onLockedDatumChange,
 }: {
   data: TimelineDatum[];
   width: number;
   height: number;
   margin: { top: number; right: number; bottom: number; left: number };
+  zoomLevel?: number;
   onLockedDatumChange?: (datum: TimelineDatum | null) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
+  // Keep data positions stable: scale range stays at base (unzoomed) width
+  const baseInnerWidth = innerWidth / zoomLevel;
 
   const dateExtent = useMemo(() => {
     const dates = data.map(d => d.date.getTime());
@@ -100,8 +104,8 @@ function TimelineChart({
   const maxCost = useMemo(() => Math.max(...data.map(d => d.costGun), 1), [data]);
 
   const xScale = useMemo(
-    () => scaleTime<number>({ domain: dateExtent, range: [0, innerWidth] }),
-    [dateExtent, innerWidth],
+    () => scaleTime<number>({ domain: dateExtent, range: [0, baseInnerWidth] }),
+    [dateExtent, baseInnerWidth],
   );
 
   // Log scale for cost — spreads small values across the full height
@@ -261,6 +265,7 @@ function TimelineChart({
                   strokeWidth={isLocked ? 1.5 : 0.5}
                   filter={isLocked ? 'url(#timeline-glow)' : undefined}
                   pointerEvents="none"
+                  data-dot=""
                   style={{ transition: 'all 250ms ease' }}
                 />
               </g>
@@ -396,7 +401,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
               {({ width: rawWidth }: { width: number }) => {
                 const width = Math.floor(rawWidth);
                 return width > 0 ? (
-                  <TimelineChart data={timelineData} width={width} height={chartHeight} margin={chartMargin} onLockedDatumChange={setLockedDatum} />
+                  <TimelineChart data={timelineData} width={width} height={chartHeight} margin={chartMargin} zoomLevel={zoomLevel} onLockedDatumChange={setLockedDatum} />
                 ) : null;
               }}
             </ParentSize>

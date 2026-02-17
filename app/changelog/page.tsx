@@ -15,9 +15,24 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.2.2',
+    version: 'v0.2.3',
     date: 'Feb 17, 2026',
     tag: 'current',
+    items: [
+      'Share image redesign \u2014 tactical HUD aesthetic OG image with dot\u2011grid background, corner brackets, gradient accent line, metric cards for GUN balance / NFTs / cost basis',
+      'Download portfolio image \u2014 new button in share dropdown fetches the OG image and saves it as PNG',
+      'Cost basis in share links \u2014 GUN spent on NFTs is now stored in share snapshots and displayed on the OG card',
+      'Chart zoom fix \u2014 zooming no longer pushes dots off\u2011screen; scales use base width so data positions stay stable',
+      'Zoom to cursor \u2014 Shift+scroll zooms toward the mouse pointer; zoom buttons auto\u2011scroll to the densest data cluster',
+      'Gallery performance \u2014 React.memo on card components + memoized card data prevents unnecessary re\u2011renders',
+      'Search debounce \u2014 200ms debounce on gallery search input eliminates lag from keystroke\u2011driven re\u2011filtering',
+      'content\u2011visibility: auto on NFT cards \u2014 browser skips painting offscreen cards, reducing compositor work on large galleries',
+      'Enrichment speed \u2014 batch delay reduced from 800ms to 200ms, priority window expanded from 12 to 18 above\u2011fold NFTs',
+    ],
+  },
+  {
+    version: 'v0.2.2',
+    date: 'Feb 17, 2026',
     items: [
       'Chart crossfade \u2014 Timeline and Cost\u2011vs\u2011Value charts stay mounted simultaneously, opacity crossfade via motion/react eliminates DOM rebuild flicker',
       'Aligned chart dimensions \u2014 embedded Timeline now matches Scatter plot margins and height so content doesn\u2019t shift during crossfade',

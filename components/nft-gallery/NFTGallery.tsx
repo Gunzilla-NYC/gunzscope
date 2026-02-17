@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { deriveCardData } from './utils';
@@ -29,6 +30,15 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     itemClasses, rarityCounts, filteredAndSortedNFTs,
     clearFilters, hasActiveFilters,
   } = useNFTGalleryFilters(nfts, marketMap);
+
+  // Pre-compute card data for all visible NFTs — stable references for React.memo
+  const cardDataMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof deriveCardData>>();
+    for (const nft of filteredAndSortedNFTs) {
+      map.set(`${nft.chain}-${nft.tokenId}`, deriveCardData(nft, marketMap));
+    }
+    return map;
+  }, [filteredAndSortedNFTs, marketMap]);
 
   if (nfts.length === 0) {
     return (
@@ -105,38 +115,46 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
         </div>
       )}
 
-      {/* Grid Views (Small & Medium) */}
+      {/* Grid Views (Small & Medium) — content-visibility skips painting offscreen cards */}
       {viewMode !== 'list' && (
         <div className={`grid gap-4 ${
           viewMode === 'small'
             ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
             : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
         }`}>
-          {filteredAndSortedNFTs.map((nft) => (
-            <NFTGalleryGridCard
-              key={`${nft.chain}-${nft.tokenId}`}
-              cardData={deriveCardData(nft, marketMap)}
-              viewMode={viewMode as 'small' | 'medium'}
-              isEnriching={isEnriching}
-              onClick={handleNFTClick}
-              portfolioViewMode={portfolioViewMode}
-            />
-          ))}
+          {filteredAndSortedNFTs.map((nft) => {
+            const key = `${nft.chain}-${nft.tokenId}`;
+            return (
+              <div key={key} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 280px' }}>
+                <NFTGalleryGridCard
+                  cardData={cardDataMap.get(key)!}
+                  viewMode={viewMode as 'small' | 'medium'}
+                  isEnriching={isEnriching}
+                  onClick={handleNFTClick}
+                  portfolioViewMode={portfolioViewMode}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* List View */}
+      {/* List View — content-visibility for offscreen optimization */}
       {viewMode === 'list' && (
         <div className="flex flex-col gap-2">
-          {filteredAndSortedNFTs.map((nft) => (
-            <NFTGalleryListRow
-              key={`${nft.chain}-${nft.tokenId}`}
-              cardData={deriveCardData(nft, marketMap)}
-              isEnriching={isEnriching}
-              onClick={handleNFTClick}
-              portfolioViewMode={portfolioViewMode}
-            />
-          ))}
+          {filteredAndSortedNFTs.map((nft) => {
+            const key = `${nft.chain}-${nft.tokenId}`;
+            return (
+              <div key={key} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 72px' }}>
+                <NFTGalleryListRow
+                  cardData={cardDataMap.get(key)!}
+                  isEnriching={isEnriching}
+                  onClick={handleNFTClick}
+                  portfolioViewMode={portfolioViewMode}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
 

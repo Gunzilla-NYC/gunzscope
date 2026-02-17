@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       gunBalance: body.gunBalance ?? undefined,
       nftCount: body.nftCount !== undefined ? Number(body.nftCount) : undefined,
       nftPnlPct: body.nftPnlPct ?? undefined,
+      gunSpent: body.gunSpent ?? undefined,
       platform,
     });
 

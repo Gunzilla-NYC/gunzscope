@@ -41,17 +41,22 @@ function ScatterChart({
   data,
   width,
   height,
+  zoomLevel = 1,
   onLockedDatumChange,
 }: {
   data: ScatterDatum[];
   width: number;
   height: number;
+  zoomLevel?: number;
   onLockedDatumChange?: (datum: ScatterDatum | null) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const innerWidth = width - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
+  // Keep data positions stable: scale range stays at base (unzoomed) width
+  // while the SVG viewport expands — dots don't shift, just more space between them
+  const baseInnerWidth = innerWidth / zoomLevel;
 
   // Domain: max of cost and floor so break-even line is diagonal
   const maxVal = useMemo(() => {
@@ -64,9 +69,10 @@ function ScatterChart({
   }, [data]);
 
   // sqrt scales — compress high values, give more visual space to small values
+  // Use baseInnerWidth so data positions stay stable when zoomed (viewport expands around them)
   const xScale = useMemo(
-    () => scaleSqrt<number>({ domain: [0, maxVal], range: [0, innerWidth] }),
-    [maxVal, innerWidth],
+    () => scaleSqrt<number>({ domain: [0, maxVal], range: [0, baseInnerWidth] }),
+    [maxVal, baseInnerWidth],
   );
 
   const yScale = useMemo(
@@ -294,6 +300,7 @@ function ScatterChart({
                   strokeWidth={isLocked ? 1.5 : 0.5}
                   filter={isLocked ? 'url(#scatter-glow)' : undefined}
                   pointerEvents="none"
+                  data-dot=""
                   style={{ transition: 'all 250ms ease' }}
                 />
                 {/* Inner highlight for depth */}
@@ -444,7 +451,7 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomLevel = 1
                 {({ width: rawWidth }: { width: number }) => {
                   const width = Math.floor(rawWidth);
                   return width > 0 ? (
-                    <ScatterChart data={scatterData} width={width} height={chartHeight} onLockedDatumChange={setLockedDatum} />
+                    <ScatterChart data={scatterData} width={width} height={chartHeight} zoomLevel={zoomLevel} onLockedDatumChange={setLockedDatum} />
                   ) : null;
                 }}
               </ParentSize>

@@ -248,6 +248,7 @@ model ShareLink {
   gunBalance    String?                        // GUN balance string
   nftCount      Int?                           // NFT count
   nftPnlPct     String?                        // P&L percentage string
+  gunSpent      String?                        // total GUN spent on NFTs
   platform      String       @default("copy")  // "x" | "discord" | "copy"
   viewCount     Int          @default(0)       // denormalized counter for fast reads
   createdAt     DateTime     @default(now())

@@ -26,6 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (link.gunBalance) ogUrl.searchParams.set('g', link.gunBalance);
   if (link.nftCount !== null) ogUrl.searchParams.set('n', String(link.nftCount));
   if (link.nftPnlPct) ogUrl.searchParams.set('pnl', link.nftPnlPct);
+  if (link.gunSpent) ogUrl.searchParams.set('gs', link.gunSpent);
   const ogImageUrl = ogUrl.pathname + ogUrl.search;
 
   return {

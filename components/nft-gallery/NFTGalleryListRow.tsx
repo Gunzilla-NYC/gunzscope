@@ -7,12 +7,13 @@
 
 'use client';
 
+import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel } from './utils';
 import type { NFTGalleryListRowProps } from './types';
 
-export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
+export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
   const {
     nft, rarityName, rarityColor, isMixedRarity, mintDisplay, mintData, nameInitials,
     pnlPct, isProfit, isLoss, priceGun, marketListings,
@@ -174,4 +175,4 @@ export function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioVie
       </div>
     </div>
   );
-}
+});

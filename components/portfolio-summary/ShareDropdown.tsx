@@ -13,6 +13,7 @@ interface ShareDropdownProps {
   gunBalance?: string;
   nftCount?: number;
   nftPnlPct?: number | null;
+  totalGunSpent?: string;
 }
 
 /** Fallback: build a long share URL if the API call fails */
@@ -22,6 +23,7 @@ function buildFallbackUrl(
   gunBalance?: string,
   nftCount?: number,
   nftPnlPct?: number | null,
+  totalGunSpent?: string,
 ): string {
   const url = new URL(`${window.location.origin}/portfolio`);
   url.searchParams.set('address', walletAddress);
@@ -31,6 +33,7 @@ function buildFallbackUrl(
   if (nftPnlPct !== undefined && nftPnlPct !== null) {
     url.searchParams.set('pnl', nftPnlPct.toFixed(1));
   }
+  if (totalGunSpent) url.searchParams.set('gs', totalGunSpent);
   return url.toString();
 }
 
@@ -40,6 +43,7 @@ export function ShareDropdown({
   gunBalance,
   nftCount,
   nftPnlPct,
+  totalGunSpent,
 }: ShareDropdownProps) {
   const [copied, setCopied] = useState(false);
   const triggerBtnRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +80,7 @@ export function ShareDropdown({
           gunBalance,
           nftCount,
           nftPnlPct: nftPnlPct !== undefined && nftPnlPct !== null ? nftPnlPct.toFixed(1) : undefined,
+          gunSpent: totalGunSpent,
           platform,
         }),
       });
@@ -86,8 +91,8 @@ export function ShareDropdown({
     } catch {
       // Fall through to fallback
     }
-    return buildFallbackUrl(walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct);
-  }, [walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct]);
+    return buildFallbackUrl(walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent);
+  }, [walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent]);
 
   const handleCopyLink = useCallback(async () => {
     const url = await getShareUrl('copy');
@@ -104,6 +109,30 @@ export function ShareDropdown({
       toast.error('Failed to copy link');
     }
   }, [getShareUrl, close]);
+
+  const handleDownload = useCallback(async () => {
+    const ogParams = new URLSearchParams();
+    if (totalUsd) ogParams.set('v', totalUsd);
+    if (gunBalance) ogParams.set('g', gunBalance);
+    if (nftCount !== undefined) ogParams.set('n', String(nftCount));
+    if (nftPnlPct !== undefined && nftPnlPct !== null) ogParams.set('pnl', nftPnlPct.toFixed(1));
+    if (totalGunSpent) ogParams.set('gs', totalGunSpent);
+    const ogUrl = `/api/og/portfolio/${walletAddress}?${ogParams.toString()}`;
+    try {
+      const res = await fetch(ogUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gunzscope-portfolio.png';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Image downloaded!');
+      close();
+    } catch {
+      toast.error('Failed to download image');
+    }
+  }, [walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent, close]);
 
   const handleShareX = useCallback(async () => {
     const url = await getShareUrl('x');
@@ -200,6 +229,21 @@ export function ShareDropdown({
             <div>
               <span className="font-mono text-data text-[var(--gs-white)] block">Copy Link</span>
               <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Shareable link with rich preview card</span>
+            </div>
+          </button>
+
+          {/* Download Image */}
+          <button
+            onClick={handleDownload}
+            className="w-full flex items-center gap-3 px-4 py-3 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-all cursor-pointer text-left"
+            style={{ clipPath: clipHex(5) }}
+          >
+            <svg className="w-5 h-5 text-[var(--gs-gray-4)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <div>
+              <span className="font-mono text-data text-[var(--gs-white)] block">Download Image</span>
+              <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Save portfolio card as PNG</span>
             </div>
           </button>
 

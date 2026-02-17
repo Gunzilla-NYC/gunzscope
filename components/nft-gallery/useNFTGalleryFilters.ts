@@ -5,7 +5,7 @@
  * Extracted from NFTGallery.tsx for separation of concerns.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { NFT } from '@/lib/types';
 import { buildTokenKey } from '@/lib/utils/nftCache';
 import {
@@ -13,6 +13,8 @@ import {
   getRarityRank, getRarityName,
   getItemClass, getMintNumericValue, isNumericMint,
 } from './utils';
+
+const SEARCH_DEBOUNCE_MS = 200;
 
 // Helper function to check if any trait matches the query
 function matchesTraits(nft: NFT, query: string): boolean {
@@ -39,6 +41,23 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
 
   // Filter/sort state
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Debounce search input — immediate for empty (clear), delayed for typing
+  const setSearchQueryDebounced = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value) {
+      setDebouncedQuery('');
+    } else {
+      debounceRef.current = setTimeout(() => setDebouncedQuery(value), SEARCH_DEBOUNCE_MS);
+    }
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [selectedItemClass, setSelectedItemClass] = useState<string>('all');
   const [activeRarities, setActiveRarities] = useState<Set<Rarity>>(() => new Set());
@@ -117,8 +136,8 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
   const preRarityFilteredNFTs = useMemo(() => {
     let result = [...nfts];
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (debouncedQuery.trim()) {
+      const query = debouncedQuery.toLowerCase();
       const mintSearchMatch = query.match(/^#?(\d+)$/);
 
       if (mintSearchMatch) {
@@ -145,7 +164,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
     }
 
     return result;
-  }, [nfts, searchQuery, selectedItemClass]);
+  }, [nfts, debouncedQuery, selectedItemClass]);
 
   // Calculate rarity counts from pre-rarity-filtered NFTs (so counts are always visible)
   const rarityCounts = useMemo(() => {
@@ -272,6 +291,8 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
+    setDebouncedQuery('');
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setSelectedItemClass('all');
     clearRarities();
     setSortBy('mint-asc');
@@ -281,7 +302,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
 
   return {
     // Filter state + setters
-    searchQuery, setSearchQuery,
+    searchQuery, setSearchQuery: setSearchQueryDebounced,
     sortBy, setSortBy,
     selectedItemClass, setSelectedItemClass,
     activeRarities, toggleRarity, clearRarities,

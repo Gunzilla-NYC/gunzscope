@@ -12,6 +12,7 @@ export interface CreateShareInput {
   gunBalance?: string;
   nftCount?: number;
   nftPnlPct?: string;
+  gunSpent?: string;
   platform: 'x' | 'discord' | 'copy';
 }
 
@@ -23,6 +24,7 @@ export interface ShareLinkData {
   gunBalance: string | null;
   nftCount: number | null;
   nftPnlPct: string | null;
+  gunSpent: string | null;
   platform: string;
   viewCount: number;
   createdAt: Date;
@@ -46,6 +48,7 @@ export async function createShareLink(input: CreateShareInput): Promise<ShareLin
           gunBalance: input.gunBalance ?? null,
           nftCount: input.nftCount ?? null,
           nftPnlPct: input.nftPnlPct ?? null,
+          gunSpent: input.gunSpent ?? null,
           platform: input.platform,
         },
       });

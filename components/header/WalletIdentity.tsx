@@ -147,6 +147,10 @@ export default function WalletIdentity({
     if (!portfolioResult) return undefined;
     return portfolioResult.totalGunBalance.toLocaleString();
   }, [portfolioResult]);
+  const shareGunSpent = useMemo(() => {
+    if (!portfolioResult || !portfolioResult.totalGunSpent) return undefined;
+    return portfolioResult.totalGunSpent.toLocaleString();
+  }, [portfolioResult]);
 
   // Mount check for portal
   useEffect(() => { setMounted(true); }, []);
@@ -411,6 +415,7 @@ export default function WalletIdentity({
               gunBalance={shareGunBalance}
               nftCount={portfolioResult.nftCount}
               nftPnlPct={nftPnL.pct}
+              totalGunSpent={shareGunSpent}
             />
           )}
         </div>
@@ -475,6 +480,7 @@ export default function WalletIdentity({
             gunBalance={shareGunBalance}
             nftCount={portfolioResult.nftCount}
             nftPnlPct={nftPnL.pct}
+            totalGunSpent={shareGunSpent}
           />
         )}
       </div>
