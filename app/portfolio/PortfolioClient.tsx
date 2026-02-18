@@ -7,7 +7,6 @@ import PortfolioHeader from '@/components/header/PortfolioHeader';
 import NFTGallery from '@/components/NFTGallery';
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
-import { NFT } from '@/lib/types';
 import type { NetworkInfo } from '@/lib/utils/networkDetector';
 import { groupNFTsByMetadata, mergeIntoGroups } from '@/lib/utils/nftGrouping';
 import Navbar from '@/components/Navbar';
@@ -21,7 +20,6 @@ import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import WalletSearchDropdown from '@/components/WalletSearchDropdown';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggregation';
@@ -34,9 +32,13 @@ import WalletRequiredGate from '@/components/WalletRequiredGate';
 import { useStableEnrichmentUpdates } from '@/lib/hooks/useStableEnrichmentUpdates';
 import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
-import { useTextScramble } from '@/hooks/useTextScramble';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
 import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
+import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
+import { useChartMilestoneGating } from '@/lib/hooks/useChartMilestoneGating';
+import { usePortfolioSnapshot } from '@/lib/hooks/usePortfolioSnapshot';
+import { useWalletSearchActions } from '@/lib/hooks/useWalletSearchActions';
+import { useMultiWalletGallery } from '@/lib/hooks/useMultiWalletGallery';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -130,8 +132,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [primaryWalletData, setPrimaryWalletData] = useState<WalletData | null>(null);
   const [portfolioWalletsData, setPortfolioWalletsData] = useState<WalletData[]>([]);
 
-  // Which wallet's NFTs the gallery currently shows (null = primary)
-  const [activeGalleryWallet, setActiveGalleryWallet] = useState<string | null>(null);
 
   // Keep primaryWalletData in sync with walletData so enrichment updates
   // (acquisition data, floor prices, listings) flow through to aggregation
@@ -155,10 +155,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Reset in handleWalletSubmit and handleWalletDisconnect.
   const portfolioMergedRef = useRef(false);
 
-  // Wallet search dropdown state
-  const [isAddingWatchlist, setIsAddingWatchlist] = useState(false);
-  const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
-
   // Wallet hint dismissal — permanently hidden after visiting /account or manual dismiss
   // Start hidden to avoid SSR hydration mismatch, then check localStorage after mount
   const [walletHintDismissed, setWalletHintDismissed] = useState(true);
@@ -173,6 +169,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Get user profile for portfolio addresses (authenticated users only)
   const { profile, isConnected, isAuthenticated, addTrackedAddress, addPortfolioAddress, isInPortfolio } = useUserProfile();
   const portfolioAddresses = profile?.portfolioAddresses ?? [];
+
+  // Wallet search dropdown action handlers
+  const { isAddingWatchlist, isAddingPortfolio, handleAddToWatchlist, handleAddToPortfolio } =
+    useWalletSearchActions(addTrackedAddress, addPortfolioAddress);
 
   // Computed values for dropdown
   const isInWatchlist = profile?.trackedAddresses.some(
@@ -266,70 +266,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     });
   }, [walletData, gunPrice, nftPagination.totalOwnedCount]);
 
-  // 10pm Easter egg — between 9:55 PM and 10:05 PM, this is the ONLY loading message
-  const is10pmWindow = useMemo(() => {
-    const now = new Date();
-    const mins = now.getHours() * 60 + now.getMinutes();
-    return mins >= 21 * 60 + 55 && mins <= 22 * 60 + 5;
-  }, []);
-
-  const TEN_PM_MESSAGE = "It\u2019s 10pm. Do you know where your children are?";
-
-  // Scramble loading messages — cycle with scramble decode effect (same as home hero)
-  // Shuffled on mount so each visit feels different
-  const LOADING_MESSAGES = useMemo(() => {
-    if (is10pmWindow) return [TEN_PM_MESSAGE];
-    const pool = [
-      'Dodging legendary buzzkilla with ease',
-      'Counting your digital weapons\u2026',
-      'Shaking down the blockchain for answers',
-      'Appraising your arsenal\u2026',
-      'Floor prices don\u2019t check themselves',
-      'Interrogating smart contracts\u2026',
-      'Scanning 13M blocks. Yeah, all of them.',
-      'Loading NFTs faster than you loot crates',
-      'Your portfolio called. It said hurry up.',
-      'Doing math so you don\u2019t have to',
-      'Raiding the RPC for your data\u2026',
-      'Bribing the blockchain for faster responses',
-    ];
-    return pool.sort(() => Math.random() - 0.5);
-  }, [is10pmWindow]);
-  const loadingScramble = useTextScramble({
-    words: LOADING_MESSAGES,
-    scrambleDuration: 600,
-    pauseDuration: 2000,
-  });
-
-  // SDK init loading messages — displayed while waiting for wallet SDK to resolve
-  // Stable first word avoids SSR/client hydration mismatch from Math.random().
-  // Shuffle happens on the client after mount via useEffect.
-  const SDK_INIT_POOL = useMemo(() => {
-    if (is10pmWindow) return [TEN_PM_MESSAGE];
-    return [
-      'Hold on, the hamster powering the server tripped',
-      'How many hexes did you have to open to collect all this shit',
-      'Somewhere on Teardrop Island, your wallet is being looted',
-      'Wallet SDK is being a little bitch rn',
-      'Loading\u2026 faster than it takes to find you a match',
-      'This is taking longer than a hot drop wipe',
-      'Patience is a virtue. You don\u2019t have it.',
-      'If you\u2019re reading this, blame the SDK',
-      'Connecting wallet\u2026 or trying to, at least',
-      'The blockchain doesn\u2019t give a shit about your impatience',
-      'Almost there. Maybe. No promises.',
-      'Screaming into the void while your wallet connects',
-    ];
-  }, [is10pmWindow]);
-  const [SDK_INIT_WORDS, setSdkInitWords] = useState(SDK_INIT_POOL);
-  useEffect(() => {
-    setSdkInitWords(prev => [...prev].sort(() => Math.random() - 0.5));
-  }, []);
-  const sdkScramble = useTextScramble({
-    words: SDK_INIT_WORDS,
-    scrambleDuration: 600,
-    pauseDuration: 2500,
-  });
+  // Scrambled loading text for wallet fetch + SDK init
+  const { loadingText, sdkInitText } = useLoadingMessages();
 
   // Transition out of initializing state when we have valid NFT price data OR after timeout
   // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
@@ -360,48 +298,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     return () => clearTimeout(timeoutId);
   }, [isPortfolioInitializing, portfolioResult, gunPrice]);
 
-  // Track last snapshotted address to avoid duplicate API calls
-  const lastSnapshotAddressRef = useRef<string | null>(null);
-
-  // Record portfolio snapshot for site-wide NFT tracking
-  // Fires once per wallet address when portfolio data is stable
-  useEffect(() => {
-    if (!walletData || !portfolioResult) return;
-    if (loading || enrichingNFTs) return; // Wait for data to stabilize
-    if (lastSnapshotAddressRef.current === walletData.address) return; // Already recorded
-
-    // Only record if we have some NFTs to track
-    if (portfolioResult.nftCount === 0) return;
-
-    lastSnapshotAddressRef.current = walletData.address;
-
-    // Calculate current NFT value based on floor prices
-    const allNFTs = [...walletData.avalanche.nfts, ...walletData.solana.nfts];
-    const nftValueGun = allNFTs.reduce((sum, nft) => {
-      const quantity = nft.quantity ?? 1;
-      const floorPrice = nft.floorPrice ?? 0;
-      return sum + (floorPrice * quantity);
-    }, 0);
-
-    // Fire and forget - don't block UI
-    fetch('/api/portfolio/snapshot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        address: walletData.address,
-        chain: 'avalanche', // Primary chain for this portfolio
-        nftCount: portfolioResult.nftCount,
-        nftsWithPrice: portfolioResult.nftsWithPrice,
-        gunBalance: portfolioResult.totalGunBalance,
-        totalGunSpent: portfolioResult.totalGunSpent,
-        gunPriceUsd: gunPrice || 0,
-        nftValueGun,
-      }),
-    }).catch((err) => {
-      // Non-critical - just log
-      console.warn('[Snapshot] Failed to record portfolio snapshot:', err);
-    });
-  }, [walletData, portfolioResult, loading, enrichingNFTs, gunPrice]);
+  // Record portfolio snapshot for site-wide NFT tracking (fires once per address)
+  usePortfolioSnapshot(walletData, portfolioResult, loading, enrichingNFTs, gunPrice);
 
   // Load more NFTs (pagination)
   const handleLoadMoreNFTs = useCallback(async () => {
@@ -753,10 +651,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     }
   }, [primaryWallet?.address]);
 
-  // Lightweight gallery switch — changes which wallet's NFTs are shown without re-fetching
-  const handleGallerySwitch = useCallback((address: string) => {
-    setActiveGalleryWallet(address);
-  }, []);
 
   // Close unlock banner on outside click
   useEffect(() => {
@@ -769,45 +663,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showUnlockBanner]);
-
-  // Wallet search dropdown handlers
-  const handleAddToWatchlist = async (address: string) => {
-    setIsAddingWatchlist(true);
-    try {
-      const result = await addTrackedAddress(address);
-      if (result) {
-        toast.success('Added to watchlist');
-        return true;
-      } else {
-        toast.error('Failed to add to watchlist');
-        return false;
-      }
-    } catch {
-      toast.error('Failed to add to watchlist');
-      return false;
-    } finally {
-      setIsAddingWatchlist(false);
-    }
-  };
-
-  const handleAddToPortfolio = async (address: string) => {
-    setIsAddingPortfolio(true);
-    try {
-      const result = await addPortfolioAddress(address);
-      if (result) {
-        toast.success('Added to portfolio');
-        return true;
-      } else {
-        toast.error('Failed to add to portfolio');
-        return false;
-      }
-    } catch {
-      toast.error('Failed to add to portfolio');
-      return false;
-    } finally {
-      setIsAddingPortfolio(false);
-    }
-  };
 
   const handleDropdownNavigate = (address: string) => {
     handleWalletSubmit(address, 'avalanche');
@@ -825,58 +680,12 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     [effectiveWalletData?.avalanche.nfts, effectiveWalletData?.solana.nfts],
   );
 
-  // Milestone-gated NFT array for charts — only updates at enrichment milestones
-  // (0%, 25%, 50%, 75%, 100%) to prevent chart flicker during per-batch updates.
-  // Between milestones, returns the same object ref so downstream useMemo([nfts])
-  // in PnLScatterPlot / AcquisitionTimeline skips re-render.
-  const lastChartMilestoneRef = useRef<number>(-1);
-  const chartNftsRef = useRef<NFT[]>([]);
+  // Milestone-gated NFT array for charts — prevents flicker during per-batch enrichment
+  const chartNfts = useChartMilestoneGating(allNfts, enrichingNFTs, enrichmentProgress);
 
-  const chartNfts = useMemo(() => {
-    // When not enriching, always use latest data
-    if (!enrichingNFTs) {
-      lastChartMilestoneRef.current = -1;
-      chartNftsRef.current = allNfts;
-      return allNfts;
-    }
-    // Calculate progress %
-    const pct = enrichmentProgress && enrichmentProgress.total > 0
-      ? (enrichmentProgress.completed / enrichmentProgress.total) * 100
-      : 0;
-    // Milestone check
-    const milestones = [0, 25, 50, 75, 100];
-    const currentMilestone = milestones.reduce((best, m) => pct >= m ? m : best, 0);
-    if (currentMilestone > lastChartMilestoneRef.current) {
-      lastChartMilestoneRef.current = currentMilestone;
-      chartNftsRef.current = allNfts;
-      return allNfts;
-    }
-    // Between milestones: return same ref → charts don't re-render
-    return chartNftsRef.current;
-  }, [allNfts, enrichingNFTs, enrichmentProgress]);
-
-  // Per-wallet token key sets — used to filter allNfts for gallery view
-  // Built from pre-enrichment per-wallet data; keys stay valid because
-  // createEnrichmentUpdater matches on tokenIds?.[0] || tokenId
-  const walletNftKeys = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    const addWallet = (wd: WalletData) => {
-      const keys = new Set(wd.avalanche.nfts.map(n => n.tokenIds?.[0] || n.tokenId));
-      map.set(wd.address.toLowerCase(), keys);
-    };
-    if (primaryWalletData) addWallet(primaryWalletData);
-    portfolioWalletsData.forEach(addWallet);
-    return map;
-  }, [primaryWalletData, portfolioWalletsData]);
-
-  // NFTs for the gallery — filtered to the active wallet when multiple wallets exist
-  const galleryNfts = useMemo(() => {
-    const target = activeGalleryWallet?.toLowerCase();
-    if (!target || walletNftKeys.size <= 1) return allNfts;
-    const keys = walletNftKeys.get(target);
-    if (!keys) return allNfts;
-    return allNfts.filter(nft => keys.has(nft.tokenIds?.[0] || nft.tokenId));
-  }, [allNfts, activeGalleryWallet, walletNftKeys]);
+  // Per-wallet NFT filtering for gallery view
+  const { activeGalleryWallet, setActiveGalleryWallet, walletNftKeys, galleryNfts, handleGallerySwitch } =
+    useMultiWalletGallery(primaryWalletData, portfolioWalletsData, allNfts);
 
   const contextValue: PortfolioContextValue = useMemo(() => ({
     walletData: effectiveWalletData,
@@ -993,7 +802,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--gs-lime)]" />
             <p className="text-[var(--gs-gray-4)] font-mono text-sm">
-              {sdkScramble.displayText}
+              {sdkInitText}
             </p>
           </div>
         )
@@ -1011,7 +820,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-[var(--gs-lime)]" />
           <p className="font-mono text-sm tracking-wide text-[var(--gs-gray-4)]">
-            {loadingScramble.displayText}
+            {loadingText}
           </p>
         </div>
       )}
