@@ -15,9 +15,20 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.2.5',
+    date: 'Feb 18, 2026',
+    tag: 'current',
+    items: [
+      'Hook extraction \u2014 five custom hooks pulled from PortfolioClient (loading messages, chart milestone gating, portfolio snapshots, wallet search actions, multi\u2011wallet gallery), reducing component from 1,203 to 1,012 lines',
+      'Lazy\u2011load below\u2011fold \u2014 ChartInsightsRow and NFTGallery dynamically imported with skeleton placeholders for faster initial paint',
+      'Accessibility \u2014 skip\u2011to\u2011content link, aria\u2011live on metrics grid, ARIA tablist with roving tabIndex and arrow\u2011key navigation on chart tabs',
+      'Wallet switch race fix \u2014 request ID ref pattern on handleWalletSubmit discards stale responses when rapidly switching wallets',
+      'Gallery card stagger \u2014 first 24 NFT cards fade\u2011in with translateY stagger animation (30ms grid, 20ms list); cards beyond 24 render instantly',
+    ],
+  },
+  {
     version: 'v0.2.4',
     date: 'Feb 17, 2026',
-    tag: 'current',
     items: [
       'Cost basis sparkline \u2014 dashed white line on the portfolio value chart shows historical cost basis alongside market value, visually revealing unrealized P&L gap',
       'Star\u2011appear animation \u2014 chart dots fade in like stars appearing in a night sky as NFTs enrich, growing from tiny pinpoints to full size over ~10 seconds',
