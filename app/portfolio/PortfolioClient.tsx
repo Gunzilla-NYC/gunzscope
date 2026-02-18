@@ -29,7 +29,6 @@ import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
 import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
-import WalletSearchDropdown from '@/components/WalletSearchDropdown';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggregation';
 import { useNFTEnrichmentOrchestrator } from '@/lib/hooks/useNFTEnrichmentOrchestrator';
@@ -185,15 +184,16 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const { profile, isConnected, isAuthenticated, addTrackedAddress, addPortfolioAddress, isInPortfolio } = useUserProfile();
   const portfolioAddresses = profile?.portfolioAddresses ?? [];
 
-  // Wallet search dropdown action handlers
+  // Wallet action handlers (watch / portfolio)
   const { isAddingWatchlist, isAddingPortfolio, handleAddToWatchlist, handleAddToPortfolio } =
     useWalletSearchActions(addTrackedAddress, addPortfolioAddress);
 
-  // Computed values for dropdown
+  // Computed values for wallet actions (identity bar)
+  const viewedAddress = walletData?.address ?? searchAddress;
   const isInWatchlist = profile?.trackedAddresses.some(
-    t => t.address.toLowerCase() === searchAddress.toLowerCase()
+    t => t.address.toLowerCase() === viewedAddress.toLowerCase()
   ) ?? false;
-  const addressInPortfolio = isInPortfolio(searchAddress);
+  const addressInPortfolio = isInPortfolio(viewedAddress);
   const isAtPortfolioLimit = (profile?.portfolioAddresses?.length ?? 0) >= 5;
 
   // Late portfolio merge: when portfolioAddresses arrive after the initial
@@ -593,7 +593,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Handle wallet search (gated after first free search)
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchAddress.trim()) return;
+    if (!searchAddress.trim() || !detectedChain) return;
     if (!canSearch) return;
     setNoWalletDetected(false);
     handleWalletSubmit(searchAddress.trim(), 'avalanche');
@@ -694,9 +694,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showUnlockBanner]);
 
-  const handleDropdownNavigate = (address: string) => {
-    handleWalletSubmit(address, 'avalanche');
-  };
 
   // Build context value for PortfolioProvider
   // Use aggregatedWalletFromHook (computed by useWalletAggregation) with fallback to walletData
@@ -917,28 +914,30 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                     value={searchAddress}
                     onChange={(e) => setSearchAddress(e.target.value)}
                     placeholder="Search another wallet..."
-                    className="w-full pl-9 pr-20 py-2 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono"
+                    className={`w-full pl-9 py-2 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono ${searchAddress.trim() && detectedChain ? 'pr-32' : 'pr-14'}`}
                   />
+                  {searchAddress.trim() && detectedChain && (
+                    <span className={`absolute right-14 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
+                      detectedChain === 'gunzchain'
+                        ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
+                        : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
+                    }`}>
+                      {detectedChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
+                    </span>
+                  )}
                   <button
                     type="submit"
-                    disabled={!searchAddress.trim()}
+                    disabled={!searchAddress.trim() || !detectedChain}
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] text-xs font-medium rounded hover:bg-[var(--gs-lime)]/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Go
                   </button>
-                  {/* Wallet Search Dropdown */}
-                  <WalletSearchDropdown
-                    searchValue={searchAddress}
-                    onNavigate={handleDropdownNavigate}
-                    onAddToWatchlist={handleAddToWatchlist}
-                    onAddToPortfolio={handleAddToPortfolio}
-                    isInWatchlist={isInWatchlist}
-                    isInPortfolio={addressInPortfolio}
-                    isAddingWatchlist={isAddingWatchlist}
-                    isAddingPortfolio={isAddingPortfolio}
-                    isAtPortfolioLimit={isAtPortfolioLimit}
-                  />
                 </div>
+                {searchAddress.trim() && !detectedChain && (
+                  <p className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">
+                    Enter a valid GunzChain (0x...) or Solana address
+                  </p>
+                )}
               </form>
             </div>
           )}
@@ -951,6 +950,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             isAuthenticated={isAuthenticated}
             onSwitchWallet={handleGallerySwitch}
             onBackToOwnWallet={handleBackToOwnWallet}
+            isInWatchlist={isInWatchlist}
+            isInPortfolio={addressInPortfolio}
+            isAtPortfolioLimit={isAtPortfolioLimit}
+            isAddingWatchlist={isAddingWatchlist}
+            isAddingPortfolio={isAddingPortfolio}
+            onAddToWatchlist={handleAddToWatchlist}
+            onAddToPortfolio={handleAddToPortfolio}
           />
 
           <div className="space-y-6 mt-4">

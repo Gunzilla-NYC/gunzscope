@@ -154,7 +154,7 @@ export function WalletDropdown({
           {isOpen && (
             <motion.div
               ref={panelRef}
-              className="fixed w-72 max-w-[calc(100vw-48px)] z-[60] flex flex-col bg-[var(--gs-dark-2)] border border-white/[0.06] shadow-xl shadow-black/40 overflow-hidden"
+              className="fixed w-72 max-w-[calc(100vw-48px)] z-[60] flex flex-col bg-[#0C0C0C] border border-white/[0.10] shadow-2xl shadow-black/80 ring-1 ring-black/60 overflow-hidden"
               style={{
                 top: pos.top,
                 right: pos.right,

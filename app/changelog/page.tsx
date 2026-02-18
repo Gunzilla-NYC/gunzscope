@@ -15,9 +15,19 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.2.5',
+    version: 'v0.2.6',
     date: 'Feb 18, 2026',
     tag: 'current',
+    items: [
+      'Search bar validation \u2014 invalid addresses (e.g. trailing special characters) now show inline chain detection badge and hint text instead of silently failing; "Go" button properly gates on address validity',
+      'Wallet actions relocated \u2014 Watch and Portfolio buttons moved from search dropdown to the wallet identity bar, where users have context after viewing a wallet\u2019s data',
+      'Item origin database \u2014 curated lookup table mapping NFT items to their release origin (Battle Pass, Content Pack, Event) with 26 releases catalogued',
+      'Navbar dropdown contrast \u2014 darker background and stronger shadow on wallet dropdown so it no longer blends into the page behind it',
+    ],
+  },
+  {
+    version: 'v0.2.5',
+    date: 'Feb 18, 2026',
     items: [
       'Hook extraction \u2014 five custom hooks pulled from PortfolioClient (loading messages, chart milestone gating, portfolio snapshots, wallet search actions, multi\u2011wallet gallery), reducing component from 1,203 to 1,012 lines',
       'Lazy\u2011load below\u2011fold \u2014 ChartInsightsRow and NFTGallery dynamically imported with skeleton placeholders for faster initial paint',

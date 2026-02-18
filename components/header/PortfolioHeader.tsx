@@ -25,6 +25,13 @@ interface PortfolioHeaderProps {
   isAuthenticated?: boolean;
   onSwitchWallet?: (address: string) => void;
   onBackToOwnWallet?: () => void;
+  isInWatchlist?: boolean;
+  isInPortfolio?: boolean;
+  isAtPortfolioLimit?: boolean;
+  isAddingWatchlist?: boolean;
+  isAddingPortfolio?: boolean;
+  onAddToWatchlist?: (address: string) => Promise<boolean>;
+  onAddToPortfolio?: (address: string) => Promise<boolean>;
 }
 
 export default function PortfolioHeader({
@@ -34,6 +41,13 @@ export default function PortfolioHeader({
   isAuthenticated = false,
   onSwitchWallet,
   onBackToOwnWallet,
+  isInWatchlist,
+  isInPortfolio,
+  isAtPortfolioLimit,
+  isAddingWatchlist,
+  isAddingPortfolio,
+  onAddToWatchlist,
+  onAddToPortfolio,
 }: PortfolioHeaderProps = {}) {
   // Get data from context
   const { walletData } = usePortfolioWallet();
@@ -97,6 +111,13 @@ export default function PortfolioHeader({
           isAuthenticated={isAuthenticated}
           onSwitchWallet={onSwitchWallet}
           onBackToOwnWallet={onBackToOwnWallet}
+          isInWatchlist={isInWatchlist}
+          isInPortfolio={isInPortfolio}
+          isAtPortfolioLimit={isAtPortfolioLimit}
+          isAddingWatchlist={isAddingWatchlist}
+          isAddingPortfolio={isAddingPortfolio}
+          onAddToWatchlist={onAddToWatchlist}
+          onAddToPortfolio={onAddToPortfolio}
         />
       </div>
       {/* Panel slot: drop-down panels portal into this div */}
