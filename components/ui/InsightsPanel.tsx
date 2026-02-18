@@ -27,9 +27,14 @@ export default function InsightsPanel({ insights, isLoading, onInsightClick }: I
 
   return (
     <div className="space-y-1.5">
-      <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
-        Insights
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
+          Insights
+        </p>
+        <span className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 text-[#FF9F43] border border-[#FF9F43]/30 bg-[#FF9F43]/[0.08]">
+          Under Active Dev
+        </span>
+      </div>
       {insights.map((insight, idx) => (
         <button
           key={insight.type}

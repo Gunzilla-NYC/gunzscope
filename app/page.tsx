@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'motion/react';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
 import { useCountUp } from '@/hooks/useCountUp';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
 import { useTextScramble } from '@/hooks/useTextScramble';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+
+// Shared animation easings
+const revealEase = [0.16, 1, 0.3, 1] as const;
 
 // Features data
 const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing'; title: string; desc: string }[] = [
@@ -61,7 +65,6 @@ interface SiteStats {
 
 export default function HomePage() {
   const router = useRouter();
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const heroRef = useRef<HTMLElement>(null);
   const [gunPrice, setGunPrice] = useState<number | null>(null);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
@@ -233,6 +236,15 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [socialProofVisible, walletsCountUp, socialNftsCountUp]);
 
+  // Deferred auth flow — opened after modal exit animation completes
+  const pendingAuthFlowRef = useRef(false);
+  const handleModalExitComplete = useCallback(() => {
+    if (pendingAuthFlowRef.current) {
+      pendingAuthFlowRef.current = false;
+      setShowAuthFlow(true);
+    }
+  }, [setShowAuthFlow]);
+
   // Close modal helper
   const closeWalletModal = useCallback(() => {
     setShowWalletModal(false);
@@ -308,28 +320,6 @@ export default function HomePage() {
     Promise.all([fetchPrice(), fetchSiteStats()]);
   }, []);
 
-  // Setup intersection observer for scroll animations
-  useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-          }
-        });
-      },
-      {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px',
-      }
-    );
-
-    document.querySelectorAll('.observe').forEach((el) => {
-      observerRef.current?.observe(el);
-    });
-
-    return () => observerRef.current?.disconnect();
-  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">
@@ -383,32 +373,51 @@ export default function HomePage() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 w-full">
         <div className="max-w-[900px]">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/5 mb-10 clip-corner-sm animate-fade-in-up">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: revealEase }}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/5 mb-10 clip-corner-sm"
+          >
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse-dot" />
             <span className="font-mono text-data tracking-wider uppercase text-[var(--gs-lime)]">
               Powered by GUNZ Protocol
             </span>
-          </div>
+          </motion.div>
 
           {/* Title */}
-          <h1 className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-wide uppercase mb-6 animate-fade-in-up delay-100">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1, ease: revealEase }}
+            className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-wide uppercase mb-6"
+          >
             <span className="block text-[var(--gs-white)]">Your OTG</span>
             <span className="block text-[var(--gs-purple-bright)]">Arsenal</span>
             <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px]">
               {heroScramble.displayText}
             </span>
-          </h1>
+          </motion.h1>
 
           {/* Subtitle */}
-          <p className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-[560px] mb-10 animate-fade-in-up delay-200">
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: revealEase }}
+            className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-[560px] mb-10"
+          >
             Track, analyze, and dominate your <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> NFT portfolio.
             Real&#8209;time P&L, acquisition tracking, and weapon intelligence across{' '}
             <strong className="text-[var(--gs-white)] font-medium">GunzChain</strong> and{' '}
             <strong className="text-[var(--gs-white)] font-medium">Solana</strong>.
-          </p>
+          </motion.p>
 
           {/* Connect Wallet CTA */}
-          <div className="animate-fade-in-up delay-300">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3, ease: revealEase }}
+          >
             <button
               type="button"
               onClick={() => { setShowWalletModal(true); setModalView('choose'); setGateError(null); }}
@@ -425,7 +434,7 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
-          </div>
+          </motion.div>
         </div>
         </div>
 
@@ -483,27 +492,34 @@ export default function HomePage() {
       {/* Features Section */}
       <section className="relative z-10 py-24 border-t border-white/[0.06]" id="features">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="flex items-baseline gap-4 mb-10 observe">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '0px 0px -50px 0px' }}
+          transition={{ duration: 0.6, ease: revealEase }}
+          className="flex items-baseline gap-4 mb-10"
+        >
           <span className="section-number">01</span>
           <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Core Features</h2>
           <div className="section-line" />
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.04] border border-white/[0.06] observe">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.04] border border-white/[0.06]">
           {features.map((feature, index) => (
-            <div
+            <motion.div
               key={index}
-              className="feature-card relative p-10 bg-[var(--gs-dark-1)] hover:bg-[var(--gs-dark-2)] group overflow-hidden"
-              style={{
-                transitionDelay: `${index * 100}ms`,
-              }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '0px 0px -50px 0px' }}
+              transition={{ duration: 0.5, delay: index * 0.1, ease: revealEase }}
+              className="relative p-10 bg-[var(--gs-dark-1)] hover:bg-[var(--gs-dark-2)] group overflow-hidden"
             >
               <div className="w-10 h-10 border border-[var(--gs-gray-1)] flex items-center justify-center text-[var(--gs-gray-3)] mb-6 group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm">
                 <FeatureIcon name={feature.icon} />
               </div>
               <h3 className="font-display font-semibold text-base uppercase tracking-wide text-[var(--gs-white)] mb-2">{feature.title}</h3>
               <p className="font-body text-sm font-light leading-relaxed text-[var(--gs-gray-3)]">{feature.desc}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
         </div>
@@ -512,63 +528,71 @@ export default function HomePage() {
       {/* Social Proof Section */}
       <section className="relative z-10 py-16 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <div ref={socialProofRef} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center observe">
-            <div className="group" style={{ transitionDelay: '0ms' }}>
-              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-lime)] mb-2 transition-transform group-hover:scale-105">
-                {socialProofVisible && siteStats?.walletsTracked != null ? walletsCountUp.displayValue : (siteStats?.walletsTracked ?? '—')}
-              </div>
-              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
-                Wallets Connected
-              </div>
-            </div>
-            <div className="group" style={{ transitionDelay: '100ms' }}>
-              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-purple-bright)] mb-2 transition-transform group-hover:scale-105">
-                {socialProofVisible && siteStats?.nftsTracked != null ? socialNftsCountUp.displayValue : (siteStats?.nftsTracked ?? '—')}
-              </div>
-              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
-                NFTs Analyzed
-              </div>
-            </div>
-            <div className="group" style={{ transitionDelay: '200ms' }}>
-              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-white)] mb-2 transition-transform group-hover:scale-105">
-                2
-              </div>
-              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
-                Chains Supported
-              </div>
-            </div>
-            <div className="group" style={{ transitionDelay: '300ms' }}>
-              <div className="font-display text-4xl md:text-5xl font-bold text-[var(--gs-profit)] mb-2 transition-transform group-hover:scale-105">
-                24/7
-              </div>
-              <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
-                Live Tracking
-              </div>
-            </div>
+          <div ref={socialProofRef} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {[
+              { value: socialProofVisible && siteStats?.walletsTracked != null ? walletsCountUp.displayValue : (siteStats?.walletsTracked ?? '—'), label: 'Wallets Connected', color: 'text-[var(--gs-lime)]' },
+              { value: socialProofVisible && siteStats?.nftsTracked != null ? socialNftsCountUp.displayValue : (siteStats?.nftsTracked ?? '—'), label: 'NFTs Analyzed', color: 'text-[var(--gs-purple-bright)]' },
+              { value: '2', label: 'Chains Supported', color: 'text-[var(--gs-white)]' },
+              { value: '24/7', label: 'Live Tracking', color: 'text-[var(--gs-profit)]' },
+            ].map((stat, i) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '0px 0px -50px 0px' }}
+                transition={{ duration: 0.6, delay: i * 0.1, ease: revealEase }}
+                className="group"
+              >
+                <div className={`font-display text-4xl md:text-5xl font-bold ${stat.color} mb-2 transition-transform group-hover:scale-105`}>
+                  {stat.value}
+                </div>
+                <div className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
+                  {stat.label}
+                </div>
+              </motion.div>
+            ))}
           </div>
 
           {/* Community quote */}
-          <div className="mt-12 text-center observe" style={{ transitionDelay: '400ms' }}>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '0px 0px -50px 0px' }}
+            transition={{ duration: 0.6, delay: 0.4, ease: revealEase }}
+            className="mt-12 text-center"
+          >
             <blockquote className="font-body text-lg italic text-[var(--gs-gray-4)] max-w-2xl mx-auto">
               "Waiting for someone cool from the OTG Discord to put a testimonial here."
             </blockquote>
             <cite className="block mt-4 font-mono text-data tracking-wider uppercase text-[var(--gs-gray-3)]">
               — OTG Discord Cool Person
             </cite>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Dashboard Preview Section */}
       <section className="relative z-10 py-24 border-t border-white/[0.06]" id="preview">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="flex items-baseline gap-4 mb-10 observe">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '0px 0px -50px 0px' }}
+          transition={{ duration: 0.6, ease: revealEase }}
+          className="flex items-baseline gap-4 mb-10"
+        >
           <span className="section-number">03</span>
           <h2 className="font-display font-bold text-3xl uppercase tracking-wide">Dashboard Preview</h2>
           <div className="section-line" />
-        </div>
+        </motion.div>
 
-        <div className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden observe preview-frame">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '0px 0px -50px 0px' }}
+          transition={{ duration: 0.6, delay: 0.15, ease: revealEase }}
+          className="relative bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden preview-frame"
+        >
           {/* Browser toolbar */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-black/30">
             <div className="flex gap-1.5">
@@ -649,13 +673,18 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
         </div>
       </section>
 
       {/* Wallet Connect Modal */}
+      <AnimatePresence onExitComplete={handleModalExitComplete}>
       {showWalletModal && (
-        <div
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
@@ -663,12 +692,18 @@ export default function HomePage() {
         >
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/85 animate-fade-in"
+            className="absolute inset-0 bg-black/85"
             onClick={closeWalletModal}
           />
 
           {/* Modal container — clip-corner on outer, glass on inner to avoid clip-path blocking backdrop-filter */}
-          <div className="relative w-full max-w-[440px] clip-corner animate-modal-enter">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+            transition={{ duration: 0.3, ease: revealEase }}
+            className="relative w-full max-w-[440px] clip-corner"
+          >
             <div className="relative bg-[rgba(22,22,22,0.75)] backdrop-blur-xl border border-white/[0.06] overflow-hidden">
             {/* Top accent gradient */}
             <div className="h-[2px] bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)]" />
@@ -739,7 +774,7 @@ export default function HomePage() {
                   {/* External Wallet tile */}
                   <button
                     type="button"
-                    onClick={() => { setShowWalletModal(false); setShowAuthFlow(true); }}
+                    onClick={() => { pendingAuthFlowRef.current = true; setShowWalletModal(false); }}
                     className="w-full text-left p-5 bg-[rgba(28,28,28,0.5)] backdrop-blur-md border border-white/[0.06] hover:bg-[rgba(36,36,36,0.7)] hover:border-[var(--gs-purple)]/40 group cursor-pointer clip-corner-sm overflow-hidden transition-all duration-200"
                   >
                     <div className="flex items-start gap-4">
@@ -861,9 +896,10 @@ export default function HomePage() {
               )}
             </div>
           </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Footer */}
       <Footer />

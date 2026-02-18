@@ -1,26 +1,39 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Circle, Line } from '@visx/shape';
 import { scaleLog, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
 import { GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
+import { Zoom } from '@visx/zoom';
+import type { TransformMatrix } from '@visx/zoom/lib/types';
+
 import { NFT } from '@/lib/types';
 import { chartTheme } from './theme';
 import { useProximityLock, LockPoint } from './useProximityLock';
-import { useGrabScroll } from './useGrabScroll';
 import { RARITY_COLORS } from '@/components/nft-gallery/utils';
 import { formatGun, HUD_KEYFRAMES, GlowFilterDef, HudLockOverlay } from './utils';
+import {
+  type ChartZoomHandle,
+  type ZoomScaleMethod,
+  computeZoomedDomain,
+  makeConstrainZoom,
+  useShiftWheelZoom,
+  ZOOM_SCALE_MIN,
+  ZOOM_SCALE_MAX,
+} from './useChartZoom';
 
 interface AcquisitionTimelineProps {
   nfts: NFT[];
   gunPrice?: number;
   /** When true, renders only the chart body (no header, no border, always visible). */
   embedded?: boolean;
-  /** Zoom level (1 = 100%, 2 = 200% width). Only used in embedded mode. */
-  zoomLevel?: number;
+  /** Ref for imperative zoom control from parent (zoomTo, reset, getScale). */
+  zoomRef?: React.RefObject<ChartZoomHandle | null>;
+  /** Called when zoom scale changes (for displaying current level in parent). */
+  onZoomChange?: (scale: number) => void;
 }
 
 interface TimelineDatum {
@@ -35,7 +48,7 @@ interface TimelineDatum {
 
 const MARGIN = { top: 14, right: 16, bottom: 32, left: 16 };
 /** Embedded mode uses the same dimensions as PnLScatterPlot for seamless crossfade. */
-const MARGIN_EMBEDDED = { top: 20, right: 20, bottom: 38, left: 58 };
+const MARGIN_EMBEDDED = { top: 40, right: 20, bottom: 38, left: 58 };
 const CHART_HEIGHT = 240;
 const CHART_HEIGHT_EMBEDDED = 270;
 
@@ -65,57 +78,144 @@ function venueLabel(venue: string): string {
   }
 }
 
-function TimelineChart({
-  data,
-  width,
-  height,
-  margin,
-  zoomLevel = 1,
-  onLockedDatumChange,
+/**
+ * Generate ~targetCount ticks evenly spaced in log10 space, snapped to 1-2-5 numbers.
+ * Ensures the lowest data value always has a nearby tick.
+ */
+function generateEvenLogTicks(
+  domainMax: number, minDataValue: number, targetCount = 5,
+): number[] {
+  // Bottom tick starts at the lowest data value (snapped), not the padded domain edge
+  const bottomTick = snapToNice125(Math.max(1, minDataValue));
+  const logMin = Math.log10(bottomTick);
+  const logMax = Math.log10(domainMax);
+  if (logMax <= logMin) return [bottomTick];
+
+  const step = (logMax - logMin) / (targetCount - 1);
+  const raw: number[] = [];
+  for (let i = 0; i < targetCount; i++) {
+    raw.push(Math.pow(10, logMin + i * step));
+  }
+
+  // Snap each to nearest 1-2-5 nice number
+  const snapped = raw.map(snapToNice125);
+
+  // Deduplicate (adjacent snaps may collapse) and sort
+  const unique = [...new Set(snapped)].sort((a, b) => a - b);
+
+  return unique;
+}
+
+/** Snap a value to the nearest 1-2-5 sequence number at its order of magnitude. */
+function snapToNice125(value: number): number {
+  const exp = Math.floor(Math.log10(value));
+  const mag = Math.pow(10, exp);
+  const norm = value / mag; // 1 <= norm < 10
+
+  // Compare in log-space for proportional distance
+  const candidates = [1, 2, 5, 10];
+  let best = candidates[0];
+  let bestDist = Infinity;
+  for (const c of candidates) {
+    const dist = Math.abs(Math.log10(norm) - Math.log10(c));
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = c;
+    }
+  }
+
+  const result = best * mag;
+  // Clean up floating point (e.g. 200.00000001 → 200)
+  const rounded = parseFloat(result.toPrecision(3));
+  return rounded;
+}
+
+/* ------------------------------------------------------------------ */
+/*  TimelineChartZoomed — inner component (receives zoom state)       */
+/* ------------------------------------------------------------------ */
+
+function TimelineChartZoomed({
+  data, width, height, margin,
+  seenIdsRef, onLockedDatumChange, onZoomChange,
+  transformMatrix, isDragging,
+  dragStart, dragMove, dragEnd,
 }: {
   data: TimelineDatum[];
   width: number;
   height: number;
   margin: { top: number; right: number; bottom: number; left: number };
-  zoomLevel?: number;
+  seenIdsRef: React.RefObject<Set<string>>;
   onLockedDatumChange?: (datum: TimelineDatum | null) => void;
+  onZoomChange?: (scale: number) => void;
+  transformMatrix: TransformMatrix;
+  isDragging: boolean;
+  dragStart: (e: React.MouseEvent | React.TouchEvent) => void;
+  dragMove: (e: React.MouseEvent | React.TouchEvent) => void;
+  dragEnd: () => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  // Keep data positions stable: scale range stays at base (unzoomed) width
-  const baseInnerWidth = innerWidth / zoomLevel;
+
+  /* --- Base scales (full data extent → pixel range) --- */
 
   const dateExtent = useMemo(() => {
     const dates = data.map(d => d.date.getTime());
     const min = Math.min(...dates);
     const max = Math.max(...dates);
-    // 15% padding, minimum 10 minutes — zooms into concentrated buying periods
     const pad = Math.max((max - min) * 0.15, 10 * 60 * 1000);
     return [new Date(min - pad), new Date(max + pad)] as [Date, Date];
   }, [data]);
 
-  // Date range in days (for smart axis formatting)
-  const rangeDays = useMemo(() => {
-    return (dateExtent[1].getTime() - dateExtent[0].getTime()) / (1000 * 60 * 60 * 24);
-  }, [dateExtent]);
-
   const maxCost = useMemo(() => Math.max(...data.map(d => d.costGun), 1), [data]);
+  const minCost = useMemo(() => Math.min(...data.map(d => d.costGun)), [data]);
 
-  const xScale = useMemo(
-    () => scaleTime<number>({ domain: dateExtent, range: [0, baseInnerWidth] }),
-    [dateExtent, baseInnerWidth],
+  // Dynamic Y-domain: pad 30% below the lowest dot on a log scale, floor at 0.5 (log can't handle ≤0)
+  const yDomainMin = useMemo(() => Math.max(0.5, minCost / 1.3), [minCost]);
+
+  const baseXScale = useMemo(
+    () => scaleTime<number>({ domain: dateExtent, range: [0, innerWidth] }),
+    [dateExtent, innerWidth],
   );
 
-  // Log scale for cost — spreads small values across the full height
-  // while compressing outliers. Domain starts at 0.5 (log can't start at 0).
-  const yScale = useMemo(
-    () => scaleLog<number>({ domain: [0.5, maxCost * 1.3], range: [innerHeight, 0], base: 10, clamp: true }),
-    [maxCost, innerHeight],
+  const baseYScale = useMemo(
+    () => scaleLog<number>({ domain: [yDomainMin, maxCost * 1.5], range: [innerHeight, 0], base: 10, clamp: true }),
+    [yDomainMin, maxCost, innerHeight],
   );
 
-  // Memoize stem gradient defs — only changes when data venues change
+  /* --- Zoomed scales from transform matrix --- */
+
+  const { scaleX, scaleY, translateX, translateY } = transformMatrix;
+
+  const xScale = useMemo(() => {
+    const [d0, d1] = computeZoomedDomain(baseXScale, scaleX, translateX, innerWidth, false);
+    return scaleTime<number>({ domain: [d0, d1], range: [0, innerWidth] });
+  }, [baseXScale, scaleX, translateX, innerWidth]);
+
+  const yScale = useMemo(() => {
+    const [d0, d1] = computeZoomedDomain(baseYScale, scaleY, translateY, innerHeight, true);
+    return scaleLog<number>({
+      domain: [Math.max(yDomainMin, d0 as number), Math.max(yDomainMin * 1.01, d1 as number)],
+      range: [innerHeight, 0],
+      base: 10,
+      clamp: true,
+    });
+  }, [baseYScale, scaleY, translateY, innerHeight, yDomainMin]);
+
+  // Date range in days (from zoomed domain — affects tick formatting)
+  const rangeDays = useMemo(() => {
+    const domain = xScale.domain();
+    return ((domain[1] as Date).getTime() - (domain[0] as Date).getTime()) / (1000 * 60 * 60 * 24);
+  }, [xScale]);
+
+  // Report zoom level to parent
+  useEffect(() => {
+    onZoomChange?.(scaleX);
+  }, [scaleX, onZoomChange]);
+
+  /* --- Stem gradient defs --- */
+
   const uniqueColors = useMemo(() => {
     const colors = new Set<string>();
     for (const d of data) colors.add(venueColor(d.venue));
@@ -137,21 +237,26 @@ function TimelineChart({
     [uniqueColors],
   );
 
-  // Build lock-on points from data (in group coordinate space)
+  /* --- Proximity lock --- */
+
   const lockPoints: LockPoint[] = useMemo(
     () => data.map(d => ({ id: d.id, x: xScale(d.date), y: yScale(d.costGun) })),
     [data, xScale, yScale],
   );
 
-  const { lockedId, lockedPoint, handleMouseMove, handleMouseLeave } = useProximityLock(
+  const {
+    lockedId, lockedPoint,
+    handleMouseMove: proximityMouseMove,
+    handleMouseLeave: proximityMouseLeave,
+  } = useProximityLock(
     lockPoints,
     svgRef,
     { left: margin.left, top: margin.top },
     40,
   );
 
-  // Track which dots have been seen so only newly-arriving dots animate
-  const seenIdsRef = useRef<Set<string>>(new Set());
+  /* --- Dot animation tracking --- */
+
   const newIds = useMemo(() => {
     const fresh = new Set<string>();
     for (const d of data) {
@@ -160,21 +265,72 @@ function TimelineChart({
     return fresh;
   }, [data]);
 
-  // After render, mark all current dots as seen
+  // Shuffle new IDs so dots appear in random positions (night-sky effect)
+  const randomDelayMap = useMemo(() => {
+    const ids = Array.from(newIds);
+    // Fisher-Yates shuffle
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    const map = new Map<string, number>();
+    for (let i = 0; i < ids.length; i++) {
+      map.set(ids[i], ids.length > 1 ? (i / (ids.length - 1)) * 8 : 0);
+    }
+    return map;
+  }, [newIds]);
+
   useEffect(() => {
     for (const d of data) seenIdsRef.current.add(d.id);
   }, [data]);
 
-  // Lookup the locked datum for tooltip
   const lockedDatum = useMemo(
     () => lockedId ? data.find(d => d.id === lockedId) ?? null : null,
     [lockedId, data],
   );
 
-  // Report locked datum to parent for the combined legend+data row
   useEffect(() => {
     onLockedDatumChange?.(lockedDatum);
   }, [lockedDatum, onLockedDatumChange]);
+
+  /* --- Combined mouse handlers (drag + proximity) --- */
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (scaleX > 1.01) dragStart(e);
+  }, [scaleX, dragStart]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (isDragging) {
+      dragMove(e);
+    } else {
+      proximityMouseMove(e);
+    }
+  }, [isDragging, dragMove, proximityMouseMove]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging) dragEnd();
+  }, [isDragging, dragEnd]);
+
+  const handleMouseLeave = useCallback(() => {
+    dragEnd();
+    proximityMouseLeave();
+  }, [dragEnd, proximityMouseLeave]);
+
+  const cursor = isDragging
+    ? 'grabbing'
+    : scaleX > 1.01
+      ? 'grab'
+      : lockedId
+        ? 'crosshair'
+        : 'default';
+
+  /* --- Y-axis tick labels (filtered to zoomed domain) --- */
+
+  const yDomain = yScale.domain() as [number, number];
+  const yTickValues = useMemo(
+    () => generateEvenLogTicks(yDomain[1], minCost, 5),
+    [yDomain[1], minCost],
+  );
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
@@ -184,106 +340,109 @@ function TimelineChart({
         ref={svgRef}
         width={width}
         height={height}
+        onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        style={{ cursor: lockedId ? 'crosshair' : 'default' }}
+        style={{ cursor }}
       >
         <defs>
           <style>{HUD_KEYFRAMES}{`
-            @keyframes dot-materialize {
-              0%   { opacity: 0; transform: scale(0); }
+            @keyframes star-appear {
+              0%   { opacity: 0; transform: scale(0.15); }
+              30%  { opacity: 0.3; transform: scale(0.4); }
+              70%  { opacity: 0.7; transform: scale(0.8); }
               100% { opacity: 1; transform: scale(1); }
             }
           `}</style>
           <GlowFilterDef id="timeline-glow" />
           {stemGradientDefs}
+          <clipPath id="timeline-data-clip">
+            <rect x={0} y={0} width={innerWidth} height={innerHeight} />
+          </clipPath>
         </defs>
 
         <Group left={margin.left} top={margin.top}>
-          {/* Grid */}
-          <GridColumns
-            scale={xScale}
-            height={innerHeight}
-            numTicks={Math.min(rangeDays < 3 ? 3 : 5, Math.floor(innerWidth / 80))}
-            stroke={chartTheme.colors.gridStrong}
-          />
-
-          {/* Baseline */}
-          <Line
-            from={{ x: 0, y: innerHeight }}
-            to={{ x: innerWidth, y: innerHeight }}
-            stroke="rgba(255,255,255,0.06)"
-            strokeWidth={1}
-          />
-
-          {/* Data points — new dots animate in as enrichment data arrives */}
-          {data.map(d => {
-            const cx = xScale(d.date);
-            const cy = yScale(d.costGun);
-            const isLocked = lockedId === d.id;
-            const color = venueColor(d.venue);
-            const gradientId = `stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
-            const isNew = newIds.has(d.id);
-
-            return (
-              <g
-                key={d.id}
-                style={isNew ? {
-                  animation: 'dot-materialize 450ms cubic-bezier(0.34,1.56,0.64,1) both',
-                  transformOrigin: `${cx}px ${cy}px`,
-                } : undefined}
-              >
-                {/* Gradient stem from baseline to dot */}
-                <line
-                  x1={cx}
-                  y1={innerHeight}
-                  x2={cx}
-                  y2={cy}
-                  stroke={`url(#${gradientId})`}
-                  strokeWidth={isLocked ? 2 : 1.5}
-                  pointerEvents="none"
-                  style={{ transition: 'stroke-width 200ms ease' }}
-                />
-                {/* Outer ambient glow */}
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={isLocked ? 12 : 7}
-                  fill={color}
-                  fillOpacity={isLocked ? 0.15 : 0.06}
-                  pointerEvents="none"
-                  style={{ transition: 'r 250ms ease, fill-opacity 250ms ease' }}
-                />
-                {/* Main dot */}
-                <Circle
-                  cx={cx}
-                  cy={cy}
-                  r={isLocked ? 5.5 : 4}
-                  fill={color}
-                  fillOpacity={isLocked ? 1 : 0.8}
-                  stroke={isLocked ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.12)'}
-                  strokeWidth={isLocked ? 1.5 : 0.5}
-                  filter={isLocked ? 'url(#timeline-glow)' : undefined}
-                  pointerEvents="none"
-                  data-dot=""
-                  style={{ transition: 'all 250ms ease' }}
-                />
-              </g>
-            );
-          })}
-
-          {/* HUD lock-on overlay — rendered above all dots */}
-          {lockedId && lockedPoint && lockedDatum && (
-            <HudLockOverlay
-              point={lockedPoint}
-              color={venueColor(lockedDatum.venue)}
-              scanRadius={20}
-              lockRadius={14}
-              yExtent={innerHeight}
+          {/* Clipped data area — grid, baseline, dots, HUD overlay */}
+          <g clipPath="url(#timeline-data-clip)">
+            {/* Grid */}
+            <GridColumns
+              scale={xScale}
+              height={innerHeight}
+              numTicks={Math.min(rangeDays < 3 ? 3 : 5, Math.floor(innerWidth / 80))}
+              stroke={chartTheme.colors.gridStrong}
             />
-          )}
 
-          {/* Time axis — smart formatting based on date range */}
+            {/* Baseline */}
+            <Line
+              from={{ x: 0, y: innerHeight }}
+              to={{ x: innerWidth, y: innerHeight }}
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={1}
+            />
+
+            {/* Data points */}
+            {data.map((d) => {
+              const cx = xScale(d.date);
+              const cy = yScale(d.costGun);
+              const isLocked = lockedId === d.id;
+              const color = venueColor(d.venue);
+              const gradientId = `stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+              const isNew = newIds.has(d.id);
+              const staggerDelay = randomDelayMap.get(d.id) ?? 0;
+
+              return (
+                <g
+                  key={d.id}
+                  style={isNew ? {
+                    animation: `star-appear 2s cubic-bezier(0.16, 1, 0.3, 1) ${staggerDelay.toFixed(2)}s both`,
+                    transformOrigin: `${cx}px ${cy}px`,
+                  } : undefined}
+                >
+                  <line
+                    x1={cx} y1={innerHeight} x2={cx} y2={cy}
+                    stroke={`url(#${gradientId})`}
+                    strokeWidth={isLocked ? 2 : 1.5}
+                    pointerEvents="none"
+                    style={{ transition: 'stroke-width 200ms ease' }}
+                  />
+                  <circle
+                    cx={cx} cy={cy}
+                    r={isLocked ? 12 : 7}
+                    fill={color}
+                    fillOpacity={isLocked ? 0.15 : 0.06}
+                    pointerEvents="none"
+                    style={{ transition: 'r 250ms ease, fill-opacity 250ms ease' }}
+                  />
+                  <Circle
+                    cx={cx} cy={cy}
+                    r={isLocked ? 5.5 : 4}
+                    fill={color}
+                    fillOpacity={isLocked ? 1 : 0.8}
+                    stroke={isLocked ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.12)'}
+                    strokeWidth={isLocked ? 1.5 : 0.5}
+                    filter={isLocked ? 'url(#timeline-glow)' : undefined}
+                    pointerEvents="none"
+                    data-dot=""
+                    style={{ transition: 'r 250ms ease, fill-opacity 250ms ease, stroke 250ms ease, stroke-width 250ms ease' }}
+                  />
+                </g>
+              );
+            })}
+
+            {/* HUD lock-on overlay */}
+            {lockedId && lockedPoint && lockedDatum && (
+              <HudLockOverlay
+                point={lockedPoint}
+                color={venueColor(lockedDatum.venue)}
+                scanRadius={20}
+                lockRadius={14}
+                yExtent={innerHeight}
+              />
+            )}
+          </g>
+
+          {/* Fixed axes — rendered outside clipPath so they never get clipped */}
           <AxisBottom
             scale={xScale}
             top={innerHeight}
@@ -311,15 +470,13 @@ function TimelineChart({
             }}
           />
 
-          {/* Cost axis label (left side — right-aligned column) */}
+          {/* Cost axis labels (Y-axis) */}
           {(() => {
-            // Wide left margin (embedded mode): labels go in margin area; narrow: inline at x=30
             const labelX = margin.left >= 40 ? -8 : 30;
             return (
               <>
                 <text
-                  x={labelX}
-                  y={-4}
+                  x={labelX} y={-22}
                   fill="rgba(255,255,255,0.3)"
                   fontSize={10}
                   fontFamily={chartTheme.fonts.mono}
@@ -327,9 +484,7 @@ function TimelineChart({
                 >
                   GUN
                 </text>
-
-                {/* Cost scale markers — clean log-spaced ticks */}
-                {[1, 2, 5, 10, 25, 50, 100, 200, 500, 1000, 2500, 5000].filter(v => v >= 1 && v <= maxCost * 1.1).map((val, i) => (
+                {yTickValues.map((val, i) => (
                   <text
                     key={i}
                     x={labelX}
@@ -352,10 +507,13 @@ function TimelineChart({
   );
 }
 
-export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLevel = 1 }: AcquisitionTimelineProps) {
+/* ------------------------------------------------------------------ */
+/*  AcquisitionTimeline — outer component                             */
+/* ------------------------------------------------------------------ */
+
+export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomRef, onZoomChange }: AcquisitionTimelineProps) {
   const [expanded, setExpanded] = useState(false);
   const [lockedDatum, setLockedDatum] = useState<TimelineDatum | null>(null);
-  const grabScrollRef = useGrabScroll(zoomLevel > 1);
 
   const chartMargin = embedded ? MARGIN_EMBEDDED : MARGIN;
 
@@ -374,7 +532,6 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [nfts]);
 
-  // Venue breakdown
   const venueCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const d of timelineData) {
@@ -385,38 +542,104 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
   }, [timelineData]);
 
   const hasData = timelineData.length >= 2;
-
   const chartHeight = embedded ? CHART_HEIGHT_EMBEDDED : CHART_HEIGHT;
 
-  // Chart body content (shared between embedded and standalone)
+  // Stable ref for tracking seen dot IDs — survives ParentSize remounts
+  const seenIdsRef = useRef<Set<string>>(new Set());
+
+  // Zoom imperative control refs
+  const zoomObjRef = useRef<ZoomScaleMethod & {
+    transformMatrix: TransformMatrix;
+    reset: () => void;
+    setTransformMatrix: (m: TransformMatrix) => void;
+  } | null>(null);
+  const svgContainerRef = useRef<HTMLDivElement>(null);
+  const innerDimsRef = useRef({ width: 0, height: 0 });
+
+  // Shift+wheel zoom (native listener for preventDefault)
+  useShiftWheelZoom(svgContainerRef, zoomObjRef, { left: chartMargin.left, top: chartMargin.top });
+
+  // Expose imperative handle for parent's zoom preset buttons
+  useEffect(() => {
+    if (!zoomRef) return;
+    zoomRef.current = {
+      zoomTo: (level: number) => {
+        const zoom = zoomObjRef.current;
+        if (!zoom) return;
+        const { width, height } = innerDimsRef.current;
+        zoom.setTransformMatrix({
+          scaleX: level, scaleY: level,
+          translateX: -(level - 1) * width / 2,
+          translateY: -(level - 1) * height / 2,
+          skewX: 0, skewY: 0,
+        });
+      },
+      reset: () => zoomObjRef.current?.reset(),
+      getScale: () => zoomObjRef.current?.transformMatrix.scaleX ?? 1,
+    };
+  }, [zoomRef]);
+
+  // Constrain function — reads fresh inner dimensions from ref
+  const constrain = useCallback((transform: TransformMatrix, prev: TransformMatrix) => {
+    const { width, height } = innerDimsRef.current;
+    if (width <= 0 || height <= 0) return prev;
+    return makeConstrainZoom(width, height, ZOOM_SCALE_MIN, ZOOM_SCALE_MAX)(transform, prev);
+  }, []);
+
   const chartBody = (
-    <div className="px-4 pb-3">
+    <div className="px-4 pb-3" ref={svgContainerRef}>
       {hasData ? (
-        <div
-          ref={grabScrollRef}
-          className="overflow-x-auto scrollbar-hidden"
-        >
-          <div style={{ width: `${100 * zoomLevel}%`, minWidth: '100%' }}>
-            <ParentSize debounceTime={100}>
-              {({ width: rawWidth }: { width: number }) => {
-                const width = Math.floor(rawWidth);
-                return width > 0 ? (
-                  <TimelineChart data={timelineData} width={width} height={chartHeight} margin={chartMargin} zoomLevel={zoomLevel} onLockedDatumChange={setLockedDatum} />
-                ) : null;
-              }}
-            </ParentSize>
-          </div>
-        </div>
+        <ParentSize debounceTime={100}>
+          {({ width: rawWidth }: { width: number }) => {
+            const w = Math.floor(rawWidth);
+            if (w <= 0) return null;
+
+            const iW = w - chartMargin.left - chartMargin.right;
+            const iH = chartHeight - chartMargin.top - chartMargin.bottom;
+            innerDimsRef.current = { width: iW, height: iH };
+
+            return (
+              <Zoom<SVGSVGElement>
+                width={w}
+                height={chartHeight}
+                scaleXMin={ZOOM_SCALE_MIN}
+                scaleXMax={ZOOM_SCALE_MAX}
+                scaleYMin={ZOOM_SCALE_MIN}
+                scaleYMax={ZOOM_SCALE_MAX}
+                constrain={constrain}
+              >
+                {(zoom) => {
+                  zoomObjRef.current = zoom;
+                  return (
+                    <TimelineChartZoomed
+                      data={timelineData}
+                      width={w}
+                      height={chartHeight}
+                      margin={chartMargin}
+                      seenIdsRef={seenIdsRef}
+                      onLockedDatumChange={setLockedDatum}
+                      onZoomChange={onZoomChange}
+                      transformMatrix={zoom.transformMatrix}
+                      isDragging={zoom.isDragging}
+                      dragStart={zoom.dragStart}
+                      dragMove={zoom.dragMove}
+                      dragEnd={zoom.dragEnd}
+                    />
+                  );
+                }}
+              </Zoom>
+            );
+          }}
+        </ParentSize>
       ) : (
         <p className="font-mono text-caption text-[var(--gs-gray-3)] text-center py-4">
           Need at least 2 NFTs with purchase dates to show timeline
         </p>
       )}
 
-      {/* Legend + locked item data — single inline row */}
+      {/* Legend + locked item data */}
       {hasData && (
         <div className="flex items-center gap-3 mt-2 h-[28px]">
-          {/* Venue legend (left) */}
           {venueCounts.map(([venue]) => {
             const originalKey = timelineData.find(d => venueLabel(d.venue) === venue)?.venue ?? 'unknown';
             const color = venueColor(originalKey);
@@ -434,7 +657,6 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
             );
           })}
 
-          {/* Locked item data (right) */}
           {lockedDatum && (() => {
             const venueCol = venueColor(lockedDatum.venue);
             const qualityCol = RARITY_COLORS[lockedDatum.quality] || '#888888';
@@ -501,7 +723,6 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
 
   return (
     <div className="border-t border-white/[0.06]">
-      {/* Header */}
       <button
         onClick={() => setExpanded(prev => !prev)}
         className="w-full px-4 py-2.5 flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] transition-colors"
@@ -509,9 +730,6 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
         <p className="font-mono text-label tracking-widest uppercase text-[var(--gs-gray-4)]">
           Acquisition Timeline
         </p>
-        <span className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 text-[#FF9F43] border border-[#FF9F43]/30 bg-[#FF9F43]/[0.08]">
-          Under Active Dev
-        </span>
         <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
           {timelineData.length} purchases
         </span>
@@ -534,7 +752,6 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomLeve
         </span>
       </button>
 
-      {/* Chart */}
       {expanded && chartBody}
     </div>
   );

@@ -41,7 +41,7 @@ export function usePortfolioSummaryData(
   const hasMarketValue = nftsWithMarketValue > 0 && Math.abs(totalMarketValue - totalValue) > 0.01;
 
   // Performance (sparklines, 7d changes)
-  const { change7d, changePercent7d, sparklineValues, sparklineSpanDays, nftCountHistory } =
+  const { change7d, changePercent7d, sparklineValues, costBasisSparkline, sparklineSpanDays, nftCountHistory } =
     usePortfolioPerformance(portfolioResult, gunPrice, walletAddress, nfts, gunPriceSparkline);
 
   // Insights
@@ -63,7 +63,7 @@ export function usePortfolioSummaryData(
   return {
     nftPnL, acquisitionBreakdown, totalPnLPct,
     change7d, changePercent7d,
-    sparklineValues, sparklineSpanDays, nftCountHistory, insights,
+    sparklineValues, costBasisSparkline, sparklineSpanDays, nftCountHistory, insights,
     totalValue, gunHoldings, gunValue, totalGunSpent, nftCount,
     nftFloorValueUsd, gunPct, nftPct,
     totalMarketValue, nftsMarketValueUsd, nftsWithMarketValue, hasMarketValue,

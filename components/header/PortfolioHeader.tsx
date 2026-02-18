@@ -43,6 +43,7 @@ export default function PortfolioHeader({
   // Total value and NFT count for history tracking.
   // Prefer market value (listing > floor > cost) when available, fall back to cost basis.
   const totalTokenValue = portfolioResult?.totalMarketValueUsd ?? portfolioResult?.totalUsd ?? 0;
+  const costBasis = portfolioResult?.totalUsd ?? 0;
   const nftCount = portfolioResult?.nftCount ?? allNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
 
   // Only record snapshots once enrichment is complete to avoid storing partial
@@ -51,9 +52,9 @@ export default function PortfolioHeader({
 
   useEffect(() => {
     if (walletData?.address && totalTokenValue > 0 && enrichmentDone) {
-      addPortfolioSnapshot(walletData.address, totalTokenValue, nftCount);
+      addPortfolioSnapshot(walletData.address, totalTokenValue, nftCount, costBasis > 0 ? costBasis : undefined);
     }
-  }, [walletData?.address, totalTokenValue, nftCount, enrichmentDone]);
+  }, [walletData?.address, totalTokenValue, nftCount, costBasis, enrichmentDone]);
 
   // Register the panel slot div with SlidePanelContext so child
   // components (WalletIdentity, ShareDropdown) can portal drop-panels into it.

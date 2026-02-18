@@ -15,9 +15,19 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.2.3',
+    version: 'v0.2.4',
     date: 'Feb 17, 2026',
     tag: 'current',
+    items: [
+      'Cost basis sparkline \u2014 dashed white line on the portfolio value chart shows historical cost basis alongside market value, visually revealing unrealized P&L gap',
+      'Star\u2011appear animation \u2014 chart dots fade in like stars appearing in a night sky as NFTs enrich, growing from tiny pinpoints to full size over ~10 seconds',
+      'Random dot stagger \u2014 new dots appear in randomized order across the chart (Fisher\u2011Yates shuffle) instead of chronologically, for a more organic night\u2011sky feel',
+      '"Under Active Dev" label \u2014 moved from chart tab headers into the Insights section for a cleaner chart UI',
+    ],
+  },
+  {
+    version: 'v0.2.3',
+    date: 'Feb 17, 2026',
     items: [
       'Share image redesign \u2014 tactical HUD aesthetic OG image with dot\u2011grid background, corner brackets, gradient accent line, metric cards for GUN balance / NFTs / cost basis',
       'Download portfolio image \u2014 new button in share dropdown fetches the OG image and saves it as PNG',

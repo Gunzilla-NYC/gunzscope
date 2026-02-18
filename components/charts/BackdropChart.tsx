@@ -13,6 +13,7 @@ interface BackdropChartProps {
   values: number[];
   overlayValues?: number[];
   showOverlay?: boolean;
+  costBasisValues?: number[];
   spanDays: number;
   height?: number;
   onHoverValue?: (value: number | null, index: number | null) => void;
@@ -29,6 +30,7 @@ function Chart({
   values,
   overlayValues,
   showOverlay = false,
+  costBasisValues,
   spanDays,
   width,
   height,
@@ -49,14 +51,23 @@ function Chart({
     [overlayValues],
   );
 
-  // Shared scale across main + overlay
+  const hasCostBasis = costBasisValues != null && costBasisValues.length >= 2;
+  const costBasisData: ChartDatum[] = useMemo(
+    () => (costBasisValues ?? []).map((value, index) => ({ index, value })),
+    [costBasisValues],
+  );
+
+  // Shared scale across main + overlay + cost basis
   const allValues = useMemo(() => {
     const combined = [...values];
     if (showOverlay && overlayValues && overlayValues.length >= 2) {
       combined.push(...overlayValues);
     }
+    if (hasCostBasis && costBasisValues) {
+      combined.push(...costBasisValues);
+    }
     return combined;
-  }, [values, overlayValues, showOverlay]);
+  }, [values, overlayValues, showOverlay, hasCostBasis, costBasisValues]);
 
   const yMin = useMemo(() => Math.min(...(allValues.length > 0 ? allValues : [0])), [allValues]);
   const yMax = useMemo(() => Math.max(...(allValues.length > 0 ? allValues : [1])), [allValues]);
@@ -114,6 +125,10 @@ function Chart({
     ? yScale(overlayValues[hoverIndex]) : null;
   const hoverOverlayValue = hoverIndex !== null && showOverlay && overlayValues
     ? overlayValues[hoverIndex] ?? null : null;
+  const hoverCostBasisY = hoverIndex !== null && hasCostBasis && costBasisValues && costBasisValues[hoverIndex] != null
+    ? yScale(costBasisValues[hoverIndex]) : null;
+  const hoverCostBasisValue = hoverIndex !== null && hasCostBasis && costBasisValues
+    ? costBasisValues[hoverIndex] ?? null : null;
 
   // Time labels along bottom — always includes "Now" at right edge
   const timeLabels = useMemo(() => {
@@ -266,6 +281,20 @@ function Chart({
         </>
       )}
 
+      {/* Cost basis line */}
+      {hasCostBasis && (
+        <LinePath<ChartDatum>
+          data={costBasisData}
+          x={getX}
+          y={getY}
+          curve={curveMonotoneX}
+          stroke="rgba(255,255,255,0.2)"
+          strokeWidth={1}
+          strokeLinecap="round"
+          strokeDasharray="4 3"
+        />
+      )}
+
       {/* Y-axis labels (right-aligned) */}
       {yLabels.map((label, i) => (
         <text
@@ -330,6 +359,16 @@ function Chart({
               fillOpacity={0.8}
             />
           )}
+          {/* Cost basis dot */}
+          {hoverCostBasisY !== null && (
+            <circle
+              cx={hoverX}
+              cy={hoverCostBasisY}
+              r={2.5}
+              fill="rgba(255,255,255,0.5)"
+              fillOpacity={0.8}
+            />
+          )}
         </>
       )}
 
@@ -366,6 +405,19 @@ function Chart({
             >
               ${hoverValue.toFixed(2)}
             </span>
+            {hoverCostBasisValue !== null && (
+              <span
+                style={{
+                  fontFamily: chartTheme.fonts.mono,
+                  fontSize: '10px',
+                  color: 'rgba(255,255,255,0.35)',
+                  fontVariantNumeric: 'tabular-nums',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Cost ${hoverCostBasisValue.toFixed(2)}
+              </span>
+            )}
             {showOverlay && hoverOverlayValue !== null && (
               <span
                 style={{

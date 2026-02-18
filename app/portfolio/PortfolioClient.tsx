@@ -84,7 +84,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
   const [gunPriceSparkline, setGunPriceSparkline] = useState<number[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!!initialAddress);
   const [error, setError] = useState<string | null>(null);
   const [searchAddress, setSearchAddress] = useState('');
   const [isAccountPanelOpen, setIsAccountPanelOpen] = useState(false);
@@ -587,7 +587,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           const gunBal = (mergedData.avalanche.gunToken?.balance ?? 0) + (mergedData.solana.gunToken?.balance ?? 0);
           const estValue = gunBal * price;
           if (estValue > 0) {
-            bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price);
+            bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price, estValue);
           }
         }
       }

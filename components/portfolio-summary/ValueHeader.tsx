@@ -26,6 +26,7 @@ interface ValueHeaderProps {
   gunSparklineValues: number[];
   hasMarketValue?: boolean;
   costBasisTotal?: number;
+  costBasisValues?: number[];
 }
 
 export function ValueHeader({
@@ -35,7 +36,7 @@ export function ValueHeader({
   sparklineValues, sparklineSpanDays, totalValue,
   isEnriching,
   showGunOverlay, gunSparklineValues,
-  hasMarketValue, costBasisTotal,
+  hasMarketValue, costBasisTotal, costBasisValues,
 }: ValueHeaderProps) {
   const hasSparkline = sparklineValues.length >= 2 && !isInitializing;
 
@@ -57,6 +58,7 @@ export function ValueHeader({
             values={sparklineValues}
             overlayValues={gunSparklineValues}
             showOverlay={showGunOverlay}
+            costBasisValues={costBasisValues}
             spanDays={sparklineSpanDays}
             height={140}
           />

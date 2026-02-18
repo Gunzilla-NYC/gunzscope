@@ -118,7 +118,7 @@ export function useInsanityData(address: string): InsanityData {
             const gunBal = (wd.avalanche.gunToken?.balance ?? 0) + (wd.solana.gunToken?.balance ?? 0);
             const estValue = gunBal * price;
             if (estValue > 0) {
-              bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price);
+              bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price, estValue);
             }
           }
         }

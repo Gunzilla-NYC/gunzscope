@@ -11,8 +11,9 @@ const MIN_INTERVAL_MS = 5 * 60 * 1000; // Minimum 5 minutes between points
 
 export interface PortfolioSnapshot {
   t: number; // Unix timestamp (ms)
-  v: number; // Portfolio value (USD)
+  v: number; // Portfolio value (USD) — market value when available
   n?: number; // NFT count (added later — missing on older points)
+  cb?: number; // Cost basis (USD) — added later, missing on older points
 }
 
 export interface PortfolioHistoryData {
@@ -42,7 +43,7 @@ export function getPortfolioHistory(address: string): PortfolioSnapshot[] {
 /**
  * Add a new portfolio value snapshot
  */
-export function addPortfolioSnapshot(address: string, value: number, nftCount?: number): void {
+export function addPortfolioSnapshot(address: string, value: number, nftCount?: number, costBasis?: number): void {
   if (typeof window === 'undefined') return;
   if (value <= 0) return;
 
@@ -66,6 +67,7 @@ export function addPortfolioSnapshot(address: string, value: number, nftCount?: 
     // Add new point
     const point: PortfolioSnapshot = { t: now, v: value };
     if (nftCount != null && nftCount > 0) point.n = nftCount;
+    if (costBasis != null && costBasis > 0) point.cb = costBasis;
     existing.points.push(point);
     existing.lastUpdated = now;
 
@@ -98,6 +100,7 @@ export function bootstrapPortfolioHistory(
   currentValue: number,
   gunPriceSparkline: number[],
   currentGunPrice: number,
+  costBasis?: number,
 ): boolean {
   if (typeof window === 'undefined') return false;
   if (currentValue <= 0 || currentGunPrice <= 0) return false;
@@ -113,6 +116,7 @@ export function bootstrapPortfolioHistory(
     if (existing && existing.points.length > 0) return false;
 
     const holdingsMultiplier = currentValue / currentGunPrice;
+    const cbMultiplier = costBasis != null && costBasis > 0 ? costBasis / currentGunPrice : 0;
     const now = Date.now();
     const sparkLen = gunPriceSparkline.length;
     // CoinGecko 7d sparkline has ~168 hourly points
@@ -126,7 +130,9 @@ export function bootstrapPortfolioHistory(
       const syntheticValue = gunPriceSparkline[srcIdx] * holdingsMultiplier;
       const timestamp = now - (sparkLen - 1 - srcIdx) * msPerPoint;
       if (syntheticValue > 0) {
-        points.push({ t: Math.round(timestamp), v: syntheticValue });
+        const point: PortfolioSnapshot = { t: Math.round(timestamp), v: syntheticValue };
+        if (cbMultiplier > 0) point.cb = gunPriceSparkline[srcIdx] * cbMultiplier;
+        points.push(point);
       }
     }
 
@@ -257,6 +263,24 @@ export function getSparklineNftCounts(address: string, count: number = 90): (num
   for (let i = 0; i < count; i++) {
     const srcIdx = Math.round((i / (count - 1)) * (points.length - 1));
     result.push(points[srcIdx].n ?? null);
+  }
+  return result;
+}
+
+/**
+ * Get sparkline cost basis values — same sampling as getSparklineValues.
+ * Returns null for points that predate the cost basis field.
+ */
+export function getSparklineCostBasis(address: string, count: number = 90): (number | null)[] {
+  const points = getPortfolioHistory(address);
+
+  if (points.length === 0) return [];
+  if (points.length <= count) return points.map(p => p.cb ?? null);
+
+  const result: (number | null)[] = [];
+  for (let i = 0; i < count; i++) {
+    const srcIdx = Math.round((i / (count - 1)) * (points.length - 1));
+    result.push(points[srcIdx].cb ?? null);
   }
   return result;
 }

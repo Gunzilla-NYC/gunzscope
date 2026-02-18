@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    viewTransition: true,
+    // viewTransition disabled — conflicts with <Suspense> hydration in client components
+    // (causes "server rendered HTML didn't match" errors). Custom vt-enter/vt-exit
+    // keyframes in globals.css still work independently via the View Transition API.
     optimizePackageImports: [
       '@visx/axis',
       '@visx/curve',
@@ -17,6 +19,7 @@ const nextConfig: NextConfig = {
       '@visx/text',
       '@visx/threshold',
       '@visx/tooltip',
+      '@visx/zoom',
       'ethers',
       'posthog-js',
     ],

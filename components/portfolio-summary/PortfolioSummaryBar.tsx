@@ -139,6 +139,22 @@ export default function PortfolioSummaryBar({
     return data.sparklineValues.map(v => v * gunRatio);
   }, [data.sparklineValues, data.gunValue, data.totalValue]);
 
+  // Cost basis sparkline — convert (number|null)[] to number[], filling nulls with nearest value
+  const costBasisSparklineValues = useMemo(() => {
+    const raw = data.costBasisSparkline;
+    if (raw.length < 2) return [];
+    // If all null, return empty
+    if (!raw.some(v => v !== null)) return [];
+    // Forward-fill nulls
+    const filled: number[] = [];
+    let last = raw.find(v => v !== null) ?? 0;
+    for (const v of raw) {
+      if (v !== null) last = v;
+      filled.push(last);
+    }
+    return filled;
+  }, [data.costBasisSparkline]);
+
   const hasSparklineData = data.sparklineValues.length >= 2;
 
   if (!portfolioResult) return null;
@@ -166,6 +182,7 @@ export default function PortfolioSummaryBar({
         gunSparklineValues={gunSparklineValues}
         hasMarketValue={data.hasMarketValue}
         costBasisTotal={data.totalValue}
+        costBasisValues={costBasisSparklineValues}
       />
 
       {/* Simple Mode: 4-Cell Metrics Row */}

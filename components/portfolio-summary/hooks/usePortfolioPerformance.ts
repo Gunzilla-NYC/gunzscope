@@ -4,6 +4,7 @@ import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import {
   calculatePortfolioChanges,
   getSparklineValues,
+  getSparklineCostBasis,
   getSparklineNftCounts,
   getSparklineSpanDays,
   PortfolioChanges,
@@ -15,6 +16,7 @@ interface PortfolioPerformanceResult {
   change7d: ChangeDisplay;
   changePercent7d: ChangeDisplay;
   sparklineValues: number[];
+  costBasisSparkline: (number | null)[];
   sparklineSpanDays: number;
   nftCountHistory: (number | null)[];
 }
@@ -73,6 +75,28 @@ export function usePortfolioPerformance(
     return historySparkline;
   }, [historySparkline, gunPriceSparkline, gunPrice, totalValue]);
 
+  const costBasis = portfolioResult?.totalUsd ?? 0;
+
+  const costBasisSparkline = useMemo((): (number | null)[] => {
+    if (!walletAddress) return [];
+    const history = getSparklineCostBasis(walletAddress, 90);
+    // If we have history with cb data, use it
+    if (history.length >= 2 && history.some(v => v !== null)) return history;
+    // Fallback: derive from GUN sparkline
+    if (gunPriceSparkline && gunPriceSparkline.length >= 2 && gunPrice && gunPrice > 0 && costBasis > 0) {
+      const cbMultiplier = costBasis / gunPrice;
+      const src = gunPriceSparkline;
+      const count = Math.min(90, src.length);
+      const result: (number | null)[] = [];
+      for (let i = 0; i < count; i++) {
+        const srcIdx = Math.round((i / (count - 1)) * (src.length - 1));
+        result.push(src[srcIdx] * cbMultiplier);
+      }
+      return result;
+    }
+    return history;
+  }, [walletAddress, gunPriceSparkline, gunPrice, costBasis]);
+
   const nftCountHistory = useMemo(() => {
     if (!walletAddress) return [];
     const history = getSparklineNftCounts(walletAddress, 90);
@@ -93,5 +117,5 @@ export function usePortfolioPerformance(
   const change7d = formatChangeDisplay(portfolioChanges.change7d);
   const changePercent7d = formatChangeDisplay(portfolioChanges.changePercent7d, true);
 
-  return { change7d, changePercent7d, sparklineValues, sparklineSpanDays, nftCountHistory };
+  return { change7d, changePercent7d, sparklineValues, costBasisSparkline, sparklineSpanDays, nftCountHistory };
 }
