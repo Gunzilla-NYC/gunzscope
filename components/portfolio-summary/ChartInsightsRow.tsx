@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, type KeyboardEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import { NFT } from '@/lib/types';
@@ -41,6 +41,24 @@ export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsi
     setDisplayZoom(Math.round(scale * 100) / 100);
   }, []);
 
+  const TABS: { id: ChartTab; label: string }[] = [
+    { id: 'timeline', label: 'Timeline' },
+    { id: 'scatter', label: 'Cost vs Value' },
+  ];
+
+  const handleTabKeyDown = useCallback((e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setTab(prev => prev === 'timeline' ? 'scatter' : 'timeline');
+      // Focus the newly active tab
+      const parent = (e.target as HTMLElement).parentElement;
+      requestAnimationFrame(() => {
+        const next = parent?.querySelector<HTMLButtonElement>('[aria-selected="true"]');
+        next?.focus();
+      });
+    }
+  }, []);
+
   return (
     <div className="border-t border-white/[0.06]">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_25%]">
@@ -48,27 +66,28 @@ export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsi
         <div className="min-w-0">
           {/* Tab header */}
           <div className="px-4 py-2.5 flex items-center gap-2">
-            <div className="flex gap-1">
-              <button
-                onClick={() => setTab('timeline')}
-                className={`font-mono text-label uppercase tracking-widest px-2 py-0.5 border transition-colors cursor-pointer ${
-                  tab === 'timeline'
-                    ? 'border-[var(--gs-purple)]/30 text-[var(--gs-purple)] bg-[var(--gs-purple)]/10'
-                    : 'border-transparent text-[var(--gs-gray-4)] hover:text-[var(--gs-gray-3)]'
-                }`}
-              >
-                Timeline
-              </button>
-              <button
-                onClick={() => setTab('scatter')}
-                className={`font-mono text-label uppercase tracking-widest px-2 py-0.5 border transition-colors cursor-pointer ${
-                  tab === 'scatter'
-                    ? 'border-[var(--gs-lime)]/30 text-[var(--gs-lime)] bg-[var(--gs-lime)]/10'
-                    : 'border-transparent text-[var(--gs-gray-4)] hover:text-[var(--gs-gray-3)]'
-                }`}
-              >
-                Cost vs Value
-              </button>
+            <div className="flex gap-1" role="tablist" aria-label="Chart view">
+              {TABS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={tab === id}
+                  aria-controls={`chart-panel-${id}`}
+                  id={`chart-tab-${id}`}
+                  tabIndex={tab === id ? 0 : -1}
+                  onClick={() => setTab(id)}
+                  onKeyDown={handleTabKeyDown}
+                  className={`font-mono text-label uppercase tracking-widest px-2 py-0.5 border transition-colors cursor-pointer ${
+                    tab === id
+                      ? id === 'timeline'
+                        ? 'border-[var(--gs-purple)]/30 text-[var(--gs-purple)] bg-[var(--gs-purple)]/10'
+                        : 'border-[var(--gs-lime)]/30 text-[var(--gs-lime)] bg-[var(--gs-lime)]/10'
+                      : 'border-transparent text-[var(--gs-gray-4)] hover:text-[var(--gs-gray-3)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             {/* Zoom controls */}
@@ -107,6 +126,9 @@ export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsi
               Shift + Scroll to zoom
             </span>
             <motion.div
+              id="chart-panel-timeline"
+              role="tabpanel"
+              aria-labelledby="chart-tab-timeline"
               style={{ gridArea: '1/1' }}
               animate={{ opacity: tab === 'timeline' ? 1 : 0 }}
               transition={chartTransition}
@@ -121,6 +143,9 @@ export default function ChartInsightsRow({ nfts, gunPrice, insights }: ChartInsi
               />
             </motion.div>
             <motion.div
+              id="chart-panel-scatter"
+              role="tabpanel"
+              aria-labelledby="chart-tab-scatter"
               style={{ gridArea: '1/1' }}
               animate={{ opacity: tab === 'scatter' ? 1 : 0 }}
               transition={chartTransition}

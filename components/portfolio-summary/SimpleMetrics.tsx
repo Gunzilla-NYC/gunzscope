@@ -45,7 +45,7 @@ export function SimpleMetrics({
   walletCount,
 }: SimpleMetricsProps) {
   return (
-    <div className="border-t border-white/[0.06] grid grid-cols-2 sm:grid-cols-4">
+    <div className="border-t border-white/[0.06] grid grid-cols-2 sm:grid-cols-4" aria-live="polite" aria-busy={isInitializing}>
       <GunBalanceCard
         isInitializing={isInitializing}
         gunHoldings={gunHoldings}

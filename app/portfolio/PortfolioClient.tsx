@@ -725,6 +725,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     <PortfolioProvider value={contextValue}>
     <SlidePanelProvider>
     <SlidePanelLayout className="min-h-screen bg-gunzscope">
+      {/* Skip to main content link — visible only on focus */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--gs-lime)] focus:text-black focus:font-mono focus:text-sm focus:font-semibold"
+      >
+        Skip to content
+      </a>
       <Navbar onSwitchWallet={handleTrackedAddressSelect} />
 
       {/* Slide-down UnlockBanner — replaces inline banner when gated */}
@@ -836,7 +843,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
       {/* Portfolio View - shown when wallet is connected */}
       {walletData && !loading && (
-        <div className="max-w-7xl mx-auto py-8 px-4">
+        <div id="main-content" className="max-w-7xl mx-auto py-8 px-4">
           {/* Search / Unlock section */}
           {isGated ? (
             <div className="mb-6">
