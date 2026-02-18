@@ -164,7 +164,8 @@ function TimelineChartZoomed({
     const dates = data.map(d => d.date.getTime());
     const min = Math.min(...dates);
     const max = Math.max(...dates);
-    const pad = Math.max((max - min) * 0.15, 10 * 60 * 1000);
+    // Minimum 12h padding so same-day acquisitions still show a meaningful date axis
+    const pad = Math.max((max - min) * 0.15, 12 * 60 * 60 * 1000);
     return [new Date(min - pad), new Date(max + pad)] as [Date, Date];
   }, [data]);
 
@@ -349,9 +350,8 @@ function TimelineChartZoomed({
         <defs>
           <style>{HUD_KEYFRAMES}{`
             @keyframes star-appear {
-              0%   { opacity: 0; transform: scale(0.15); }
-              30%  { opacity: 0.3; transform: scale(0.4); }
-              70%  { opacity: 0.7; transform: scale(0.8); }
+              0%   { opacity: 0; transform: scale(0); }
+              65%  { opacity: 1; transform: scale(1.12); }
               100% { opacity: 1; transform: scale(1); }
             }
           `}</style>
@@ -395,7 +395,7 @@ function TimelineChartZoomed({
                 <g
                   key={d.id}
                   style={isNew ? {
-                    animation: `star-appear 2s cubic-bezier(0.16, 1, 0.3, 1) ${staggerDelay.toFixed(2)}s both`,
+                    animation: `star-appear 2.5s cubic-bezier(0.22, 1, 0.36, 1) ${staggerDelay.toFixed(2)}s both`,
                     transformOrigin: `${cx}px ${cy}px`,
                   } : undefined}
                 >
@@ -449,10 +449,8 @@ function TimelineChartZoomed({
             numTicks={Math.min(rangeDays < 3 ? 3 : 5, Math.floor(innerWidth / 80))}
             tickFormat={(v) => {
               const d = v as Date;
-              if (rangeDays < 1) {
-                return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-              }
               if (rangeDays < 3) {
+                // Always include date context even for same-day acquisitions
                 return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
               }
               if (rangeDays < 60) {

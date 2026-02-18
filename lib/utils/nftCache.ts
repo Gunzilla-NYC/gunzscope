@@ -1,7 +1,7 @@
 // NFT enrichment data cache using localStorage
 // Supports namespaced keys, schema versioning, and TTL-based expiry
 
-import { AcquisitionVenue } from '../types';
+import type { AcquisitionVenue, NFT } from '../types';
 
 // =============================================================================
 // Schema Versions - Increment when cache structure changes
@@ -542,6 +542,59 @@ export const setCachedNFT = (
     listingFetchedAt: data.listingFetchedAt,
   });
 };
+
+/**
+ * Seed localStorage cache from server-cached enriched NFTs.
+ *
+ * When a logged-in user loads their portfolio, the server cache provides
+ * fully-enriched WalletData. However, the enrichment orchestrator only
+ * checks localStorage to decide what to skip. Without seeding, a cleared
+ * localStorage triggers full RPC re-scans (~45s) even though the server
+ * already has the data.
+ *
+ * This writes each enriched NFT into localStorage so `needsReEnrichment()`
+ * returns false for NFTs that already have complete acquisition data.
+ */
+export function seedLocalCacheFromNFTs(
+  walletAddress: string,
+  nfts: NFT[],
+): number {
+  if (!isBrowser) return 0;
+
+  const contractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
+  let seeded = 0;
+
+  for (const nft of nfts) {
+    // Only seed NFTs that have acquisition data (the expensive part to re-fetch)
+    if (!nft.acquisitionVenue && !nft.purchasePriceGun && nft.purchasePriceGun !== 0) continue;
+
+    const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
+    const tokenKey = buildTokenKey('avalanche', contractAddress, primaryTokenId);
+
+    // Skip if localStorage already has a valid entry
+    const existing = getCachedNFTDetail(walletAddress, tokenKey);
+    if (existing.hit && existing.value?.hasAcquisition) continue;
+
+    setCachedNFTDetail(walletAddress, tokenKey, {
+      quantity: nft.quantity,
+      purchasePriceGun: nft.purchasePriceGun,
+      purchasePriceUsd: nft.purchasePriceUsd,
+      purchaseDate: nft.purchaseDate ? nft.purchaseDate.toISOString() : undefined,
+      transferredFrom: nft.transferredFrom,
+      isFreeTransfer: nft.isFreeTransfer,
+      acquisitionVenue: nft.acquisitionVenue,
+      acquisitionTxHash: nft.acquisitionTxHash,
+      hasAcquisition: true,
+      cachedAtIso: new Date().toISOString(),
+      currentLowestListing: nft.currentLowestListing,
+      currentHighestListing: nft.currentHighestListing,
+      listingFetchedAt: new Date().toISOString(),
+    });
+    seeded++;
+  }
+
+  return seeded;
+}
 
 // =============================================================================
 // Cache Cleanup Utilities

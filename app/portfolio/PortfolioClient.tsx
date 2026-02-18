@@ -43,6 +43,7 @@ import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
 import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
+import { seedLocalCacheFromNFTs } from '@/lib/utils/nftCache';
 import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
 import { useChartMilestoneGating } from '@/lib/hooks/useChartMilestoneGating';
 import { usePortfolioSnapshot } from '@/lib/hooks/usePortfolioSnapshot';
@@ -410,6 +411,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         setIsPortfolioInitializing(false);
         setLoadedFromCache(true);
         hydratedFromCache = true;
+
+        // Seed localStorage from server-cached enriched NFTs so the
+        // enrichment orchestrator skips RPC re-scans for already-enriched items
+        seedLocalCacheFromNFTs(address, cached.walletData.avalanche.nfts);
+
         // Continue to live fetch below — don't return
       }
     }
