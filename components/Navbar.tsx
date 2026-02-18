@@ -50,6 +50,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
   const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/scarcity' || pathname === '/market' || pathname === '/account' || pathname === '/feature-requests';
   const isProfileActive = pathname === '/account' || pathname === '/feature-requests';
   const isAnonymous = !user;
+  const showNavLinks = !isAnonymous && pathname !== '/';
   const isConnected = !!primaryWallet?.address;
   const hasWallet = isConnected; // email-only users: false → gates leaderboard/scarcity/feature-requests
   const walletAddress = primaryWallet?.address || '';
@@ -108,7 +109,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
 
             {/* Navigation links — left-anchored so wallet width changes can't shift them */}
             <nav className="hidden md:flex items-center gap-5 ml-6 shrink-0">
-              {isInApp && !isAnonymous && (
+              {showNavLinks && (
                 <>
                   <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
                   {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
@@ -191,7 +192,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/[0.06] bg-black/95 backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
-              {isInApp && !isAnonymous && [
+              {showNavLinks && [
                     { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
                     ...(hasWallet ? [
                       { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
@@ -213,7 +214,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
               ))}
 
               {/* Profile / wallet section */}
-              <div className={isInApp ? 'mt-1 pt-1 border-t border-white/[0.06]' : ''}>
+              <div className={showNavLinks ? 'mt-1 pt-1 border-t border-white/[0.06]' : ''}>
                 {isAnonymous ? (
                   <button
                     onClick={() => { setShowAuthFlow(true); setMobileMenuOpen(false); }}
