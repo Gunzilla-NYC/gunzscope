@@ -10,6 +10,7 @@ import { WalletDropdown } from './navbar/WalletDropdown';
 import { ProfileDropdown } from './navbar/ProfileDropdown';
 import { TerminalStatusBar } from './navbar/TerminalStatusBar';
 import { useAutoLogin } from './navbar/hooks/useAutoLogin';
+import VersionBadge from './ui/VersionBadge';
 
 export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: string) => void } = {}) {
   const pathname = usePathname();
@@ -99,12 +100,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                   <Logo size="md" variant="full" glitchOnHover />
                 </div>
               </Link>
-              <Link
-                href="/changelog"
-                className="hidden sm:inline shrink-0 font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
-              >
-                v0.2.5 // EARLY ACCESS
-              </Link>
+              <VersionBadge className="hidden sm:inline shrink-0" />
             </div>
 
             {/* Navigation links — left-anchored so wallet width changes can't shift them */}

@@ -10,6 +10,7 @@ import { useCountUp } from '@/hooks/useCountUp';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
 import { useTextScramble } from '@/hooks/useTextScramble';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import VersionBadge from '@/components/ui/VersionBadge';
 
 // Shared animation easings
 const revealEase = [0.16, 1, 0.3, 1] as const;
@@ -337,12 +338,7 @@ export default function HomePage() {
               GUNZ<span className="text-[var(--gs-purple)]">scope</span>
             </span>
           </Link>
-          <Link
-            href="/changelog"
-            className="font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40"
-          >
-            v0.2.5 // EARLY ACCESS
-          </Link>
+          <VersionBadge />
         </div>
 
         <div className="hidden md:flex items-center gap-6">
