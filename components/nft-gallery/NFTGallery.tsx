@@ -122,10 +122,18 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
             ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
             : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
         }`}>
-          {filteredAndSortedNFTs.map((nft) => {
+          {filteredAndSortedNFTs.map((nft, i) => {
             const key = `${nft.chain}-${nft.tokenId}`;
             return (
-              <div key={key} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 280px' }}>
+              <div
+                key={key}
+                style={{
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 280px',
+                  animation: i < 24 ? 'gallery-card-enter 0.3s ease-out both' : undefined,
+                  animationDelay: i < 24 ? `${i * 30}ms` : undefined,
+                }}
+              >
                 <NFTGalleryGridCard
                   cardData={cardDataMap.get(key)!}
                   viewMode={viewMode as 'small' | 'medium'}
@@ -142,10 +150,18 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
       {/* List View — content-visibility for offscreen optimization */}
       {viewMode === 'list' && (
         <div className="flex flex-col gap-2">
-          {filteredAndSortedNFTs.map((nft) => {
+          {filteredAndSortedNFTs.map((nft, i) => {
             const key = `${nft.chain}-${nft.tokenId}`;
             return (
-              <div key={key} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 72px' }}>
+              <div
+                key={key}
+                style={{
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 72px',
+                  animation: i < 24 ? 'gallery-card-enter 0.3s ease-out both' : undefined,
+                  animationDelay: i < 24 ? `${i * 20}ms` : undefined,
+                }}
+              >
                 <NFTGalleryListRow
                   cardData={cardDataMap.get(key)!}
                   isEnriching={isEnriching}
