@@ -164,6 +164,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Reset in handleWalletSubmit and handleWalletDisconnect.
   const portfolioMergedRef = useRef(false);
 
+  // Race-condition guard: incremented at the start of each handleWalletSubmit call.
+  // After every await, we check that this ref still matches the local snapshot —
+  // if not, a newer wallet switch has started and we abandon stale results.
+  const walletRequestIdRef = useRef(0);
+
   // Wallet hint dismissal — permanently hidden after visiting /account or manual dismiss
   // Start hidden to avoid SSR hydration mismatch, then check localStorage after mount
   const [walletHintDismissed, setWalletHintDismissed] = useState(true);
@@ -385,6 +390,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   }, [nftPagination.hasMore, nftPagination.isLoadingMore, walletData, handleLoadMoreNFTs]);
 
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
+    // Increment request ID — any in-flight fetch from a previous call becomes stale
+    const thisRequestId = ++walletRequestIdRef.current;
+
     // Cancel any ongoing enrichment
     cancelEnrichment();
     portfolioMergedRef.current = false;
@@ -393,6 +401,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     let hydratedFromCache = false;
     if (isAuthenticated && !loadedFromCache) {
       const cached = await loadCache(address);
+      // Stale guard after async cache load
+      if (walletRequestIdRef.current !== thisRequestId) return;
       if (cached) {
         setWalletData(cached.walletData);
         if (cached.gunPrice) setGunPrice(cached.gunPrice);
@@ -438,6 +448,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         coinGeckoService.getGunTokenPrice(),
         ...addressesToFetch.map(addr => walletFetcher.fetchSingleWallet(addr)),
       ]);
+
+      // Stale response guard — a newer wallet switch has started, discard these results
+      if (walletRequestIdRef.current !== thisRequestId) return;
 
       // Filter out failed fetches
       const successfulResults = walletResults.filter(
@@ -547,6 +560,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         .catch(() => null) as Promise<ComparableSalesData | null>;
 
       Promise.all([rarityPromise, comparablePromise]).then(([rarityData, comparableData]) => {
+        // Stale response guard — a newer wallet switch has started
+        if (walletRequestIdRef.current !== thisRequestId) return;
         if (!rarityData && !comparableData) return;
 
         setWalletData(prev => {
