@@ -336,9 +336,8 @@ function ScatterChartZoomed({
         <defs>
           <style>{HUD_KEYFRAMES}{`
             @keyframes star-appear {
-              0%   { opacity: 0; transform: scale(0.15); }
-              30%  { opacity: 0.3; transform: scale(0.4); }
-              70%  { opacity: 0.7; transform: scale(0.8); }
+              0%   { opacity: 0; transform: scale(0); }
+              65%  { opacity: 1; transform: scale(1.12); }
               100% { opacity: 1; transform: scale(1); }
             }
           `}</style>
@@ -425,7 +424,7 @@ function ScatterChartZoomed({
                 <g
                   key={d.id}
                   style={isNew ? {
-                    animation: `star-appear 2s cubic-bezier(0.16, 1, 0.3, 1) ${staggerDelay.toFixed(2)}s both`,
+                    animation: `star-appear 2.5s cubic-bezier(0.22, 1, 0.36, 1) ${staggerDelay.toFixed(2)}s both`,
                     transformOrigin: `${cx}px ${cy}px`,
                   } : undefined}
                 >

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
-export type PanelId = 'wallet' | 'share' | 'wallet-switcher' | null;
+export type PanelId = 'wallet' | 'share' | 'wallet-switcher' | 'details' | null;
 
 interface SlidePanelContextValue {
   activePanel: PanelId;

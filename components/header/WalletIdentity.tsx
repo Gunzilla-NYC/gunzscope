@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
   usePortfolioWallet,
@@ -23,11 +22,6 @@ interface WalletIdentityProps {
   isAuthenticated?: boolean;
   onSwitchWallet?: (address: string) => void;
   onBackToOwnWallet?: () => void;
-}
-
-interface PopoverPosition {
-  top: number;
-  left: number;
 }
 
 function truncateAddr(addr: string): string {
@@ -52,25 +46,24 @@ export default function WalletIdentity({
   onSwitchWallet,
   onBackToOwnWallet,
 }: WalletIdentityProps) {
-  const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({ top: 0, left: 0 });
-  const [mounted, setMounted] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const popoverId = 'wallet-details-popover';
+  const detailsBtnRef = useRef<HTMLButtonElement>(null);
   const switcherBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Switcher panel — use context if available, else local state
+  // Panel state — use context if available, else local state
   const panelCtx = useSlidePanelContext();
   const [localSwitcherOpen, setLocalSwitcherOpen] = useState(false);
   const isSwitcherOpen = panelCtx ? panelCtx.activePanel === 'wallet-switcher' : localSwitcherOpen;
+  const isDetailsOpen = panelCtx ? panelCtx.activePanel === 'details' : false;
   // Extract stable function refs — avoids re-triggering effects when context value changes
   const ctxClose = panelCtx?.closePanel;
   const ctxToggle = panelCtx?.togglePanel;
   const closeSwitcher = useCallback(() => {
     if (ctxClose) ctxClose();
     else setLocalSwitcherOpen(false);
+  }, [ctxClose]);
+  const closeDetails = useCallback(() => {
+    if (ctxClose) ctxClose();
   }, [ctxClose]);
 
   // Get data from context
@@ -152,79 +145,6 @@ export default function WalletIdentity({
     return portfolioResult.totalGunSpent.toLocaleString();
   }, [portfolioResult]);
 
-  // Mount check for portal
-  useEffect(() => { setMounted(true); }, []);
-
-  // Calculate popover position (shared logic)
-  const calcPosition = useCallback((triggerEl: HTMLElement | null, width: number, height: number): PopoverPosition => {
-    if (!triggerEl) return { top: 0, left: 0 };
-    const rect = triggerEl.getBoundingClientRect();
-    let top = rect.bottom + 8;
-    let left = rect.left;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    if (left + width > vw - 16) left = vw - width - 16;
-    if (left < 16) left = 16;
-    if (top + height > vh - 16) {
-      const above = rect.top - 8;
-      top = above > height ? rect.top - height - 8 : vh - height - 16;
-    }
-    return { top, left };
-  }, []);
-
-  // Details popover position
-  useLayoutEffect(() => {
-    if (!showDetails) return;
-    setPopoverPosition(calcPosition(triggerRef.current, 320, 380));
-
-    let scrollEnabled = false;
-    const enableScrollClose = setTimeout(() => { scrollEnabled = true; }, 150);
-    const handleScroll = () => { if (scrollEnabled) setShowDetails(false); };
-    const handleResize = () => setPopoverPosition(calcPosition(triggerRef.current, 320, 380));
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleScroll, true);
-    return () => {
-      clearTimeout(enableScrollClose);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleScroll, true);
-    };
-  }, [showDetails, calcPosition]);
-
-  // Close on click outside (details)
-  useEffect(() => {
-    if (!showDetails) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (popoverRef.current && !popoverRef.current.contains(t) && triggerRef.current && !triggerRef.current.contains(t)) {
-        setShowDetails(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showDetails]);
-
-  // Close on escape (details popover)
-  useEffect(() => {
-    if (!showDetails) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowDetails(false);
-        triggerRef.current?.focus();
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [showDetails]);
-
-  // Focus management
-  useEffect(() => {
-    if (showDetails && popoverRef.current) {
-      const t = setTimeout(() => popoverRef.current?.focus({ preventScroll: true }), 10);
-      return () => clearTimeout(t);
-    }
-  }, [showDetails]);
-
   // Early return if no wallet data (after all hooks)
   if (!walletData || !address) return null;
   if (mode === 'hidden') return null;
@@ -239,14 +159,12 @@ export default function WalletIdentity({
   const toggleDetails = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isSwitcherOpen) closeSwitcher();
-    setShowDetails(prev => !prev);
+    if (ctxToggle) ctxToggle('details');
   };
 
   const toggleSwitcher = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (showDetails) setShowDetails(false);
     if (ctxToggle) ctxToggle('wallet-switcher');
     else setLocalSwitcherOpen(prev => !prev);
   };
@@ -256,117 +174,13 @@ export default function WalletIdentity({
     onSwitchWallet?.(addr);
   };
 
-  // --- Popover: Wallet Details ---
-  const detailsPopover = (
-    <div
-      ref={popoverRef}
-      className="fixed w-[320px] bg-[#0a0a0a] border border-white/[0.06] shadow-2xl shadow-black/80 overflow-hidden"
-      style={{
-        top: popoverPosition.top,
-        left: popoverPosition.left,
-        zIndex: 9999,
-        clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
-      }}
-      role="dialog"
-      aria-label="Wallet details"
-      aria-modal="true"
-      tabIndex={-1}
-    >
-      <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-50" aria-hidden="true" />
-
-      <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
-        <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium">
-          Wallet Details
-        </span>
-        <button
-          onClick={() => setShowDetails(false)}
-          className="p-1 text-[var(--gs-gray-2)] hover:text-white/80 hover:bg-white/5 rounded transition"
-          aria-label="Close"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="px-4 pt-3 pb-0 flex flex-wrap items-center gap-2">
-        <span
-          className="px-2 py-0.5 text-[11px] font-medium rounded"
-          style={{ backgroundColor: `${networkColor}12`, color: networkColor, border: `1px solid ${networkColor}25` }}
-        >
-          {networkLabel}
-        </span>
-        {walletTypeLabel && (
-          <span
-            className="px-2 py-0.5 text-[11px] font-medium rounded"
-            style={{ backgroundColor: `${walletTypeColor}12`, color: walletTypeColor, border: `1px solid ${walletTypeColor}25` }}
-          >
-            {walletTypeLabel}
-          </span>
-        )}
-      </div>
-
-      <div className="p-4 space-y-4">
-        <div>
-          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1.5">Full Address</span>
-          <div className="flex items-start gap-2">
-            <code className="flex-1 text-[12px] font-mono text-white/85 bg-white/[0.03] px-3 py-2 rounded-lg border border-white/[0.06] break-all leading-relaxed">
-              {address}
-            </code>
-            <button
-              onClick={handleCopyAddress}
-              className={`p-2 rounded-lg transition-all duration-200 flex-shrink-0 ${copied ? 'bg-[var(--gs-profit)]/20 text-[var(--gs-profit)]' : 'text-[var(--gs-gray-2)] hover:text-[#64ffff] hover:bg-white/5'}`}
-              aria-label={copied ? 'Copied!' : 'Copy wallet address'}
-            >
-              {copied ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {networkInfo?.chainId && (
-          <div>
-            <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">Chain ID</span>
-            <span className="text-[13px] font-medium text-white/85 font-mono">{networkInfo.chainId}</span>
-          </div>
-        )}
-
-        <div>
-          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">Network</span>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: networkColor }} />
-            <span className="text-[13px] font-medium text-white/85">GunzChain {networkLabel}</span>
-          </div>
-        </div>
-
-        <div>
-          <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">Wallet Type</span>
-          <span className="text-[13px] font-medium text-white/85">{walletTypeFullLabel}</span>
-        </div>
-
-        {lastUpdated && (
-          <div>
-            <span className="text-[11px] tracking-[0.12em] uppercase text-[var(--gs-gray-3)] font-medium block mb-1">Last Updated</span>
-            <span className="text-[13px] font-medium text-white/85">{lastUpdated.toLocaleString()}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 py-2.5 bg-white/[0.02] border-t border-white/[0.06]">
-        <p className="text-[11px] text-[var(--gs-gray-2)]">Data from GunzChain RPC</p>
-      </div>
-    </div>
-  );
-
   // --- Copy button (shared) ---
   const copyButton = (
     <button
       onClick={handleCopyAddress}
-      className={`p-1 rounded transition-all duration-200 ${copied ? 'bg-[var(--gs-profit)]/20 text-[var(--gs-profit)]' : 'text-[var(--gs-gray-2)] hover:text-[#64ffff] hover:bg-white/5'}`}
+      className={`p-1.5 transition-colors cursor-pointer ${copied ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'}`}
       aria-label={copied ? 'Copied!' : 'Copy wallet address'}
+      title="Copy address"
     >
       {copied ? (
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -426,12 +240,45 @@ export default function WalletIdentity({
   // --- Mode: Simple (unauthenticated) or Switcher ---
   return (
     <div className={`w-full ${className}`}>
-      <div className="flex items-center gap-3">
-        {/* Address + copy + switch */}
+      <div className="flex items-center gap-2">
+        {/* Left: address + copy + status */}
         <span className="text-[15px] font-semibold text-white font-mono tracking-tight">{shortAddress}</span>
         {copyButton}
 
-        {/* Switcher button — icon-only, next to address (only in switcher mode) */}
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: status.color }} />
+          <span className="text-[11px] text-[var(--gs-gray-3)]">{status.label}</span>
+          {lastUpdated && (
+            <span className="text-[11px] text-[var(--gs-gray-2)]">· {formatLastUpdated(lastUpdated)}</span>
+          )}
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Right: info + share + switch */}
+        <button
+          ref={detailsBtnRef}
+          onClick={toggleDetails}
+          className={`p-1.5 transition-colors cursor-pointer ${isDetailsOpen ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'}`}
+          aria-label="Wallet details"
+          title="Wallet details"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          </svg>
+        </button>
+
+        {address && portfolioResult && (
+          <ShareDropdown
+            walletAddress={address}
+            totalUsd={shareTotal}
+            gunBalance={shareGunBalance}
+            nftCount={portfolioResult.nftCount}
+            nftPnlPct={nftPnL.pct}
+            totalGunSpent={shareGunSpent}
+          />
+        )}
+
         {mode === 'switcher' && (
           <button
             ref={switcherBtnRef}
@@ -445,48 +292,89 @@ export default function WalletIdentity({
             </svg>
           </button>
         )}
+      </div>
 
-        <div className="flex-1" />
-
-        {/* Status indicator */}
-        <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: status.color }} />
-          <span className="text-[11px] text-[var(--gs-gray-3)]">{status.label}</span>
-          {lastUpdated && (
-            <span className="text-[11px] text-[var(--gs-gray-2)]">· {formatLastUpdated(lastUpdated)}</span>
+      {/* Wallet details drop panel */}
+      <DropPanel
+        isOpen={isDetailsOpen}
+        onClose={closeDetails}
+        title="Wallet Details"
+        portalTarget={panelCtx?.panelSlotNode ?? null}
+        triggerRef={detailsBtnRef}
+      >
+        {/* Badges row */}
+        <div className="px-4 pt-3 pb-0 flex flex-wrap items-center gap-2">
+          <span
+            className="px-2 py-0.5 text-[11px] font-medium"
+            style={{ backgroundColor: `${networkColor}12`, color: networkColor, border: `1px solid ${networkColor}25` }}
+          >
+            {networkLabel}
+          </span>
+          {walletTypeLabel && (
+            <span
+              className="px-2 py-0.5 text-[11px] font-medium"
+              style={{ backgroundColor: `${walletTypeColor}12`, color: walletTypeColor, border: `1px solid ${walletTypeColor}25` }}
+            >
+              {walletTypeLabel}
+            </span>
           )}
         </div>
 
-        {/* Details button */}
-        <button
-          ref={triggerRef}
-          onClick={toggleDetails}
-          className="flex items-center gap-1 text-[11px] text-[var(--gs-gray-3)] hover:text-white/80 hover:bg-white/5 px-2 py-1 rounded transition"
-          aria-expanded={showDetails}
-          aria-controls={popoverId}
-          aria-haspopup="dialog"
-        >
-          <span>Details</span>
-          <svg className={`w-3 h-3 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+        <div className="p-4 space-y-4">
+          {/* Full address + copy */}
+          <div>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-1.5">Full Address</span>
+            <div className="flex items-start gap-2">
+              <code className="flex-1 text-[12px] font-mono text-white/85 bg-white/[0.03] px-3 py-2 border border-white/[0.06] break-all leading-relaxed">
+                {address}
+              </code>
+              <button
+                onClick={handleCopyAddress}
+                className={`p-2 transition-all duration-200 flex-shrink-0 ${copied ? 'bg-[var(--gs-profit)]/20 text-[var(--gs-profit)]' : 'text-[var(--gs-gray-2)] hover:text-[var(--gs-lime)] hover:bg-white/5'}`}
+                aria-label={copied ? 'Copied!' : 'Copy wallet address'}
+              >
+                {copied ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                )}
+              </button>
+            </div>
+          </div>
 
-        {/* Share button */}
-        {address && portfolioResult && (
-          <ShareDropdown
-            walletAddress={address}
-            totalUsd={shareTotal}
-            gunBalance={shareGunBalance}
-            nftCount={portfolioResult.nftCount}
-            nftPnlPct={nftPnL.pct}
-            totalGunSpent={shareGunSpent}
-          />
-        )}
-      </div>
+          {/* Key-value info rows */}
+          {networkInfo?.chainId && (
+            <div>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-1">Chain ID</span>
+              <span className="text-[13px] font-medium text-white/85 font-mono">{networkInfo.chainId}</span>
+            </div>
+          )}
 
-      {/* Details popover portal */}
-      {mounted && showDetails && createPortal(detailsPopover, document.body)}
+          <div>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-1">Network</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: networkColor }} />
+              <span className="text-[13px] font-medium text-white/85">GunzChain {networkLabel}</span>
+            </div>
+          </div>
+
+          <div>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-1">Wallet Type</span>
+            <span className="text-[13px] font-medium text-white/85">{walletTypeFullLabel}</span>
+          </div>
+
+          {lastUpdated && (
+            <div>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-1">Last Updated</span>
+              <span className="text-[13px] font-medium text-white/85">{lastUpdated.toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 py-2.5 bg-white/[0.02] border-t border-white/[0.06]">
+          <p className="text-[11px] text-[var(--gs-gray-2)]">Data from GunzChain RPC</p>
+        </div>
+      </DropPanel>
 
       {/* Wallet switcher drop panel */}
       <DropPanel isOpen={isSwitcherOpen} onClose={closeSwitcher} title="Portfolio Wallets" portalTarget={panelCtx?.panelSlotNode ?? null} triggerRef={switcherBtnRef}>
