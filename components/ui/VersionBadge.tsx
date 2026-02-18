@@ -10,7 +10,7 @@ export const APP_VERSION = 'v0.2.6';
 export default function VersionBadge({ className }: { className?: string }) {
   return (
     <Link
-      href="/changelog"
+      href="/updates"
       className={`font-mono text-label tracking-wider uppercase px-1.5 py-0.5 text-[var(--gs-gray-3)] border border-[var(--gs-gray-1)] transition-colors hover:text-[var(--gs-lime)] hover:border-[var(--gs-lime)]/40${className ? ` ${className}` : ''}`}
     >
       {APP_VERSION} // EARLY ACCESS
