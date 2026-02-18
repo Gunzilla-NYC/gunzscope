@@ -4,7 +4,16 @@ import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from 'rea
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import PortfolioHeader from '@/components/header/PortfolioHeader';
-import NFTGallery from '@/components/NFTGallery';
+const NFTGallery = dynamic(() => import('@/components/NFTGallery'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3 py-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-16 bg-white/[0.02] animate-pulse rounded" />
+      ))}
+    </div>
+  ),
+});
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import type { NetworkInfo } from '@/lib/utils/networkDetector';

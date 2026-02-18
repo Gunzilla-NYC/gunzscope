@@ -7,7 +7,16 @@ import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import useCountUp from '@/hooks/useCountUp';
 import InsightsPanel from '@/components/ui/InsightsPanel';
 import { clipHex } from '@/lib/utils/styles';
-import ChartInsightsRow from './ChartInsightsRow';
+import dynamic from 'next/dynamic';
+
+const ChartInsightsRow = dynamic(() => import('./ChartInsightsRow'), {
+  ssr: false,
+  loading: () => (
+    <div className="border-t border-white/[0.06] px-6 py-8">
+      <div className="h-[200px] bg-white/[0.02] animate-pulse rounded" />
+    </div>
+  ),
+});
 import { usePortfolioSummaryData } from './usePortfolioSummaryData';
 import { ValueHeader } from './ValueHeader';
 import { SimpleMetrics } from './SimpleMetrics';
