@@ -2161,10 +2161,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               {/* ===== 2.5) YOUR POSITION Section ===== */}
               {walletAddress && (() => {
                 // Compute USD values for position tracking
-                const costBasisUsdAtAcquisition = currentPurchaseData?.purchasePriceUsd
-                  ?? currentPurchaseData?.decodeCostUsd
-                  ?? currentResolvedAcquisition?.costUsd
-                  ?? nft.purchasePriceUsd
+                const costBasisUsdAtAcquisition = (currentPurchaseData?.purchasePriceUsd && currentPurchaseData.purchasePriceUsd > 0 ? currentPurchaseData.purchasePriceUsd : undefined)
+                  ?? (currentPurchaseData?.decodeCostUsd && currentPurchaseData.decodeCostUsd > 0 ? currentPurchaseData.decodeCostUsd : undefined)
+                  ?? (currentResolvedAcquisition?.costUsd && currentResolvedAcquisition.costUsd > 0 ? currentResolvedAcquisition.costUsd : undefined)
+                  ?? (nft.purchasePriceUsd && nft.purchasePriceUsd > 0 ? nft.purchasePriceUsd : undefined)
                   ?? null;
 
                 const currentValueUsd = costBasisGun !== null && currentGunPrice !== null
@@ -2281,9 +2281,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         ) : null}
 
                         {/* Explanation text */}
-                        <p className="text-data text-white/60 mt-2 leading-relaxed">
-                          Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
-                        </p>
+                        {costBasisGun !== null ? (
+                          <p className="text-data text-white/60 mt-2 leading-relaxed">
+                            Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
+                          </p>
+                        ) : currentResolvedAcquisition?.acquisitionType === 'TRANSFER' ? (
+                          <p className="text-data text-white/40 mt-2 leading-relaxed">
+                            Received as a free transfer. No purchase cost recorded.
+                          </p>
+                        ) : null}
 
                         {/* Acquisition Summary */}
                         <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
