@@ -930,7 +930,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                     value={searchAddress}
                     onChange={(e) => setSearchAddress(e.target.value)}
                     placeholder="Search another wallet..."
-                    className={`w-full pl-9 py-2 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono ${searchAddress.trim() && detectedChain ? 'pr-32' : 'pr-14'}`}
+                    className={`w-full pl-9 py-2 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono ${searchAddress.trim() && detectedChain ? 'pr-40' : 'pr-14'}`}
                   />
                   {searchAddress.trim() && detectedChain && (
                     <span className={`absolute right-14 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${

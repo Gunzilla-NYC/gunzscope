@@ -28,7 +28,8 @@ export function usePortfolioPerformance(
   nfts: NFT[],
   gunPriceSparkline?: number[],
 ): PortfolioPerformanceResult {
-  const totalValue = portfolioResult?.totalUsd ?? 0;
+  // Use market value (same as header display) — NOT cost basis (totalUsd)
+  const totalValue = portfolioResult?.totalMarketValueUsd ?? portfolioResult?.totalUsd ?? 0;
 
   const portfolioChanges = useMemo<PortfolioChanges>(() => {
     if (!walletAddress) return { change24h: null, changePercent24h: null, change7d: null, changePercent7d: null, hasEnoughData: false };
@@ -60,7 +61,16 @@ export function usePortfolioPerformance(
   }, [walletAddress]);
 
   const sparklineValues = useMemo(() => {
-    if (historySparkline.length >= 2) return historySparkline;
+    if (historySparkline.length >= 2) {
+      // Always pin the final point to the current live value so the
+      // sparkline ends at the same number the header displays.
+      if (totalValue > 0) {
+        const pinned = [...historySparkline];
+        pinned[pinned.length - 1] = totalValue;
+        return pinned;
+      }
+      return historySparkline;
+    }
     if (gunPriceSparkline && gunPriceSparkline.length >= 2 && gunPrice && gunPrice > 0 && totalValue > 0) {
       const holdingsMultiplier = totalValue / gunPrice;
       const src = gunPriceSparkline;
@@ -80,8 +90,15 @@ export function usePortfolioPerformance(
   const costBasisSparkline = useMemo((): (number | null)[] => {
     if (!walletAddress) return [];
     const history = getSparklineCostBasis(walletAddress, 90);
-    // If we have history with cb data, use it
-    if (history.length >= 2 && history.some(v => v !== null)) return history;
+    // If we have history with cb data, pin the final point to current cost basis
+    if (history.length >= 2 && history.some(v => v !== null)) {
+      if (costBasis > 0) {
+        const pinned = [...history];
+        pinned[pinned.length - 1] = costBasis;
+        return pinned;
+      }
+      return history;
+    }
     // Fallback: derive from GUN sparkline
     if (gunPriceSparkline && gunPriceSparkline.length >= 2 && gunPrice && gunPrice > 0 && costBasis > 0) {
       const cbMultiplier = costBasis / gunPrice;

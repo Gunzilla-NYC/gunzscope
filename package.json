@@ -11,8 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@dynamic-labs/ethereum": "^4.61.2",
-    "@dynamic-labs/sdk-react-core": "^4.61.2",
+    "@dynamic-labs/ethereum": "^4.61.4",
+    "@dynamic-labs/sdk-react-core": "^4.61.4",
     "@neondatabase/serverless": "^1.0.2",
     "@playwright/test": "^1.58.2",
     "@prisma/adapter-neon": "^7.4.0",
