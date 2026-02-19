@@ -1519,6 +1519,24 @@ export function useNFTAcquisitionPipeline(
                 console.warn('[NFTDetailModal] Failed to get historical GUN price for transfer:', priceError);
               }
             }
+          } else if (costGunFromChain > 0) {
+            // On-chain cost found (e.g. wGUN payment in a cross-wallet transfer)
+            // but no OpenSea sale match — use the chain-extracted cost
+            derivedPriceSource = 'onchain';
+            finalPurchasePriceGun = costGunFromChain;
+            finalIsFreeTransfer = false;
+
+            // Calculate USD from historical GUN price at transfer date
+            if (acquiredAt) {
+              try {
+                const historicalPrice = await coinGeckoService.getHistoricalGunPrice(acquiredAt);
+                if (historicalPrice) {
+                  finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+                }
+              } catch (priceError) {
+                console.warn('[NFTDetailModal] Failed to get historical GUN price for transfer with chain cost:', priceError);
+              }
+            }
           } else {
             // No original purchase price found — genuine free transfer
             derivedPriceSource = 'transfers';
@@ -1589,6 +1607,23 @@ export function useNFTAcquisitionPipeline(
 
           if (debugMode) {
             console.debug('[NFTDetailModal] No acquisition data');
+          }
+        }
+
+        // Universal fallback: if we have a GUN cost but no USD value,
+        // calculate it from the historical GUN price at acquisition date.
+        // Covers: transfers with traced original purchase, cached data missing USD, etc.
+        if (finalPurchasePriceGun !== undefined && finalPurchasePriceGun > 0 && finalPurchasePriceUsd === undefined) {
+          const priceDate = finalPurchaseDate ?? acquiredAt;
+          if (priceDate) {
+            try {
+              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(priceDate);
+              if (historicalPrice) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              }
+            } catch {
+              // Non-blocking — USD value will remain undefined
+            }
           }
         }
 

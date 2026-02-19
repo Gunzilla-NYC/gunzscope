@@ -101,6 +101,8 @@ export function bootstrapPortfolioHistory(
   gunPriceSparkline: number[],
   currentGunPrice: number,
   costBasis?: number,
+  /** Number of days the sparkline covers (default 7 for legacy 7d data) */
+  sparklineDays: number = 7,
 ): boolean {
   if (typeof window === 'undefined') return false;
   if (currentValue <= 0 || currentGunPrice <= 0) return false;
@@ -112,19 +114,61 @@ export function bootstrapPortfolioHistory(
     const normalizedAddress = address.toLowerCase();
     const existing = data[normalizedAddress];
 
-    // Only bootstrap if no history exists
-    if (existing && existing.points.length > 0) return false;
-
     const holdingsMultiplier = currentValue / currentGunPrice;
     const cbMultiplier = costBasis != null && costBasis > 0 ? costBasis / currentGunPrice : 0;
     const now = Date.now();
     const sparkLen = gunPriceSparkline.length;
-    // CoinGecko 7d sparkline has ~168 hourly points
-    const msPerPoint = (7 * 24 * 60 * 60 * 1000) / (sparkLen - 1);
+    const msPerPoint = (sparklineDays * 24 * 60 * 60 * 1000) / (sparkLen - 1);
 
+    // If history exists, try to extend backwards with synthetic data
+    if (existing && existing.points.length > 0) {
+      const earliestStoredTime = existing.points[0].t;
+      const sparklineStartTime = now - (sparkLen - 1) * msPerPoint;
+
+      // Only extend if sparkline reaches >2h further back than stored history
+      if (sparklineStartTime >= earliestStoredTime - 2 * 60 * 60 * 1000) return false;
+
+      // Collect sparkline points that precede existing history
+      const bufferMs = 30 * 60 * 1000; // 30-min gap before first real point
+      const candidates: PortfolioSnapshot[] = [];
+      for (let i = 0; i < sparkLen; i++) {
+        const timestamp = now - (sparkLen - 1 - i) * msPerPoint;
+        if (timestamp >= earliestStoredTime - bufferMs) break;
+        const syntheticValue = gunPriceSparkline[i] * holdingsMultiplier;
+        if (syntheticValue > 0) {
+          const point: PortfolioSnapshot = { t: Math.round(timestamp), v: syntheticValue };
+          if (cbMultiplier > 0) point.cb = gunPriceSparkline[i] * cbMultiplier;
+          candidates.push(point);
+        }
+      }
+
+      if (candidates.length < 2) return false;
+
+      // Sample ~24 points from the prepend range to avoid bloat
+      let sampled: PortfolioSnapshot[];
+      if (candidates.length <= 24) {
+        sampled = candidates;
+      } else {
+        sampled = [];
+        for (let i = 0; i < 24; i++) {
+          sampled.push(candidates[Math.round((i / 23) * (candidates.length - 1))]);
+        }
+      }
+
+      existing.points = [...sampled, ...existing.points];
+      if (existing.points.length > MAX_POINTS) {
+        existing.points = existing.points.slice(-MAX_POINTS);
+      }
+      existing.lastUpdated = now;
+      data[normalizedAddress] = existing;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      return true;
+    }
+
+    // No history — full bootstrap
     const points: PortfolioSnapshot[] = [];
-    // Sample evenly — take ~24 points (one every ~7 hours) to avoid bloating storage
-    const sampleCount = Math.min(24, sparkLen);
+    // Sample evenly — take ~48 points to avoid bloating storage
+    const sampleCount = Math.min(48, sparkLen);
     for (let i = 0; i < sampleCount; i++) {
       const srcIdx = Math.round((i / (sampleCount - 1)) * (sparkLen - 1));
       const syntheticValue = gunPriceSparkline[srcIdx] * holdingsMultiplier;

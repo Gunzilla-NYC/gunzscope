@@ -1921,8 +1921,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   // Uses normalizeCostBasis helper for consistent validation
   // =============================================================================
   const costBasisGun: number | null = (() => {
-    // Transfers have no cost basis
-    if (!currentResolvedAcquisition || currentResolvedAcquisition.acquisitionType === 'TRANSFER') {
+    if (!currentResolvedAcquisition) return null;
+    // Free transfers have no cost basis; transfers with a known cost (e.g. traced
+    // original purchase price) DO have one — fall through to the normal extraction.
+    if (currentResolvedAcquisition.acquisitionType === 'TRANSFER') {
+      // Check if there's a purchase price from the pipeline (traced original cost)
+      const tracedCost = currentPurchaseData?.purchasePriceGun;
+      if (tracedCost !== undefined && tracedCost > 0) {
+        return tracedCost;
+      }
       return null;
     }
     // Primary: resolved acquisition costGun

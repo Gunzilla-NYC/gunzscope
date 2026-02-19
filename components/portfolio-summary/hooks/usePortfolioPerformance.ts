@@ -127,7 +127,7 @@ export function usePortfolioPerformance(
   const sparklineSpanDays = useMemo(() => {
     if (!walletAddress) return 0;
     const historyDays = getSparklineSpanDays(walletAddress);
-    if (historyDays === 0 && sparklineValues.length >= 2) return 7;
+    if (historyDays === 0 && sparklineValues.length >= 2) return 14;
     return historyDays;
   }, [walletAddress, sparklineValues]);
 

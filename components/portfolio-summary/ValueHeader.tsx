@@ -66,7 +66,7 @@ export function ValueHeader({
       )}
 
       {/* Content layer — pointer-events:none so backdrop chart hover works through it */}
-      <div className="relative z-10 p-6 pb-4 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
+      <div className="relative z-10 p-6 pb-4 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_[title]]:pointer-events-auto">
         <div aria-live="polite" aria-busy={isInitializing}>
           <div className="flex items-center gap-2 mb-1">
             <p className="font-mono text-caption tracking-widest uppercase text-[var(--gs-gray-4)]">

@@ -58,6 +58,9 @@ export class CoinGeckoService {
           if (Array.isArray(data.sparkline7d) && data.sparkline7d.length > 0) {
             result.sparkline7d = data.sparkline7d;
           }
+          if (Array.isArray(data.sparkline14d) && data.sparkline14d.length > 0) {
+            result.sparkline14d = data.sparkline14d;
+          }
           return result;
         }
         return null;
@@ -149,18 +152,27 @@ export class CoinGeckoService {
   }
 
   /**
-   * Get historical price for a token at a specific date
-   * @param coinId - CoinGecko coin ID (e.g., 'gunz', 'avalanche-2')
-   * @param date - Date to get price for
-   * @returns Price in USD or null if not available
+   * Get historical price for a token at a specific date.
+   * In the browser, routes through /api/price/history to avoid CORS and
+   * expose the server-side API key. Server-side calls CoinGecko directly.
    */
   async getHistoricalPrice(coinId: string, date: Date): Promise<number | null> {
     try {
+      // Browser: use server-side proxy to avoid CORS + use API key
+      if (isBrowser) {
+        const res = await fetch(
+          `/api/price/history?coin=${encodeURIComponent(coinId)}&date=${date.toISOString()}`
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.price ?? null;
+      }
+
+      // Server-side: call CoinGecko directly with API key
       const headers = this.apiKey
         ? { 'x-cg-demo-api-key': this.apiKey }
         : {};
 
-      // Format date as DD-MM-YYYY
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();

@@ -116,8 +116,20 @@ export function useNFTEnrichmentOrchestrator(
     const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
 
     // Check cache - only use if acquisition is complete
+    // Marketplace purchases (opensea, in_game_marketplace) with no price are treated
+    // as incomplete so the pipeline retries — the first run may have failed transiently
+    // (RPC timeout, OpenSea rate limit) and cached costGun=0 permanently.
     const cached = getCachedNFT(walletAddress, primaryTokenId);
-    if (cached && cached.hasAcquisition === true) {
+    const cachedPriceMissing = cached && (
+      cached.purchasePriceGun === undefined ||
+      cached.purchasePriceGun === null ||
+      cached.purchasePriceGun === 0
+    );
+    const isMarketplaceCache = cached?.acquisitionVenue &&
+      ['opensea', 'in_game_marketplace'].includes(cached.acquisitionVenue);
+    const cacheIncomplete = cachedPriceMissing && isMarketplaceCache && !cached?.isFreeTransfer;
+
+    if (cached && cached.hasAcquisition === true && !cacheIncomplete) {
       const groupedQuantity = nft.tokenIds && nft.tokenIds.length > 1 ? nft.tokenIds.length : undefined;
 
       // Check if listing data is stale (older than 4 hours)

@@ -373,7 +373,7 @@ function Chart({
       )}
 
       {/* Hover tooltip (rendered as foreignObject for HTML styling) */}
-      {hoverIndex !== null && hoverValue !== null && hoverX !== null && (
+      {hoverIndex !== null && hoverValue !== null && hoverX !== null && hoverY !== null && (
         <foreignObject
           x={0}
           y={0}
@@ -385,7 +385,10 @@ function Chart({
             style={{
               position: 'absolute',
               left: `${(hoverX / width) * 100}%`,
-              bottom: '18px',
+              // Place tooltip above the point when point is in lower half, below when in upper half
+              ...(hoverY > MARGIN.top + innerHeight / 2
+                ? { bottom: `${height - hoverY + 10}px` }
+                : { top: `${hoverY + 10}px` }),
               transform: `translateX(${-(hoverX / width) * 100}%)`,
               display: 'flex',
               flexDirection: 'column',

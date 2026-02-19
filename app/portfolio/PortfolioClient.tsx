@@ -489,7 +489,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             const gunBal = (activeWd.avalanche.gunToken?.balance ?? 0) + (activeWd.solana.gunToken?.balance ?? 0);
             const estValue = gunBal * price;
             if (estValue > 0) {
-              bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price, estValue);
+              // Prefer 14d sparkline for a wider initial chart; fall back to 7d
+              const spark = priceData.sparkline14d?.length ? priceData.sparkline14d : priceData.sparkline7d;
+              const days = priceData.sparkline14d?.length ? 14 : 7;
+              bootstrapPortfolioHistory(address, estValue, spark, price, estValue, days);
             }
           }
         }

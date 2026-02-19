@@ -15,7 +15,7 @@
  *   ['Item Name::epic', 'release-id']  — matched when quality is provided
  */
 
-export type OriginCategory = 'battlepass' | 'pro_pack' | 'event' | 'ranked';
+export type OriginCategory = 'battlepass' | 'pro_pack' | 'event' | 'ranked' | 'early_access' | 'reward' | 'content_pack';
 
 export interface ItemRelease {
   /** Unique identifier for this release */
@@ -46,8 +46,13 @@ export interface MatchRule {
 // ════════════════════════════════════════════════════════════════
 
 const RELEASES: ReadonlyArray<ItemRelease> = [
+  // ── Early Access ────────────────────────────────────────
+  { id: 'pioneers',       name: 'Pioneer Set',                          shortName: 'Pioneer Set',        category: 'early_access', date: '2024-05-15', description: 'Available for 1 week only' },
+
+  // ── Reward ─────────────────────────────────────────────
+  { id: 'player-zero',    name: 'Player Zero Set',                      shortName: 'Player Zero',        category: 'reward',     date: null, description: 'Only available if Closed Tester' },
+
   // ── Events ──────────────────────────────────────────────
-  { id: 'pioneers',       name: 'Pioneers Program',                    shortName: 'Pioneers',           category: 'event',      date: '2024-05-15' },
   { id: 'all-stars',      name: 'ALL-STARS USA',                       shortName: 'ALL-STARS',          category: 'event',      date: '2024-11-21' },
   { id: 'xmas-pack',      name: 'Crackhead Christmas Content Pack',    shortName: 'Xmas Pack',          category: 'event',      date: '2024-12-13' },
   { id: 'combat-dj',      name: 'Combat DJ',                           shortName: 'Combat DJ',          category: 'event',      date: '2025-03-15' },
@@ -69,7 +74,7 @@ const RELEASES: ReadonlyArray<ItemRelease> = [
   { id: 'loyalty',        name: 'Loyalty Rewards',                     shortName: 'Loyalty',            category: 'event',      date: null },
 
   // ── Pro Content Packs ───────────────────────────────────
-  { id: 'save-democracy', name: 'OTG Pro Content Pack: Save Democracy', shortName: 'Save Democracy',    category: 'pro_pack',   date: null },
+  { id: 'save-democracy', name: 'Save Democracy',                       shortName: 'Save Democracy',    category: 'content_pack', date: null },
   { id: 'westcol',        name: 'OTG Pro Content Pack: Westcol',        shortName: 'Westcol',           category: 'pro_pack',   date: '2025-03-27' },
   { id: 'scump',          name: 'OTG Pro Content Pack: Scump',          shortName: 'Scump',             category: 'pro_pack',   date: null },
   { id: 'nuestros',       name: 'OTG Pro Content Pack: Nuestros Diablos', shortName: 'Nuestros Diablos', category: 'pro_pack',  date: null },
@@ -95,7 +100,8 @@ const RELEASES: ReadonlyArray<ItemRelease> = [
   { id: 'black-friday-bp',   name: 'Battle Pass: Black Friday',    shortName: 'Black Friday BP',   category: 'battlepass', date: null },
   { id: 'templar-bp',        name: 'Battle Pass: Templar',         shortName: 'Templar BP',        category: 'battlepass', date: null },
   { id: 'kiiro-shinobi-bp',  name: 'Battle Pass: Kiiro Shinobi',   shortName: 'Kiiro Shinobi BP',  category: 'battlepass', date: null },
-  { id: 'anarchist-bp',      name: 'Battle Pass: Anarchist',       shortName: 'Anarchist BP',      category: 'battlepass', date: null },
+  { id: 'prankster',          name: 'Prankster Set',                shortName: 'Prankster Set',     category: 'pro_pack',   date: null, description: 'Battle Pass - Early Access' },
+  { id: 'anarchist-bp',      name: 'Anarchist Set',                shortName: 'Anarchist Set',     category: 'pro_pack',   date: null, description: 'Battle Pass - Early Access' },
   { id: 'hitori-yubi-bp',   name: 'Battle Pass: Hitori Yubi',     shortName: 'Hitori Yubi BP',    category: 'battlepass', date: null },
   { id: 'hopper-pilot-bp',  name: 'Battle Pass: Hopper Pilot',    shortName: 'Hopper Pilot BP',   category: 'battlepass', date: null },
   { id: 'mad-biker-bp',    name: 'Battle Pass: Mad Biker',       shortName: 'Mad Biker BP',      category: 'battlepass', date: null },
@@ -184,7 +190,13 @@ const ITEM_REGISTRY: ReadonlyArray<readonly [string, string]> = [
   ['Alpha Ape Shit Set',       'aperil-fools-cp'],
   ['Banana Rekt Republic Set', 'aperil-fools-cp'],
   ['Going Apeshit',            'aperil-fools-cp'],
+  ['Going Ape Shit',           'aperil-fools-cp'],
+  ['Hump for Dominance',       'aperil-fools-cp'],
   ['Woodpecker Banananizer',   'aperil-fools-cp'],
+
+  // ── Prankster Set ─────────────────────────────────────────
+  ['Woodpecker Prankster',     'prankster'],
+  ['Prankster Shorts',         'prankster'],
 
   // ── Don DeLulu CP ───────────────────────────────────────
   ['Don DeLulu',                  'don-delulu'],
@@ -306,9 +318,12 @@ const MATCH_RULES: ReadonlyArray<MatchRule> = [
 /** Category display labels */
 export const CATEGORY_LABELS: Record<OriginCategory, string> = {
   battlepass: 'Battle Pass',
-  pro_pack: 'Pro Pack',
+  pro_pack: 'Pro',
   event: 'Event',
   ranked: 'Ranked',
+  early_access: 'Early Access',
+  reward: 'Reward',
+  content_pack: 'Content',
 };
 
 /** Category badge colors (CSS variable names) */
@@ -317,6 +332,9 @@ export const CATEGORY_COLORS: Record<OriginCategory, { text: string; bg: string 
   pro_pack: { text: 'var(--gs-purple-bright, #8B7AFF)', bg: 'var(--gs-purple, #6D5BFF)' },
   event: { text: '#22d3ee', bg: '#22d3ee' },
   ranked: { text: '#F59E0B', bg: '#F59E0B' },
+  early_access: { text: '#FF8C00', bg: '#FF8C00' },
+  reward: { text: '#10B981', bg: '#10B981' },
+  content_pack: { text: '#60A5FA', bg: '#60A5FA' },
 };
 
 // ════════════════════════════════════════════════════════════════

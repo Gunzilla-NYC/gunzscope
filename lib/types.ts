@@ -90,6 +90,7 @@ export interface PriceData {
   source: string;
   timestamp: Date;
   sparkline7d?: number[];
+  sparkline14d?: number[];
 }
 
 export interface MarketplaceData {

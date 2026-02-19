@@ -87,20 +87,29 @@ export function NFTDetailAcquisitionCard({
         {data?.decodeCostGun !== undefined && data.decodeCostGun > 0 ? (
           <div>
             <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Decode Cost</p>
-            <p className="text-base font-medium text-amber-300 tabular-nums">
-              {data.decodeCostGun.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })} GUN
-              {data.decodeCostUsd !== undefined && (
-                <span className="text-sm text-white/55 tabular-nums">
-                  <span className="mx-2">·</span>${data.decodeCostUsd.toLocaleString(undefined, {
+            {data.decodeCostUsd !== undefined ? (
+              <>
+                <p className="text-base font-medium text-amber-300 tabular-nums">
+                  ${data.decodeCostUsd.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
-                </span>
-              )}
-            </p>
+                </p>
+                <p className="text-sm text-white/45 tabular-nums">
+                  {data.decodeCostGun.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} GUN
+                </p>
+              </>
+            ) : (
+              <p className="text-base font-medium text-amber-300 tabular-nums">
+                {data.decodeCostGun.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} GUN
+              </p>
+            )}
           </div>
         ) : data?.isFreeTransfer ? (
           <>
@@ -134,20 +143,29 @@ export function NFTDetailAcquisitionCard({
         ) : data?.purchasePriceGun !== undefined ? (
           <div>
             <p className="text-xs uppercase tracking-wider text-white/55 mb-1">Cost</p>
-            <p className="text-base font-medium text-white/90 tabular-nums">
-              {data.purchasePriceGun.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })} GUN
-              {data.purchasePriceUsd !== undefined && (
-                <span className="text-sm text-white/55 tabular-nums">
-                  <span className="mx-2">·</span>${data.purchasePriceUsd.toLocaleString(undefined, {
+            {data.purchasePriceUsd !== undefined ? (
+              <>
+                <p className="text-base font-medium text-white/90 tabular-nums">
+                  ${data.purchasePriceUsd.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
-                </span>
-              )}
-            </p>
+                </p>
+                <p className="text-sm text-white/45 tabular-nums">
+                  {data.purchasePriceGun.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} GUN
+                </p>
+              </>
+            ) : (
+              <p className="text-base font-medium text-white/90 tabular-nums">
+                {data.purchasePriceGun.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} GUN
+              </p>
+            )}
           </div>
         ) : !marketplaceConfigured && data?.acquiredAt ? (
           <div>
