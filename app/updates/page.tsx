@@ -17,9 +17,23 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.2.8',
+    date: 'Feb 19, 2026',
+    tag: 'current',
+    title: 'USD prices, wider charts & empty wallet UX',
+    items: [
+      'USD cost basis now shows on all items \u2014 previously many items only showed GUN price because the USD lookup was silently failing',
+      'Acquisition card redesign \u2014 USD is now the primary display with GUN shown underneath, instead of everything on one line',
+      'Portfolio chart now spans 14 days instead of 7, and extends backwards when new data becomes available',
+      'Empty wallet state \u2014 wallets with no GUN or items now show a friendly message with a search bar to look up another wallet',
+      'Chart tooltip follows the data \u2014 tooltip now positions above or below the point instead of being stuck at the bottom',
+      'Smarter price caching \u2014 marketplace purchases that cached with a missing price are now automatically retried',
+      'New origin categories \u2014 Pioneer Set, Player Zero, Prankster Set, and more items catalogued',
+    ],
+  },
+  {
     version: 'v0.2.7',
     date: 'Feb 18, 2026',
-    tag: 'current',
     title: 'Origin badges & AIRDROP labels',
     items: [
       'Expanded item origins to 35+ releases \u2014 Enforcer, Pink Fury, Mr Fuckles, Mad Biker, Hopper Pilot battle passes, Trick Treat or Die event, Neotokyo, and more now tracked',

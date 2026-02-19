@@ -979,6 +979,82 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             onAddToPortfolio={handleAddToPortfolio}
           />
 
+          {/* Empty wallet state — 0 GUN, 0 NFTs, not still loading */}
+          {allNfts.length === 0 && portfolioResult && portfolioResult.totalUsd === 0 && !enrichingNFTs && !loading && !isPortfolioInitializing ? (
+            <div className="mt-8 text-center py-20">
+              <div className="size-16 mx-auto mb-6 rounded-full bg-[var(--gs-dark-2)] border border-white/[0.06] flex items-center justify-center">
+                <svg className="w-7 h-7 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+                </svg>
+              </div>
+              <h2 className="text-balance font-display text-2xl font-bold text-[var(--gs-white)] mb-3">
+                Nothing Detected
+              </h2>
+              <p className="text-pretty text-[var(--gs-gray-4)] mb-10 max-w-md mx-auto font-body">
+                This wallet has no GUN tokens or game items. Try searching a different wallet to explore a portfolio.
+              </p>
+
+              {/* Inline search bar */}
+              <form
+                onSubmit={handleSearch}
+                className="max-w-md mx-auto mb-8"
+              >
+                <div className="relative">
+                  <svg
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gs-gray-3)]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={searchAddress}
+                    onChange={(e) => setSearchAddress(e.target.value)}
+                    placeholder="Enter a GunzChain or Solana address..."
+                    className={`w-full pl-10 py-3 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono ${searchAddress.trim() && detectedChain ? 'pr-40' : 'pr-16'}`}
+                  />
+                  {searchAddress.trim() && detectedChain && (
+                    <span className={`absolute right-16 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
+                      detectedChain === 'gunzchain'
+                        ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
+                        : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
+                    }`}>
+                      {detectedChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
+                    </span>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={!searchAddress.trim() || !detectedChain}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-[var(--gs-lime)]/20 text-[var(--gs-lime)] text-xs font-medium rounded hover:bg-[var(--gs-lime)]/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Search
+                  </button>
+                </div>
+                {searchAddress.trim() && !detectedChain && (
+                  <p className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1.5">
+                    Enter a valid GunzChain (0x...) or Solana address
+                  </p>
+                )}
+              </form>
+
+              <div className="flex items-center justify-center gap-3">
+                <Link
+                  href="/leaderboard"
+                  className="inline-block font-display font-semibold text-sm uppercase px-6 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner"
+                >
+                  View Leaderboard
+                </Link>
+                <Link
+                  href="/market"
+                  className="inline-block font-display font-semibold text-sm uppercase px-6 py-3 border border-white/[0.06] text-[var(--gs-gray-3)] hover:border-white/20 hover:text-[var(--gs-white)] transition-colors"
+                >
+                  Browse Market
+                </Link>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-6 mt-4">
             {/* Portfolio Summary Bar */}
             <PortfolioSummaryBar
@@ -1036,6 +1112,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               stickyOffset={64} // 64px navbar height
             />
           </div>
+          )}
 
           {/* Portfolio Footer */}
           <Footer />

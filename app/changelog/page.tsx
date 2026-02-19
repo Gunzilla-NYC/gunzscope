@@ -15,9 +15,28 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.2.8',
+    date: 'Feb 19, 2026',
+    tag: 'current',
+    items: [
+      'Historical price CORS fix \u2014 new /api/price/history server\u2011side proxy routes CoinGecko historical price requests through the server, fixing silent CORS failure that left purchasePriceUsd undefined on all client\u2011side lookups',
+      '14\u2011day sparkline \u2014 /api/price/gun now fetches 14d market_chart alongside 7d sparkline; PriceData type extended with sparkline14d; bootstrap and performance hooks prefer 14d data',
+      'Portfolio history backwards extension \u2014 bootstrapPortfolioHistory can now prepend synthetic points from the sparkline when the sparkline reaches further back than stored history, with 30\u2011min buffer gap and ~24\u2011point sampling',
+      'On\u2011chain cost extraction for transfers \u2014 acquisition pipeline now captures costGunFromChain for cross\u2011wallet transfers with wGUN payment, calculates USD from historical GUN price',
+      'Universal GUN\u2192USD fallback \u2014 any item with finalPurchasePriceGun > 0 and no USD value gets historical price lookup as a last\u2011resort conversion',
+      'Transfer cost basis propagation \u2014 NFTDetailModal costBasisGun now falls through to traced original purchase price for TRANSFER acquisitions instead of always returning null',
+      'Enrichment cache invalidation \u2014 marketplace purchases (opensea, in_game_marketplace) with missing price are treated as incomplete and retried on next enrichment cycle',
+      'USD\u2011first acquisition card \u2014 NFTDetailAcquisitionCard shows $USD as primary line with GUN as secondary when USD is available, for both decode cost and purchase price sections',
+      'Chart tooltip dynamic positioning \u2014 BackdropChart tooltip now renders above the point when point is in lower half of chart, below when in upper half, with hoverY null\u2011check guard',
+      'ValueHeader pointer\u2011events \u2014 elements with [title] attribute now receive pointer\u2011events for native tooltip hover',
+      'Item origins expansion \u2014 new categories early_access, reward, content_pack; Pioneer Set, Player Zero Set, Prankster Set, Anarchist Set reclassified; Going Ape Shit, Hump for Dominance added to Aperil Fools',
+      'Empty wallet state \u2014 portfolios with 0 GUN and 0 NFTs show centered "Nothing Detected" message with inline search bar + Leaderboard/Market CTAs instead of empty $0.00 dashboard',
+      'CLAUDE.md \u2014 documented Production Whitelist API endpoints and admin workflow',
+    ],
+  },
+  {
     version: 'v0.2.7',
     date: 'Feb 18, 2026',
-    tag: 'current',
     items: [
       'Item origin registry scaled to 35+ releases \u2014 added Enforcer BP, Pink Fury BP, Mr Fuckles BP, Hopper Pilot BP, Mad Biker BP, Neotokyo event, Trick Treat or Die event expansion, plus dozens of individual items',
       'AIRDROP label \u2014 any NFT with a known origin and sub\u20111\u2011GUN acquisition cost now displays "AIRDROP" instead of "0 GUN"; unknown\u2011origin items keep their raw price',
