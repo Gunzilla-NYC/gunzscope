@@ -47,14 +47,14 @@ export function NFTDetailQuickStats({
     return 'text-white/60';
   };
 
-  // Format currency — pink DEBUG for missing data
-  const formatUsd = (value: number | null, debugLabel?: string) => {
-    if (value === null) return <span className="text-pink-400">DEBUG: {debugLabel ?? 'no data'}</span>;
+  // Format currency — dash for missing data
+  const formatUsd = (value: number | null) => {
+    if (value === null) return <span className="text-white/30">&mdash;</span>;
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatGun = (value: number | null, debugLabel?: string) => {
-    if (value === null) return <span className="text-pink-400">DEBUG: {debugLabel ?? 'no GUN data'}</span>;
+  const formatGun = (value: number | null) => {
+    if (value === null) return <span className="text-white/30">&mdash;</span>;
     return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN`;
   };
 
@@ -75,10 +75,10 @@ export function NFTDetailQuickStats({
           Cost Basis
         </div>
         <div className="font-display text-sm font-semibold text-[var(--gs-white)] tabular-nums">
-          {formatUsd(costBasisUsd, 'no cost USD')}
+          {formatUsd(costBasisUsd)}
         </div>
         <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
-          {formatGun(costBasisGun, 'no cost GUN')}
+          {formatGun(costBasisGun)}
         </div>
       </div>
 
@@ -91,10 +91,10 @@ export function NFTDetailQuickStats({
           Market Value
         </div>
         <div className="font-display text-sm font-semibold text-[var(--gs-white)] tabular-nums">
-          {formatUsd(marketValueUsd, 'no market USD')}
+          {formatUsd(marketValueUsd)}
         </div>
         <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
-          {formatGun(marketValueGun, 'no market GUN')}
+          {formatGun(marketValueGun)}
         </div>
       </div>
 
@@ -117,10 +117,10 @@ export function NFTDetailQuickStats({
             <>
               {unrealizedUsd >= 0 ? '+' : '-'}${Math.abs(unrealizedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </>
-          ) : <span className="text-pink-400">DEBUG: no P&L</span>}
+          ) : <span className="text-white/30">&mdash;</span>}
         </div>
         <div className={`font-mono text-caption tabular-nums mt-0.5 ${unrealizedPct !== null ? getPnlColor() : ''}`}>
-          {unrealizedPct !== null ? formatPct(unrealizedPct) : <span className="text-pink-400">DEBUG: no %</span>}
+          {unrealizedPct !== null ? formatPct(unrealizedPct) : ''}
         </div>
       </div>
     </div>

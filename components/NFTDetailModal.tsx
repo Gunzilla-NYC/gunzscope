@@ -51,6 +51,7 @@ import {
 import { NFTDetailObservedMarketRange } from '@/components/nft-detail/NFTDetailObservedMarketRange';
 import { NFTDetailQuickStats } from '@/components/nft-detail/NFTDetailQuickStats';
 import { NFTDetailTraitPills } from '@/components/nft-detail/NFTDetailTraitPills';
+import { getItemOrigin } from '@/lib/data/itemOrigins';
 import type { HoldingAcquisitionData, ResolvedAcquisitionData, MetadataDebugData } from '@/components/nft-detail/types';
 import LockedWeaponIndicator from '@/components/weapon/LockedWeaponIndicator';
 
@@ -1924,6 +1925,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     if (!currentResolvedAcquisition || currentResolvedAcquisition.acquisitionType === 'TRANSFER') {
       return null;
     }
+    // Primary: resolved acquisition costGun
     const rawCost = currentResolvedAcquisition.costGun;
     const normalized = normalizeCostBasis(rawCost);
 
@@ -1932,7 +1934,15 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       warnOnce(`costBasis:${activeItem?.tokenId ?? 'unknown'}`, 'Anomalous cost basis filtered:', rawCost);
     }
 
-    return normalized;
+    if (normalized !== null) return normalized;
+
+    // Fallback: purchasePriceGun from pipeline venue handler (handles wGUN offer fills
+    // where resolved acquisition hasn't been updated yet from background refresh)
+    const fallbackCost = normalizeCostBasis(currentPurchaseData?.purchasePriceGun ?? currentPurchaseData?.decodeCostGun);
+    if (fallbackCost !== null) return fallbackCost;
+
+    // Last resort: enrichment orchestrator may have already populated the NFT object
+    return normalizeCostBasis(nft.purchasePriceGun);
   })();
 
   // =============================================================================
@@ -2103,6 +2113,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     rarityColor={sortedItems.length > 1 ? activeItem?.colors.primary : undefined}
                     itemClass={filteredTraits['Class']}
                     platform={filteredTraits['Platform']}
+                    originShortName={getItemOrigin(nft.name)?.shortName}
+                    originCategory={getItemOrigin(nft.name)?.category}
                   />
                 </div>
               </div>
@@ -2111,20 +2123,29 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               {walletAddress && (
                 <NFTDetailQuickStats
                   costBasisGun={costBasisGun}
-                  costBasisUsd={currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null}
+                  costBasisUsd={currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? nft.purchasePriceUsd ?? null}
                   marketValueGun={marketInputs.ref}
                   marketValueUsd={marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null}
                   unrealizedUsd={(() => {
                     const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
                     const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
-                    if (costUsd === null || marketUsd === null) return null;
-                    return marketUsd - costUsd;
+                    // Prefer USD-based P&L (market USD - cost USD at acquisition)
+                    if (costUsd !== null && marketUsd !== null) return marketUsd - costUsd;
+                    // Fallback: GUN-delta P&L when we have GUN values but no historical USD
+                    if (costBasisGun !== null && marketInputs.ref !== null && currentGunPrice) {
+                      return (marketInputs.ref - costBasisGun) * currentGunPrice;
+                    }
+                    return null;
                   })()}
                   unrealizedPct={(() => {
                     const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
                     const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
-                    if (costUsd === null || marketUsd === null || costUsd <= 0) return null;
-                    return ((marketUsd - costUsd) / costUsd) * 100;
+                    if (costUsd !== null && marketUsd !== null && costUsd > 0) return ((marketUsd - costUsd) / costUsd) * 100;
+                    // Fallback: GUN-based P&L %
+                    if (costBasisGun !== null && marketInputs.ref !== null && costBasisGun > 0) {
+                      return ((marketInputs.ref - costBasisGun) / costBasisGun) * 100;
+                    }
+                    return null;
                   })()}
                   isLoading={loadingDetails}
                 />
@@ -2136,19 +2157,30 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 const costBasisUsdAtAcquisition = currentPurchaseData?.purchasePriceUsd
                   ?? currentPurchaseData?.decodeCostUsd
                   ?? currentResolvedAcquisition?.costUsd
+                  ?? nft.purchasePriceUsd
                   ?? null;
 
                 const currentValueUsd = costBasisGun !== null && currentGunPrice !== null
                   ? costBasisGun * currentGunPrice
                   : null;
 
-                const unrealizedUsd = (currentValueUsd !== null && costBasisUsdAtAcquisition !== null)
-                  ? currentValueUsd - costBasisUsdAtAcquisition
-                  : null;
+                // Prefer USD-based P&L, fallback to GUN-delta P&L
+                let unrealizedUsd: number | null = null;
+                let unrealizedPct: number | null = null;
 
-                const unrealizedPct = (unrealizedUsd !== null && costBasisUsdAtAcquisition !== null && costBasisUsdAtAcquisition > 0)
-                  ? (unrealizedUsd / costBasisUsdAtAcquisition) * 100
-                  : null;
+                if (currentValueUsd !== null && costBasisUsdAtAcquisition !== null) {
+                  // USD-based: (costGUN × today's price) - (costGUN × historical price)
+                  unrealizedUsd = currentValueUsd - costBasisUsdAtAcquisition;
+                  if (costBasisUsdAtAcquisition > 0) {
+                    unrealizedPct = (unrealizedUsd / costBasisUsdAtAcquisition) * 100;
+                  }
+                } else if (costBasisGun !== null && marketInputs.ref !== null && currentGunPrice !== null) {
+                  // GUN-delta fallback: (market GUN - cost GUN) × current price
+                  unrealizedUsd = (marketInputs.ref - costBasisGun) * currentGunPrice;
+                  if (costBasisGun > 0) {
+                    unrealizedPct = ((marketInputs.ref - costBasisGun) / costBasisGun) * 100;
+                  }
+                }
 
                 // Status pill based on acquisition type
                 const acquisitionType = currentResolvedAcquisition?.acquisitionType;
@@ -2162,7 +2194,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   if (acquisitionType === 'TRANSFER') {
                     return { text: 'Transferred', style: 'bg-white/10 text-white/60' };
                   }
-                  return { text: 'DEBUG: UNKNOWN', style: 'bg-pink-500/20 text-pink-400' };
+                  return { text: 'Unknown', style: 'bg-white/10 text-white/40' };
                 };
 
                 const statusPill = getStatusPill();
@@ -2210,39 +2242,43 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     ) : (
                       <div className="space-y-1">
                         {/* Current USD value */}
-                        <p className={`font-display text-[26px] font-bold tabular-nums ${currentValueUsd !== null ? 'text-white' : 'text-pink-400'}`}>
+                        <p className={`font-display text-[26px] font-bold tabular-nums ${currentValueUsd !== null ? 'text-white' : 'text-white/30'}`}>
                           {currentValueUsd !== null
                             ? `$${currentValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : 'DEBUG: no USD value'}
+                            : '\u2014'}
                         </p>
 
                         {/* Cost basis in GUN */}
-                        <p className={`text-[13px] ${costBasisGun !== null ? 'text-white/70' : 'text-pink-400'}`}>
-                          Cost basis: {costBasisGun !== null
-                            ? `${costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN`
-                            : 'DEBUG: no cost data'}
-                        </p>
+                        {costBasisGun !== null && (
+                          <p className="text-[13px] text-white/70">
+                            Cost basis: {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                          </p>
+                        )}
 
                         {/* USD at acquisition */}
-                        <p className={`text-[13px] ${costBasisUsdAtAcquisition !== null ? 'text-white/60' : 'text-pink-400'}`}>
-                          {costBasisUsdAtAcquisition !== null
-                            ? `At acquisition: $${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : 'DEBUG: no USD at acquisition'}
-                        </p>
+                        {costBasisUsdAtAcquisition !== null && (
+                          <p className="text-[13px] text-white/60">
+                            At acquisition: ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        )}
 
                         {/* Unrealized P&L */}
-                        <p className={`text-[13px] ${formatUnrealized() ? getUnrealizedColor() : 'text-pink-400'}`}>
-                          {formatUnrealized()
-                            ? `Unrealized (GUN): ${formatUnrealized()}`
-                            : 'DEBUG: no P&L data'}
-                        </p>
+                        {formatUnrealized() ? (
+                          <p className={`text-[13px] ${getUnrealizedColor()}`}>
+                            Unrealized: {formatUnrealized()}
+                          </p>
+                        ) : costBasisGun !== null ? (
+                          <p className="text-[13px] text-white/40">
+                            Unrealized: awaiting market data
+                          </p>
+                        ) : null}
 
                         {/* Explanation text */}
                         <p className="text-data text-white/60 mt-2 leading-relaxed">
                           Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
                         </p>
 
-                        {/* Acquisition Summary - always shown, DEBUG for missing */}
+                        {/* Acquisition Summary */}
                         <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
                           {/* Source */}
                           <div className="flex items-center justify-between">
@@ -2257,7 +2293,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                 {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0, currentPurchaseData.isOfferFill)}
                               </span>
                             ) : (
-                              <span className="text-[13px] font-medium text-pink-400">DEBUG: no source</span>
+                              <span className="text-[13px] font-medium text-white/30">&mdash;</span>
                             )}
                           </div>
                           {/* Acquired date */}
@@ -2268,7 +2304,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                 {formatDate(currentPurchaseData.purchaseDate)}
                               </span>
                             ) : (
-                              <span className="text-[13px] font-medium text-pink-400">DEBUG: no date</span>
+                              <span className="text-[13px] font-medium text-white/30">&mdash;</span>
                             )}
                           </div>
                           {/* Transaction link */}
@@ -2290,7 +2326,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           ) : (
                             <div className="flex items-center justify-between">
                               <span className="text-data uppercase tracking-wider text-white/60">Transaction</span>
-                              <span className="text-[13px] font-medium text-pink-400">DEBUG: no tx hash</span>
+                              <span className="text-[13px] font-medium text-white/30">&mdash;</span>
                             </div>
                           )}
                         </div>

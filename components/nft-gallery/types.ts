@@ -32,6 +32,8 @@ export interface NFTGalleryControlsProps {
   setSortBy: (s: SortOption) => void;
   selectedItemClass: string;
   setSelectedItemClass: (c: string) => void;
+  selectedOrigin: string;
+  setSelectedOrigin: (o: string) => void;
   activeRarities: Set<Rarity>;
   toggleRarity: (r: Rarity) => void;
   clearRarities: () => void;
@@ -39,6 +41,7 @@ export interface NFTGalleryControlsProps {
   setViewMode: (v: ViewMode) => void;
   nfts: NFT[];
   itemClasses: string[];
+  originCounts: Map<string, number>;
   rarityCounts: Record<string, number>;
   hasActiveFilters: boolean;
   clearFilters: () => void;

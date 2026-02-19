@@ -17,7 +17,8 @@ import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
 interface WalletIdentityProps {
   className?: string;
   portfolioAddresses?: PortfolioAddress[];
-  aggregatedAddresses?: string[];
+  activeWalletAddress?: string | null;
+  allWalletAddresses?: string[];
   primaryWalletAddress?: string | null;
   isAuthenticated?: boolean;
   onSwitchWallet?: (address: string) => void;
@@ -47,7 +48,8 @@ function truncateAddr(addr: string): string {
 export default function WalletIdentity({
   className = '',
   portfolioAddresses = [],
-  aggregatedAddresses = [],
+  activeWalletAddress,
+  allWalletAddresses = [],
   primaryWalletAddress,
   isAuthenticated = false,
   onSwitchWallet,
@@ -102,8 +104,8 @@ export default function WalletIdentity({
     const viewedLower = address.toLowerCase();
     const primaryLower = primaryWalletAddress.toLowerCase();
     return viewedLower === primaryLower ||
-      aggregatedAddresses.some(a => a.toLowerCase() === primaryLower);
-  }, [primaryWalletAddress, address, aggregatedAddresses]);
+      allWalletAddresses.some(a => a.toLowerCase() === viewedLower);
+  }, [primaryWalletAddress, address, allWalletAddresses]);
 
   const hasPortfolioAddresses = portfolioAddresses.length > 0;
 
@@ -449,7 +451,7 @@ export default function WalletIdentity({
             <WalletRow
               address={primaryWalletAddress}
               label="Connected Wallet"
-              isActive={aggregatedAddresses.some(a => a.toLowerCase() === primaryWalletAddress.toLowerCase())}
+              isActive={activeWalletAddress?.toLowerCase() === primaryWalletAddress.toLowerCase()}
               isPrimary
               onClick={() => handleSwitch(primaryWalletAddress)}
             />
@@ -462,7 +464,7 @@ export default function WalletIdentity({
                 key={pa.id}
                 address={pa.address}
                 label={pa.label}
-                isActive={aggregatedAddresses.some(a => a.toLowerCase() === pa.address.toLowerCase())}
+                isActive={activeWalletAddress?.toLowerCase() === pa.address.toLowerCase()}
                 onClick={() => handleSwitch(pa.address)}
               />
             ))}

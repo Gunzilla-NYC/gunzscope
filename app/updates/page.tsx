@@ -17,9 +17,21 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.2.6',
+    version: 'v0.2.7',
     date: 'Feb 18, 2026',
     tag: 'current',
+    title: 'Origin badges & AIRDROP labels',
+    items: [
+      'Expanded item origins to 35+ releases \u2014 Enforcer, Pink Fury, Mr Fuckles, Mad Biker, Hopper Pilot battle passes, Trick Treat or Die event, Neotokyo, and more now tracked',
+      'Items from battle passes, content packs, and events with no real purchase price now show "AIRDROP" instead of "0 GUN"',
+      'Halloween items now display "Trick, Treat or Die" as their origin badge instead of generic "Halloween"',
+      'Improved matching for Don DeLulu and Mrs Crackhead Santa items that weren\u2019t being recognized',
+      'New loading screen quips \u2014 if you know, you know',
+    ],
+  },
+  {
+    version: 'v0.2.6',
+    date: 'Feb 18, 2026',
     title: 'Smarter search & item origins',
     items: [
       'Search bar now shows whether your address is GunzChain or Solana as you type, and tells you if it\u2019s invalid',

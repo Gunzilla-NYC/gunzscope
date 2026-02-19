@@ -250,9 +250,55 @@ export function useNFTEnrichmentOrchestrator(
               sale.buyerAddress?.toLowerCase() === walletLower
             );
 
-            if (matchingSale && matchingSale.priceGUN > 0) {
-              marketplacePriceGun = matchingSale.priceGUN;
-              marketplacePurchaseDate = matchingSale.eventTimestamp ? new Date(matchingSale.eventTimestamp) : undefined;
+            if (matchingSale) {
+              const effectivePrice = matchingSale.priceGUN > 0 ? matchingSale.priceGUN : matchingSale.priceWGUN;
+              if (effectivePrice > 0) {
+                marketplacePriceGun = effectivePrice;
+                marketplacePurchaseDate = matchingSale.eventTimestamp ? new Date(matchingSale.eventTimestamp) : undefined;
+              }
+            }
+          }
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      // Cross-wallet transfer fallback: look up original purchase by sender
+      // When an item was transferred for free from another wallet, query OpenSea
+      // sales to find the original purchase price paid by the sender.
+      // Guard: only for genuine wallet-to-wallet transfers (fromAddress is a real
+      // wallet, not zero address, and not the wallet itself)
+      const isGenuineTransfer = acquisition?.venue === 'transfer'
+        && !acquisition?.isMint
+        && (acquisition?.costGun === 0 || !acquisition?.costGun)
+        && acquisition?.fromAddress
+        && acquisition.fromAddress !== '0x0000000000000000000000000000000000000000'
+        && acquisition.fromAddress.toLowerCase() !== walletAddress.toLowerCase()
+        && marketplacePriceGun === undefined;
+
+      if (isGenuineTransfer) {
+        try {
+          const openSeaService = new OpenSeaService();
+          const tokenId = nft.tokenIds?.[0] || nft.tokenId;
+
+          const saleEvents = await withTimeout(
+            openSeaService.getSaleEvents(nftContractAddress, tokenId, 'avalanche'),
+            5000
+          );
+
+          if (saleEvents && saleEvents.length > 0) {
+            const senderLower = acquisition!.fromAddress!.toLowerCase();
+            // Find the purchase made by the sender (previous owner)
+            const matchingSale = saleEvents.find(sale =>
+              sale.buyerAddress?.toLowerCase() === senderLower
+            );
+
+            if (matchingSale) {
+              const effectivePrice = matchingSale.priceGUN > 0 ? matchingSale.priceGUN : matchingSale.priceWGUN;
+              if (effectivePrice > 0) {
+                marketplacePriceGun = effectivePrice;
+                marketplacePurchaseDate = matchingSale.eventTimestamp ? new Date(matchingSale.eventTimestamp) : undefined;
+              }
             }
           }
         } catch {
@@ -267,7 +313,8 @@ export function useNFTEnrichmentOrchestrator(
         acquisition.acquiredAtIso !== undefined
       );
 
-      const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint;
+      // isFreeTransfer: true when chain cost is 0, NOT a mint, AND we didn't find a price via fallback
+      const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint && marketplacePriceGun === undefined;
       const finalQuantity = (nft.tokenIds && nft.tokenIds.length > 1) ? nft.tokenIds.length : (quantity ?? nft.quantity ?? 1);
 
       const enrichedData = {

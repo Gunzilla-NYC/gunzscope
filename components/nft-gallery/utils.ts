@@ -5,6 +5,9 @@
  */
 
 import type { NFT } from '@/lib/types';
+import { getItemOrigin, CATEGORY_COLORS as ORIGIN_CATEGORY_COLORS, type OriginCategory } from '@/lib/data/itemOrigins';
+
+export { ORIGIN_CATEGORY_COLORS, type OriginCategory };
 
 // ============================================================================
 // Types
@@ -44,6 +47,8 @@ export interface NFTCardData {
   pnlDisplay: string;
   marketListings: number | null;
   marketFloor: number | null;
+  originShortName: string | null;
+  originCategory: OriginCategory | null;
 }
 
 // ============================================================================
@@ -261,13 +266,26 @@ export function getVenueLabel(venue?: string): string {
   }
 }
 
+/** Minimum GUN amount to count as a real purchase price (below = tx fee noise) */
+const MIN_VALID_PRICE_GUN = 1;
+
 /** Get display text and color for an NFT's cost basis */
 export function getCostBasisDisplay(nft: NFT): { label: string; color: string } {
-  if (nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0) {
-    return { label: `${nft.purchasePriceGun.toLocaleString()} GUN`, color: 'var(--gs-gray-3)' };
-  }
   const venue = nft.acquisitionVenue;
-  if (venue === 'decode' || venue === 'decoder' || venue === 'mint' || venue === 'system_mint') {
+  const isDecoded = venue === 'decode' || venue === 'decoder' || venue === 'mint' || venue === 'system_mint';
+  const origin = getItemOrigin(nft.name);
+  const hasRealPrice = nft.purchasePriceGun !== undefined && nft.purchasePriceGun >= MIN_VALID_PRICE_GUN;
+
+  // Any known-origin item without a real purchase price → "AIRDROP"
+  if (origin && !hasRealPrice) {
+    return { label: 'AIRDROP', color: '#F59E0B' };
+  }
+
+  if (hasRealPrice) {
+    return { label: `${nft.purchasePriceGun!.toLocaleString()} GUN`, color: 'var(--gs-gray-3)' };
+  }
+
+  if (isDecoded) {
     return { label: 'HEX', color: 'var(--gs-lime)' };
   }
   if (nft.isFreeTransfer) {
@@ -328,13 +346,17 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
   const isProfit = pnlPct !== null && pnlPct > 1;
   const isLoss = pnlPct !== null && pnlPct < -1;
 
-  const priceGun = nft.floorPrice ?? nft.purchasePriceGun;
-  const priceDisplay = priceGun !== undefined ? `${priceGun.toLocaleString()} GUN` : '— GUN';
+  const market = marketMap?.get(nft.name);
+  const origin = getItemOrigin(nft.name);
+
+  // Only filter sub-1-GUN prices for known-origin items (→ AIRDROP); keep raw price for unknown items
+  const priceGun = nft.floorPrice ?? (nft.purchasePriceGun !== undefined && (nft.purchasePriceGun >= MIN_VALID_PRICE_GUN || !origin) ? nft.purchasePriceGun : undefined);
+  const priceDisplay = priceGun !== undefined
+    ? `${priceGun.toLocaleString()} GUN`
+    : getCostBasisDisplay(nft).label;
   const pnlDisplay = pnlPct !== null
     ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`
     : '—';
-
-  const market = marketMap?.get(nft.name);
 
   return {
     nft,
@@ -354,5 +376,7 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     pnlDisplay,
     marketListings: market?.listingCount ?? null,
     marketFloor: market?.floorPriceGun ?? null,
+    originShortName: origin?.shortName ?? null,
+    originCategory: origin?.category ?? null,
   };
 }

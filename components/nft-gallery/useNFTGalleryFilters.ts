@@ -13,6 +13,7 @@ import {
   getRarityRank, getRarityName,
   getItemClass, getMintNumericValue, isNumericMint,
 } from './utils';
+import { getItemOrigin } from '@/lib/data/itemOrigins';
 
 const SEARCH_DEBOUNCE_MS = 200;
 
@@ -61,6 +62,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [selectedItemClass, setSelectedItemClass] = useState<string>('all');
   const [activeRarities, setActiveRarities] = useState<Set<Rarity>>(() => new Set());
+  const [selectedOrigin, setSelectedOrigin] = useState<string>('all');
   // Default view: small grid if >16 NFTs, medium grid if <=16
   const [viewMode, setViewMode] = useState<ViewMode>(() => nfts.length > 16 ? 'small' : 'medium');
 
@@ -92,6 +94,18 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
       if (b === 'Unknown') return -1;
       return a.localeCompare(b);
     });
+  }, [nfts]);
+
+  // Compute origin counts from all NFTs (for the dropdown)
+  const originCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const nft of nfts) {
+      const origin = getItemOrigin(nft.name);
+      if (origin) {
+        counts.set(origin.shortName, (counts.get(origin.shortName) ?? 0) + (nft.quantity || 1));
+      }
+    }
+    return counts;
   }, [nfts]);
 
   // Calculate portfolio summary: spent, estimated value, and P&L
@@ -163,8 +177,15 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
       result = result.filter(nft => getItemClass(nft) === selectedItemClass);
     }
 
+    if (selectedOrigin !== 'all') {
+      result = result.filter(nft => {
+        const origin = getItemOrigin(nft.name);
+        return origin?.shortName === selectedOrigin;
+      });
+    }
+
     return result;
-  }, [nfts, debouncedQuery, selectedItemClass]);
+  }, [nfts, debouncedQuery, selectedItemClass, selectedOrigin]);
 
   // Calculate rarity counts from pre-rarity-filtered NFTs (so counts are always visible)
   const rarityCounts = useMemo(() => {
@@ -294,17 +315,19 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
     setDebouncedQuery('');
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSelectedItemClass('all');
+    setSelectedOrigin('all');
     clearRarities();
     setSortBy('mint-asc');
   }, [clearRarities]);
 
-  const hasActiveFilters = !!(searchQuery || selectedItemClass !== 'all' || activeRarities.size > 0 || sortBy !== 'mint-asc');
+  const hasActiveFilters = !!(searchQuery || selectedItemClass !== 'all' || selectedOrigin !== 'all' || activeRarities.size > 0 || sortBy !== 'mint-asc');
 
   return {
     // Filter state + setters
     searchQuery, setSearchQuery: setSearchQueryDebounced,
     sortBy, setSortBy,
     selectedItemClass, setSelectedItemClass,
+    selectedOrigin, setSelectedOrigin,
     activeRarities, toggleRarity, clearRarities,
     viewMode, setViewMode,
     // Modal state
@@ -312,6 +335,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
     handleNFTClick, handleCloseModal,
     // Derived data
     itemClasses,
+    originCounts,
     portfolioSummary,
     rarityCounts,
     filteredAndSortedNFTs,

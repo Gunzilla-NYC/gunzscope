@@ -24,13 +24,13 @@ export function useLoadingMessages() {
       'Shaking down the blockchain for answers',
       'Appraising your arsenal\u2026',
       'Floor prices don\u2019t check themselves',
-      'Interrogating smart contracts\u2026',
+      'Procrastinating by checking Discord for drama...',
       'Scanning 13M blocks. Yeah, all of them.',
       'Loading NFTs faster than you loot crates',
-      'Your portfolio called. It said hurry up.',
+      'Flying around legless... IYKYK',
       'Doing math so you don\u2019t have to',
       'Raiding the RPC for your data\u2026',
-      'Bribing the blockchain for faster responses',
+      'Try to get the hug emote to work...',
     ];
     return pool.sort(() => Math.random() - 0.5);
   }, [is10pmWindow]);

@@ -10,7 +10,7 @@
 import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
-import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel } from './utils';
+import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel, ORIGIN_CATEGORY_COLORS } from './utils';
 import type { NFTGalleryGridCardProps } from './types';
 
 export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, portfolioViewMode }: NFTGalleryGridCardProps) {
@@ -92,6 +92,22 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
           </span>
         )}
       </div>
+
+      {/* Origin badge */}
+      {cardData.originShortName && cardData.originCategory && (
+        <span
+          className={`inline-block font-mono uppercase tracking-wide mt-1 px-1.5 py-0.5 ${
+            viewMode === 'small' ? 'text-micro' : 'text-label'
+          }`}
+          style={{
+            color: ORIGIN_CATEGORY_COLORS[cardData.originCategory].text,
+            backgroundColor: `${ORIGIN_CATEGORY_COLORS[cardData.originCategory].bg}15`,
+            border: `1px solid ${ORIGIN_CATEGORY_COLORS[cardData.originCategory].bg}40`,
+          }}
+        >
+          {cardData.originShortName}
+        </span>
+      )}
 
       {/* Detailed mode: Cost basis + enrichment indicator */}
       {portfolioViewMode === 'detailed' && (

@@ -26,8 +26,8 @@ export default function UXRWelcomePopup() {
     } catch { /* localStorage unavailable */ }
   }, [isAuthenticated]);
 
-  const dismiss = useCallback(() => {
-    if (dontShowAgain) {
+  const dismiss = useCallback((permanent = false) => {
+    if (dontShowAgain || permanent) {
       try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* ignore */ }
     }
     setVisible(false);
@@ -36,7 +36,7 @@ export default function UXRWelcomePopup() {
   // ESC key to dismiss
   useEffect(() => {
     if (!visible) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss(false); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [visible, dismiss]);
@@ -46,7 +46,7 @@ export default function UXRWelcomePopup() {
       {visible && (
         <motion.div
           className="fixed inset-0 z-[100] flex items-center justify-center"
-          onClick={dismiss}
+          onClick={() => dismiss()}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -73,7 +73,7 @@ export default function UXRWelcomePopup() {
             <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] border-t-0 p-6 sm:p-8">
               {/* Close button */}
               <button
-                onClick={dismiss}
+                onClick={() => dismiss()}
                 className="absolute top-4 right-4 p-1.5 text-[var(--gs-gray-3)] hover:text-white hover:bg-white/10 transition"
                 aria-label="Close"
               >
@@ -113,15 +113,18 @@ export default function UXRWelcomePopup() {
                   This is under <span className="text-[var(--gs-white)]">daily active development</span> &mdash; some features are experimental, data might be off, and things will break. That&apos;s expected and part of the process.
                 </p>
                 <p>
-                  If you spot a bug or have an idea, drop it on the{' '}
+                  There are <span className="text-[var(--gs-white)]">known issues with data accuracy</span> &mdash; item categorization, pricing, and acquisition data are being manually curated and improved daily. If something looks wrong, it probably is, and we&apos;re on it.
+                </p>
+                <p>
+                  <span className="text-[var(--gs-white)]">Important:</span> If you spot a bug or have an idea, drop it on the{' '}
                   <Link
                     href="/feature-requests"
-                    onClick={dismiss}
+                    onClick={() => dismiss(true)}
                     className="text-[var(--gs-lime)] hover:underline underline-offset-2"
                   >
                     Feedback &amp; Bug Reports
                   </Link>
-                  {' '}page. You can also <span className="text-[var(--gs-white)]">upvote and downvote</span> other people&apos;s ideas to help prioritize what gets built first.
+                  {' '}page. You can also <span className="text-[var(--gs-white)]">upvote and downvote</span> other people&apos;s ideas to help prioritize what gets built first. This feature was built so I can manage requests more easily and transparently, while giving the community a friendly way to participate and shape priorities.
                 </p>
               </div>
 
@@ -146,24 +149,13 @@ export default function UXRWelcomePopup() {
               </label>
 
               {/* CTA */}
-              <div className="mt-4 space-y-2.5">
-                <Link
-                  href="/feature-requests"
-                  onClick={dismiss}
-                  className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[var(--gs-lime)] text-black font-semibold text-sm hover:brightness-110 transition-all"
+              <div className="mt-4">
+                <button
+                  onClick={() => dismiss(true)}
+                  className="w-full py-3 px-4 bg-[var(--gs-lime)] text-black font-semibold text-sm hover:brightness-110 transition-all"
                   style={{
                     clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
                   }}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Report a Bug or Request a Feature
-                </Link>
-
-                <button
-                  onClick={dismiss}
-                  className="w-full py-2.5 px-4 text-sm text-[var(--gs-gray-4)] hover:text-[var(--gs-white)] hover:bg-white/5 transition"
                 >
                   Got it, let me explore
                 </button>

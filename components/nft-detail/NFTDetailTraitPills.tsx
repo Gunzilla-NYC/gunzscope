@@ -11,6 +11,7 @@
 'use client';
 
 import RarityBadge from '@/components/ui/RarityBadge';
+import { CATEGORY_COLORS, type OriginCategory } from '@/lib/data/itemOrigins';
 
 interface NFTDetailTraitPillsProps {
   mintNumber?: string | number;
@@ -19,6 +20,10 @@ interface NFTDetailTraitPillsProps {
   rarityColor?: string;
   itemClass?: string;
   platform?: string;
+  /** Origin release short name (e.g., "Hexmas", "ChemTech BP") */
+  originShortName?: string;
+  /** Origin category for badge coloring */
+  originCategory?: OriginCategory;
 }
 
 export function NFTDetailTraitPills({
@@ -27,8 +32,10 @@ export function NFTDetailTraitPills({
   rarityColor,
   itemClass,
   platform,
+  originShortName,
+  originCategory,
 }: NFTDetailTraitPillsProps) {
-  const hasPills = mintNumber || rarity || itemClass || platform;
+  const hasPills = mintNumber || rarity || itemClass || platform || originShortName;
 
   if (!hasPills) return null;
 
@@ -66,6 +73,20 @@ export function NFTDetailTraitPills({
       {platform && (
         <span className="inline-flex items-center px-2 py-0.5 bg-white/5 border border-white/10 font-mono text-caption text-white/60 uppercase tracking-wide">
           {platform}
+        </span>
+      )}
+
+      {/* Origin */}
+      {originShortName && originCategory && (
+        <span
+          className="inline-flex items-center px-2 py-0.5 font-mono text-caption uppercase tracking-wide"
+          style={{
+            color: CATEGORY_COLORS[originCategory].text,
+            backgroundColor: `${CATEGORY_COLORS[originCategory].bg}15`,
+            border: `1px solid ${CATEGORY_COLORS[originCategory].bg}40`,
+          }}
+        >
+          {originShortName}
         </span>
       )}
     </div>

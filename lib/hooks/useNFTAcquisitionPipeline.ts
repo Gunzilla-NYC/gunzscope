@@ -1261,6 +1261,68 @@ export function useNFTAcquisitionPipeline(
         });
 
         // =====================================================================
+        // STEP 3.5: OpenSea sale price fallback
+        // When on-chain cost extraction returned 0, query OpenSea sales API.
+        // Handles: (a) wGUN offer fills, (b) cross-wallet transfers
+        // =====================================================================
+        let openSeaSalePriceGun: number | undefined;
+        let openSeaSaleDate: Date | undefined;
+
+        const needsOpenSeaFallback = costGunFromChain === 0 && hasTransferData && (
+          acquisitionVenue === 'opensea' ||  // offer fill where on-chain extraction failed
+          (acquisitionVenue === 'transfer' && fromAddress)  // cross-wallet transfer
+        );
+
+        if (needsOpenSeaFallback) {
+          try {
+            const saleTokenId = activeItem?.tokenId || '';
+
+            // HARDENING: Check for abort signal before network call
+            if (!abortController.signal.aborted) {
+              const saleEvents = await openSeaService.getSaleEvents(nftContractAddress, saleTokenId, 'avalanche');
+
+              // HARDENING: Check abort signal after network call
+              if (!abortController.signal.aborted && saleEvents && saleEvents.length > 0) {
+                // For OpenSea purchases: match by buyer = current wallet
+                // For transfers: match by buyer = sender (previous owner)
+                const matchAddress = acquisitionVenue === 'opensea'
+                  ? walletAddress?.toLowerCase()
+                  : fromAddress?.toLowerCase();
+
+                if (matchAddress) {
+                  const matchingSale = saleEvents.find(sale =>
+                    sale.buyerAddress?.toLowerCase() === matchAddress
+                  );
+                  if (matchingSale) {
+                    const effectivePrice = matchingSale.priceGUN > 0
+                      ? matchingSale.priceGUN : matchingSale.priceWGUN;
+                    if (effectivePrice > 0) {
+                      openSeaSalePriceGun = effectivePrice;
+                      openSeaSaleDate = matchingSale.eventTimestamp
+                        ? new Date(matchingSale.eventTimestamp) : undefined;
+
+                      if (debugMode) {
+                        console.debug('[NFTDetailModal] OpenSea sale fallback matched:', {
+                          venue: acquisitionVenue,
+                          matchAddress,
+                          priceGun: effectivePrice,
+                          saleDate: openSeaSaleDate?.toISOString(),
+                        });
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (openSeaSaleError) {
+            // Non-blocking — fall through to venue-based defaults
+            if (debugMode) {
+              console.debug('[NFTDetailModal] OpenSea sale fallback failed:', openSeaSaleError);
+            }
+          }
+        }
+
+        // =====================================================================
         // STEP 4: Determine acquisition source and build final data
         // Explicitly venue-driven mapping from holding acquisition (RPC)
         // =====================================================================
@@ -1330,10 +1392,11 @@ export function useNFTAcquisitionPipeline(
             });
           }
         } else if (acquisitionVenue === 'opensea') {
-          // B) OPENSEA PURCHASE: Marketplace purchase with RPC cost
+          // B) OPENSEA PURCHASE: Marketplace purchase with RPC cost, or OpenSea sales API fallback
           derivedPriceSource = 'onchain';
           finalAcquisitionType = 'PURCHASE';
-          finalPurchasePriceGun = costGunFromChain > 0 ? costGunFromChain : undefined;
+          // Use on-chain cost first, fall back to OpenSea sales API (handles wGUN offer fills)
+          finalPurchasePriceGun = costGunFromChain > 0 ? costGunFromChain : (openSeaSalePriceGun ?? undefined);
           finalDecodeCostGun = undefined;
           finalDecodeCostUsd = undefined;
           finalPurchaseDate = acquiredAt;
@@ -1356,6 +1419,7 @@ export function useNFTAcquisitionPipeline(
           if (debugMode) {
             console.debug('[NFTDetailModal] OpenSea purchase:', {
               costGunFromChain,
+              openSeaSalePriceGun,
               venue: acquisitionVenue,
               txHash: acquisitionTxHash,
               purchasePriceGun: finalPurchasePriceGun,
@@ -1429,23 +1493,48 @@ export function useNFTAcquisitionPipeline(
             });
           }
         } else if (acquisitionVenue === 'transfer') {
-          // E) TRANSFER: No price data, no marketplace tx
-          derivedPriceSource = 'transfers';
+          // E) TRANSFER: Check if we found original purchase price via OpenSea
           finalAcquisitionType = 'TRANSFER';
-          finalPurchasePriceGun = undefined;
-          finalPurchasePriceUsd = undefined;
           finalDecodeCostGun = undefined;
           finalDecodeCostUsd = undefined;
           finalPurchaseDate = acquiredAt;
           // Transfers have NO marketplace tx hash - only acquisitionTxHash
           finalMarketplaceTxHash = undefined;
-          finalIsFreeTransfer = true;
+
+          if (openSeaSalePriceGun !== undefined) {
+            // Found original purchase price via OpenSea sales API (cross-wallet transfer)
+            derivedPriceSource = 'onchain';
+            finalPurchasePriceGun = openSeaSalePriceGun;
+            finalIsFreeTransfer = false;
+
+            // Calculate USD from historical GUN price at original purchase date
+            const priceDate = openSeaSaleDate ?? acquiredAt;
+            if (finalPurchasePriceGun && priceDate) {
+              try {
+                const historicalPrice = await coinGeckoService.getHistoricalGunPrice(priceDate);
+                if (historicalPrice) {
+                  finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+                }
+              } catch (priceError) {
+                console.warn('[NFTDetailModal] Failed to get historical GUN price for transfer:', priceError);
+              }
+            }
+          } else {
+            // No original purchase price found — genuine free transfer
+            derivedPriceSource = 'transfers';
+            finalPurchasePriceGun = undefined;
+            finalPurchasePriceUsd = undefined;
+            finalIsFreeTransfer = true;
+          }
 
           if (debugMode) {
             console.debug('[NFTDetailModal] Transfer acquisition:', {
               venue: acquisitionVenue,
               txHash: acquisitionTxHash,
               fromAddress,
+              openSeaSalePriceGun,
+              finalPurchasePriceGun,
+              finalIsFreeTransfer,
             });
           }
         } else if (hasMarketplaceServiceMatch) {

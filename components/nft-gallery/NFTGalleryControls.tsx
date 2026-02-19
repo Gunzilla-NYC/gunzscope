@@ -20,9 +20,10 @@ export function NFTGalleryControls({
   searchQuery, setSearchQuery,
   sortBy, setSortBy,
   selectedItemClass, setSelectedItemClass,
+  selectedOrigin, setSelectedOrigin,
   activeRarities, toggleRarity, clearRarities,
   viewMode, setViewMode,
-  nfts, itemClasses, rarityCounts,
+  nfts, itemClasses, originCounts, rarityCounts,
   hasActiveFilters, clearFilters,
   stickyOffset,
 }: NFTGalleryControlsProps) {
@@ -122,6 +123,27 @@ export function NFTGalleryControls({
                     </option>
                   );
                 })}
+              </select>
+            </div>
+          )}
+
+          {/* Origin Filter */}
+          {originCounts.size > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="font-mono text-xs text-[var(--gs-gray-4)]">Origin:</label>
+              <select
+                value={selectedOrigin}
+                onChange={(e) => setSelectedOrigin(e.target.value)}
+                className="select-dropdown font-body pl-3 pr-8 py-1.5 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-[var(--gs-white)] focus:outline-none focus:border-[var(--gs-lime)] transition cursor-pointer"
+              >
+                <option value="all">All</option>
+                {[...originCounts.entries()]
+                  .sort((a, b) => a[0].localeCompare(b[0]))
+                  .map(([name, count]) => (
+                    <option key={name} value={name}>
+                      {name} ({count})
+                    </option>
+                  ))}
               </select>
             </div>
           )}
@@ -296,6 +318,19 @@ export function NFTGalleryControls({
             >
               {getItemClassDisplayName(selectedItemClass)}
               <button onClick={() => setSelectedItemClass('all')} className="hover:text-[var(--gs-white)] ml-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
+          {selectedOrigin !== 'all' && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-1 bg-[#22d3ee]/20 text-[#22d3ee] text-xs border border-[#22d3ee]/30 font-mono"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+            >
+              {selectedOrigin}
+              <button onClick={() => setSelectedOrigin('all')} className="hover:text-[var(--gs-white)] ml-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

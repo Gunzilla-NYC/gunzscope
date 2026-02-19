@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 /** Single source of truth for the current version string. */
-export const APP_VERSION = 'v0.2.6';
+export const APP_VERSION = 'v0.2.7';
 
 /**
  * Linked version badge that navigates to /changelog.

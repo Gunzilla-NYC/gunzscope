@@ -23,11 +23,12 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     searchQuery, setSearchQuery,
     sortBy, setSortBy,
     selectedItemClass, setSelectedItemClass,
+    selectedOrigin, setSelectedOrigin,
     activeRarities, toggleRarity, clearRarities,
     viewMode, setViewMode,
     selectedNFT, selectedTokenKeyString, isModalOpen,
     handleNFTClick, handleCloseModal,
-    itemClasses, rarityCounts, filteredAndSortedNFTs,
+    itemClasses, originCounts, rarityCounts, filteredAndSortedNFTs,
     clearFilters, hasActiveFilters,
   } = useNFTGalleryFilters(nfts, marketMap);
 
@@ -85,6 +86,8 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
         setSortBy={setSortBy}
         selectedItemClass={selectedItemClass}
         setSelectedItemClass={setSelectedItemClass}
+        selectedOrigin={selectedOrigin}
+        setSelectedOrigin={setSelectedOrigin}
         activeRarities={activeRarities}
         toggleRarity={toggleRarity}
         clearRarities={clearRarities}
@@ -92,6 +95,7 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
         setViewMode={setViewMode}
         nfts={nfts}
         itemClasses={itemClasses}
+        originCounts={originCounts}
         rarityCounts={rarityCounts}
         hasActiveFilters={hasActiveFilters}
         clearFilters={clearFilters}

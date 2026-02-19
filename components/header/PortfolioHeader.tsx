@@ -20,7 +20,8 @@ import { PortfolioAddress } from '@/lib/hooks/useUserProfile';
  */
 interface PortfolioHeaderProps {
   portfolioAddresses?: PortfolioAddress[];
-  aggregatedAddresses?: string[];
+  activeWalletAddress?: string | null;
+  allWalletAddresses?: string[];
   primaryWalletAddress?: string | null;
   isAuthenticated?: boolean;
   onSwitchWallet?: (address: string) => void;
@@ -36,7 +37,8 @@ interface PortfolioHeaderProps {
 
 export default function PortfolioHeader({
   portfolioAddresses = [],
-  aggregatedAddresses = [],
+  activeWalletAddress,
+  allWalletAddresses = [],
   primaryWalletAddress,
   isAuthenticated = false,
   onSwitchWallet,
@@ -88,8 +90,8 @@ export default function PortfolioHeader({
     const viewed = walletData.address.toLowerCase();
     const primary = primaryWalletAddress.toLowerCase();
     if (viewed === primary) return true;
-    return aggregatedAddresses.some(a => a.toLowerCase() === viewed);
-  }, [walletData?.address, primaryWalletAddress, aggregatedAddresses]);
+    return allWalletAddresses.some(a => a.toLowerCase() === viewed);
+  }, [walletData?.address, primaryWalletAddress, allWalletAddresses]);
 
   const shouldHide = !walletData || (isOwnWallet && portfolioAddresses.length === 0 && isAuthenticated);
 
@@ -106,7 +108,8 @@ export default function PortfolioHeader({
         <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
         <WalletIdentity
           portfolioAddresses={portfolioAddresses}
-          aggregatedAddresses={aggregatedAddresses}
+          activeWalletAddress={activeWalletAddress}
+          allWalletAddresses={allWalletAddresses}
           primaryWalletAddress={primaryWalletAddress}
           isAuthenticated={isAuthenticated}
           onSwitchWallet={onSwitchWallet}

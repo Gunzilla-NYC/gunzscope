@@ -579,7 +579,9 @@ export function seedLocalCacheFromNFTs(
       quantity: nft.quantity,
       purchasePriceGun: nft.purchasePriceGun,
       purchasePriceUsd: nft.purchasePriceUsd,
-      purchaseDate: nft.purchaseDate ? nft.purchaseDate.toISOString() : undefined,
+      purchaseDate: nft.purchaseDate
+        ? (nft.purchaseDate instanceof Date ? nft.purchaseDate.toISOString() : String(nft.purchaseDate))
+        : undefined,
       transferredFrom: nft.transferredFrom,
       isFreeTransfer: nft.isFreeTransfer,
       acquisitionVenue: nft.acquisitionVenue,

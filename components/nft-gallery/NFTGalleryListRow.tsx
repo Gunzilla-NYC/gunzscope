@@ -10,7 +10,7 @@
 import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
-import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel } from './utils';
+import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel, ORIGIN_CATEGORY_COLORS } from './utils';
 import type { NFTGalleryListRowProps } from './types';
 
 export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
@@ -76,6 +76,18 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
           {portfolioViewMode === 'detailed' && nft.acquisitionVenue && (
             <span className="font-mono text-[8px] tracking-wide uppercase px-1 py-0.5 bg-white/5 text-[var(--gs-gray-3)] border border-white/[0.06] shrink-0">
               {getVenueLabel(nft.acquisitionVenue)}
+            </span>
+          )}
+          {cardData.originShortName && cardData.originCategory && (
+            <span
+              className="font-mono text-[8px] tracking-wide uppercase px-1 py-0.5 shrink-0"
+              style={{
+                color: ORIGIN_CATEGORY_COLORS[cardData.originCategory].text,
+                backgroundColor: `${ORIGIN_CATEGORY_COLORS[cardData.originCategory].bg}15`,
+                border: `1px solid ${ORIGIN_CATEGORY_COLORS[cardData.originCategory].bg}40`,
+              }}
+            >
+              {cardData.originShortName}
             </span>
           )}
         </div>

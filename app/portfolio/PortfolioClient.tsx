@@ -30,7 +30,6 @@ import Footer from '@/components/Footer';
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
-import { mergeWalletData, useWalletAggregation } from '@/lib/hooks/useWalletAggregation';
 import { useNFTEnrichmentOrchestrator } from '@/lib/hooks/useNFTEnrichmentOrchestrator';
 import { useWalletDataFetcher } from '@/lib/hooks/useWalletDataFetcher';
 import { useAccountGate } from '@/lib/hooks/useAccountGate';
@@ -47,7 +46,6 @@ import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
 import { useChartMilestoneGating } from '@/lib/hooks/useChartMilestoneGating';
 import { usePortfolioSnapshot } from '@/lib/hooks/usePortfolioSnapshot';
 import { useWalletSearchActions } from '@/lib/hooks/useWalletSearchActions';
-import { useMultiWalletGallery } from '@/lib/hooks/useMultiWalletGallery';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -92,7 +90,32 @@ const NETWORK_INFO: NetworkInfo = {
 };
 
 function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; initialAddress: string | null }) {
-  const [walletData, setWalletData] = useState<WalletData | null>(null);
+  // Per-wallet storage: all fetched wallets keyed by lowercase address
+  const [walletMap, setWalletMap] = useState<Record<string, WalletData>>({});
+  const [activeWalletAddress, setActiveWalletAddress] = useState<string | null>(null);
+
+  // Derived: the currently displayed wallet
+  const activeWalletData = useMemo(() => {
+    if (!activeWalletAddress) return null;
+    return walletMap[activeWalletAddress.toLowerCase()] ?? null;
+  }, [walletMap, activeWalletAddress]);
+
+  // Compatibility wrapper: useStableEnrichmentUpdates calls setWalletData(updater).
+  // createEnrichmentUpdater already scopes by address, so applying to all entries is safe.
+  const setWalletData = useCallback((updater: React.SetStateAction<WalletData | null>) => {
+    setWalletMap(prev => {
+      const newMap = { ...prev };
+      let changed = false;
+      for (const key of Object.keys(newMap)) {
+        const result = typeof updater === 'function' ? updater(newMap[key]) : updater;
+        if (result && result !== newMap[key]) {
+          newMap[key] = result;
+          changed = true;
+        }
+      }
+      return changed ? newMap : prev;
+    });
+  }, []);
   const [gunPrice, setGunPrice] = useState<number | undefined>(undefined);
   const [gunPriceSparkline, setGunPriceSparkline] = useState<number[]>([]);
   const [loading, setLoading] = useState(!!initialAddress);
@@ -134,31 +157,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Shared service instances (avoid re-creating per call)
   const marketplaceServiceRef = useRef(new GameMarketplaceService());
 
-  // Portfolio aggregation state
-  const [aggregatedAddresses, setAggregatedAddresses] = useState<string[]>([]);
-
-  // Separate storage for primary and portfolio wallets (for useWalletAggregation hook)
-  const [primaryWalletData, setPrimaryWalletData] = useState<WalletData | null>(null);
-  const [portfolioWalletsData, setPortfolioWalletsData] = useState<WalletData[]>([]);
 
 
-  // Keep primaryWalletData in sync with walletData so enrichment updates
-  // (acquisition data, floor prices, listings) flow through to aggregation
-  useEffect(() => {
-    if (!walletData || !primaryWalletData) return;
-    if (walletData.address.toLowerCase() !== primaryWalletData.address.toLowerCase()) return;
-    // Only sync if walletData has newer NFT data (different reference)
-    if (walletData.avalanche.nfts !== primaryWalletData.avalanche.nfts) {
-      setPrimaryWalletData(walletData);
-    }
-  }, [walletData, primaryWalletData]);
 
-  // Compute aggregated wallet using hook (will replace inline mergeWalletData)
-  const aggregatedWalletFromHook = useWalletAggregation(
-    primaryWalletData,
-    portfolioWalletsData,
-    { includePortfolio: portfolioWalletsData.length > 0 }
-  );
+
 
   // portfolioMergedRef: tracks whether late-arriving portfolio wallets have been merged.
   // Reset in handleWalletSubmit and handleWalletDisconnect.
@@ -189,31 +191,27 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     useWalletSearchActions(addTrackedAddress, addPortfolioAddress);
 
   // Computed values for wallet actions (identity bar)
-  const viewedAddress = walletData?.address ?? searchAddress;
+  const viewedAddress = activeWalletData?.address ?? searchAddress;
   const isInWatchlist = profile?.trackedAddresses.some(
     t => t.address.toLowerCase() === viewedAddress.toLowerCase()
   ) ?? false;
   const addressInPortfolio = isInPortfolio(viewedAddress);
   const isAtPortfolioLimit = (profile?.portfolioAddresses?.length ?? 0) >= 5;
 
-  // Late portfolio merge: when portfolioAddresses arrive after the initial
-  // single-wallet load, fetch the missing wallets and merge them in.
-  // Handles the race where usePortfolioAutoLoad fires before /api/me returns.
+  // Late portfolio wallet loading: when portfolioAddresses arrive after the initial
+  // single-wallet load, fetch missing wallets into walletMap (background, no UI change).
   useEffect(() => {
     if (portfolioMergedRef.current) return;
-    if (!walletData || loading) return;
+    if (!activeWalletData || loading) return;
     if (!isConnected || portfolioAddresses.length === 0) return;
 
-    const loadedSet = new Set(aggregatedAddresses.map(a => a.toLowerCase()));
+    const loadedSet = new Set(Object.keys(walletMap));
     const missingAddresses = portfolioAddresses
       .map(p => p.address)
       .filter(a => !loadedSet.has(a.toLowerCase()));
 
     if (missingAddresses.length === 0) return;
     portfolioMergedRef.current = true;
-
-    const { avalanche: avalancheService } = getServices();
-    const marketplaceService = marketplaceServiceRef.current;
 
     Promise.all(
       missingAddresses.map(addr => walletFetcher.fetchSingleWallet(addr))
@@ -223,37 +221,21 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       );
       if (successful.length === 0) return;
 
-      const newWallets = successful.map(r => r.walletData);
-      setPortfolioWalletsData(prev => [...prev, ...newWallets]);
-      setAggregatedAddresses(prev => [...prev, ...newWallets.map(w => w.address)]);
-
-      // Update pagination with additional wallet NFT counts
-      const additionalCount = successful.reduce((sum, r) => sum + r.nftResult.totalCount, 0);
-      setNftPagination(prev => ({
-        ...prev,
-        totalOwnedCount: prev.totalOwnedCount + additionalCount,
-      }));
-
-      // Enrich the new NFTs (cache means already-enriched items are instant)
-      const newNfts = newWallets.flatMap(w => w.avalanche.nfts);
-      if (newNfts.length > 0) {
-        const marketplaceConfigured = marketplaceService.isConfigured();
-        startEnrichment(
-          newNfts,
-          walletData.address,
-          avalancheService,
-          marketplaceConfigured ? marketplaceService : null,
-          createUpdateCallback(walletData.address)
-        );
-      }
+      setWalletMap(prev => {
+        const m = { ...prev };
+        for (const r of successful) {
+          m[r.walletData.address.toLowerCase()] = r.walletData;
+        }
+        return m;
+      });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [portfolioAddresses, walletData, loading, isConnected, aggregatedAddresses]);
+  }, [portfolioAddresses, activeWalletData, loading, isConnected]);
 
   // Auto-save enriched portfolio to server cache when enrichment completes
   useEffect(() => {
-    if (!enrichingNFTs && walletData && isAuthenticated) {
-      saveCache(walletData.address, walletData, gunPrice);
+    if (!enrichingNFTs && activeWalletData && isAuthenticated) {
+      saveCache(activeWalletData.address, activeWalletData, gunPrice);
     }
   }, [enrichingNFTs]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -273,13 +255,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
   // Single source of truth for portfolio calculations
   const portfolioResult: PortfolioCalcResult | null = useMemo(() => {
-    if (!walletData) return null;
+    if (!activeWalletData) return null;
     return calcPortfolio({
-      walletData,
+      walletData: activeWalletData,
       gunPrice,
       totalOwnedNftCount: nftPagination.totalOwnedCount,
     });
-  }, [walletData, gunPrice, nftPagination.totalOwnedCount]);
+  }, [activeWalletData, gunPrice, nftPagination.totalOwnedCount]);
 
   // Scrambled loading text for wallet fetch + SDK init
   const { loadingText, sdkInitText } = useLoadingMessages();
@@ -314,11 +296,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   }, [isPortfolioInitializing, portfolioResult, gunPrice]);
 
   // Record portfolio snapshot for site-wide NFT tracking (fires once per address)
-  usePortfolioSnapshot(walletData, portfolioResult, loading, enrichingNFTs, gunPrice);
+  usePortfolioSnapshot(activeWalletData, portfolioResult, loading, enrichingNFTs, gunPrice);
 
   // Load more NFTs (pagination)
   const handleLoadMoreNFTs = useCallback(async () => {
-    if (!walletData || nftPagination.isLoadingMore || !nftPagination.hasMore) return;
+    if (!activeWalletData || nftPagination.isLoadingMore || !nftPagination.hasMore) return;
 
     setNftPagination(prev => ({ ...prev, isLoadingMore: true }));
 
@@ -328,7 +310,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       const startIndex = nftPagination.fetchedCount;
 
       const result = await avalancheService.getNFTsPaginated(
-        walletData.address,
+        activeWalletData.address,
         startIndex,
         nftPagination.pageSize
       );
@@ -336,16 +318,21 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       if (result.nfts.length > 0) {
         // Merge new NFTs into existing groups (preserves enrichment data on existing groups,
         // absorbs matching NFTs into their group, groups unmatched among themselves)
-        const mergedNFTs = mergeIntoGroups(walletData.avalanche.nfts, result.nfts);
+        const mergedNFTs = mergeIntoGroups(activeWalletData.avalanche.nfts, result.nfts);
 
-        // Update wallet data with merged NFTs
-        setWalletData(prev => {
-          if (!prev) return prev;
+        // Update walletMap for the active wallet
+        const activeKey = activeWalletData.address.toLowerCase();
+        setWalletMap(prev => {
+          const wd = prev[activeKey];
+          if (!wd) return prev;
           return {
             ...prev,
-            avalanche: {
-              ...prev.avalanche,
-              nfts: mergedNFTs,
+            [activeKey]: {
+              ...wd,
+              avalanche: {
+                ...wd.avalanche,
+                nfts: mergedNFTs,
+              },
             },
           };
         });
@@ -365,10 +352,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
         startEnrichment(
           groupedNewNFTs,
-          walletData.address,
+          activeWalletData.address,
           avalancheService,
           marketplaceConfigured ? marketplaceServiceRef.current : null,
-          createUpdateCallback(walletData.address)
+          createUpdateCallback(activeWalletData.address)
         );
       } else {
         setNftPagination(prev => ({
@@ -381,14 +368,14 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       console.error('Error loading more NFTs:', error);
       setNftPagination(prev => ({ ...prev, isLoadingMore: false }));
     }
-  }, [walletData, nftPagination, startEnrichment, getServices]);
+  }, [activeWalletData, nftPagination, startEnrichment, getServices]);
 
   // Auto-load all remaining NFT pages in the background for complete portfolio data
   useEffect(() => {
-    if (nftPagination.hasMore && !nftPagination.isLoadingMore && walletData) {
+    if (nftPagination.hasMore && !nftPagination.isLoadingMore && activeWalletData) {
       handleLoadMoreNFTs();
     }
-  }, [nftPagination.hasMore, nftPagination.isLoadingMore, walletData, handleLoadMoreNFTs]);
+  }, [nftPagination.hasMore, nftPagination.isLoadingMore, activeWalletData, handleLoadMoreNFTs]);
 
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
     // Increment request ID — any in-flight fetch from a previous call becomes stale
@@ -405,9 +392,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       // Stale guard after async cache load
       if (walletRequestIdRef.current !== thisRequestId) return;
       if (cached) {
-        setWalletData(cached.walletData);
+        setWalletMap({ [address.toLowerCase()]: cached.walletData });
+        setActiveWalletAddress(address);
         if (cached.gunPrice) setGunPrice(cached.gunPrice);
-        setPrimaryWalletData(cached.walletData);
         setIsPortfolioInitializing(false);
         setLoadedFromCache(true);
         hydratedFromCache = true;
@@ -467,35 +454,22 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         throw new Error('Failed to fetch any wallet data');
       }
 
-      // Merge wallet data if multiple addresses
-      const walletDataArray = successfulResults.map(r => r.walletData);
-      const mergedData = mergeWalletData(walletDataArray);
+      // Store each wallet separately in walletMap
+      const newMap: Record<string, WalletData> = {};
+      for (const r of successfulResults) {
+        newMap[r.walletData.address.toLowerCase()] = r.walletData;
+      }
+      setWalletMap(newMap);
+      setActiveWalletAddress(address);
 
-      // Populate separate state for hook-based aggregation
-      // Primary wallet is the first result (the searched address)
-      // Portfolio wallets are the rest
-      setPrimaryWalletData(walletDataArray[0]);
-      setPortfolioWalletsData(walletDataArray.slice(1));
-
-      // Track which addresses were aggregated
-      setAggregatedAddresses(successfulResults.map(r => r.walletData.address));
-
-      // Default gallery to primary wallet's NFTs
-      setActiveGalleryWallet(address);
-
-      // Calculate aggregated pagination info
-      // For merged portfolios, sum up totals across all wallets
-      const aggregatedTotalCount = successfulResults.reduce((sum, r) => sum + r.nftResult.totalCount, 0);
-      const aggregatedFetchedCount = successfulResults.reduce((sum, r) => sum + r.nftResult.fetchedCount, 0);
-      const anyHasMore = successfulResults.some(r => r.nftResult.hasMore);
-
-      // Update pagination state with aggregated counts
+      // Pagination for the primary (active) wallet only
+      const primaryResult = successfulResults[0];
       setNftPagination({
-        totalOwnedCount: aggregatedTotalCount,
-        fetchedCount: aggregatedFetchedCount,
+        totalOwnedCount: primaryResult.nftResult.totalCount,
+        fetchedCount: primaryResult.nftResult.fetchedCount,
         pageSize: 50,
         pagesLoaded: 1,
-        hasMore: anyHasMore,
+        hasMore: primaryResult.nftResult.hasMore,
         isLoadingMore: false,
       });
 
@@ -510,16 +484,16 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         // Seeds localStorage with synthetic points from GUN price sparkline
         // so that sparkline + 24h/7d changes render immediately
         if (price) {
-          const gunBal = (mergedData.avalanche.gunToken?.balance ?? 0) + (mergedData.solana.gunToken?.balance ?? 0);
-          const estValue = gunBal * price;
-          if (estValue > 0) {
-            bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price, estValue);
+          const activeWd = newMap[address.toLowerCase()];
+          if (activeWd) {
+            const gunBal = (activeWd.avalanche.gunToken?.balance ?? 0) + (activeWd.solana.gunToken?.balance ?? 0);
+            const estValue = gunBal * price;
+            if (estValue > 0) {
+              bootstrapPortfolioHistory(address, estValue, priceData.sparkline7d, price, estValue);
+            }
           }
         }
-      }
-
-      setWalletData(mergedData);
-      setLoading(false);
+      }      setLoading(false);
 
       // Live data arrived — clear cache flag so UI shows fresh data
       if (loadedFromCache) setLoadedFromCache(false);
@@ -543,19 +517,18 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       // This prevents the search bar from showing the wallet address and triggering the dropdown
       setSearchAddress('');
 
-      // Start background enrichment for all Avalanche NFTs using hook
-      // Reuse existing marketplace service (will gracefully handle unconfigured state)
+      // Start background enrichment for active wallet's Avalanche NFTs
       const marketplaceConfigured = marketplaceService.isConfigured();
-
-      // For merged data, enrich all NFTs but update the merged state
-      // Note: priority ordering and progress tracking are handled internally by the hook
-      startEnrichment(
-        mergedData.avalanche.nfts,
-        address, // Use primary address for cache keys
-        avalancheService,
-        marketplaceConfigured ? marketplaceService : null,
-        createUpdateCallback(address)
-      );
+      const activeWd = newMap[address.toLowerCase()];
+      if (activeWd) {
+        startEnrichment(
+          activeWd.avalanche.nfts,
+          address,
+          avalancheService,
+          marketplaceConfigured ? marketplaceService : null,
+          createUpdateCallback(address)
+        );
+      }
 
       // Fetch rarity floors + comparable sales in parallel, then inject into NFTs via applyValuationTables
       const rarityPromise = fetch('/api/opensea/rarity-floors')
@@ -570,11 +543,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         if (walletRequestIdRef.current !== thisRequestId) return;
         if (!rarityData && !comparableData) return;
 
-        setWalletData(prev => {
-          if (!prev || prev.address !== address) return prev;
-          const enrichedNfts = applyValuationTables(prev.avalanche.nfts, rarityData, comparableData);
-          if (enrichedNfts === prev.avalanche.nfts) return prev; // No changes
-          return { ...prev, avalanche: { ...prev.avalanche, nfts: enrichedNfts } };
+        const addrKey = address.toLowerCase();
+        setWalletMap(prev => {
+          const wd = prev[addrKey];
+          if (!wd) return prev;
+          const enrichedNfts = applyValuationTables(wd.avalanche.nfts, rarityData, comparableData);
+          if (enrichedNfts === wd.avalanche.nfts) return prev; // No changes
+          return { ...prev, [addrKey]: { ...wd, avalanche: { ...wd.avalanche, nfts: enrichedNfts } } };
         });
 
         if (process.env.NODE_ENV === 'development') {
@@ -634,13 +609,12 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     flushPendingUpdates();
     cancelEnrichment();
     portfolioMergedRef.current = false;
-    setWalletData(null);
+    setWalletMap({});
+    setActiveWalletAddress(null);
     setGunPrice(undefined);
     setGunPriceSparkline([]);
     setError(null);
     setSearchAddress('');
-    setAggregatedAddresses([]);
-    setActiveGalleryWallet(null);
     // Reset pagination
     setNftPagination({
       totalOwnedCount: 0,
@@ -661,7 +635,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     primaryWalletAddress: primaryWallet?.address,
     isAuthenticated,
     portfolioAddresses,
-    walletData,
+    walletData: activeWalletData,
     loading,
     onSubmit: (addr) => handleWalletSubmit(addr, 'avalanche'),
     onDisconnect: handleWalletDisconnect,
@@ -677,9 +651,55 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Handle "Back to My Wallet" from wallet identity bar
   const handleBackToOwnWallet = useCallback(() => {
     if (primaryWallet?.address) {
-      handleWalletSubmit(primaryWallet.address, 'avalanche');
+      // If already in walletMap, switch instantly; else re-fetch
+      const key = primaryWallet.address.toLowerCase();
+      if (walletMap[key]) {
+        handleWalletSwitch(primaryWallet.address);
+      } else {
+        handleWalletSubmit(primaryWallet.address, 'avalanche');
+      }
     }
-  }, [primaryWallet?.address]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryWallet?.address, walletMap]);
+
+  // Switch to a different wallet from walletMap (instant, no re-fetch)
+  const handleWalletSwitch = useCallback((address: string) => {
+    const key = address.toLowerCase();
+    const wd = walletMap[key];
+    if (!wd) return;
+
+    cancelEnrichment();
+    setActiveWalletAddress(address);
+
+    // Update pagination for this wallet
+    const nftCount = wd.avalanche.nfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0);
+    setNftPagination({
+      totalOwnedCount: nftCount,
+      fetchedCount: nftCount,
+      pageSize: 50,
+      pagesLoaded: 1,
+      hasMore: false,
+      isLoadingMore: false,
+    });
+
+    // Update URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('address', address);
+    window.history.replaceState({}, '', url.toString());
+
+    // Start enrichment for this wallet (cache makes already-done items instant)
+    const { avalanche: avalancheService } = getServices();
+    const marketplaceService = marketplaceServiceRef.current;
+    const marketplaceConfigured = marketplaceService.isConfigured();
+    startEnrichment(
+      wd.avalanche.nfts,
+      address,
+      avalancheService,
+      marketplaceConfigured ? marketplaceService : null,
+      createUpdateCallback(address)
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletMap, cancelEnrichment, startEnrichment, getServices, createUpdateCallback]);
 
 
   // Close unlock banner on outside click
@@ -695,28 +715,24 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   }, [showUnlockBanner]);
 
 
-  // Build context value for PortfolioProvider
-  // Use aggregatedWalletFromHook (computed by useWalletAggregation) with fallback to walletData
-  const effectiveWalletData = aggregatedWalletFromHook ?? walletData;
   // Memoize allNfts separately to stabilize the reference —
   // downstream hooks (PortfolioHeader) depend on this for useMemo/useEffect
   const allNfts = useMemo(
-    () => effectiveWalletData
-      ? [...effectiveWalletData.avalanche.nfts, ...effectiveWalletData.solana.nfts]
+    () => activeWalletData
+      ? [...activeWalletData.avalanche.nfts, ...activeWalletData.solana.nfts]
       : [],
-    [effectiveWalletData?.avalanche.nfts, effectiveWalletData?.solana.nfts],
+    [activeWalletData?.avalanche.nfts, activeWalletData?.solana.nfts],
   );
 
   // Milestone-gated NFT array for charts — prevents flicker during per-batch enrichment
   const chartNfts = useChartMilestoneGating(allNfts, enrichingNFTs, enrichmentProgress);
 
-  // Per-wallet NFT filtering for gallery view
-  const { activeGalleryWallet, setActiveGalleryWallet, walletNftKeys, galleryNfts, handleGallerySwitch } =
-    useMultiWalletGallery(primaryWalletData, portfolioWalletsData, allNfts);
+  // All wallet addresses in walletMap (for switcher)
+  const allWalletAddresses = useMemo(() => Object.values(walletMap).map(w => w.address), [walletMap]);
 
   const contextValue: PortfolioContextValue = useMemo(() => ({
-    walletData: effectiveWalletData,
-    address: effectiveWalletData?.address ?? null,
+    walletData: activeWalletData,
+    address: activeWalletData?.address ?? null,
     gunPrice,
     networkInfo: NETWORK_INFO,
     walletType: 'unknown',
@@ -728,7 +744,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     isInitializing: isPortfolioInitializing,
     error,
   }), [
-    effectiveWalletData,
+    activeWalletData,
     gunPrice,
     portfolioResult,
     enrichmentProgress,
@@ -775,7 +791,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       />
 
       {/* Transient state — waiting for wallet SDK or showing entry CTA */}
-      {!walletData && !loading && (
+      {!activeWalletData && !loading && (
         noWalletDetected ? (
           <div className="max-w-lg mx-auto py-20 px-4">
             <div
@@ -860,7 +876,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       )}
 
       {/* Portfolio View - shown when wallet is connected */}
-      {walletData && !loading && (
+      {activeWalletData && !loading && (
         <div id="main-content" className="max-w-7xl mx-auto py-8 px-4">
           {/* Search / Unlock section */}
           {isGated ? (
@@ -945,10 +961,11 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           {/* Portfolio Header - uses PortfolioContext */}
           <PortfolioHeader
             portfolioAddresses={portfolioAddresses}
-            aggregatedAddresses={aggregatedAddresses}
+            activeWalletAddress={activeWalletAddress}
+            allWalletAddresses={allWalletAddresses}
             primaryWalletAddress={primaryWallet?.address ?? null}
             isAuthenticated={isAuthenticated}
-            onSwitchWallet={handleGallerySwitch}
+            onSwitchWallet={handleWalletSwitch}
             onBackToOwnWallet={handleBackToOwnWallet}
             isInWatchlist={isInWatchlist}
             isInPortfolio={addressInPortfolio}
@@ -970,8 +987,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               isInitializing={isPortfolioInitializing}
               enrichmentProgress={enrichmentProgress}
               onRetryEnrichment={retryEnrichment}
-              walletAddress={walletData.address}
-              walletCount={walletNftKeys.size > 1 ? walletNftKeys.size : undefined}
+              walletAddress={activeWalletData.address}
             />
 
             {/* Cross-sell: leaderboard */}
@@ -990,7 +1006,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             {isConnected && portfolioAddresses.length < 2 && !walletHintDismissed && (
               <div className="flex items-center justify-between px-4 py-2.5 border border-white/[0.06] bg-[var(--gs-dark-2)]">
                 <p className="font-mono text-[10px] tracking-wide text-[var(--gs-gray-3)]">
-                  Track up to 5 wallets in one view{' \u2192 '}
+                  Save up to 5 wallets for instant switching{' \u2192 '}
                   <Link href="/account" className="text-[var(--gs-lime)] hover:underline">
                     Manage Wallets
                   </Link>
@@ -1007,25 +1023,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               </div>
             )}
 
-            {/* Per-wallet indicator — shown when multiple wallets are aggregated */}
-            {walletNftKeys.size > 1 && activeGalleryWallet && (
-              <div className="flex items-center gap-2 px-1 py-1.5">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">
-                  Showing NFTs from
-                </span>
-                <span className="font-mono text-data text-[var(--gs-white)]">
-                  {activeGalleryWallet.slice(0, 6)}&hellip;{activeGalleryWallet.slice(-4)}
-                </span>
-                <span className="font-mono text-[9px] text-[var(--gs-gray-2)]">
-                  &middot; {galleryNfts.reduce((sum, nft) => sum + (nft.quantity || 1), 0)} items
-                </span>
-              </div>
-            )}
-
             <NFTGallery
-              nfts={galleryNfts}
+              nfts={allNfts}
               chain="avalanche"
-              walletAddress={walletData.address}
+              walletAddress={activeWalletData.address}
               paginationInfo={nftPagination}
               onLoadMore={handleLoadMoreNFTs}
               isEnriching={enrichingNFTs}
@@ -1044,7 +1045,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       {/* Debug Panel - visible when ?debug=1 */}
       <DebugPanel
         portfolioResult={portfolioResult}
-        walletAddress={walletData?.address ?? null}
+        walletAddress={activeWalletData?.address ?? null}
         gunPrice={gunPrice}
         isVisible={debugMode}
       />

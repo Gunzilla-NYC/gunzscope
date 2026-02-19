@@ -15,9 +15,22 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.2.6',
+    version: 'v0.2.7',
     date: 'Feb 18, 2026',
     tag: 'current',
+    items: [
+      'Item origin registry scaled to 35+ releases \u2014 added Enforcer BP, Pink Fury BP, Mr Fuckles BP, Hopper Pilot BP, Mad Biker BP, Neotokyo event, Trick Treat or Die event expansion, plus dozens of individual items',
+      'AIRDROP label \u2014 any NFT with a known origin and sub\u20111\u2011GUN acquisition cost now displays "AIRDROP" instead of "0 GUN"; unknown\u2011origin items keep their raw price',
+      'Contains match rules \u2014 Don DeLulu CP and Mrs Crackhead Santa CP items now use fuzzy\u2011contains matching to catch blockchain name variations that exact\u2011match missed',
+      'ItemRelease description field \u2014 releases can now carry rich event descriptions (lore, mechanics, reward details); Trick, Treat or Die is the first with full event metadata',
+      'Trick, Treat or Die event badge \u2014 Halloween items now show the actual event name instead of generic "Halloween"',
+      'Loading messages refreshed \u2014 three new OTG\u2011themed quips in the portfolio loading rotation',
+      'Welcome popup streamlined \u2014 merged feedback paragraphs, removed redundant bug\u2011report CTA; single "Got it, let me explore" button',
+    ],
+  },
+  {
+    version: 'v0.2.6',
+    date: 'Feb 18, 2026',
     items: [
       'Search bar validation \u2014 invalid addresses (e.g. trailing special characters) now show inline chain detection badge and hint text instead of silently failing; "Go" button properly gates on address validity',
       'Wallet actions relocated \u2014 Watch and Portfolio buttons moved from search dropdown to the wallet identity bar, where users have context after viewing a wallet\u2019s data',
