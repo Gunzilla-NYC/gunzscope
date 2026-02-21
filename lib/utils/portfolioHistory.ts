@@ -115,7 +115,8 @@ export function bootstrapPortfolioHistory(
     const existing = data[normalizedAddress];
 
     const holdingsMultiplier = currentValue / currentGunPrice;
-    const cbMultiplier = costBasis != null && costBasis > 0 ? costBasis / currentGunPrice : 0;
+    // Cost basis is a fixed USD amount (what you paid) — it does NOT scale with GUN price
+    const flatCostBasis = costBasis != null && costBasis > 0 ? costBasis : 0;
     const now = Date.now();
     const sparkLen = gunPriceSparkline.length;
     const msPerPoint = (sparklineDays * 24 * 60 * 60 * 1000) / (sparkLen - 1);
@@ -137,7 +138,7 @@ export function bootstrapPortfolioHistory(
         const syntheticValue = gunPriceSparkline[i] * holdingsMultiplier;
         if (syntheticValue > 0) {
           const point: PortfolioSnapshot = { t: Math.round(timestamp), v: syntheticValue };
-          if (cbMultiplier > 0) point.cb = gunPriceSparkline[i] * cbMultiplier;
+          if (flatCostBasis > 0) point.cb = flatCostBasis;
           candidates.push(point);
         }
       }
@@ -175,7 +176,7 @@ export function bootstrapPortfolioHistory(
       const timestamp = now - (sparkLen - 1 - srcIdx) * msPerPoint;
       if (syntheticValue > 0) {
         const point: PortfolioSnapshot = { t: Math.round(timestamp), v: syntheticValue };
-        if (cbMultiplier > 0) point.cb = gunPriceSparkline[srcIdx] * cbMultiplier;
+        if (flatCostBasis > 0) point.cb = flatCostBasis;
         points.push(point);
       }
     }

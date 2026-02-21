@@ -55,11 +55,14 @@ export interface NFT {
   ceilingPrice?: number;
   traits?: Record<string, string>;
   quantity?: number; // Number of copies (length of tokenIds if grouped)
-  purchasePriceGun?: number; // Purchase price in GUN tokens (0 for free transfers)
-  purchasePriceUsd?: number; // Purchase price in USD at time of purchase
+  purchasePriceGun?: number; // Purchase price in GUN tokens (primary item, 0 for free transfers)
+  purchasePriceUsd?: number; // Purchase price in USD at time of purchase (primary item)
+  purchasePriceUsdEstimated?: boolean; // True if purchasePriceUsd used an estimated/interpolated historical GUN price
+  totalPurchasePriceGun?: number; // Sum of purchase prices across all items in group
   purchaseDate?: Date;
   transferredFrom?: string; // Wallet address if this was a free transfer
   isFreeTransfer?: boolean; // True if NFT was transferred for free (no payment)
+  transferType?: 'self' | 'gift'; // 'self' = between user's own wallets, 'gift' = from external wallet
   acquisitionVenue?: AcquisitionVenue; // Where the NFT was acquired
   acquisitionTxHash?: string; // Transaction hash of acquisition
   currentLowestListing?: number;

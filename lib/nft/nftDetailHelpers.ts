@@ -266,10 +266,18 @@ export function toIsoStringSafe(value: unknown): string | null {
 export function computeMarketInputs(
   listings: { lowest?: number; highest?: number; average?: number } | null,
   nftFloor?: number,
-  nftCeiling?: number
+  nftCeiling?: number,
+  waterfall?: { currentLowestListing?: number; comparableSalesMedian?: number; rarityFloor?: number },
 ): MarketInputs {
-  let low = listings?.lowest ?? nftFloor ?? null;
-  let high = listings?.highest ?? nftCeiling ?? null;
+  // Separate item-specific listing data from collection-wide floor/ceiling.
+  // Collection floor represents the cheapest item in the ENTIRE collection
+  // (e.g. 18 GUN Common) — NOT representative of a specific item's value.
+  const listingLow = listings?.lowest ?? null;
+  const listingHigh = listings?.highest ?? null;
+
+  // Range bounds: use listing data, fall back to collection floor/ceiling for range display
+  let low = listingLow ?? nftFloor ?? null;
+  let high = listingHigh ?? nftCeiling ?? null;
 
   // Guard against NaN values
   if (low !== null && !Number.isFinite(low)) low = null;
@@ -280,21 +288,44 @@ export function computeMarketInputs(
     [low, high] = [high, low];
   }
 
-  // Reference preference order:
+  // Reference (market value) — ONLY from item-specific data, never collection floor:
   // 1) listings.average if present and finite
-  // 2) midpoint if both bounds exist
-  // 3) low if only low exists
-  // 4) high if only high exists
-  // 5) null
+  // 2) midpoint if both listing bounds exist
+  // 3) listing low if only low exists
+  // 4) listing high if only high exists
+  // 5) enrichment waterfall: per-item listing > comparable sales (no rarity floor — too broad)
+  // 6) null
   let ref: number | null = null;
+  let refSource: import('./types').MarketRefSource | null = null;
   if (typeof listings?.average === 'number' && Number.isFinite(listings.average)) {
     ref = listings.average;
-  } else if (low !== null && high !== null) {
-    ref = (low + high) / 2;
-  } else if (low !== null) {
-    ref = low;
-  } else if (high !== null) {
-    ref = high;
+    refSource = 'listing_avg';
+  } else if (listingLow !== null && listingHigh !== null) {
+    ref = (listingLow + listingHigh) / 2;
+    refSource = 'listing_midpoint';
+  } else if (listingLow !== null) {
+    ref = listingLow;
+    refSource = 'listing_low';
+  } else if (listingHigh !== null) {
+    ref = listingHigh;
+    refSource = 'listing_high';
+  }
+
+  // Fallback to enrichment waterfall values when live listings aren't available
+  // Excludes rarityFloor — it represents the cheapest item of that rarity tier,
+  // not this specific item's value (e.g. cheap Epic sprays drag down Epic weapon floors)
+  if (ref === null && waterfall) {
+    if (waterfall.currentLowestListing && Number.isFinite(waterfall.currentLowestListing) && waterfall.currentLowestListing > 0) {
+      ref = waterfall.currentLowestListing;
+      refSource = 'enrichment_listing';
+    } else if (waterfall.comparableSalesMedian && Number.isFinite(waterfall.comparableSalesMedian) && waterfall.comparableSalesMedian > 0) {
+      ref = waterfall.comparableSalesMedian;
+      refSource = 'comparable_sales';
+    }
+    if (ref !== null) {
+      low = low ?? ref;
+      high = high ?? ref;
+    }
   }
 
   // spread-based quality (only when both bounds exist and low > 0)
@@ -309,7 +340,7 @@ export function computeMarketInputs(
     }
   }
 
-  return { low, high, ref, dataQuality };
+  return { low, high, ref, refSource, dataQuality };
 }
 
 // =============================================================================

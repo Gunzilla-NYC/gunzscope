@@ -196,8 +196,8 @@ body {
 /* NFT card hover — pure CSS, no JS state updates.
    Set --rarity-border and --rarity-glow via inline style. */
 .nft-card-hover:hover {
-  border-color: var(--rarity-border, rgba(255,255,255,0.06)) !important;
-  box-shadow: var(--rarity-glow, none);
+  border-color: var(--rarity-border, rgba(255,255,255,0.12)) !important;
+  box-shadow: var(--rarity-glow, none), 0 0 16px var(--rarity-border, transparent);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

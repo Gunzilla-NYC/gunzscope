@@ -38,10 +38,14 @@ export interface GetPositionLabelInput {
   dataQuality: DataQualityLevel | null;
 }
 
+/** Describes the origin of a market reference value */
+export type MarketRefSource = 'listing_avg' | 'listing_midpoint' | 'listing_low' | 'listing_high' | 'enrichment_listing' | 'comparable_sales' | 'rarity_floor';
+
 /** Market inputs computed from listings and NFT metadata */
 export interface MarketInputs {
   low: number | null;
   high: number | null;
   ref: number | null; // market reference used for hero + position calculations
+  refSource: MarketRefSource | null; // which data source provided the ref value
   dataQuality: DataQualityLevel | null; // spread-based only, requires both bounds
 }

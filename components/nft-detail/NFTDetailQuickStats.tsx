@@ -7,11 +7,25 @@
 
 'use client';
 
+import type { MarketRefSource } from '@/lib/nft/types';
+
+/** Human-readable descriptions for market reference sources */
+const SOURCE_LABELS: Record<MarketRefSource, string> = {
+  listing_avg: 'Average of current OpenSea listings for this item',
+  listing_midpoint: 'Midpoint between lowest and highest listing',
+  listing_low: 'Lowest current listing on OpenSea',
+  listing_high: 'Highest current listing on OpenSea',
+  enrichment_listing: 'Lowest listing found during portfolio enrichment',
+  comparable_sales: 'Median price from recent sales of similar items',
+  rarity_floor: 'Floor price for items of this rarity tier',
+};
+
 interface NFTDetailQuickStatsProps {
   costBasisGun: number | null;
   costBasisUsd: number | null;
   marketValueGun: number | null;
   marketValueUsd: number | null;
+  marketValueSource?: MarketRefSource | null;
   unrealizedUsd: number | null;
   unrealizedPct: number | null;
   isLoading?: boolean;
@@ -22,6 +36,7 @@ export function NFTDetailQuickStats({
   costBasisUsd,
   marketValueGun,
   marketValueUsd,
+  marketValueSource,
   unrealizedUsd,
   unrealizedPct,
   isLoading = false,
@@ -84,8 +99,9 @@ export function NFTDetailQuickStats({
 
       {/* Market Value */}
       <div
-        className="bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 p-3"
+        className="bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 p-3 cursor-help"
         style={{ borderLeftColor: 'var(--gs-purple)' }}
+        title={marketValueSource ? SOURCE_LABELS[marketValueSource] : marketValueGun !== null ? 'Market reference value' : 'No market data available'}
       >
         <div className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
           Market Value

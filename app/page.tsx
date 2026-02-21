@@ -237,7 +237,9 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [socialProofVisible, walletsCountUp, socialNftsCountUp]);
 
-  // Deferred auth flow — opened after modal exit animation completes
+  // Deferred auth flow — opened after modal exit animation completes.
+  // Uses both AnimatePresence.onExitComplete AND a useEffect fallback
+  // because onExitComplete can silently fail if animation is interrupted.
   const pendingAuthFlowRef = useRef(false);
   const handleModalExitComplete = useCallback(() => {
     if (pendingAuthFlowRef.current) {
@@ -245,6 +247,20 @@ export default function HomePage() {
       setShowAuthFlow(true);
     }
   }, [setShowAuthFlow]);
+
+  // Fallback: if AnimatePresence.onExitComplete doesn't fire (e.g. animation
+  // interrupted), open auth flow after the exit animation duration (200ms).
+  useEffect(() => {
+    if (!showWalletModal && pendingAuthFlowRef.current) {
+      const timer = setTimeout(() => {
+        if (pendingAuthFlowRef.current) {
+          pendingAuthFlowRef.current = false;
+          setShowAuthFlow(true);
+        }
+      }, 250); // slightly longer than exit animation (200ms)
+      return () => clearTimeout(timer);
+    }
+  }, [showWalletModal, setShowAuthFlow]);
 
   // Close modal helper
   const closeWalletModal = useCallback(() => {

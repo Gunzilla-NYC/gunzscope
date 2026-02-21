@@ -433,6 +433,133 @@ function computeNetGunOutflowFromReceipt(
   return parseFloat(ethers.formatUnits(netOutflow, 18));
 }
 
+/**
+ * Extract GUN/wGUN cost from a Seaport OrderFulfilled event.
+ *
+ * For offer fills, the buyer's wGUN may be escrowed in a conduit before the
+ * fulfillment tx, so ERC-20 Transfer logs won't show the buyer as `from`.
+ * The OrderFulfilled event is authoritative — its `offer` array contains the
+ * exact amounts the offerer (buyer) committed.
+ *
+ * OrderFulfilled layout (after topic0, offerer, zone):
+ *   - bytes32 orderHash  (non-indexed, in data)
+ *   - offset to offer[]
+ *   - offset to consideration[]
+ *   - offer[]: SpentItem[] = (uint8 itemType, address token, uint256 id, uint256 amount)
+ *   - consideration[]: ReceivedItem[] = same + address recipient
+ *
+ * Returns total GUN/wGUN amount from the offer, or 0 if not found.
+ */
+function extractCostFromOrderFulfilled(
+  receipt: ethers.TransactionReceipt,
+  walletAddress: string,
+  gunTokenAddress: string,
+  nftContractAddress?: string,
+  nftTokenId?: string,
+): number {
+  const walletLower = normalizeAddr(walletAddress);
+  const gunLower = normalizeAddr(gunTokenAddress);
+  const nftContractLower = nftContractAddress ? normalizeAddr(nftContractAddress) : null;
+  // Token IDs in Seaport events are BigInt — parse for comparison
+  const nftTokenIdBig = nftTokenId ? BigInt(nftTokenId) : null;
+
+  for (const log of receipt.logs) {
+    if (log.topics[0]?.toLowerCase() !== ORDER_FULFILLED_TOPIC0.toLowerCase()) continue;
+
+    // topic[1] = offerer (indexed), topic[2] = zone (indexed)
+    const offerer = log.topics.length >= 2
+      ? normalizeAddr('0x' + log.topics[1].slice(26))
+      : '';
+
+    try {
+      // Decode the non-indexed data: (bytes32 orderHash, SpentItem[] offer, ReceivedItem[] consideration)
+      const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+      const decoded = abiCoder.decode(
+        [
+          'bytes32',                                          // orderHash
+          'tuple(uint8,address,uint256,uint256)[]',           // offer (SpentItem[])
+          'tuple(uint8,address,uint256,uint256,address)[]',   // consideration (ReceivedItem[])
+        ],
+        log.data
+      );
+
+      const offerItems = decoded[1] as Array<[bigint, string, bigint, bigint]>;
+      const considerationItems = decoded[2] as Array<[bigint, string, bigint, bigint, string]>;
+
+      const isOfferer = offerer === walletLower;
+
+      if (isOfferer) {
+        // OFFER FILL: wallet is the offerer (made an offer with wGUN).
+        // offer items = what wallet committed (GUN/wGUN payment)
+        // consideration items = what wallet receives (NFT)
+
+        // Match NFT in consideration (buyer receives NFT)
+        if (nftContractLower && nftTokenIdBig !== null) {
+          const hasMatchingNft = considerationItems.some(item => {
+            const itemType = Number(item[0]);
+            const token = normalizeAddr(item[1]);
+            const id = item[2];
+            return (itemType === 2 || itemType === 3)
+              && token === nftContractLower
+              && id === nftTokenIdBig;
+          });
+          if (!hasMatchingNft) continue;
+        }
+
+        // Sum GUN/wGUN from offer items (what wallet paid)
+        let totalGun = BigInt(0);
+        for (const item of offerItems) {
+          const itemType = Number(item[0]);
+          const token = normalizeAddr(item[1]);
+          const amount = item[3];
+          if (itemType === 0 || (itemType === 1 && token === gunLower)) {
+            totalGun += amount;
+          }
+        }
+        if (totalGun > BigInt(0)) {
+          return parseFloat(ethers.formatUnits(totalGun, 18));
+        }
+      } else {
+        // REGULAR PURCHASE: wallet is the fulfiller (filled a seller's listing).
+        // offer items = what seller offered (NFT)
+        // consideration items = what seller receives (GUN payment + fees)
+        // The buyer pays ALL consideration items (seller cut + platform fee + royalty).
+
+        // Match NFT in offer items (seller is offering the NFT)
+        if (nftContractLower && nftTokenIdBig !== null) {
+          const hasMatchingNft = offerItems.some(item => {
+            const itemType = Number(item[0]);
+            const token = normalizeAddr(item[1]);
+            const id = item[2];
+            return (itemType === 2 || itemType === 3)
+              && token === nftContractLower
+              && id === nftTokenIdBig;
+          });
+          if (!hasMatchingNft) continue;
+        }
+
+        // Sum GUN/wGUN from consideration (total buyer cost = seller + fees)
+        let totalGun = BigInt(0);
+        for (const item of considerationItems) {
+          const itemType = Number(item[0]);
+          const token = normalizeAddr(item[1]);
+          const amount = item[3];
+          if (itemType === 0 || (itemType === 1 && token === gunLower)) {
+            totalGun += amount;
+          }
+        }
+        if (totalGun > BigInt(0)) {
+          return parseFloat(ethers.formatUnits(totalGun, 18));
+        }
+      }
+    } catch {
+      // ABI decode failed — skip this log
+    }
+  }
+
+  return 0;
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -447,6 +574,15 @@ export interface NFTHoldingAcquisition {
   isMint?: boolean;
   /** True when acquired via a pre-signed OpenSea offer (seller fills, buyer doesn't initiate tx) */
   isOfferFill?: boolean;
+  /** Transaction gas fee in GUN (gasUsed × effectiveGasPrice) */
+  txFeeGun?: number;
+  /** When venue='transfer' and costGun=0, the sender's original acquisition gas fee */
+  senderTxFeeGun?: number;
+  /** When venue='transfer' and costGun=0, these fields hold the sender's original acquisition cost */
+  senderCostGun?: number;
+  senderAcquiredAtIso?: string;
+  senderTxHash?: string;
+  senderVenue?: AcquisitionVenue;
   debug?: {
     txTo?: string;
     selector?: string;
@@ -1288,7 +1424,8 @@ export class AvalancheService {
   async getNFTHoldingAcquisition(
     contractAddress: string,
     tokenId: string,
-    walletAddress: string
+    walletAddress: string,
+    options?: { skipOwnershipCheck?: boolean }
   ): Promise<NFTHoldingAcquisition | null> {
     // Deduplicate concurrent requests for the same NFT acquisition data
     const key = `acquisition:${contractAddress}:${tokenId}:${walletAddress}`.toLowerCase();
@@ -1305,8 +1442,8 @@ export class AvalancheService {
         console.log(`[getNFTHoldingAcquisition] currentOwner=${currentOwner}, events=${events.length}`);
       }
 
-      // Verify wallet is current owner
-      if (normalizeAddr(currentOwner) !== walletLower) {
+      // Verify wallet is current owner (skip when tracing a sender's acquisition)
+      if (normalizeAddr(currentOwner) !== walletLower && !options?.skipOwnershipCheck) {
         if (DEBUG_ACQUISITION) {
           console.log(`[getNFTHoldingAcquisition] Wallet is not current owner`);
         }
@@ -1420,31 +1557,209 @@ export class AvalancheService {
       }
       // Priority 4: Native GUN (tx.value) — wallet-initiated transactions
       else if (gunIsNative && tx) {
-        // Native GUN: use tx.value if tx.from is the wallet
         const txFrom = normalizeAddr(tx.from);
-        if (txFrom === walletLower && tx.value > BigInt(0)) {
-          costGun = parseFloat(ethers.formatEther(tx.value));
+        const isOfferLikely = venue === 'opensea' && txFrom !== walletLower;
 
-          if (DEBUG_ACQUISITION) {
-            console.log(`[getNFTHoldingAcquisition] Native GUN payment: ${costGun}`);
-          }
-        }
-
-        // Fallback: try wGUN (ERC-20) if native GUN didn't yield a cost.
-        // OpenSea offer fills use wGUN even on chains where GUN is native,
-        // because you can't escrow native tokens in a pre-signed offer.
-        if (costGun === 0 && receipt && gunTokenAddress) {
-          costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
+        // 4a: For OpenSea offer fills, prefer OrderFulfilled extraction first.
+        // This gives per-order accuracy with NFT token matching, which is
+        // critical for batch fulfillments where multiple offers are filled in
+        // one tx. computeNetGunOutflowFromReceipt sums ALL wGUN outflows,
+        // which overcounts when multiple offers are batched.
+        if (isOfferLikely && receipt) {
+          costGun = extractCostFromOrderFulfilled(receipt, walletAddress, gunTokenAddress, contractAddress, tokenId);
 
           if (DEBUG_ACQUISITION && costGun > 0) {
-            console.log(`[getNFTHoldingAcquisition] wGUN fallback payment: ${costGun}`);
+            console.log(`[getNFTHoldingAcquisition] OrderFulfilled (offer, token-matched): ${costGun}`);
+          }
+
+          // Fallback: try without token matching (in case consideration doesn't include the NFT directly)
+          if (costGun === 0) {
+            costGun = extractCostFromOrderFulfilled(receipt, walletAddress, gunTokenAddress);
+
+            if (DEBUG_ACQUISITION && costGun > 0) {
+              console.log(`[getNFTHoldingAcquisition] OrderFulfilled (offer, unmatched): ${costGun}`);
+            }
+          }
+
+          // Last resort for offers: net wGUN outflow (only accurate for single-item txs)
+          if (costGun === 0 && gunTokenAddress) {
+            costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
+
+            if (DEBUG_ACQUISITION && costGun > 0) {
+              console.log(`[getNFTHoldingAcquisition] wGUN net outflow (offer fallback): ${costGun}`);
+            }
           }
         }
+        // 4b: Regular purchase — wallet initiated the tx.
+        // Try OrderFulfilled with token matching FIRST to get per-item cost.
+        // This is critical for batch Seaport purchases where tx.value is the
+        // total for ALL items, not just this NFT.
+        else {
+          // First: OrderFulfilled with token matching (per-order accurate for batch buys)
+          if (receipt) {
+            costGun = extractCostFromOrderFulfilled(receipt, walletAddress, gunTokenAddress, contractAddress, tokenId);
+
+            if (DEBUG_ACQUISITION && costGun > 0) {
+              console.log(`[getNFTHoldingAcquisition] OrderFulfilled (regular, token-matched): ${costGun}`);
+            }
+          }
+
+          // Fallback: tx.value (correct for single-item txs or non-Seaport purchases)
+          if (costGun === 0 && txFrom === walletLower && tx.value > BigInt(0)) {
+            costGun = parseFloat(ethers.formatEther(tx.value));
+
+            if (DEBUG_ACQUISITION) {
+              console.log(`[getNFTHoldingAcquisition] Native GUN payment: ${costGun}`);
+            }
+          }
+
+          // Fallback: try wGUN (ERC-20) if native GUN didn't yield a cost
+          if (costGun === 0 && receipt && gunTokenAddress) {
+            costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
+
+            if (DEBUG_ACQUISITION && costGun > 0) {
+              console.log(`[getNFTHoldingAcquisition] wGUN fallback payment: ${costGun}`);
+            }
+          }
+        }
+      }
+
+      // Diagnostic: log when OpenSea purchase has zero cost after all extraction attempts
+      if (venue === 'opensea' && costGun === 0) {
+        const logCount = receipt?.logs?.length ?? 0;
+        const wgunLogs = receipt?.logs?.filter(l =>
+          normalizeAddr(l.address) === normalizeAddr(gunTokenAddress)
+        ).length ?? 0;
+        const orderFulfilledLogs = receipt?.logs?.filter(l =>
+          l.topics[0]?.toLowerCase() === ORDER_FULFILLED_TOPIC0.toLowerCase()
+        ).length ?? 0;
+        const txVal = tx ? ethers.formatEther(tx.value) : 'N/A';
+        console.warn(
+          `[getNFTHoldingAcquisition] OpenSea purchase with 0 cost! tokenId=${tokenId}`,
+          `tx.from=${tx?.from}, wallet=${walletAddress}, tx.value=${txVal}`,
+          `totalLogs=${logCount}, wGUN_logs=${wgunLogs}, orderFulfilled_logs=${orderFulfilledLogs}`,
+          `gunTokenAddr=${gunTokenAddress}`
+        );
       }
 
       // Offer fill: OpenSea venue but tx initiated by someone other than the wallet
       // (seller fills the buyer's pre-signed offer, so tx.from !== buyer)
       const isOfferFill = venue === 'opensea' && tx != null && normalizeAddr(tx.from) !== walletLower;
+
+      // ─── Sender cost extraction ─────────────────────────────────────────
+      // When this is a free transfer (costGun=0, not a mint), look up the
+      // sender's original acquisition in the SAME event list. This avoids a
+      // separate getNFTHoldingAcquisition call with its own timeout.
+      let senderCostGun: number | undefined;
+      let senderAcquiredAtIso: string | undefined;
+      let senderTxHash: string | undefined;
+      let senderVenue: AcquisitionVenue | undefined;
+      let senderTxFeeGun: number | undefined;
+
+      if (venue === 'transfer' && costGun === 0 && !isMint && !options?.skipOwnershipCheck) {
+        const senderLower = normalizeAddr(acquisitionEvent.from);
+        // Don't trace zero address or self-transfers
+        if (senderLower && senderLower !== '0x0000000000000000000000000000000000000000' && senderLower !== walletLower) {
+          const senderIncoming = events.filter((e) => normalizeAddr(e.to) === senderLower);
+          if (senderIncoming.length > 0) {
+            // Most recent incoming transfer to the sender = their acquisition
+            const senderAcqEvent = senderIncoming[senderIncoming.length - 1];
+
+            if (DEBUG_ACQUISITION) {
+              console.log(`[getNFTHoldingAcquisition] Tracing sender ${senderLower} acquisition: tx=${senderAcqEvent.transactionHash}`);
+            }
+
+            try {
+              const [sTx, sReceipt, sBlock] = await Promise.all([
+                this.provider.getTransaction(senderAcqEvent.transactionHash),
+                this.provider.getTransactionReceipt(senderAcqEvent.transactionHash),
+                this.provider.getBlock(senderAcqEvent.blockNumber),
+              ]);
+
+              senderAcquiredAtIso = sBlock ? new Date(sBlock.timestamp * 1000).toISOString() : undefined;
+              senderTxHash = senderAcqEvent.transactionHash;
+
+              // Classify sender's venue
+              const senderTxTo = sTx?.to ?? null;
+              const senderSelector = getSelector(sTx?.data);
+              const senderClassification = this.classifyVenue(senderTxTo, senderSelector, senderAcqEvent.from, sReceipt);
+              senderVenue = senderClassification.venue;
+
+              // Extract sender's cost using the same priority chain
+              // Priority 1: In-game trade
+              if (senderClassification.hasInGameTrade && senderClassification.inGameTradeLog) {
+                try {
+                  const priceWei = senderClassification.inGameTradeLog.data && senderClassification.inGameTradeLog.data !== '0x'
+                    ? BigInt(senderClassification.inGameTradeLog.data)
+                    : BigInt(0);
+                  senderCostGun = parseFloat(ethers.formatUnits(priceWei, 18));
+                } catch { /* ignore */ }
+              }
+              // Priority 2: Decode fee
+              else if ((senderVenue === 'decode' || senderVenue === 'decoder') && sTx && sTx.value > BigInt(0)) {
+                senderCostGun = parseFloat(ethers.formatEther(sTx.value));
+              }
+              // Priority 3/4: Native GUN or wGUN
+              else if (sTx) {
+                const sTxFrom = normalizeAddr(sTx.from);
+                const senderIsOfferLikely = senderVenue === 'opensea' && sTxFrom !== senderLower;
+
+                if (senderIsOfferLikely && sReceipt) {
+                  // Offer fills: prefer OrderFulfilled with token matching (accurate per-order)
+                  const orderCost = extractCostFromOrderFulfilled(sReceipt, senderLower, gunTokenAddress, contractAddress, tokenId);
+                  if (orderCost > 0) {
+                    senderCostGun = orderCost;
+                  }
+                  // Fallback: OrderFulfilled without token matching
+                  if (!senderCostGun && sReceipt) {
+                    const orderCostAny = extractCostFromOrderFulfilled(sReceipt, senderLower, gunTokenAddress);
+                    if (orderCostAny > 0) senderCostGun = orderCostAny;
+                  }
+                  // Last resort: net wGUN outflow
+                  if (!senderCostGun && gunTokenAddress) {
+                    const wgunCost = computeNetGunOutflowFromReceipt(sReceipt, senderLower, gunTokenAddress);
+                    if (wgunCost > 0) senderCostGun = wgunCost;
+                  }
+                } else {
+                  // Regular purchase: try OrderFulfilled first (per-item accurate for batch buys)
+                  if (sReceipt) {
+                    const orderCost = extractCostFromOrderFulfilled(sReceipt, senderLower, gunTokenAddress, contractAddress, tokenId);
+                    if (orderCost > 0) senderCostGun = orderCost;
+                  }
+                  // Fallback: tx.value (correct for single-item or non-Seaport)
+                  if ((!senderCostGun || senderCostGun === 0) && sTxFrom === senderLower && sTx.value > BigInt(0)) {
+                    senderCostGun = parseFloat(ethers.formatEther(sTx.value));
+                  }
+                  // wGUN fallback (ERC-20 payments)
+                  if ((!senderCostGun || senderCostGun === 0) && sReceipt && gunTokenAddress) {
+                    const wgunCost = computeNetGunOutflowFromReceipt(sReceipt, senderLower, gunTokenAddress);
+                    if (wgunCost > 0) senderCostGun = wgunCost;
+                  }
+                }
+              }
+
+              // Compute sender's gas fee
+              if (sReceipt && sReceipt.gasUsed != null && sReceipt.gasPrice != null) {
+                senderTxFeeGun = parseFloat(ethers.formatEther(sReceipt.gasUsed * sReceipt.gasPrice));
+              }
+
+              if (DEBUG_ACQUISITION) {
+                console.log(`[getNFTHoldingAcquisition] Sender cost: ${senderCostGun ?? 0} GUN, venue: ${senderVenue}, date: ${senderAcquiredAtIso}, fee: ${senderTxFeeGun ?? 0} GUN`);
+              }
+            } catch (senderError) {
+              // Always log sender extraction failures — these are the most common cause
+              // of "0 GUN" for transferred NFTs and are otherwise invisible
+              console.warn(`[getNFTHoldingAcquisition] Failed to trace sender acquisition for tokenId=${tokenId}:`, senderError);
+            }
+          }
+        }
+      }
+
+      // Compute gas fee in GUN from receipt (gasUsed × gasPrice)
+      let txFeeGun: number | undefined;
+      if (receipt && receipt.gasUsed != null && receipt.gasPrice != null) {
+        txFeeGun = parseFloat(ethers.formatEther(receipt.gasUsed * receipt.gasPrice));
+      }
 
       return {
         owned: true,
@@ -1452,9 +1767,15 @@ export class AvalancheService {
         txHash: acquisitionEvent.transactionHash,
         venue,
         costGun,
+        txFeeGun,
         fromAddress: isMint ? undefined : acquisitionEvent.from,
         isMint,
         isOfferFill,
+        senderCostGun: senderCostGun && senderCostGun > 0 ? senderCostGun : undefined,
+        senderTxFeeGun,
+        senderAcquiredAtIso,
+        senderTxHash,
+        senderVenue,
         debug: DEBUG_ACQUISITION
           ? {
               txTo: txTo ?? undefined,

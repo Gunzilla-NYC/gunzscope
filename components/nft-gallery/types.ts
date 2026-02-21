@@ -22,6 +22,8 @@ export interface NFTGalleryProps {
   marketMap?: Map<string, MarketItemData>;
   /** Portfolio view mode — cards show extra detail (cost basis, venue) in detailed mode */
   portfolioViewMode?: 'simple' | 'detailed';
+  /** Current GUN/USD price — used for USD-based P&L fallback when no item market data exists */
+  currentGunPrice?: number;
 }
 
 /** Props for NFTGalleryControls (sticky controls bar) */

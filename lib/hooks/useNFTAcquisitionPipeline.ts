@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
 import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
+import { usePortfolioConnectedWallets } from '@/lib/contexts/PortfolioContext';
 import { OpenSeaService } from '@/lib/api/opensea';
 import { CoinGeckoService } from '@/lib/api/coingecko';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
@@ -46,6 +47,8 @@ export interface ResolvedAcquisition {
   acquiredAt: string | null;  // ISO string
   costGun: number | null;
   costUsd: number | null;
+  txFeeGun: number | null;       // Gas fee in GUN for this transaction
+  senderTxFeeGun: number | null; // Gas fee for sender's original purchase (transfers)
   txHash: string | null;
   fromAddress: string | null;
   source: ResolvedAcquisitionSource;
@@ -126,7 +129,6 @@ function scoreAcquisitionCandidate(candidate: Partial<ResolvedAcquisition>): { s
  */
 function buildCandidateFromHoldingRaw(
   holding: NFTHoldingAcquisition | null,
-  gunPriceAtTime?: number
 ): Partial<ResolvedAcquisition> | null {
   if (!holding || !holding.owned) return null;
 
@@ -140,16 +142,37 @@ function buildCandidateFromHoldingRaw(
     acquisitionType = 'TRANSFER';
   }
 
-  const costGun = holding.costGun ?? null;
-  const costUsd = costGun !== null && gunPriceAtTime ? costGun * gunPriceAtTime : null;
+  // For transfers, use senderCostGun (the sender's original purchase price) if available.
+  // When using sender data, also use their original date and mark as PURCHASE (they paid).
+  const usingSenderData = holding.venue === 'transfer'
+    && (!holding.costGun || holding.costGun <= 0)
+    && (holding.senderCostGun != null && holding.senderCostGun > 0);
+
+  const costGun = usingSenderData
+    ? holding.senderCostGun!
+    : (holding.costGun && holding.costGun > 0 ? holding.costGun : (holding.costGun ?? null));
+
+  // When using sender data, use their original purchase date (not the transfer date)
+  const acquiredAt = usingSenderData
+    ? (holding.senderAcquiredAtIso ?? holding.acquiredAtIso ?? null)
+    : (holding.acquiredAtIso ?? null);
+
+  // When using sender data, this was originally a PURCHASE (not a free transfer)
+  const finalAcquisitionType = usingSenderData ? 'PURCHASE' as AcquisitionType : acquisitionType;
+
+  // costUsd is intentionally null here — this candidate only has on-chain GUN data.
+  // Historical USD is computed by the pipeline via CoinGecko lookups in candidateFromFresh.
+  // Using today's GUN price here would overwrite the correct historical cost basis.
 
   return {
-    acquisitionType,
-    venue: holding.venue ?? null,
-    acquiredAt: holding.acquiredAtIso ?? null,
+    acquisitionType: finalAcquisitionType,
+    venue: usingSenderData ? (holding.senderVenue ?? holding.venue ?? null) : (holding.venue ?? null),
+    acquiredAt,
     costGun,
-    costUsd,
-    txHash: holding.txHash ?? null,
+    costUsd: null,
+    txFeeGun: holding.txFeeGun ?? null,
+    senderTxFeeGun: usingSenderData ? (holding.senderTxFeeGun ?? null) : null,
+    txHash: usingSenderData ? (holding.senderTxHash ?? holding.txHash ?? null) : (holding.txHash ?? null),
     fromAddress: holding.fromAddress ?? null,
     source: 'holdingAcquisitionRaw',
   };
@@ -260,6 +283,8 @@ function selectBestAcquisition(
         acquiredAt: candidate.acquiredAt ?? null,
         costGun: candidate.costGun ?? null,
         costUsd: candidate.costUsd ?? null,
+        txFeeGun: candidate.txFeeGun ?? null,
+        senderTxFeeGun: candidate.senderTxFeeGun ?? null,
         txHash: candidate.txHash ?? null,
         fromAddress: candidate.fromAddress ?? null,
         source: candidate.source ?? 'unknown',
@@ -276,6 +301,8 @@ function selectBestAcquisition(
     acquiredAt: null,
     costGun: null,
     costUsd: null,
+    txFeeGun: null,
+    senderTxFeeGun: null,
     txHash: null,
     fromAddress: null,
     source: 'unknown',
@@ -348,6 +375,7 @@ export interface AcquisitionData {
   // Legacy compatibility
   transferredFrom?: string;    // Alias for fromAddress when acquisitionType=TRANSFER
   isFreeTransfer?: boolean;    // True if TRANSFER with no price (not applicable to paid decodes)
+  transferType?: 'self' | 'gift'; // 'self' = between user's own wallets, 'gift' = from external wallet
 }
 
 // Re-export ItemData for consumers
@@ -404,6 +432,7 @@ export function useNFTAcquisitionPipeline(
   options: UseNFTAcquisitionPipelineOptions,
 ): UseNFTAcquisitionPipelineResult {
   const { walletAddress, debugMode, noCacheMode, currentGunPrice, updateDebugData } = options;
+  const connectedWallets = usePortfolioConnectedWallets();
 
   // =========================================================================
   // State
@@ -425,6 +454,10 @@ export function useNFTAcquisitionPipeline(
   // =========================================================================
   // Refs
   // =========================================================================
+  // Ref mirroring resolvedAcquisitions for stale-closure protection in async callbacks.
+  const resolvedAcquisitionsRef = useRef(resolvedAcquisitions);
+  resolvedAcquisitionsRef.current = resolvedAcquisitions;
+
   const fetchStateRef = useRef<{
     lastFetchedTokenKey: string | null;
     lastFetchTimestamp: number;
@@ -632,11 +665,32 @@ export function useNFTAcquisitionPipeline(
         [tokenId]: restoredAcquisition,
       }));
 
+      // Patch up missing USD: if GUN price is known but USD isn't, fetch historical price
+      // This fires asynchronously and updates state when ready (non-blocking)
+      if (cachedData.purchasePriceGun && cachedData.purchasePriceGun > 0 && !cachedData.purchasePriceUsd) {
+        const priceDate = cachedData.purchaseDate ? new Date(cachedData.purchaseDate) : undefined;
+        if (priceDate) {
+          const cg = new CoinGeckoService();
+          cg.getHistoricalGunPrice(priceDate).then(historicalPrice => {
+            if (historicalPrice) {
+              const usd = cachedData.purchasePriceGun! * historicalPrice;
+              setItemPurchaseData(prev => ({
+                ...prev,
+                [tokenId]: { ...prev[tokenId], purchasePriceUsd: usd },
+              }));
+            }
+          }).catch(() => { /* non-blocking */ });
+        }
+      }
+
       // CRITICAL: Build resolvedAcquisition from cache immediately so UI doesn't show null
       // This ensures the modal shows correct acquisition data before background refresh completes
       const candidateFromCacheImmediate = buildCandidateFromCache(cachedData);
       if (candidateFromCacheImmediate) {
         const resolvedFromCache = selectBestAcquisition([candidateFromCacheImmediate]);
+        // Update BOTH state and ref — ref is needed because the async loadItemDetails
+        // runs before React re-renders, so the closure-captured state is stale.
+        resolvedAcquisitionsRef.current = { ...resolvedAcquisitionsRef.current, [tokenId]: resolvedFromCache };
         setResolvedAcquisitions(prev => ({
           ...prev,
           [tokenId]: resolvedFromCache,
@@ -803,6 +857,17 @@ export function useNFTAcquisitionPipeline(
         const acquisitionVenue = acquisition?.venue;
         const acquisitionTxHash = acquisition?.txHash;
         const costGunFromChain = acquisition?.costGun ?? 0;
+
+        // Diagnostic: always log transfer acquisition results
+        if (acquisitionVenue === 'transfer') {
+          console.warn(`[DetailModal] Transfer acquisition for tokenId=${tokenId}:`, {
+            costGun: acquisition?.costGun,
+            senderCostGun: acquisition?.senderCostGun,
+            fromAddress,
+            senderVenue: acquisition?.senderVenue,
+            isNull: acquisition === null,
+          });
+        }
 
         // Track if acquisition fetch returned null (timeout or error)
         if (isBackgroundRefresh && acquisition === null) {
@@ -1261,16 +1326,22 @@ export function useNFTAcquisitionPipeline(
         });
 
         // =====================================================================
-        // STEP 3.5: OpenSea sale price fallback
-        // When on-chain cost extraction returned 0, query OpenSea sales API.
-        // Handles: (a) wGUN offer fills, (b) cross-wallet transfers
+        // STEP 3.5: OpenSea sale price cross-check / fallback
+        // For offer fills: always query as cross-check (wGUN on-chain extraction
+        // can be inaccurate in batch fulfillments). For regular purchases: only
+        // query when on-chain returned 0. For transfers: trace original purchase.
         // =====================================================================
         let openSeaSalePriceGun: number | undefined;
         let openSeaSaleDate: Date | undefined;
 
-        const needsOpenSeaFallback = costGunFromChain === 0 && hasTransferData && (
-          acquisitionVenue === 'opensea' ||  // offer fill where on-chain extraction failed
-          (acquisitionVenue === 'transfer' && fromAddress)  // cross-wallet transfer
+        const isOfferFillAcquisition = acquisition?.isOfferFill === true;
+        // Always cross-check with OpenSea API for OpenSea purchases.
+        // On-chain tx.value can be a batch total (multiple items in one tx),
+        // while the API returns per-item prices. The safety net in the price
+        // determination section compares both to detect batch overcounting.
+        const needsOpenSeaFallback = hasTransferData && (
+          (acquisitionVenue === 'opensea') ||
+          (acquisitionVenue === 'transfer' && fromAddress && costGunFromChain === 0)
         );
 
         if (needsOpenSeaFallback) {
@@ -1315,10 +1386,8 @@ export function useNFTAcquisitionPipeline(
               }
             }
           } catch (openSeaSaleError) {
-            // Non-blocking — fall through to venue-based defaults
-            if (debugMode) {
-              console.debug('[NFTDetailModal] OpenSea sale fallback failed:', openSeaSaleError);
-            }
+            // Always log — silent failures hide root cause of "—" cost basis
+            console.warn('[NFTDetailModal] OpenSea sale fallback failed:', openSeaSaleError);
           }
         }
 
@@ -1339,6 +1408,7 @@ export function useNFTAcquisitionPipeline(
         let finalPurchaseDate: Date | undefined;
         let finalMarketplaceTxHash: string | undefined;
         let finalIsFreeTransfer: boolean;
+        let finalTransferType: 'self' | 'gift' | undefined;
         let finalAcquisitionType: AcquisitionType;
 
         // =====================================================================
@@ -1395,8 +1465,14 @@ export function useNFTAcquisitionPipeline(
           // B) OPENSEA PURCHASE: Marketplace purchase with RPC cost, or OpenSea sales API fallback
           derivedPriceSource = 'onchain';
           finalAcquisitionType = 'PURCHASE';
-          // Use on-chain cost first, fall back to OpenSea sales API (handles wGUN offer fills)
-          finalPurchasePriceGun = costGunFromChain > 0 ? costGunFromChain : (openSeaSalePriceGun ?? undefined);
+          // Price priority for OpenSea purchases:
+          // 1. OpenSea sales API (per-item authoritative)
+          // 2. Enrichment data from gallery (per-item, from orchestrator)
+          // 3. On-chain cost (may be batch total for multi-item Seaport txs)
+          const enrichmentPriceGun = nft?.purchasePriceGun && nft.purchasePriceGun > 0
+            ? nft.purchasePriceGun : undefined;
+          finalPurchasePriceGun = openSeaSalePriceGun ?? enrichmentPriceGun
+            ?? (costGunFromChain > 0 ? costGunFromChain : undefined);
           finalDecodeCostGun = undefined;
           finalDecodeCostUsd = undefined;
           finalPurchaseDate = acquiredAt;
@@ -1501,11 +1577,20 @@ export function useNFTAcquisitionPipeline(
           // Transfers have NO marketplace tx hash - only acquisitionTxHash
           finalMarketplaceTxHash = undefined;
 
+          // Classify: self-transfer (own wallet) vs gift (external sender)
+          const senderLower = fromAddress?.toLowerCase();
+          const isSelfTransfer = senderLower
+            ? connectedWallets.some(w => w === senderLower)
+            : false;
+          finalTransferType = isSelfTransfer ? 'self' : 'gift';
+
           if (openSeaSalePriceGun !== undefined) {
             // Found original purchase price via OpenSea sales API (cross-wallet transfer)
             derivedPriceSource = 'onchain';
             finalPurchasePriceGun = openSeaSalePriceGun;
             finalIsFreeTransfer = false;
+            // Use ORIGINAL purchase date (when sender bought it), not the transfer date
+            finalPurchaseDate = openSeaSaleDate ?? acquiredAt;
 
             // Calculate USD from historical GUN price at original purchase date
             const priceDate = openSeaSaleDate ?? acquiredAt;
@@ -1537,6 +1622,30 @@ export function useNFTAcquisitionPipeline(
                 console.warn('[NFTDetailModal] Failed to get historical GUN price for transfer with chain cost:', priceError);
               }
             }
+          } else if (acquisition?.senderCostGun && acquisition.senderCostGun > 0) {
+            // Sender cost from RPC chain tracing — the sender's original purchase price.
+            // Covers cases where OpenSea API didn't return data but the RPC successfully
+            // traced the sender's purchase transaction (e.g., cross-wallet transfers).
+            derivedPriceSource = 'onchain';
+            finalPurchasePriceGun = acquisition.senderCostGun;
+            finalIsFreeTransfer = false;
+            // Use sender's original purchase date if available
+            finalPurchaseDate = acquisition.senderAcquiredAtIso
+              ? new Date(acquisition.senderAcquiredAtIso)
+              : acquiredAt;
+
+            // Calculate USD from historical GUN price at sender's purchase date
+            const senderPriceDate = finalPurchaseDate ?? acquiredAt;
+            if (senderPriceDate) {
+              try {
+                const historicalPrice = await coinGeckoService.getHistoricalGunPrice(senderPriceDate);
+                if (historicalPrice) {
+                  finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+                }
+              } catch (priceError) {
+                console.warn('[NFTDetailModal] Failed to get historical GUN price for sender cost:', priceError);
+              }
+            }
           } else {
             // No original purchase price found — genuine free transfer
             derivedPriceSource = 'transfers';
@@ -1551,6 +1660,7 @@ export function useNFTAcquisitionPipeline(
               txHash: acquisitionTxHash,
               fromAddress,
               openSeaSalePriceGun,
+              senderCostGun: acquisition?.senderCostGun,
               finalPurchasePriceGun,
               finalIsFreeTransfer,
             });
@@ -1654,6 +1764,7 @@ export function useNFTAcquisitionPipeline(
           // Legacy compatibility
           transferredFrom: (hasTransferData && finalAcquisitionType === 'TRANSFER') ? fromAddress : undefined,
           isFreeTransfer: finalIsFreeTransfer,
+          transferType: finalTransferType,
         };
 
         if (debugMode) {
@@ -1676,7 +1787,7 @@ export function useNFTAcquisitionPipeline(
         // =====================================================================
 
         // Build candidates from all available sources
-        const candidateFromHolding = buildCandidateFromHoldingRaw(acquisition, currentGunPrice ?? undefined);
+        const candidateFromHolding = buildCandidateFromHoldingRaw(acquisition);
 
         // Build candidate from the fresh acquisition data we just constructed
         const candidateFromFresh: Partial<ResolvedAcquisition> = {
@@ -1685,6 +1796,8 @@ export function useNFTAcquisitionPipeline(
           acquiredAt: acquiredAt?.toISOString() ?? null,
           costGun: finalPurchasePriceGun ?? finalDecodeCostGun ?? null,
           costUsd: finalPurchasePriceUsd ?? finalDecodeCostUsd ?? null,
+          txFeeGun: acquisition?.txFeeGun ?? null,
+          senderTxFeeGun: acquisition?.senderTxFeeGun ?? null,
           txHash: acquisitionTxHash ?? finalMarketplaceTxHash ?? null,
           fromAddress: fromAddress ?? null,
           source: derivedPriceSource === 'onchain' ? 'onchain' : 'holdingAcquisitionRaw',
@@ -1723,7 +1836,8 @@ export function useNFTAcquisitionPipeline(
         }
 
         // Merge with existing resolved acquisition (prevent downgrades)
-        const existingResolved = resolvedAcquisitions[tokenId] ?? null;
+        // Read from REF (not closure) to get the latest state including cache render
+        const existingResolved = resolvedAcquisitionsRef.current[tokenId] ?? null;
         const { result: finalResolved, wasUpdated: resolvedWasUpdated, reason: mergeReason } =
           mergeAcquisitionIfBetter(existingResolved, newResolved);
 
@@ -1783,6 +1897,7 @@ export function useNFTAcquisitionPipeline(
             purchaseDate: freshAcquisition.purchaseDate?.toISOString(),
             transferredFrom: freshAcquisition.transferredFrom,
             isFreeTransfer: freshAcquisition.isFreeTransfer,
+            transferType: freshAcquisition.transferType,
             acquisitionVenue: acquisitionVenue,
             acquisitionTxHash: acquisitionTxHash ?? undefined,
             isOfferFill: freshAcquisition.isOfferFill,

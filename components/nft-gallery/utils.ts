@@ -40,11 +40,14 @@ export interface NFTCardData {
   nameInitials: string;
   hasPnL: boolean;
   pnlPct: number | null;
+  /** True when item has cost data but PnL isn't computed yet (awaiting historical price) */
+  pnlPending: boolean;
   isProfit: boolean;
   isLoss: boolean;
   priceGun: number | undefined;
   priceDisplay: string;
   pnlDisplay: string;
+  unrealizedUsd: number | null; // USD P&L amount (different per item, unlike percentage)
   marketListings: number | null;
   marketFloor: number | null;
   originShortName: string | null;
@@ -276,20 +279,26 @@ export function getCostBasisDisplay(nft: NFT): { label: string; color: string } 
   const origin = getItemOrigin(nft.name);
   const hasRealPrice = nft.purchasePriceGun !== undefined && nft.purchasePriceGun >= MIN_VALID_PRICE_GUN;
 
+  // Gift from external wallet — always show "FREE TRANSFER" regardless of found price
+  if (nft.transferType === 'gift') {
+    return { label: 'FREE TRANSFER', color: 'var(--gs-gray-2)' };
+  }
+
   // Any known-origin item without a real purchase price → "AIRDROP"
   if (origin && !hasRealPrice) {
     return { label: 'AIRDROP', color: '#F59E0B' };
   }
 
   if (hasRealPrice) {
-    return { label: `${nft.purchasePriceGun!.toLocaleString()} GUN`, color: 'var(--gs-gray-3)' };
+    const total = nft.totalPurchasePriceGun ?? nft.purchasePriceGun! * (nft.quantity ?? 1);
+    return { label: `${total.toLocaleString()} GUN`, color: 'var(--gs-gray-3)' };
   }
 
   if (isDecoded) {
     return { label: 'HEX', color: 'var(--gs-lime)' };
   }
   if (nft.isFreeTransfer) {
-    return { label: 'FREE', color: 'var(--gs-gray-2)' };
+    return { label: 'FREE TRANSFER', color: 'var(--gs-gray-2)' };
   }
   return { label: '?', color: 'var(--gs-gray-2)' };
 }
@@ -310,7 +319,7 @@ export function getMarketScarcityColor(listingCount: number): string {
 const RARITY_RANK: Record<string, number> = { Epic: 1, Rare: 2, Uncommon: 3, Common: 4 };
 
 /** Compute display-ready data for a single NFT — used by both grid cards and list rows */
-export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>): NFTCardData {
+export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>, currentGunPrice?: number): NFTCardData {
   // Derive rarity from groupedRarities (accurate for mixed-rarity groups)
   // Falls back to nft.traits for single items
   let rarityName: string;
@@ -341,22 +350,45 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
   const { display: mintDisplay, mints: mintData } = formatMintNumbers(nft);
   const nameInitials = nft.name.split(' ').map(w => w[0]).join('').slice(0, 2);
 
-  const hasPnL = nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0 && nft.floorPrice !== undefined;
-  const pnlPct = hasPnL ? ((nft.floorPrice! - nft.purchasePriceGun!) / nft.purchasePriceGun!) * 100 : null;
-  const isProfit = pnlPct !== null && pnlPct > 1;
-  const isLoss = pnlPct !== null && pnlPct < -1;
-
+  const qty = nft.quantity ?? 1;
   const market = marketMap?.get(nft.name);
   const origin = getItemOrigin(nft.name);
 
-  // Only filter sub-1-GUN prices for known-origin items (→ AIRDROP); keep raw price for unknown items
-  const priceGun = nft.floorPrice ?? (nft.purchasePriceGun !== undefined && (nft.purchasePriceGun >= MIN_VALID_PRICE_GUN || !origin) ? nft.purchasePriceGun : undefined);
+  // Card price: show aggregate cost basis (what user paid across all items in group)
+  // Use totalPurchasePriceGun (sum of per-item caches) when available; fall back to perItem × qty
+  const perItemGun = nft.purchasePriceGun !== undefined && (nft.purchasePriceGun >= MIN_VALID_PRICE_GUN || !origin) ? nft.purchasePriceGun : undefined;
+  const priceGun = nft.totalPurchasePriceGun ?? (perItemGun !== undefined ? perItemGun * qty : undefined);
   const priceDisplay = priceGun !== undefined
     ? `${priceGun.toLocaleString()} GUN`
     : getCostBasisDisplay(nft).label;
+
+  // P&L: pure GUN/USD price appreciation (xGUN)
+  // Y = historical GUN/USD at purchase, Z = current GUN/USD
+  // F = ((Z - Y) / Y) × 100
+  // Skip when purchasePriceUsd is estimated (pre-CoinGecko fallback) — ratio would be wrong
+  const totalCost = priceGun; // already aggregate
+  let pnlPct: number | null = null;
+  let unrealizedUsd: number | null = null;
+
+  if (totalCost !== undefined && totalCost > 0
+    && nft.purchasePriceUsd && nft.purchasePriceUsd > 0
+    && nft.purchasePriceUsdEstimated === false
+    && nft.purchasePriceGun && nft.purchasePriceGun > 0
+    && currentGunPrice && currentGunPrice > 0) {
+    const Y = nft.purchasePriceUsd / nft.purchasePriceGun; // historical GUN/USD
+    pnlPct = ((currentGunPrice - Y) / Y) * 100;
+    unrealizedUsd = totalCost * (currentGunPrice - Y);
+  }
+  const hasPnL = pnlPct !== null;
+  // Item has cost data but PnL couldn't be computed (missing historical USD price)
+  const pnlPending = !hasPnL && totalCost !== undefined && totalCost > 0 && !!currentGunPrice;
+  const isProfit = pnlPct !== null && pnlPct > 1;
+  const isLoss = pnlPct !== null && pnlPct < -1;
+
+  // P&L: percentage with directional arrow
   const pnlDisplay = pnlPct !== null
-    ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`
-    : '—';
+    ? `${pnlPct > 1 ? '\u25B2' : pnlPct < -1 ? '\u25BC' : '\u2013'} ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`
+    : '\u2014';
 
   return {
     nft,
@@ -369,11 +401,13 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     nameInitials,
     hasPnL,
     pnlPct,
+    pnlPending,
     isProfit,
     isLoss,
     priceGun,
     priceDisplay,
     pnlDisplay,
+    unrealizedUsd,
     marketListings: market?.listingCount ?? null,
     marketFloor: market?.floorPriceGun ?? null,
     originShortName: origin?.shortName ?? null,

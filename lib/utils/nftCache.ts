@@ -7,7 +7,7 @@ import type { AcquisitionVenue, NFT } from '../types';
 // Schema Versions - Increment when cache structure changes
 // =============================================================================
 const SCHEMA_VERSIONS = {
-  nftDetail: 'v10', // v10: Invalidate stale decode costs (pre-7b8a20d had costGun:0 for relayer txs)
+  nftDetail: 'v24', // v24: Re-invalidate after purging stale Next.js server cache for CoinGecko historical prices
   transfers: 'v2',
   priceGunUsd: 'v1',
   metadata: 'v1', // v1: NFT metadata cache (name, image, traits, mintNumber)
@@ -230,8 +230,12 @@ export interface CachedNFTDetailData {
   currentLowestListing?: number;  // Lowest active listing in GUN
   currentHighestListing?: number; // Highest active listing in GUN
   listingFetchedAt?: string;      // ISO timestamp of listing fetch
-  // v11: Offer fill detection
+  // Offer fill detection
   isOfferFill?: boolean;          // True when acquired via a pre-signed OpenSea offer (wGUN)
+  // v11: Self-transfer vs gift classification
+  transferType?: 'self' | 'gift'; // 'self' = between user's own wallets, 'gift' = from external wallet
+  // v21: Track whether purchasePriceUsd used an estimated historical GUN price
+  purchasePriceUsdEstimated?: boolean;
 }
 
 export interface CachedTransferData {
@@ -412,8 +416,19 @@ export function needsReEnrichment(
 
   const cached = result.value;
 
-  // If acquisition is complete, no need to retry
+  // If acquisition is complete, check if pricing is also complete
   if (cached.hasAcquisition === true) {
+    // Transfers and marketplace purchases with missing prices should retry —
+    // the sender's purchase price may be traceable via OpenSea or RPC chain tracing
+    const priceMissing =
+      cached.purchasePriceGun === undefined ||
+      cached.purchasePriceGun === null ||
+      cached.purchasePriceGun === 0;
+    const isRetryableVenue = !cached.acquisitionVenue ||
+      ['opensea', 'in_game_marketplace', 'transfer'].includes(cached.acquisitionVenue);
+    if (priceMissing && isRetryableVenue) {
+      return { needsRetry: true, reason: 'acquisition_price_missing' };
+    }
     return { needsRetry: false };
   }
 
@@ -441,9 +456,11 @@ const LEGACY_CACHE_KEY_PREFIX = 'zillascope_nft_cache_';
 interface LegacyCachedNFTData {
   quantity?: number;
   purchasePriceGun?: number;
+  purchasePriceUsd?: number;
   purchaseDate?: string;
   transferredFrom?: string;
   isFreeTransfer?: boolean;
+  transferType?: 'self' | 'gift';
   acquisitionVenue?: AcquisitionVenue;
   acquisitionTxHash?: string;
   cachedAt: number;
@@ -457,6 +474,8 @@ interface LegacyCachedNFTData {
   currentLowestListing?: number;
   currentHighestListing?: number;
   listingFetchedAt?: string;
+  // v21 fields - estimated price tracking
+  purchasePriceUsdEstimated?: boolean;
 }
 
 /**
@@ -470,8 +489,8 @@ export const getCachedNFT = (
   if (!isBrowser) return null;
 
   try {
-    // First try new cache format
-    // NFT_COLLECTION_AVALANCHE is server-side only; hardcoded fallback for production
+    // Use new versioned cache format only — legacy fallback removed in v22
+    // to ensure schema version bumps actually invalidate stale data.
     const contractAddress = process.env.NFT_COLLECTION_AVALANCHE || '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
     const tokenKey = buildTokenKey('avalanche', contractAddress, tokenId);
     const newResult = getCachedNFTDetail(walletAddress, tokenKey);
@@ -488,21 +507,7 @@ export const getCachedNFT = (
       };
     }
 
-    // Fall back to legacy format
-    const legacyKey = `${LEGACY_CACHE_KEY_PREFIX}${walletAddress.toLowerCase()}`;
-    const cached = localStorage.getItem(legacyKey);
-    if (!cached) return null;
-
-    const data = JSON.parse(cached) as Record<string, LegacyCachedNFTData>;
-    const entry = data[tokenId];
-    if (!entry) return null;
-
-    // Check expiry (24 hours)
-    if (Date.now() - entry.cachedAt > 24 * 60 * 60 * 1000) {
-      return null;
-    }
-
-    return entry;
+    return null;
   } catch {
     return null;
   }
@@ -527,10 +532,11 @@ export const setCachedNFT = (
   setCachedNFTDetail(walletAddress, tokenKey, {
     quantity: data.quantity,
     purchasePriceGun: data.purchasePriceGun,
-    purchasePriceUsd: undefined, // Legacy format didn't have this
+    purchasePriceUsd: data.purchasePriceUsd,
     purchaseDate: data.purchaseDate,
     transferredFrom: data.transferredFrom,
     isFreeTransfer: data.isFreeTransfer,
+    transferType: data.transferType,
     acquisitionVenue: data.acquisitionVenue,
     acquisitionTxHash: data.acquisitionTxHash,
     hasAcquisition: data.hasAcquisition,
@@ -575,15 +581,24 @@ export function seedLocalCacheFromNFTs(
     const existing = getCachedNFTDetail(walletAddress, tokenKey);
     if (existing.hit && existing.value?.hasAcquisition) continue;
 
+    // Only seed purchasePriceUsd when we're confident it's a real (non-estimated) value.
+    // Old server cache entries lack purchasePriceUsdEstimated — their USD values may be
+    // based on the $0.0776 fallback. Omitting purchasePriceUsd forces the enrichment
+    // backfill to recompute it from the correct per-date historical GUN price.
+    const hasRealUsd = nft.purchasePriceUsd != null
+      && nft.purchasePriceUsdEstimated === false;
+
     setCachedNFTDetail(walletAddress, tokenKey, {
       quantity: nft.quantity,
       purchasePriceGun: nft.purchasePriceGun,
-      purchasePriceUsd: nft.purchasePriceUsd,
+      purchasePriceUsd: hasRealUsd ? nft.purchasePriceUsd : undefined,
+      purchasePriceUsdEstimated: hasRealUsd ? false : undefined,
       purchaseDate: nft.purchaseDate
         ? (nft.purchaseDate instanceof Date ? nft.purchaseDate.toISOString() : String(nft.purchaseDate))
         : undefined,
       transferredFrom: nft.transferredFrom,
       isFreeTransfer: nft.isFreeTransfer,
+      transferType: nft.transferType,
       acquisitionVenue: nft.acquisitionVenue,
       acquisitionTxHash: nft.acquisitionTxHash,
       hasAcquisition: true,

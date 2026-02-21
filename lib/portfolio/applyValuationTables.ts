@@ -25,8 +25,9 @@ export function applyValuationTables(
   nfts: NFT[],
   rarityFloors: RarityFloorsData | null,
   comparableSales: ComparableSalesData | null,
+  collectionFloorGun?: number | null,
 ): NFT[] {
-  if (!rarityFloors && !comparableSales) return nfts;
+  if (!rarityFloors && !comparableSales && !collectionFloorGun) return nfts;
 
   const floors = rarityFloors?.floors;
   const items = comparableSales?.items;
@@ -55,13 +56,17 @@ export function applyValuationTables(
       }
     }
 
+    // Collection floor — universal fallback for all items
+    const floorPrice = (collectionFloorGun && collectionFloorGun > 0) ? collectionFloorGun : undefined;
+
     // Only spread if we have new data
-    if (comparableSalesMedian === undefined && rarityFloor === undefined) return nft;
+    if (comparableSalesMedian === undefined && rarityFloor === undefined && floorPrice === undefined) return nft;
 
     return {
       ...nft,
       ...(comparableSalesMedian !== undefined && { comparableSalesMedian }),
       ...(rarityFloor !== undefined && { rarityFloor }),
+      ...(floorPrice !== undefined && !nft.floorPrice && { floorPrice }),
     };
   });
 }

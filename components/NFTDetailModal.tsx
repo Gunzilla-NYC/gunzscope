@@ -20,6 +20,7 @@ import { OpenSeaService } from '@/lib/api/opensea';
 import { CoinGeckoService } from '@/lib/api/coingecko';
 import { useGunPrice } from '@/lib/hooks/useGunPrice';
 import { useNFTDetailDebug } from '@/lib/hooks/useNFTDetailDebug';
+import { usePortfolioConnectedWallets } from '@/lib/contexts/PortfolioContext';
 import {
   buildTokenKey,
   buildNftDetailCacheKey,
@@ -64,6 +65,7 @@ import { isWeaponLocked, isWeapon, getFunctionalTier } from '@/lib/weapon/weapon
 import TierBadge from '@/components/ui/TierBadge';
 import { RARITY_COLORS, RARITY_ORDER, DEFAULT_RARITY_COLORS } from '@/lib/utils/rarityColors';
 import { gunzExplorerTxUrl } from '@/lib/explorer';
+import InfoTooltip from '@/components/ui/InfoTooltip';
 
 const getDefaultRarityColors = () => DEFAULT_RARITY_COLORS;
 
@@ -109,6 +111,8 @@ interface ResolvedAcquisition {
   acquiredAt: string | null;  // ISO string
   costGun: number | null;
   costUsd: number | null;
+  txFeeGun: number | null;       // Gas fee in GUN for this transaction
+  senderTxFeeGun: number | null; // Gas fee for sender's original purchase (transfers)
   txHash: string | null;
   fromAddress: string | null;
   source: ResolvedAcquisitionSource;
@@ -189,7 +193,6 @@ function scoreAcquisitionCandidate(candidate: Partial<ResolvedAcquisition>): { s
  */
 function buildCandidateFromHoldingRaw(
   holding: NFTHoldingAcquisition | null,
-  gunPriceAtTime?: number
 ): Partial<ResolvedAcquisition> | null {
   if (!holding || !holding.owned) return null;
 
@@ -203,16 +206,36 @@ function buildCandidateFromHoldingRaw(
     acquisitionType = 'TRANSFER';
   }
 
-  const costGun = holding.costGun ?? null;
-  const costUsd = costGun !== null && gunPriceAtTime ? costGun * gunPriceAtTime : null;
+  // For transfers, use senderCostGun (the sender's original purchase price) if available.
+  // When using sender data, also use their original date and mark as PURCHASE (they paid).
+  const usingSenderData = holding.venue === 'transfer'
+    && (!holding.costGun || holding.costGun <= 0)
+    && (holding.senderCostGun != null && holding.senderCostGun > 0);
+
+  const costGun = usingSenderData
+    ? holding.senderCostGun!
+    : (holding.costGun && holding.costGun > 0 ? holding.costGun : (holding.costGun ?? null));
+
+  // When using sender data, use their original purchase date (not the transfer date)
+  const acquiredAt = usingSenderData
+    ? (holding.senderAcquiredAtIso ?? holding.acquiredAtIso ?? null)
+    : (holding.acquiredAtIso ?? null);
+
+  // When using sender data, this was originally a PURCHASE (not a free transfer)
+  const finalAcquisitionType = usingSenderData ? 'PURCHASE' as AcquisitionType : acquisitionType;
+
+  // costUsd intentionally null — this candidate only has on-chain GUN data.
+  // Historical USD is computed via CoinGecko lookups in candidateFromFresh.
 
   return {
-    acquisitionType,
-    venue: holding.venue ?? null,
-    acquiredAt: holding.acquiredAtIso ?? null,
+    acquisitionType: finalAcquisitionType,
+    venue: usingSenderData ? (holding.senderVenue ?? holding.venue ?? null) : (holding.venue ?? null),
+    acquiredAt,
     costGun,
-    costUsd,
-    txHash: holding.txHash ?? null,
+    costUsd: null,
+    txFeeGun: holding.txFeeGun ?? null,
+    senderTxFeeGun: usingSenderData ? (holding.senderTxFeeGun ?? null) : null,
+    txHash: usingSenderData ? (holding.senderTxHash ?? holding.txHash ?? null) : (holding.txHash ?? null),
     fromAddress: holding.fromAddress ?? null,
     source: 'holdingAcquisitionRaw',
   };
@@ -323,6 +346,8 @@ function selectBestAcquisition(
         acquiredAt: candidate.acquiredAt ?? null,
         costGun: candidate.costGun ?? null,
         costUsd: candidate.costUsd ?? null,
+        txFeeGun: candidate.txFeeGun ?? null,
+        senderTxFeeGun: candidate.senderTxFeeGun ?? null,
         txHash: candidate.txHash ?? null,
         fromAddress: candidate.fromAddress ?? null,
         source: candidate.source ?? 'unknown',
@@ -339,6 +364,8 @@ function selectBestAcquisition(
     acquiredAt: null,
     costGun: null,
     costUsd: null,
+    txFeeGun: null,
+    senderTxFeeGun: null,
     txHash: null,
     fromAddress: null,
     source: 'unknown',
@@ -411,9 +438,11 @@ interface AcquisitionData {
   // Legacy compatibility
   transferredFrom?: string;    // Alias for fromAddress when acquisitionType=TRANSFER
   isFreeTransfer?: boolean;    // True if TRANSFER with no price (not applicable to paid decodes)
+  transferType?: 'self' | 'gift'; // 'self' = between user's own wallets, 'gift' = from external wallet
 }
 
 export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, allNfts = [] }: NFTDetailModalProps) {
+  const connectedWallets = usePortfolioConnectedWallets();
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [itemPurchaseData, setItemPurchaseData] = useState<Record<string, AcquisitionData>>({});
@@ -444,6 +473,12 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     setDebugExpanded,
     handleCopyDebugData,
   } = useNFTDetailDebug(gunPriceTimestamp);
+
+  // Ref mirroring resolvedAcquisitions for stale-closure protection in async callbacks.
+  // Without this, the async loadItemDetails reads the closure-captured state from useEffect
+  // start — which is BEFORE cache render sets the correct value (React batches state updates).
+  const resolvedAcquisitionsRef = useRef(resolvedAcquisitions);
+  resolvedAcquisitionsRef.current = resolvedAcquisitions;
 
   // Ref to track fetch state and prevent duplicate fetches
   const fetchStateRef = useRef<{
@@ -742,6 +777,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
       const candidateFromCacheImmediate = buildCandidateFromCache(cachedData);
       if (candidateFromCacheImmediate) {
         const resolvedFromCache = selectBestAcquisition([candidateFromCacheImmediate]);
+        // Update BOTH state and ref — ref is needed because the async loadItemDetails
+        // runs before React re-renders, so the closure-captured state is stale.
+        resolvedAcquisitionsRef.current = { ...resolvedAcquisitionsRef.current, [tokenId]: resolvedFromCache };
         setResolvedAcquisitions(prev => ({
           ...prev,
           [tokenId]: resolvedFromCache,
@@ -1382,6 +1420,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         let finalPurchaseDate: Date | undefined;
         let finalMarketplaceTxHash: string | undefined;
         let finalIsFreeTransfer: boolean;
+        let finalTransferType: 'self' | 'gift' | undefined;
         let finalAcquisitionType: AcquisitionType;
 
         // =====================================================================
@@ -1534,23 +1573,57 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             });
           }
         } else if (acquisitionVenue === 'transfer') {
-          // E) TRANSFER: No price data, no marketplace tx
+          // E) TRANSFER: Trace back to sender's original purchase when possible
           derivedPriceSource = 'transfers';
           finalAcquisitionType = 'TRANSFER';
-          finalPurchasePriceGun = undefined;
-          finalPurchasePriceUsd = undefined;
           finalDecodeCostGun = undefined;
           finalDecodeCostUsd = undefined;
-          finalPurchaseDate = acquiredAt;
           // Transfers have NO marketplace tx hash - only acquisitionTxHash
           finalMarketplaceTxHash = undefined;
-          finalIsFreeTransfer = true;
+
+          // Classify: self-transfer (own wallet) vs gift (external sender)
+          const senderLower = fromAddress?.toLowerCase();
+          finalTransferType = senderLower && connectedWallets.some(w => w === senderLower) ? 'self' : 'gift';
+
+          // Check for sender's original cost from RPC chain tracing
+          if (acquisition?.senderCostGun && acquisition.senderCostGun > 0) {
+            finalPurchasePriceGun = acquisition.senderCostGun;
+            finalIsFreeTransfer = false;
+            // Use sender's original purchase date (not the transfer date)
+            finalPurchaseDate = acquisition.senderAcquiredAtIso
+              ? new Date(acquisition.senderAcquiredAtIso)
+              : acquiredAt;
+            // Calculate USD from historical GUN price at sender's purchase date
+            const priceDate = finalPurchaseDate ?? acquiredAt;
+            if (priceDate) {
+              try {
+                const res = await fetch(`/api/price/history?coin=gunz&date=${priceDate.toISOString()}`);
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.price) {
+                    finalPurchasePriceUsd = finalPurchasePriceGun * data.price;
+                  }
+                }
+              } catch {
+                // Non-blocking — USD will fall back to current price
+              }
+            }
+          } else {
+            // No sender cost found — true free transfer
+            finalPurchasePriceGun = undefined;
+            finalPurchasePriceUsd = undefined;
+            finalPurchaseDate = acquiredAt;
+            finalIsFreeTransfer = true;
+          }
 
           if (debugMode) {
             console.debug('[NFTDetailModal] Transfer acquisition:', {
               venue: acquisitionVenue,
               txHash: acquisitionTxHash,
               fromAddress,
+              senderCostGun: acquisition?.senderCostGun,
+              senderAcquiredAt: acquisition?.senderAcquiredAtIso,
+              transferType: finalTransferType,
             });
           }
         } else if (hasMarketplaceServiceMatch) {
@@ -1608,6 +1681,16 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           }
         }
 
+        // Trust the enrichment pipeline's confirmed USD price over the modal's recomputation.
+        // The enrichment pipeline uses the same /api/price/history endpoint but runs earlier
+        // and caches the result. The modal's resolution can produce stale values from
+        // intermediate state or CoinGecko returning wrong data for certain date windows.
+        const enrichedUsdConfirmed = nft.purchasePriceUsdEstimated === false
+          && nft.purchasePriceUsd != null && nft.purchasePriceUsd > 0;
+        const safeCostUsd = enrichedUsdConfirmed
+          ? nft.purchasePriceUsd!
+          : (finalPurchasePriceUsd ?? finalDecodeCostUsd ?? null);
+
         // Build fresh acquisition object - no merging with prior state
         const freshAcquisition: AcquisitionData = {
           priceSource: derivedPriceSource,
@@ -1621,7 +1704,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
 
           // Marketplace purchase price fields (OpenSea, OTG Marketplace, etc.)
           purchasePriceGun: finalPurchasePriceGun,
-          purchasePriceUsd: finalPurchasePriceUsd,
+          purchasePriceUsd: enrichedUsdConfirmed ? nft.purchasePriceUsd : finalPurchasePriceUsd,
           purchaseDate: finalPurchaseDate,
           marketplaceTxHash: finalMarketplaceTxHash,
 
@@ -1635,6 +1718,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           // Legacy compatibility
           transferredFrom: (hasTransferData && finalAcquisitionType === 'TRANSFER') ? fromAddress : undefined,
           isFreeTransfer: finalIsFreeTransfer,
+          transferType: finalTransferType,
         };
 
         if (debugMode) {
@@ -1657,7 +1741,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         // =====================================================================
 
         // Build candidates from all available sources
-        const candidateFromHolding = buildCandidateFromHoldingRaw(acquisition, currentGunPrice ?? undefined);
+        const candidateFromHolding = buildCandidateFromHoldingRaw(acquisition);
 
         // Build candidate from the fresh acquisition data we just constructed
         const candidateFromFresh: Partial<ResolvedAcquisition> = {
@@ -1665,7 +1749,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           venue: acquisitionVenue ?? null,
           acquiredAt: acquiredAt?.toISOString() ?? null,
           costGun: finalPurchasePriceGun ?? finalDecodeCostGun ?? null,
-          costUsd: finalPurchasePriceUsd ?? finalDecodeCostUsd ?? null,
+          costUsd: safeCostUsd,
+          txFeeGun: acquisition?.txFeeGun ?? null,
+          senderTxFeeGun: acquisition?.senderTxFeeGun ?? null,
           txHash: acquisitionTxHash ?? finalMarketplaceTxHash ?? null,
           fromAddress: fromAddress ?? null,
           source: derivedPriceSource === 'onchain' ? 'onchain' : 'holdingAcquisitionRaw',
@@ -1704,7 +1790,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         }
 
         // Merge with existing resolved acquisition (prevent downgrades)
-        const existingResolved = resolvedAcquisitions[tokenId] ?? null;
+        // Read from REF (not closure) to get the latest state including cache render
+        const existingResolved = resolvedAcquisitionsRef.current[tokenId] ?? null;
         const { result: finalResolved, wasUpdated: resolvedWasUpdated, reason: mergeReason } =
           mergeAcquisitionIfBetter(existingResolved, newResolved);
 
@@ -1764,6 +1851,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
             purchaseDate: freshAcquisition.purchaseDate?.toISOString(),
             transferredFrom: freshAcquisition.transferredFrom,
             isFreeTransfer: freshAcquisition.isFreeTransfer,
+            transferType: freshAcquisition.transferType,
             acquisitionVenue: acquisitionVenue,
             acquisitionTxHash: acquisitionTxHash ?? undefined,
             isOfferFill: freshAcquisition.isOfferFill,
@@ -1920,45 +2008,88 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   // Canonical cost basis from resolved acquisition (single source of truth)
   // Uses normalizeCostBasis helper for consistent validation
   // =============================================================================
+  // Batch purchase detection (before costBasisGun — needed to choose cost source)
+  const isBatchPurchase = useMemo(() => {
+    const txHash = currentPurchaseData?.acquisitionTxHash
+      || currentResolvedAcquisition?.txHash;
+    if (!txHash || allNfts.length === 0) return false;
+    return allNfts.filter(n => n.acquisitionTxHash === txHash).length > 1;
+  }, [currentPurchaseData?.acquisitionTxHash, currentResolvedAcquisition?.txHash, allNfts]);
+
   const costBasisGun: number | null = (() => {
     if (!currentResolvedAcquisition) return null;
     // Free transfers have no cost basis; transfers with a known cost (e.g. traced
     // original purchase price) DO have one — fall through to the normal extraction.
     if (currentResolvedAcquisition.acquisitionType === 'TRANSFER') {
-      // Check if there's a purchase price from the pipeline (traced original cost)
       const tracedCost = currentPurchaseData?.purchasePriceGun;
       if (tracedCost !== undefined && tracedCost > 0) {
         return tracedCost;
       }
       return null;
     }
-    // Primary: resolved acquisition costGun
+
+    // For batch Seaport purchases: prefer enrichment (per-item accurate from API).
+    // On-chain tx.value and resolved acquisition costGun are batch totals.
+    if (currentResolvedAcquisition.acquisitionType === 'PURCHASE' && isBatchPurchase) {
+      const enrichmentCost = normalizeCostBasis(nft.purchasePriceGun);
+      if (enrichmentCost !== null) return enrichmentCost;
+    }
+
+    // Primary: pipeline's purchasePriceGun (applies venue-specific corrections)
+    const pipelineCost = normalizeCostBasis(currentPurchaseData?.purchasePriceGun);
+    if (pipelineCost !== null) return pipelineCost;
+
+    // For MINT types: prefer decodeCostGun from pipeline
+    const decodeCost = normalizeCostBasis(currentPurchaseData?.decodeCostGun);
+    if (decodeCost !== null) return decodeCost;
+
+    // Resolved acquisition costGun (raw on-chain — accurate for single-item txs)
     const rawCost = currentResolvedAcquisition.costGun;
     const normalized = normalizeCostBasis(rawCost);
-
-    // HARDENING: warnOnce if we filtered out an anomalous value
     if (rawCost !== null && rawCost !== undefined && normalized === null) {
       warnOnce(`costBasis:${activeItem?.tokenId ?? 'unknown'}`, 'Anomalous cost basis filtered:', rawCost);
     }
-
     if (normalized !== null) return normalized;
 
-    // Fallback: purchasePriceGun from pipeline venue handler (handles wGUN offer fills
-    // where resolved acquisition hasn't been updated yet from background refresh)
-    const fallbackCost = normalizeCostBasis(currentPurchaseData?.purchasePriceGun ?? currentPurchaseData?.decodeCostGun);
-    if (fallbackCost !== null) return fallbackCost;
-
-    // Last resort: enrichment orchestrator may have already populated the NFT object
+    // Last resort: enrichment orchestrator data from gallery
     return normalizeCostBasis(nft.purchasePriceGun);
   })();
+
+  // =============================================================================
+  // Batch purchase detection — find sibling items from the same transaction
+  // =============================================================================
+  const batchInfo = useMemo(() => {
+    const txHash = currentPurchaseData?.acquisitionTxHash
+      || currentResolvedAcquisition?.txHash;
+    if (!txHash || allNfts.length === 0) return null;
+
+    const currentTokenId = activeItem?.tokenId;
+    const siblings = allNfts.filter(n =>
+      n.acquisitionTxHash === txHash && n.tokenId !== currentTokenId
+    );
+    if (siblings.length === 0) return null;
+
+    const siblingGun = siblings.reduce((sum, n) => sum + (n.purchasePriceGun ?? 0), 0);
+    const totalGun = siblingGun + (costBasisGun ?? 0);
+
+    return {
+      count: siblings.length + 1,
+      siblings,
+      totalGun,
+    };
+  }, [currentPurchaseData?.acquisitionTxHash, currentResolvedAcquisition?.txHash, allNfts, activeItem?.tokenId, costBasisGun]);
 
   // =============================================================================
   // Canonical market inputs (single source of truth for hero + position label)
   // Memoized to prevent recomputation on every render
   // =============================================================================
   const marketInputs = useMemo(
-    () => computeMarketInputs(listingsData, nft.floorPrice, nft.ceilingPrice),
-    [listingsData, nft.floorPrice, nft.ceilingPrice]
+    () => computeMarketInputs(listingsData, nft.floorPrice, nft.ceilingPrice, {
+      currentLowestListing: nft.currentLowestListing,
+      comparableSalesMedian: nft.comparableSalesMedian,
+      rarityFloor: nft.rarityFloor,
+    }),
+    [listingsData, nft.floorPrice, nft.ceilingPrice, nft.currentLowestListing, nft.comparableSalesMedian, nft.rarityFloor]
   );
 
   // Market reference values for display (uses marketInputs)
@@ -2127,79 +2258,93 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               </div>
 
               {/* ===== 2.25) Quick Stats Row ===== */}
-              {walletAddress && (
+              {walletAddress && (() => {
+                // Prefer enrichment pipeline's confirmed USD price over modal's own computation
+                const confirmedEnrichedUsd = nft.purchasePriceUsdEstimated === false
+                  && nft.purchasePriceUsd != null && nft.purchasePriceUsd > 0
+                  ? nft.purchasePriceUsd : null;
+                const historicalCostUsd = confirmedEnrichedUsd
+                  ?? currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? nft.purchasePriceUsd ?? null;
+
+                return (
                 <NFTDetailQuickStats
                   costBasisGun={costBasisGun}
-                  costBasisUsd={currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? nft.purchasePriceUsd ?? null}
+                  costBasisUsd={historicalCostUsd}
                   marketValueGun={marketInputs.ref}
                   marketValueUsd={marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null}
+                  marketValueSource={marketInputs.refSource}
                   unrealizedUsd={(() => {
-                    const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
-                    const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
-                    // Prefer USD-based P&L (market USD - cost USD at acquisition)
-                    if (costUsd !== null && marketUsd !== null) return marketUsd - costUsd;
-                    // Fallback: GUN-delta P&L when we have GUN values but no historical USD
-                    if (costBasisGun !== null && marketInputs.ref !== null && currentGunPrice) {
-                      return (marketInputs.ref - costBasisGun) * currentGunPrice;
-                    }
-                    return null;
+                    if (historicalCostUsd === null || historicalCostUsd <= 0) return null;
+                    if (costBasisGun === null || costBasisGun <= 0) return null;
+                    if (!currentGunPrice || currentGunPrice <= 0) return null;
+                    const Y = historicalCostUsd / costBasisGun;
+                    return costBasisGun * (currentGunPrice - Y);
                   })()}
                   unrealizedPct={(() => {
-                    const costUsd = currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? null;
-                    const marketUsd = marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null;
-                    if (costUsd !== null && marketUsd !== null && costUsd > 0) return ((marketUsd - costUsd) / costUsd) * 100;
-                    // Fallback: GUN-based P&L %
-                    if (costBasisGun !== null && marketInputs.ref !== null && costBasisGun > 0) {
-                      return ((marketInputs.ref - costBasisGun) / costBasisGun) * 100;
-                    }
-                    return null;
+                    if (historicalCostUsd === null || historicalCostUsd <= 0) return null;
+                    if (costBasisGun === null || costBasisGun <= 0) return null;
+                    if (!currentGunPrice || currentGunPrice <= 0) return null;
+                    const Y = historicalCostUsd / costBasisGun;
+                    return ((currentGunPrice - Y) / Y) * 100;
                   })()}
                   isLoading={loadingDetails}
                 />
-              )}
+                );
+              })()}
 
               {/* ===== 2.5) YOUR POSITION Section ===== */}
               {walletAddress && (() => {
                 // Compute USD values for position tracking
-                const costBasisUsdAtAcquisition = (currentPurchaseData?.purchasePriceUsd && currentPurchaseData.purchasePriceUsd > 0 ? currentPurchaseData.purchasePriceUsd : undefined)
+                // Historical USD cost at acquisition — only from verified historical price lookups.
+                // Never fall back to costBasisGun * currentGunPrice — that's today's price, not historical.
+                // Prefer enrichment pipeline's confirmed USD price over modal's own computation.
+                const confirmedEnrichedUsdPos = nft.purchasePriceUsdEstimated === false
+                  && nft.purchasePriceUsd != null && nft.purchasePriceUsd > 0
+                  ? nft.purchasePriceUsd : null;
+                const costBasisUsdAtAcquisition = confirmedEnrichedUsdPos
+                  ?? (currentPurchaseData?.purchasePriceUsd && currentPurchaseData.purchasePriceUsd > 0 ? currentPurchaseData.purchasePriceUsd : undefined)
                   ?? (currentPurchaseData?.decodeCostUsd && currentPurchaseData.decodeCostUsd > 0 ? currentPurchaseData.decodeCostUsd : undefined)
                   ?? (currentResolvedAcquisition?.costUsd && currentResolvedAcquisition.costUsd > 0 ? currentResolvedAcquisition.costUsd : undefined)
-                  ?? (nft.purchasePriceUsd && nft.purchasePriceUsd > 0 ? nft.purchasePriceUsd : undefined)
+                  ?? (nft.purchasePriceUsd && nft.purchasePriceUsd > 0 ? nft.purchasePriceUsd : null)
                   ?? null;
 
-                const currentValueUsd = costBasisGun !== null && currentGunPrice !== null
+                // Market value from waterfall (best available price × today's GUN/USD)
+                const marketValueUsd = marketInputs.ref !== null && currentGunPrice !== null
+                  ? marketInputs.ref * currentGunPrice
+                  : null;
+
+                // Cost basis at today's GUN price (what you paid, re-priced at current rate)
+                const costBasisTodayUsd = costBasisGun !== null && currentGunPrice !== null
                   ? costBasisGun * currentGunPrice
                   : null;
 
-                // Prefer USD-based P&L, fallback to GUN-delta P&L
+                // Primary display: market value when available, else cost basis at today's price
+                const currentValueUsd = marketValueUsd ?? costBasisTodayUsd;
+
+                // xGUN P&L: pure GUN/USD price appreciation
                 let unrealizedUsd: number | null = null;
                 let unrealizedPct: number | null = null;
 
-                if (currentValueUsd !== null && costBasisUsdAtAcquisition !== null) {
-                  // USD-based: (costGUN × today's price) - (costGUN × historical price)
-                  unrealizedUsd = currentValueUsd - costBasisUsdAtAcquisition;
-                  if (costBasisUsdAtAcquisition > 0) {
-                    unrealizedPct = (unrealizedUsd / costBasisUsdAtAcquisition) * 100;
-                  }
-                } else if (costBasisGun !== null && marketInputs.ref !== null && currentGunPrice !== null) {
-                  // GUN-delta fallback: (market GUN - cost GUN) × current price
-                  unrealizedUsd = (marketInputs.ref - costBasisGun) * currentGunPrice;
-                  if (costBasisGun > 0) {
-                    unrealizedPct = ((marketInputs.ref - costBasisGun) / costBasisGun) * 100;
-                  }
+                if (costBasisUsdAtAcquisition !== null && costBasisUsdAtAcquisition > 0
+                  && costBasisGun !== null && costBasisGun > 0
+                  && currentGunPrice !== null && currentGunPrice > 0) {
+                  const Y = costBasisUsdAtAcquisition / costBasisGun;
+                  unrealizedUsd = costBasisGun * (currentGunPrice - Y);
+                  unrealizedPct = ((currentGunPrice - Y) / Y) * 100;
                 }
 
                 // Status pill based on acquisition type
                 const acquisitionType = currentResolvedAcquisition?.acquisitionType;
                 const getStatusPill = () => {
+                  // Check venue first — transfers may be scored as PURCHASE when cost is found
+                  if (currentPurchaseData?.acquisitionVenue === 'transfer' || acquisitionType === 'TRANSFER') {
+                    return { text: 'Transferred', style: 'bg-[var(--gs-purple)]/20 text-[var(--gs-purple)]' };
+                  }
                   if (acquisitionType === 'MINT') {
                     return { text: 'Decoded', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
                   }
                   if (acquisitionType === 'PURCHASE') {
-                    return { text: 'Acquired', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
-                  }
-                  if (acquisitionType === 'TRANSFER') {
-                    return { text: 'Transferred', style: 'bg-white/10 text-white/60' };
+                    return { text: 'Purchased', style: 'bg-[var(--gs-lime)]/20 text-[var(--gs-lime)]' };
                   }
                   return { text: 'Unknown', style: 'bg-white/10 text-white/40' };
                 };
@@ -2247,55 +2392,118 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         <div className="h-4 w-32 bg-gradient-to-r from-white/5 via-white/10 to-white/5 bg-[length:200%_100%] rounded animate-shimmer [animation-delay:0.2s]" />
                       </div>
                     ) : (
-                      <div className="space-y-1">
-                        {/* Current USD value */}
+                      <div>
+                        {/* ─── Group 1: Value & P&L ─── */}
                         <p className={`font-display text-[26px] font-bold tabular-nums ${currentValueUsd !== null ? 'text-white' : 'text-white/30'}`}>
                           {currentValueUsd !== null
                             ? `$${currentValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : '\u2014'}
                         </p>
 
-                        {/* Cost basis in GUN */}
-                        {costBasisGun !== null && (
-                          <p className="text-[13px] text-white/70">
-                            Cost basis: {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
-                          </p>
-                        )}
-
-                        {/* USD at acquisition */}
-                        {costBasisUsdAtAcquisition !== null && (
-                          <p className="text-[13px] text-white/60">
-                            At acquisition: ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        )}
-
-                        {/* Unrealized P&L */}
                         {formatUnrealized() ? (
-                          <p className={`text-[13px] ${getUnrealizedColor()}`}>
-                            Unrealized: {formatUnrealized()}
+                          <p className={`text-[13px] mt-0.5 ${getUnrealizedColor()}`}>
+                            {formatUnrealized()}
                           </p>
                         ) : costBasisGun !== null ? (
-                          <p className="text-[13px] text-white/40">
-                            Unrealized: awaiting market data
+                          <p className="text-[13px] mt-0.5 text-white/40">
+                            Awaiting market data
                           </p>
                         ) : null}
 
-                        {/* Explanation text */}
-                        {costBasisGun !== null ? (
-                          <p className="text-data text-white/60 mt-2 leading-relaxed">
-                            Based on your acquisition cost (GUN) valued at today&apos;s GUN price.
+                        {/* Explanation context */}
+                        {marketValueUsd !== null && costBasisGun === null ? (
+                          <p className="text-data text-white/40 mt-1 leading-relaxed">
+                            Estimated from comparable sales and rarity data.
                           </p>
-                        ) : currentResolvedAcquisition?.acquisitionType === 'TRANSFER' ? (
-                          <p className="text-data text-white/40 mt-2 leading-relaxed">
-                            Received as a free transfer. No purchase cost recorded.
+                        ) : costBasisGun !== null && costBasisUsdAtAcquisition === null ? (
+                          <p className="text-data text-white/40 mt-1 leading-relaxed">
+                            Valued at today&apos;s GUN price.
+                          </p>
+                        ) : currentResolvedAcquisition?.acquisitionType === 'TRANSFER' && costBasisGun === null ? (
+                          <p className="text-data text-white/40 mt-1 leading-relaxed">
+                            {currentPurchaseData?.transferType === 'self'
+                              ? 'Original purchase cost not found.'
+                              : 'Received as a free transfer.'}
                           </p>
                         ) : null}
 
-                        {/* Acquisition Summary */}
-                        <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
+                        {/* ─── Group 2: Cost Basis ─── */}
+                        {costBasisGun !== null && (
+                          <>
+                            <div className="flex items-center gap-2 mt-4 mb-2">
+                              <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">Cost Basis</span>
+                              {batchInfo && (
+                                <InfoTooltip wide>
+                                  <div className="space-y-2">
+                                    <p className="font-mono text-[10px] uppercase tracking-wider text-white/60">
+                                      Batch Purchase ({batchInfo.count} items)
+                                    </p>
+                                    {batchInfo.totalGun > 0 && (
+                                      <p className="text-[11px] text-white/50">
+                                        Total: {batchInfo.totalGun.toLocaleString(undefined, { maximumFractionDigits: 2 })} GUN
+                                      </p>
+                                    )}
+                                    <div className="border-t border-white/10 pt-1.5 space-y-1">
+                                      {/* Current item */}
+                                      <div className="flex items-baseline justify-between gap-3">
+                                        <span className="text-[11px] text-[var(--gs-lime)] truncate max-w-[160px]">
+                                          {nft.name}{nft.mintNumber ? ` #${nft.mintNumber}` : ''}
+                                        </span>
+                                        <span className="text-[11px] text-white/70 tabular-nums whitespace-nowrap">
+                                          {costBasisGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
+                                        </span>
+                                      </div>
+                                      {/* Sibling items */}
+                                      {batchInfo.siblings.map(s => (
+                                        <div key={s.tokenId} className="flex items-baseline justify-between gap-3">
+                                          <span className="text-[11px] text-white/50 truncate max-w-[160px]">
+                                            {s.name}{s.mintNumber ? ` #${s.mintNumber}` : ''}
+                                          </span>
+                                          <span className="text-[11px] text-white/40 tabular-nums whitespace-nowrap">
+                                            {s.purchasePriceGun
+                                              ? `${s.purchasePriceGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN`
+                                              : '\u2014'}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </InfoTooltip>
+                              )}
+                              <div className="flex-1 h-px bg-white/8" />
+                              {batchInfo && (
+                                <span className="font-mono text-[8px] uppercase tracking-wider text-white/25 whitespace-nowrap">
+                                  {batchInfo.count} items
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-[13px] font-medium text-white/80 tabular-nums">
+                                {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                              </span>
+                              {costBasisUsdAtAcquisition !== null && (
+                                <span className="text-[13px] text-white/50 tabular-nums">
+                                  ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              )}
+                            </div>
+                            {costBasisUsdAtAcquisition !== null && costBasisGun > 0 && (
+                              <p className="text-[11px] text-white/30 mt-0.5">
+                                GUN @ ${(costBasisUsdAtAcquisition / costBasisGun).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} at time of purchase
+                              </p>
+                            )}
+                          </>
+                        )}
+
+                        {/* ─── Group 3: Acquisition Details ─── */}
+                        <div className="flex items-center gap-2 mt-4 mb-2">
+                          <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">Acquisition</span>
+                          <div className="flex-1 h-px bg-white/8" />
+                        </div>
+                        <div className="space-y-1.5">
                           {/* Source */}
                           <div className="flex items-center justify-between">
-                            <span className="text-data uppercase tracking-wider text-white/60">Source</span>
+                            <span className="text-data uppercase tracking-wider text-white/40">Source</span>
                             {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' ? (
                               <span className={`text-[13px] font-medium ${
                                 currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
@@ -2303,15 +2511,20 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                 currentPurchaseData.acquisitionVenue === 'decode' || currentPurchaseData.acquisitionVenue === 'decoder' ? 'text-[var(--gs-lime)]' :
                                 'text-white/90'
                               }`}>
-                                {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0, currentPurchaseData.isOfferFill)}
+                                {getVenueDisplayLabel(currentPurchaseData.acquisitionVenue, (currentPurchaseData.decodeCostGun ?? 0) > 0, currentPurchaseData.isOfferFill)}{batchInfo ? ' (Batch)' : ''}
                               </span>
                             ) : (
                               <span className="text-[13px] font-medium text-white/30">&mdash;</span>
                             )}
                           </div>
-                          {/* Acquired date */}
+                          {/* Date: "Purchased" for transfers with original date, "Acquired" otherwise */}
                           <div className="flex items-center justify-between">
-                            <span className="text-data uppercase tracking-wider text-white/60">Acquired</span>
+                            <span className="text-data uppercase tracking-wider text-white/40">
+                              {currentPurchaseData?.acquisitionVenue === 'transfer' && currentPurchaseData?.acquiredAt
+                                && currentPurchaseData?.purchaseDate
+                                && currentPurchaseData.acquiredAt.getTime() !== currentPurchaseData.purchaseDate.getTime()
+                                ? 'Purchased' : 'Acquired'}
+                            </span>
                             {currentPurchaseData?.purchaseDate ? (
                               <span className="text-[13px] font-medium text-white/90 tabular-nums">
                                 {formatDate(currentPurchaseData.purchaseDate)}
@@ -2320,10 +2533,21 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                               <span className="text-[13px] font-medium text-white/30">&mdash;</span>
                             )}
                           </div>
-                          {/* Transaction link */}
-                          {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) ? (
+                          {/* Transferred date — only for transfers where original purchase date differs */}
+                          {currentPurchaseData?.acquisitionVenue === 'transfer' && currentPurchaseData?.acquiredAt && (
+                            !currentPurchaseData.purchaseDate || currentPurchaseData.acquiredAt.getTime() !== currentPurchaseData.purchaseDate.getTime()
+                          ) && (
                             <div className="flex items-center justify-between">
-                              <span className="text-data uppercase tracking-wider text-white/60">Transaction</span>
+                              <span className="text-data uppercase tracking-wider text-white/40">Transferred</span>
+                              <span className="text-[13px] font-medium text-white/70 tabular-nums">
+                                {formatDate(currentPurchaseData.acquiredAt)}
+                              </span>
+                            </div>
+                          )}
+                          {/* Transaction link */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-data uppercase tracking-wider text-white/40">Transaction</span>
+                            {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) ? (
                               <a
                                 href={gunzExplorerTxUrl(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash || '')}
                                 target="_blank"
@@ -2335,13 +2559,35 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
                               </a>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between">
-                              <span className="text-data uppercase tracking-wider text-white/60">Transaction</span>
+                            ) : (
                               <span className="text-[13px] font-medium text-white/30">&mdash;</span>
-                            </div>
-                          )}
+                            )}
+                          </div>
+                          {/* Gas fees */}
+                          {(() => {
+                            const txFee = currentResolvedAcquisition?.txFeeGun;
+                            const senderFee = currentResolvedAcquisition?.senderTxFeeGun;
+                            const isTransfer = currentPurchaseData?.acquisitionVenue === 'transfer'
+                              || currentResolvedAcquisition?.acquisitionType === 'TRANSFER';
+                            if (!txFee && !senderFee) return null;
+                            return (
+                              <div className="flex items-center justify-between">
+                                <span className="text-data uppercase tracking-wider text-white/40">
+                                  {isTransfer && senderFee ? 'Fees' : 'Gas Fee'}
+                                </span>
+                                <span className="text-[13px] font-medium text-white/60 tabular-nums">
+                                  {isTransfer && senderFee && txFee
+                                    ? `${senderFee.toLocaleString(undefined, { maximumFractionDigits: 4 })} + ${txFee.toLocaleString(undefined, { maximumFractionDigits: 4 })} GUN`
+                                    : txFee
+                                      ? `${txFee.toLocaleString(undefined, { maximumFractionDigits: 4 })} GUN`
+                                      : senderFee
+                                        ? `${senderFee.toLocaleString(undefined, { maximumFractionDigits: 4 })} GUN`
+                                        : '\u2014'
+                                  }
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}

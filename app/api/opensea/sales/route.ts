@@ -72,6 +72,9 @@ function jsonWithCache(
  * Parse a raw OpenSea event into a SaleEventResponse.
  * On GunzChain, OpenSea may use different payment symbols.
  */
+// Known wGUN contract address on GunzChain
+const WGUN_ADDRESS = '0x26debd39d5ed069770406fca10a0e4f8d2c743eb';
+
 function parseSaleEvent(event: any): SaleEventResponse {
   const payment = event.payment || {};
   const decimals = payment.decimals || 18;
@@ -83,12 +86,29 @@ function parseSaleEvent(event: any): SaleEventResponse {
   const tokenAddress = (payment.token_address || '').toLowerCase();
 
   // GunzChain: accept GUN, WGUN, or native token payment as GUN price
+  // Check both symbol AND token address to handle unexpected symbol values
   const isNativeToken = tokenAddress === '0x0000000000000000000000000000000000000000';
-  const isGunPayment = symbol === 'GUN' || symbol === '' || isNativeToken;
-  const isWgunPayment = symbol === 'WGUN';
+  const isWgunByAddress = tokenAddress === WGUN_ADDRESS;
+  const isGunPayment = symbol === 'GUN' || isNativeToken;
+  const isWgunPayment = symbol === 'WGUN' || isWgunByAddress;
+
+  // OpenSea API returns event_timestamp as Unix seconds (number).
+  // Convert to ISO string for consistent client-side Date parsing.
+  let eventTimestamp: string;
+  const rawTs = event.event_timestamp;
+  if (typeof rawTs === 'number') {
+    // Unix seconds → milliseconds
+    eventTimestamp = new Date(rawTs * 1000).toISOString();
+  } else if (typeof rawTs === 'string' && rawTs.length > 0) {
+    // Already a string (ISO or date-like) — parse defensively
+    const parsed = new Date(rawTs);
+    eventTimestamp = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  } else {
+    eventTimestamp = new Date().toISOString();
+  }
 
   return {
-    eventTimestamp: event.event_timestamp || new Date().toISOString(),
+    eventTimestamp,
     priceGUN: isGunPayment ? priceRaw : 0,
     priceWGUN: isWgunPayment ? priceRaw : 0,
     sellerAddress: event.seller || event.from_account?.address || '',

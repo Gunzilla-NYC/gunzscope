@@ -35,6 +35,9 @@ export interface PortfolioContextValue {
   // NFTs (convenience accessor)
   allNfts: NFT[];
 
+  // Connected wallets (for self-transfer vs gift classification)
+  connectedWallets: string[];
+
   // Loading states
   isLoading: boolean;
   isInitializing: boolean;
@@ -55,6 +58,7 @@ const defaultValue: PortfolioContextValue = {
   enrichmentProgress: null,
   isEnriching: false,
   allNfts: [],
+  connectedWallets: [],
   isLoading: false,
   isInitializing: true,
   error: null,
@@ -137,6 +141,15 @@ export function usePortfolioNFTs() {
 export function usePortfolioWallet() {
   const { walletData, address, networkInfo, walletType } = usePortfolioContext();
   return { walletData, address, networkInfo, walletType };
+}
+
+/**
+ * Access connected wallets for transfer classification.
+ * Re-renders when connected wallets change.
+ */
+export function usePortfolioConnectedWallets() {
+  const { connectedWallets } = usePortfolioContext();
+  return connectedWallets;
 }
 
 /**

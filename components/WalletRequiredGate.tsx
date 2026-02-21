@@ -10,26 +10,32 @@ interface WalletRequiredGateProps {
 
 /**
  * Gate component for pages that require authentication.
- * Shows a brief loading skeleton while the Dynamic SDK initializes,
- * then either lets the user through or shows a login prompt.
+ * Waits for the Dynamic SDK to fully initialize (sdkHasLoaded + minimum delay)
+ * before showing the gate, preventing both flash-of-lock-screen and
+ * non-functional buttons (setShowAuthFlow is a no-op before SDK loads).
  */
 export default function WalletRequiredGate({ children, feature }: WalletRequiredGateProps) {
-  const { primaryWallet, user, setShowAuthFlow } = useDynamicContext();
-  const [sdkReady, setSdkReady] = useState(false);
+  const { primaryWallet, user, setShowAuthFlow, sdkHasLoaded } = useDynamicContext();
+  const [minDelayPassed, setMinDelayPassed] = useState(false);
 
-  // Give the Dynamic SDK a moment to hydrate before showing the gate.
-  // This prevents a flash of the lock screen during SDK initialization.
+  // Minimum visual delay to prevent flash of the lock screen during hydration.
+  // The gate only shows once BOTH this delay has passed AND the SDK reports ready.
   useEffect(() => {
-    const timer = setTimeout(() => setSdkReady(true), 600);
+    const timer = setTimeout(() => setMinDelayPassed(true), 600);
     return () => clearTimeout(timer);
   }, []);
 
   // Wallet connected or email-only user — full access
   if (primaryWallet?.address || user) return <>{children}</>;
 
-  // SDK still initializing — show nothing (prevents flash)
-  if (!sdkReady) {
-    return <div className="min-h-[200px]" />;
+  // SDK still initializing — show loading spinner
+  // Both conditions needed: minDelay prevents flash, sdkHasLoaded ensures button works
+  if (!minDelayPassed || !sdkHasLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24">
+        <div className="size-8 border-2 border-[var(--gs-purple)]/30 border-t-[var(--gs-purple)] rounded-full animate-spin" />
+      </div>
+    );
   }
 
   // Anonymous — show login prompt

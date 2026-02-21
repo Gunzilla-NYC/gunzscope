@@ -20,7 +20,7 @@ interface NFTDetailTraitPillsProps {
   rarityColor?: string;
   itemClass?: string;
   platform?: string;
-  /** Origin release short name (e.g., "Hexmas", "ChemTech BP") */
+  /** Origin release short name (e.g., "Hexmas", "ChemTech Set") */
   originShortName?: string;
   /** Origin category for badge coloring */
   originCategory?: OriginCategory;

@@ -16,7 +16,7 @@ import type { NFTGalleryGridCardProps } from './types';
 export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, portfolioViewMode }: NFTGalleryGridCardProps) {
   const {
     nft, rarityName, rarityColor, isMixedRarity, mintDisplay, mintData, nameInitials,
-    pnlPct, isProfit, isLoss, priceGun, priceDisplay, pnlDisplay,
+    pnlPct, pnlPending, isProfit, isLoss, priceGun, priceDisplay, pnlDisplay, unrealizedUsd,
     marketListings,
   } = cardData;
 
@@ -34,8 +34,8 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
       }`}
       style={{
         clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-        '--rarity-border': isGrouped ? `${groupAccent}40` : `${rarityColor}40`,
-        '--rarity-glow': isGrouped ? 'none' : `0 8px 20px ${rarityColor}15`,
+        '--rarity-border': isGrouped ? `${groupAccent}70` : `${rarityColor}70`,
+        '--rarity-glow': isGrouped ? `0 4px 16px ${groupAccent}25` : `0 8px 24px ${rarityColor}30`,
       } as React.CSSProperties}
       onClick={() => onClick(nft)}
     >
@@ -134,7 +134,7 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
       )}
 
       {/* Footer with Price & P&L */}
-      <div className={`flex justify-between items-baseline border-t border-white/[0.06] ${
+      <div className={`flex justify-between items-start border-t border-white/[0.06] ${
         viewMode === 'small' ? 'pt-2 mt-2' : 'pt-2.5 mt-2.5'
       }`}>
         {/* Price: Show shimmer if enriching and no price yet */}
@@ -147,19 +147,21 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
             {priceDisplay}
           </span>
         )}
-        {/* P&L: Show shimmer if enriching and no data yet */}
-        {isEnriching && pnlPct === null ? (
+        {/* P&L: Show shimmer if enriching/pending and no data yet */}
+        {isEnriching && pnlPending && pnlPct === null ? (
           <span className={`skeleton-stat inline-block ${viewMode === 'small' ? 'w-8 h-3' : 'w-10 h-3.5'}`} />
         ) : (
-          <span className={`font-mono ${
-            viewMode === 'small' ? 'text-label' : 'text-caption'
-          } ${
-            isProfit ? 'text-[var(--gs-profit)]' :
-            isLoss ? 'text-[var(--gs-loss)]' :
-            'text-[var(--gs-gray-3)]'
-          }`}>
-            {pnlDisplay}
-          </span>
+          <div className="flex flex-col items-end">
+            <span className={`font-mono ${
+              viewMode === 'small' ? 'text-label' : 'text-caption'
+            } ${
+              isProfit ? 'text-[var(--gs-profit)]' :
+              isLoss ? 'text-[var(--gs-loss)]' :
+              'text-[var(--gs-gray-3)]'
+            }`}>
+              {pnlDisplay}
+            </span>
+          </div>
         )}
       </div>
 

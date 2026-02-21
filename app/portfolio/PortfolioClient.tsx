@@ -355,7 +355,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           activeWalletData.address,
           avalancheService,
           marketplaceConfigured ? marketplaceServiceRef.current : null,
-          createUpdateCallback(activeWalletData.address)
+          createUpdateCallback(activeWalletData.address),
+          connectedWallets
         );
       } else {
         setNftPagination(prev => ({
@@ -392,7 +393,22 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       // Stale guard after async cache load
       if (walletRequestIdRef.current !== thisRequestId) return;
       if (cached) {
-        setWalletMap({ [address.toLowerCase()]: cached.walletData });
+        // Sanitize server-cached NFTs: strip legacy $0.0776 fallback purchasePriceUsd values.
+        // These were saved before purchasePriceUsdEstimated existed (field is undefined).
+        // The enrichment backfill will recompute correct per-date historical USD prices.
+        const sanitizedNfts = cached.walletData.avalanche.nfts.map(nft => {
+          if (nft.purchasePriceUsd != null && nft.purchasePriceUsdEstimated !== false) {
+            const { purchasePriceUsd, purchasePriceUsdEstimated, ...rest } = nft;
+            return rest as typeof nft;
+          }
+          return nft;
+        });
+        const sanitizedWalletData = {
+          ...cached.walletData,
+          avalanche: { ...cached.walletData.avalanche, nfts: sanitizedNfts },
+        };
+
+        setWalletMap({ [address.toLowerCase()]: sanitizedWalletData });
         setActiveWalletAddress(address);
         if (cached.gunPrice) setGunPrice(cached.gunPrice);
         setIsPortfolioInitializing(false);
@@ -529,28 +545,33 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           address,
           avalancheService,
           marketplaceConfigured ? marketplaceService : null,
-          createUpdateCallback(address)
+          createUpdateCallback(address),
+          connectedWallets
         );
       }
 
-      // Fetch rarity floors + comparable sales in parallel, then inject into NFTs via applyValuationTables
+      // Fetch rarity floors + comparable sales + collection floor in parallel, then inject into NFTs
       const rarityPromise = fetch('/api/opensea/rarity-floors')
         .then(r => r.ok ? r.json() : null)
         .catch(() => null) as Promise<RarityFloorsData | null>;
       const comparablePromise = fetch('/api/opensea/comparable-sales')
         .then(r => r.ok ? r.json() : null)
         .catch(() => null) as Promise<ComparableSalesData | null>;
+      const floorPromise = fetch('/api/opensea/floor?chain=avalanche&contract=0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => d?.floorPrice as number | null ?? null)
+        .catch(() => null) as Promise<number | null>;
 
-      Promise.all([rarityPromise, comparablePromise]).then(([rarityData, comparableData]) => {
+      Promise.all([rarityPromise, comparablePromise, floorPromise]).then(([rarityData, comparableData, collectionFloor]) => {
         // Stale response guard — a newer wallet switch has started
         if (walletRequestIdRef.current !== thisRequestId) return;
-        if (!rarityData && !comparableData) return;
+        if (!rarityData && !comparableData && !collectionFloor) return;
 
         const addrKey = address.toLowerCase();
         setWalletMap(prev => {
           const wd = prev[addrKey];
           if (!wd) return prev;
-          const enrichedNfts = applyValuationTables(wd.avalanche.nfts, rarityData, comparableData);
+          const enrichedNfts = applyValuationTables(wd.avalanche.nfts, rarityData, comparableData, collectionFloor);
           if (enrichedNfts === wd.avalanche.nfts) return prev; // No changes
           return { ...prev, [addrKey]: { ...wd, avalanche: { ...wd.avalanche, nfts: enrichedNfts } } };
         });
@@ -558,6 +579,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         if (process.env.NODE_ENV === 'development') {
           if (rarityData?.floors) console.log('[Valuation] Rarity-tier floors:', rarityData.floors);
           if (comparableData?.items) console.log(`[Valuation] Comparable sales: ${Object.keys(comparableData.items).length} items`);
+          if (collectionFloor) console.log(`[Valuation] Collection floor: ${collectionFloor} GUN`);
         }
       });
 
@@ -699,7 +721,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       address,
       avalancheService,
       marketplaceConfigured ? marketplaceService : null,
-      createUpdateCallback(address)
+      createUpdateCallback(address),
+      connectedWallets
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletMap, cancelEnrichment, startEnrichment, getServices, createUpdateCallback]);
@@ -733,6 +756,14 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // All wallet addresses in walletMap (for switcher)
   const allWalletAddresses = useMemo(() => Object.values(walletMap).map(w => w.address), [walletMap]);
 
+  // Connected wallets (lowercased) — for self-transfer vs gift classification
+  const connectedWallets = useMemo(() => {
+    const set = new Set<string>();
+    if (primaryWallet?.address) set.add(primaryWallet.address.toLowerCase());
+    for (const pa of portfolioAddresses) set.add(pa.address.toLowerCase());
+    return Array.from(set);
+  }, [primaryWallet?.address, portfolioAddresses]);
+
   const contextValue: PortfolioContextValue = useMemo(() => ({
     walletData: activeWalletData,
     address: activeWalletData?.address ?? null,
@@ -743,6 +774,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     enrichmentProgress,
     isEnriching: enrichingNFTs,
     allNfts,
+    connectedWallets,
     isLoading: loading,
     isInitializing: isPortfolioInitializing,
     error,
@@ -753,6 +785,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     enrichmentProgress,
     enrichingNFTs,
     allNfts,
+    connectedWallets,
     loading,
     isPortfolioInitializing,
     error,
@@ -1110,6 +1143,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               onLoadMore={handleLoadMoreNFTs}
               isEnriching={enrichingNFTs}
               stickyOffset={64} // 64px navbar height
+              currentGunPrice={gunPrice}
             />
           </div>
           )}

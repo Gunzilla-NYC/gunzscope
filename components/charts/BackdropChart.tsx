@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { AreaClosed, LinePath, Line } from '@visx/shape';
 import { scaleLinear } from '@visx/scale';
 import { curveMonotoneX } from '@visx/curve';
+import { area as d3Area } from 'd3-shape';
 import { LinearGradient } from '@visx/gradient';
 import { GridRows } from '@visx/grid';
 import { ParentSize } from '@visx/responsive';
@@ -95,6 +96,24 @@ function Chart({
   // Trend color
   const trend = values.length >= 2 && values[values.length - 1] >= values[0] ? 'up' : 'down';
   const mainColor = trend === 'up' ? chartTheme.colors.lime : chartTheme.colors.loss;
+
+  // Area between market value and cost basis — profit/loss fill (curved to match lines)
+  const betweenAreaPath = useMemo(() => {
+    if (!hasCostBasis || !costBasisValues || costBasisValues.length < 2) return null;
+    const len = Math.min(values.length, costBasisValues.length);
+    if (len < 2) return null;
+    const indices = Array.from({ length: len }, (_, i) => i);
+    const areaGen = d3Area<number>()
+      .x(i => xScale(i))
+      .y0(i => yScale(costBasisValues![i]))
+      .y1(i => yScale(values[i]))
+      .curve(curveMonotoneX);
+    return areaGen(indices);
+  }, [hasCostBasis, costBasisValues, values, xScale, yScale]);
+
+  const isCurrentlyInProfit = hasCostBasis && costBasisValues && values.length >= 2 && costBasisValues.length >= 2
+    ? values[values.length - 1] > costBasisValues[Math.min(values.length - 1, costBasisValues.length - 1)]
+    : false;
 
   // Accessors
   const getX = (d: ChartDatum) => xScale(d.index);
@@ -279,6 +298,15 @@ function Chart({
             strokeDasharray="4 3"
           />
         </>
+      )}
+
+      {/* Profit/loss fill between market value and cost basis */}
+      {betweenAreaPath && (
+        <path
+          d={betweenAreaPath}
+          fill={isCurrentlyInProfit ? chartTheme.colors.profit : chartTheme.colors.loss}
+          fillOpacity={0.08}
+        />
       )}
 
       {/* Cost basis line */}

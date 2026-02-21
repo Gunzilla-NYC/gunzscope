@@ -16,7 +16,7 @@ import type { NFTGalleryListRowProps } from './types';
 export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
   const {
     nft, rarityName, rarityColor, isMixedRarity, mintDisplay, mintData, nameInitials,
-    pnlPct, isProfit, isLoss, priceGun, marketListings,
+    pnlPct, pnlPending, isProfit, isLoss, priceGun, pnlDisplay, unrealizedUsd, marketListings,
   } = cardData;
 
   const isGrouped = !!(nft.quantity && nft.quantity > 1);
@@ -166,16 +166,18 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
       {/* P&L */}
       <div className="flex-shrink-0 text-right min-w-[50px]">
         <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">P&L</p>
-        {isEnriching && pnlPct === null ? (
+        {isEnriching && pnlPending && pnlPct === null ? (
           <span className="skeleton-stat inline-block w-10 h-3.5 mt-0.5" />
         ) : (
-          <p className={`font-mono text-caption font-medium ${
-            isProfit ? 'text-[var(--gs-profit)]' :
-            isLoss ? 'text-[var(--gs-loss)]' :
-            'text-[var(--gs-gray-3)]'
-          }`}>
-            {pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '—'}
-          </p>
+          <>
+            <p className={`font-mono text-caption font-medium ${
+              isProfit ? 'text-[var(--gs-profit)]' :
+              isLoss ? 'text-[var(--gs-loss)]' :
+              'text-[var(--gs-gray-3)]'
+            }`}>
+              {pnlDisplay}
+            </p>
+          </>
         )}
       </div>
 

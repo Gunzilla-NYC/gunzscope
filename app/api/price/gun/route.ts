@@ -1,9 +1,35 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 const COINGECKO_API_BASE = 'https://api.coingecko.com/api/v3';
 const COIN_ID = 'gunz';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const chart = new URL(request.url).searchParams.get('chart');
+
+  // Daily price chart — one call, all available history
+  if (chart === 'daily') {
+    try {
+      const apiKey = process.env.COINGECKO_API_KEY;
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (apiKey) headers['x-cg-demo-api-key'] = apiKey;
+
+      const res = await fetch(
+        `${COINGECKO_API_BASE}/coins/${COIN_ID}/market_chart?vs_currency=usd&days=365&interval=daily`,
+        { headers, next: { revalidate: 3600 } }, // 1h cache
+      );
+      if (!res.ok) {
+        return NextResponse.json({ error: `CoinGecko ${res.status}` }, { status: 502 });
+      }
+      const data = await res.json();
+      return NextResponse.json(
+        { prices: data.prices ?? [] },
+        { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600' } },
+      );
+    } catch (error) {
+      console.error('[/api/price/gun?chart=daily] Error:', error);
+      return NextResponse.json({ error: 'Failed to fetch chart' }, { status: 500 });
+    }
+  }
   try {
     const apiKey = process.env.COINGECKO_API_KEY;
     const headers: Record<string, string> = {

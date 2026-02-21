@@ -18,7 +18,7 @@ const NFTDetailModal = dynamic(() => import('../NFTDetailModal'), {
   loading: () => null, // Modal is hidden by default, no loading UI needed
 });
 
-export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset, marketMap, portfolioViewMode }: NFTGalleryProps) {
+export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset, marketMap, portfolioViewMode, currentGunPrice }: NFTGalleryProps) {
   const {
     searchQuery, setSearchQuery,
     sortBy, setSortBy,
@@ -30,16 +30,16 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
     handleNFTClick, handleCloseModal,
     itemClasses, originCounts, rarityCounts, filteredAndSortedNFTs,
     clearFilters, hasActiveFilters,
-  } = useNFTGalleryFilters(nfts, marketMap);
+  } = useNFTGalleryFilters(nfts, marketMap, currentGunPrice);
 
   // Pre-compute card data for all visible NFTs — stable references for React.memo
   const cardDataMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof deriveCardData>>();
     for (const nft of filteredAndSortedNFTs) {
-      map.set(`${nft.chain}-${nft.tokenId}`, deriveCardData(nft, marketMap));
+      map.set(`${nft.chain}-${nft.tokenId}`, deriveCardData(nft, marketMap, currentGunPrice));
     }
     return map;
-  }, [filteredAndSortedNFTs, marketMap]);
+  }, [filteredAndSortedNFTs, marketMap, currentGunPrice]);
 
   if (nfts.length === 0) {
     return (

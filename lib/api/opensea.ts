@@ -522,7 +522,12 @@ export class OpenSeaService {
 
       // Convert from wei to native currency
       const price = parseFloat(payment.quantity) / Math.pow(10, payment.decimals || 18);
-      const date = new Date(userPurchase.event_timestamp);
+      // OpenSea event_timestamp is Unix seconds — convert safely
+      const rawTs = userPurchase.event_timestamp;
+      const tsMs = typeof rawTs === 'number'
+        ? (rawTs < 10_000_000_000 ? rawTs * 1000 : rawTs)
+        : new Date(rawTs).getTime();
+      const date = new Date(isNaN(tsMs) ? Date.now() : tsMs);
       const currency = payment.symbol || 'AVAX';
 
       console.log(`Last sale: ${price} ${currency} on ${date.toISOString()}`);
@@ -567,15 +572,22 @@ export class OpenSeaService {
         }
 
         // Convert API response to SaleEvent format
-        return (data.sales || []).map((sale: any) => ({
-          eventTimestamp: new Date(sale.eventTimestamp),
-          priceGUN: sale.priceGUN || 0,
-          priceWGUN: sale.priceWGUN || 0,
-          sellerAddress: sale.sellerAddress || '',
-          buyerAddress: sale.buyerAddress || '',
-          txHash: sale.txHash || '',
-          marketplace: sale.marketplace || 'opensea',
-        }));
+        // Server route now returns ISO strings, but handle numbers defensively
+        return (data.sales || []).map((sale: any) => {
+          const raw = sale.eventTimestamp;
+          const ms = typeof raw === 'number'
+            ? (raw < 10_000_000_000 ? raw * 1000 : raw)
+            : new Date(raw).getTime();
+          return {
+            eventTimestamp: new Date(isNaN(ms) ? Date.now() : ms),
+            priceGUN: sale.priceGUN || 0,
+            priceWGUN: sale.priceWGUN || 0,
+            sellerAddress: sale.sellerAddress || '',
+            buyerAddress: sale.buyerAddress || '',
+            txHash: sale.txHash || '',
+            marketplace: sale.marketplace || 'opensea',
+          };
+        });
       }
 
       // Server-side: call OpenSea directly
@@ -1408,8 +1420,16 @@ export class OpenSeaService {
     const isGunPayment = symbol === 'GUN' || symbol === '' || isNativeToken;
     const isWgunPayment = symbol === 'WGUN';
 
+    // OpenSea API returns event_timestamp as Unix seconds (number).
+    // Convert safely: numbers < 10B are seconds, >= 10B are milliseconds.
+    const rawTs = event.event_timestamp;
+    const tsMs = typeof rawTs === 'number'
+      ? (rawTs < 10_000_000_000 ? rawTs * 1000 : rawTs)
+      : new Date(rawTs).getTime();
+    const eventTimestamp = new Date(isNaN(tsMs) ? Date.now() : tsMs);
+
     return {
-      eventTimestamp: new Date(event.event_timestamp),
+      eventTimestamp,
       priceGUN: isGunPayment ? priceRaw : 0,
       priceWGUN: isWgunPayment ? priceRaw : 0,
       sellerAddress: event.seller || event.from_account?.address || '',

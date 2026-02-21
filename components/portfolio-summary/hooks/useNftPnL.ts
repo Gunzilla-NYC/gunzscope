@@ -4,8 +4,8 @@ import { NftPnL } from '../types';
 
 export function useNftPnL(nfts: NFT[], gunPrice: number | undefined): NftPnL {
   return useMemo<NftPnL>(() => {
-    let totalFloorValue = 0;
-    let totalSpent = 0;
+    let totalCostUsd = 0;
+    let totalValueUsd = 0;
     let nftsWithBothValues = 0;
     let nftsWithCost = 0;
     let nftsFreeTransfer = 0;
@@ -13,7 +13,6 @@ export function useNftPnL(nfts: NFT[], gunPrice: number | undefined): NftPnL {
 
     for (const nft of nfts) {
       const quantity = nft.quantity || 1;
-      const floor = nft.currentLowestListing ?? nft.floorPrice;
       const cost = nft.purchasePriceGun;
 
       if (nft.isFreeTransfer) {
@@ -22,19 +21,26 @@ export function useNftPnL(nfts: NFT[], gunPrice: number | undefined): NftPnL {
         nftsWithCost += quantity;
       }
 
-      if (floor !== undefined && floor > 0 && cost !== undefined && cost > 0) {
-        totalFloorValue += floor * quantity;
-        totalSpent += cost * quantity;
+      // xGUN formula: pure GUN/USD price appreciation
+      // Y = historical GUN/USD at purchase, Z = current GUN/USD
+      // Skip when purchasePriceUsd is estimated (pre-CoinGecko fallback)
+      if (cost !== undefined && cost > 0
+        && nft.purchasePriceUsd && nft.purchasePriceUsd > 0
+        && nft.purchasePriceUsdEstimated === false
+        && gunPrice && gunPrice > 0) {
+        const Y = nft.purchasePriceUsd / cost;
+        totalCostUsd += cost * quantity * Y;
+        totalValueUsd += cost * quantity * gunPrice;
         nftsWithBothValues += quantity;
       }
     }
 
-    const unrealizedGun = nftsWithBothValues > 0 && totalSpent > 0
-      ? totalFloorValue - totalSpent : null;
-    const unrealizedUsd = unrealizedGun !== null && gunPrice
-      ? unrealizedGun * gunPrice : null;
-    const pct = unrealizedGun !== null && totalSpent > 0
-      ? (unrealizedGun / totalSpent) * 100 : null;
+    const unrealizedUsd = nftsWithBothValues > 0
+      ? totalValueUsd - totalCostUsd : null;
+    const unrealizedGun = unrealizedUsd !== null && gunPrice
+      ? unrealizedUsd / gunPrice : null;
+    const pct = unrealizedUsd !== null && totalCostUsd > 0
+      ? (unrealizedUsd / totalCostUsd) * 100 : null;
 
     return {
       unrealizedGun, unrealizedUsd, pct,

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const COINGECKO_API_BASE = 'https://api.coingecko.com/api/v3';
 
+// Earliest known GUN price from CoinGecko (March 30, 2025).
+// CoinGecko free tier only returns 365 days of history. For older dates,
+// this serves as a reasonable proxy since GUN launched around this time.
+const EARLIEST_GUN_PRICE_USD = 0.0776;
+const EARLIEST_GUN_PRICE_DATE = new Date('2025-03-30');
+
 /**
  * GET /api/price/history?coin=gunz&date=2025-12-10
  *
@@ -37,10 +43,17 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(
       `${COINGECKO_API_BASE}/coins/${encodeURIComponent(coin)}/history?date=${dateString}&localization=false`,
-      { headers, next: { revalidate: 86400 } }, // 24h cache — historical prices don't change
+      { headers, cache: 'no-store' }, // TEMPORARY: bypass stale server cache after CoinGecko data correction — revert to next: { revalidate: 86400 } once confirmed
     );
 
     if (!res.ok) {
+      // For dates before CoinGecko has data, return the earliest known price
+      if (coin === 'gunz' && date <= EARLIEST_GUN_PRICE_DATE) {
+        return NextResponse.json(
+          { price: EARLIEST_GUN_PRICE_USD, coin, date: dateString, estimated: true },
+          { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=86400' } },
+        );
+      }
       return NextResponse.json(
         { error: `CoinGecko returned ${res.status}` },
         { status: 502 },
@@ -48,10 +61,26 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
-    const price = data?.market_data?.current_price?.usd ?? null;
+    let price = data?.market_data?.current_price?.usd ?? null;
+    let estimated = false;
+
+    // Sanity check: reject prices above GUN's known ATH ($0.115) — CoinGecko
+    // has occasionally returned incorrect historical data above this threshold.
+    const GUN_ATH_USD = 0.12; // ATH ~$0.115, small buffer
+    if (price !== null && coin === 'gunz' && price > GUN_ATH_USD) {
+      console.warn(`[/api/price/history] CoinGecko returned suspicious price $${price} for ${dateString}, exceeds known ATH — rejecting`);
+      price = null;
+    }
+
+    // CoinGecko sometimes returns the coin info without market_data for dates
+    // outside their range — fall back to earliest known price
+    if (price === null && coin === 'gunz' && date <= EARLIEST_GUN_PRICE_DATE) {
+      price = EARLIEST_GUN_PRICE_USD;
+      estimated = true;
+    }
 
     return NextResponse.json(
-      { price, coin, date: dateString },
+      { price, coin, date: dateString, ...(estimated && { estimated: true }) },
       {
         headers: {
           'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=86400',

@@ -18,6 +18,50 @@ const PRIORITY_ABOVE_FOLD_COUNT = 18;
 // NFT contract address (hardcoded fallback for client-side)
 const NFT_CONTRACT_ADDRESS = '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
 
+// Historical price entry with estimated flag
+interface HistoricalPriceEntry {
+  price: number;
+  estimated: boolean;
+}
+
+/**
+ * Batch-fetch historical GUN/USD prices for a set of dates.
+ * Uses /api/price/history (same as modal) — server-cached 24h per date.
+ * Returns a YYYY-MM-DD → { price, estimated } map.
+ */
+async function fetchGunPricesForDates(dates: Date[]): Promise<Map<string, HistoricalPriceEntry>> {
+  const map = new Map<string, HistoricalPriceEntry>();
+  // Deduplicate by YYYY-MM-DD
+  const uniqueDates = new Map<string, Date>();
+  for (const d of dates) {
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    if (!uniqueDates.has(key)) uniqueDates.set(key, d);
+  }
+
+  // Fetch sequentially with small delay to avoid CoinGecko rate limits.
+  // Each date is server-cached 24h, so after first fetch subsequent calls are instant.
+  const entries = Array.from(uniqueDates.entries());
+  for (const [key, date] of entries) {
+    try {
+      const res = await fetch(`/api/price/history?coin=gunz&date=${date.toISOString()}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data?.price && data.price > 0) {
+        map.set(key, { price: data.price, estimated: !!data.estimated });
+      }
+    } catch {
+      // Non-blocking — continue with next date
+    }
+  }
+  return map;
+}
+
+/** Look up GUN/USD price for a date from a pre-fetched map. */
+function lookupGunPrice(priceMap: Map<string, HistoricalPriceEntry>, date: Date): HistoricalPriceEntry | undefined {
+  const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+  return priceMap.get(key);
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -43,7 +87,8 @@ export interface UseNFTEnrichmentResult {
     walletAddress: string,
     avalancheService: AvalancheService,
     marketplaceService: GameMarketplaceService | null,
-    updateCallback: (enrichedNFTs: NFT[]) => void
+    updateCallback: (enrichedNFTs: NFT[]) => void,
+    connectedWallets?: string[]
   ) => void;
   cancelEnrichment: () => void;
   retryEnrichment: () => void;
@@ -101,6 +146,7 @@ export function useNFTEnrichmentOrchestrator(
     avalancheService: AvalancheService;
     marketplaceService: GameMarketplaceService | null;
     updateCallback: (enrichedNFTs: NFT[]) => void;
+    connectedWallets: string[];
   } | null>(null);
 
   /**
@@ -111,7 +157,9 @@ export function useNFTEnrichmentOrchestrator(
     walletAddress: string,
     nftContractAddress: string,
     avalancheService: AvalancheService,
-    marketplaceService: GameMarketplaceService | null
+    marketplaceService: GameMarketplaceService | null,
+    connectedWallets: string[] = [],
+    gunPriceMap: Map<string, HistoricalPriceEntry> = new Map()
   ): Promise<EnrichmentResult> => {
     const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
 
@@ -125,9 +173,13 @@ export function useNFTEnrichmentOrchestrator(
       cached.purchasePriceGun === null ||
       cached.purchasePriceGun === 0
     );
-    const isMarketplaceCache = cached?.acquisitionVenue &&
-      ['opensea', 'in_game_marketplace'].includes(cached.acquisitionVenue);
-    const cacheIncomplete = cachedPriceMissing && isMarketplaceCache && !cached?.isFreeTransfer;
+    // Treat cache as incomplete when price is missing and the pipeline should retry.
+    // Retries: marketplace purchases, AND transfers where the sender's original
+    // purchase might be traceable via blockchain (Strategy 2 in enrichSingleNFT).
+    // Only skip retry for mints/decodes which have deterministic pricing.
+    const isRetryableVenue = !cached?.acquisitionVenue ||
+      ['opensea', 'in_game_marketplace', 'transfer'].includes(cached.acquisitionVenue);
+    const cacheIncomplete = cachedPriceMissing && isRetryableVenue;
 
     if (cached && cached.hasAcquisition === true && !cacheIncomplete) {
       const groupedQuantity = nft.tokenIds && nft.tokenIds.length > 1 ? nft.tokenIds.length : undefined;
@@ -138,6 +190,28 @@ export function useNFTEnrichmentOrchestrator(
 
       let lowestListing = cached.currentLowestListing;
       let highestListing = cached.currentHighestListing;
+
+      // Backfill purchasePriceUsd when missing, unknown, or upgrading estimated→real.
+      // `undefined` means the flag was never set (legacy data) — treat as needing backfill.
+      let backfilledUsd = cached.purchasePriceUsd;
+      let backfilledEstimated = cached.purchasePriceUsdEstimated;
+      if (cached.purchasePriceGun && cached.purchasePriceGun > 0 && cached.purchaseDate) {
+        const shouldBackfill = !backfilledUsd || backfilledEstimated !== false;
+        if (shouldBackfill) {
+          const entry = lookupGunPrice(gunPriceMap, new Date(cached.purchaseDate));
+          if (entry && entry.price > 0) {
+            if (!backfilledUsd || (backfilledEstimated !== false && !entry.estimated)) {
+              backfilledUsd = cached.purchasePriceGun * entry.price;
+              backfilledEstimated = entry.estimated;
+              setCachedNFT(walletAddress, primaryTokenId, {
+                ...cached,
+                purchasePriceUsd: backfilledUsd,
+                purchasePriceUsdEstimated: backfilledEstimated,
+              });
+            }
+          }
+        }
+      }
 
       // Re-fetch listing in background if stale (non-blocking, fast 5s timeout)
       if (listingStale) {
@@ -159,14 +233,35 @@ export function useNFTEnrichmentOrchestrator(
         }).catch(() => {});
       }
 
+      // For grouped NFTs, sum costs across all individual tokenId caches.
+      // Only set totalPurchasePriceGun when ALL items have a cached price —
+      // partial sums would undercount and bypass the perItem × qty fallback.
+      let totalPurchasePriceGun: number | undefined;
+      if (nft.tokenIds && nft.tokenIds.length > 1) {
+        let sum = 0;
+        let count = 0;
+        for (const tid of nft.tokenIds) {
+          const itemCache = getCachedNFT(walletAddress, tid);
+          if (itemCache?.purchasePriceGun !== undefined && itemCache.purchasePriceGun > 0) {
+            sum += itemCache.purchasePriceGun;
+            count++;
+          }
+        }
+        if (count === nft.tokenIds.length) totalPurchasePriceGun = sum;
+      }
+
       return {
         nft: {
           ...nft,
           quantity: groupedQuantity ?? cached.quantity ?? nft.quantity ?? 1,
           purchasePriceGun: cached.purchasePriceGun,
+          totalPurchasePriceGun,
+          purchasePriceUsd: backfilledUsd,
+          purchasePriceUsdEstimated: backfilledEstimated,
           purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
           transferredFrom: cached.transferredFrom,
           isFreeTransfer: cached.isFreeTransfer,
+          transferType: cached.transferType,
           acquisitionVenue: cached.acquisitionVenue,
           acquisitionTxHash: cached.acquisitionTxHash,
           currentLowestListing: lowestListing,
@@ -204,13 +299,58 @@ export function useNFTEnrichmentOrchestrator(
       let marketplacePriceGun: number | undefined;
       let marketplacePurchaseDate: Date | undefined;
 
+      // Primary strategy: token-based marketplace query (like modal's Strategy A)
+      // Most precise — finds purchases for this exact token regardless of venue.
+      if (marketplaceService && acquisition?.acquiredAtIso) {
+        try {
+          const tokenKey = buildTokenKey('avalanche', nftContractAddress, primaryTokenId);
+          const tokenPurchases = await withTimeout(
+            marketplaceService.getPurchasesForToken(tokenKey),
+            5000
+          );
+
+          if (tokenPurchases && tokenPurchases.length > 0) {
+            const acquiredAt = new Date(acquisition.acquiredAtIso);
+            const MATCH_WINDOW_MS = 60 * 60 * 1000; // ±60 min
+
+            const candidatesInWindow = tokenPurchases.filter(p => {
+              const purchaseTime = new Date(p.purchaseDateIso).getTime();
+              return Math.abs(purchaseTime - acquiredAt.getTime()) <= MATCH_WINDOW_MS;
+            });
+
+            if (candidatesInWindow.length > 0) {
+              const walletLower = walletAddress.toLowerCase();
+              const identityMatch = candidatesInWindow.find(
+                p => p.buyerAddress?.toLowerCase() === walletLower
+              );
+              const closestMatch = !identityMatch
+                ? candidatesInWindow.reduce((closest, p) => {
+                    const cDiff = Math.abs(new Date(closest.purchaseDateIso).getTime() - acquiredAt.getTime());
+                    const pDiff = Math.abs(new Date(p.purchaseDateIso).getTime() - acquiredAt.getTime());
+                    return pDiff < cDiff ? p : closest;
+                  })
+                : undefined;
+
+              const match = identityMatch ?? closestMatch;
+              if (match && match.priceGun > 0) {
+                marketplacePriceGun = match.priceGun;
+                marketplacePurchaseDate = new Date(match.purchaseDateIso);
+              }
+            }
+          }
+        } catch {
+          // Non-blocking — fall through to wallet-based strategies
+        }
+      }
+
       const isMarketplaceVenue = acquisition?.venue && [
         'opensea',
         'in_game_marketplace',
         'otg_marketplace',
       ].includes(acquisition.venue);
 
-      if (marketplaceService && isMarketplaceVenue && acquisition?.acquiredAtIso) {
+      // Fallback: wallet-based marketplace query (only when token-based didn't match)
+      if (marketplacePriceGun === undefined && marketplaceService && isMarketplaceVenue && acquisition?.acquiredAtIso) {
         try {
           const acquiredAt = new Date(acquisition.acquiredAtIso);
           const purchases = await withTimeout(
@@ -275,11 +415,11 @@ export function useNFTEnrichmentOrchestrator(
         }
       }
 
-      // Cross-wallet transfer fallback: look up original purchase by sender
-      // When an item was transferred for free from another wallet, query OpenSea
-      // sales to find the original purchase price paid by the sender.
-      // Guard: only for genuine wallet-to-wallet transfers (fromAddress is a real
-      // wallet, not zero address, and not the wallet itself)
+      // Cross-wallet transfer fallback: look up original purchase price
+      // When an item was transferred for free from another wallet, trace
+      // the acquisition chain backwards to find the most recent priced purchase.
+      // Strategy A (OpenSea) is primary — single API call, handles multi-hop.
+      // Strategy B (RPC sender cost) is fallback — covers non-OpenSea purchases.
       const isGenuineTransfer = acquisition?.venue === 'transfer'
         && !acquisition?.isMint
         && (acquisition?.costGun === 0 || !acquisition?.costGun)
@@ -288,33 +428,67 @@ export function useNFTEnrichmentOrchestrator(
         && acquisition.fromAddress.toLowerCase() !== walletAddress.toLowerCase()
         && marketplacePriceGun === undefined;
 
+      // Classify transfer type: self-transfer (own wallet) vs gift (external sender)
+      let transferType: 'self' | 'gift' | undefined;
       if (isGenuineTransfer) {
+        const senderLower = acquisition!.fromAddress!.toLowerCase();
+        const isSelfTransfer = connectedWallets.some(w => w === senderLower);
+        transferType = isSelfTransfer ? 'self' : 'gift';
+      }
+
+      // Walk the acquisition chain to find the original cost for ALL transfers.
+      // transferType only affects display/totals, not whether we fetch prices.
+      if (isGenuineTransfer) {
+        const tokenId = nft.tokenIds?.[0] || nft.tokenId;
+        const senderAddress = acquisition!.fromAddress!;
+        const senderLower = senderAddress.toLowerCase();
+        const acquisitionDate = acquisition!.acquiredAtIso
+          ? new Date(acquisition!.acquiredAtIso)
+          : undefined;
+
+        // Strategy A (primary): OpenSea sales API — single call, handles multi-hop
         try {
           const openSeaService = new OpenSeaService();
-          const tokenId = nft.tokenIds?.[0] || nft.tokenId;
-
           const saleEvents = await withTimeout(
             openSeaService.getSaleEvents(nftContractAddress, tokenId, 'avalanche'),
-            5000
+            10_000
           );
 
           if (saleEvents && saleEvents.length > 0) {
-            const senderLower = acquisition!.fromAddress!.toLowerCase();
-            // Find the purchase made by the sender (previous owner)
-            const matchingSale = saleEvents.find(sale =>
+            // First try: exact match — sender was the buyer
+            const senderSale = saleEvents.find(sale =>
               sale.buyerAddress?.toLowerCase() === senderLower
             );
 
-            if (matchingSale) {
-              const effectivePrice = matchingSale.priceGUN > 0 ? matchingSale.priceGUN : matchingSale.priceWGUN;
+            // Fallback: most recent sale before the transfer date (multi-hop)
+            const dateSale = !senderSale && acquisitionDate
+              ? saleEvents
+                  .filter(sale => sale.eventTimestamp && sale.eventTimestamp < acquisitionDate)
+                  .sort((a, b) => b.eventTimestamp.getTime() - a.eventTimestamp.getTime())[0]
+              : undefined;
+
+            const bestSale = senderSale ?? dateSale;
+
+            if (bestSale) {
+              const effectivePrice = bestSale.priceGUN > 0 ? bestSale.priceGUN : bestSale.priceWGUN;
               if (effectivePrice > 0) {
                 marketplacePriceGun = effectivePrice;
-                marketplacePurchaseDate = matchingSale.eventTimestamp ? new Date(matchingSale.eventTimestamp) : undefined;
+                marketplacePurchaseDate = bestSale.eventTimestamp
+                  ? new Date(bestSale.eventTimestamp)
+                  : undefined;
               }
             }
           }
-        } catch {
-          // Non-blocking
+        } catch (osError) {
+          console.warn(`[Enrichment] Strategy A (OpenSea) failed for tokenId=${tokenId}:`, osError);
+        }
+
+        // Strategy B (fallback): RPC inline sender cost from getNFTHoldingAcquisition
+        if (marketplacePriceGun === undefined && acquisition!.senderCostGun && acquisition!.senderCostGun > 0) {
+          marketplacePriceGun = acquisition!.senderCostGun;
+          marketplacePurchaseDate = acquisition!.senderAcquiredAtIso
+            ? new Date(acquisition!.senderAcquiredAtIso)
+            : undefined;
         }
       }
 
@@ -329,12 +503,45 @@ export function useNFTEnrichmentOrchestrator(
       const isFreeTransfer = acquisition?.costGun === 0 && !acquisition?.isMint && marketplacePriceGun === undefined;
       const finalQuantity = (nft.tokenIds && nft.tokenIds.length > 1) ? nft.tokenIds.length : (quantity ?? nft.quantity ?? 1);
 
+      const finalPurchasePriceGun = marketplacePriceGun ?? acquisition?.costGun;
+      // For free transfers, prefer sender's acquisition date over the transfer-to-wallet date
+      const finalPurchaseDate = marketplacePurchaseDate
+        ?? (isGenuineTransfer && acquisition?.senderAcquiredAtIso
+            ? new Date(acquisition.senderAcquiredAtIso) : undefined)
+        ?? (acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined);
+
+      // Compute USD from historical GUN price at acquisition date
+      let purchasePriceUsd: number | undefined;
+      let purchasePriceUsdEstimated = false;
+      if (finalPurchasePriceGun && finalPurchasePriceGun > 0 && finalPurchaseDate) {
+        // Try pre-fetched map first, then per-item API fallback for new dates
+        let entry = lookupGunPrice(gunPriceMap, finalPurchaseDate);
+        if (entry === undefined) {
+          try {
+            const res = await fetch(`/api/price/history?coin=gunz&date=${finalPurchaseDate.toISOString()}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.price && data.price > 0) {
+                entry = { price: data.price, estimated: !!data.estimated };
+              }
+            }
+          } catch { /* non-blocking */ }
+        }
+        if (entry && entry.price > 0) {
+          purchasePriceUsd = finalPurchasePriceGun * entry.price;
+          purchasePriceUsdEstimated = entry.estimated;
+        }
+      }
+
       const enrichedData = {
         quantity: finalQuantity,
-        purchasePriceGun: marketplacePriceGun ?? acquisition?.costGun,
-        purchaseDate: marketplacePurchaseDate ?? (acquisition?.acquiredAtIso ? new Date(acquisition.acquiredAtIso) : undefined),
+        purchasePriceGun: finalPurchasePriceGun,
+        purchasePriceUsd,
+        purchasePriceUsdEstimated,
+        purchaseDate: finalPurchaseDate,
         transferredFrom: isFreeTransfer ? acquisition?.fromAddress : undefined,
         isFreeTransfer,
+        transferType,
         acquisitionVenue: acquisition?.venue,
         acquisitionTxHash: acquisition?.txHash ?? undefined,
         currentLowestListing: listing?.lowest ?? undefined,
@@ -348,9 +555,12 @@ export function useNFTEnrichmentOrchestrator(
         setCachedNFT(walletAddress, primaryTokenId, {
           quantity: enrichedData.quantity,
           purchasePriceGun: enrichedData.purchasePriceGun,
+          purchasePriceUsd: enrichedData.purchasePriceUsd,
+          purchasePriceUsdEstimated: enrichedData.purchasePriceUsdEstimated,
           purchaseDate: enrichedData.purchaseDate?.toISOString(),
           transferredFrom: enrichedData.transferredFrom,
           isFreeTransfer: enrichedData.isFreeTransfer,
+          transferType: enrichedData.transferType,
           acquisitionVenue: enrichedData.acquisitionVenue,
           acquisitionTxHash: enrichedData.acquisitionTxHash,
           hasAcquisition: true,
@@ -392,17 +602,28 @@ export function useNFTEnrichmentOrchestrator(
     walletAddress: string,
     avalancheService: AvalancheService,
     marketplaceService: GameMarketplaceService | null,
-    updateCallback: (enrichedNFTs: NFT[]) => void
+    updateCallback: (enrichedNFTs: NFT[]) => void,
+    connectedWallets: string[] = []
   ) => {
     if (!enabled || nfts.length === 0) return;
 
     // Store args for retry
-    lastArgsRef.current = { nfts, walletAddress, avalancheService, marketplaceService, updateCallback };
+    lastArgsRef.current = { nfts, walletAddress, avalancheService, marketplaceService, updateCallback, connectedWallets };
 
     cancelledRef.current = false;
     setIsEnriching(true);
 
     const nftContractAddress = NFT_CONTRACT_ADDRESS;
+
+    // Collect unique purchase dates from cache, then batch-fetch historical GUN prices.
+    // Uses /api/price/history per date (server-cached 24h) — same source as the modal.
+    const purchaseDates: Date[] = [];
+    for (const nft of nfts) {
+      const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
+      const cached = getCachedNFT(walletAddress, primaryTokenId);
+      if (cached?.purchaseDate) purchaseDates.push(new Date(cached.purchaseDate));
+    }
+    const gunPriceMap = await fetchGunPricesForDates(purchaseDates);
 
     try {
       // Apply cached data immediately
@@ -411,13 +632,50 @@ export function useNFTEnrichmentOrchestrator(
         const cached = getCachedNFT(walletAddress, primaryTokenId);
         if (cached) {
           const groupedQuantity = nft.tokenIds && nft.tokenIds.length > 1 ? nft.tokenIds.length : undefined;
+
+          // For grouped NFTs, sum costs across all individual tokenId caches.
+          // Only set when ALL items have a cached price to avoid partial sums.
+          let totalPurchasePriceGun: number | undefined;
+          if (nft.tokenIds && nft.tokenIds.length > 1) {
+            let sum = 0;
+            let count = 0;
+            for (const tid of nft.tokenIds) {
+              const itemCache = getCachedNFT(walletAddress, tid);
+              if (itemCache?.purchasePriceGun !== undefined && itemCache.purchasePriceGun > 0) {
+                sum += itemCache.purchasePriceGun;
+                count++;
+              }
+            }
+            if (count === nft.tokenIds.length) totalPurchasePriceGun = sum;
+          }
+
+          // Backfill purchasePriceUsd when missing, unknown, or upgrading estimated→real.
+          let usdPrice = cached.purchasePriceUsd;
+          let usdEstimated = cached.purchasePriceUsdEstimated;
+          if (cached.purchasePriceGun && cached.purchasePriceGun > 0 && cached.purchaseDate) {
+            const shouldBackfill = !usdPrice || usdEstimated !== false;
+            if (shouldBackfill) {
+              const entry = lookupGunPrice(gunPriceMap, new Date(cached.purchaseDate));
+              if (entry && entry.price > 0) {
+                if (!usdPrice || (usdEstimated !== false && !entry.estimated)) {
+                  usdPrice = cached.purchasePriceGun * entry.price;
+                  usdEstimated = entry.estimated;
+                }
+              }
+            }
+          }
+
           return {
             ...nft,
             quantity: groupedQuantity ?? cached.quantity ?? nft.quantity ?? 1,
             purchasePriceGun: cached.purchasePriceGun,
+            purchasePriceUsd: usdPrice,
+            purchasePriceUsdEstimated: usdEstimated,
+            totalPurchasePriceGun,
             purchaseDate: cached.purchaseDate ? new Date(cached.purchaseDate) : undefined,
             transferredFrom: cached.transferredFrom,
             isFreeTransfer: cached.isFreeTransfer,
+            transferType: cached.transferType,
             acquisitionVenue: cached.acquisitionVenue,
             acquisitionTxHash: cached.acquisitionTxHash,
             currentLowestListing: cached.currentLowestListing,
@@ -482,7 +740,7 @@ export function useNFTEnrichmentOrchestrator(
         // Process batch with per-NFT progress updates
         await Promise.all(
           batch.map(async (nft) => {
-            const { nft: enrichedNFT, fetchSucceeded } = await enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService);
+            const { nft: enrichedNFT, fetchSucceeded } = await enrichSingleNFT(nft, walletAddress, nftContractAddress, avalancheService, marketplaceService, connectedWallets, gunPriceMap);
 
             if (!fetchSucceeded) {
               failedCount++;
@@ -540,7 +798,7 @@ export function useNFTEnrichmentOrchestrator(
   const retryEnrichment = useCallback(() => {
     const args = lastArgsRef.current;
     if (!args) return;
-    startEnrichment(args.nfts, args.walletAddress, args.avalancheService, args.marketplaceService, args.updateCallback);
+    startEnrichment(args.nfts, args.walletAddress, args.avalancheService, args.marketplaceService, args.updateCallback, args.connectedWallets);
   }, [startEnrichment]);
 
   // Cleanup on unmount

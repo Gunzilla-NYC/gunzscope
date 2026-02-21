@@ -34,7 +34,7 @@ function matchesTraits(nft: NFT, query: string): boolean {
   return false;
 }
 
-export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, MarketItemData>) {
+export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, MarketItemData>, currentGunPrice?: number) {
   // Modal state
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [selectedTokenKeyString, setSelectedTokenKeyString] = useState<string | null>(null);
@@ -252,25 +252,27 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
           case 'quantity-desc':
             return (b.quantity || 1) - (a.quantity || 1);
           case 'value-desc': {
-            const aVal = a.floorPrice ?? a.purchasePriceGun ?? -Infinity;
-            const bVal = b.floorPrice ?? b.purchasePriceGun ?? -Infinity;
+            const aQty = a.quantity ?? 1;
+            const bQty = b.quantity ?? 1;
+            const aVal = (a.floorPrice ?? a.purchasePriceGun ?? -Infinity) * aQty;
+            const bVal = (b.floorPrice ?? b.purchasePriceGun ?? -Infinity) * bQty;
             if (aVal !== bVal) return bVal - aVal;
             return a.name.localeCompare(b.name);
           }
           case 'pnl-desc': {
-            const getEffectivePnl = (nft: NFT): number => {
+            // xGUN P&L: sort by USD unrealized gain from GUN price appreciation
+            const getXGunPnl = (nft: NFT): number => {
               if (!nft.purchasePriceGun || nft.purchasePriceGun <= 0) return -Infinity;
-              if (nft.floorPrice !== undefined) {
-                return ((nft.floorPrice - nft.purchasePriceGun) / nft.purchasePriceGun) * 100;
-              }
-              return 0;
+              if (!nft.purchasePriceUsd || nft.purchasePriceUsd <= 0 || nft.purchasePriceUsdEstimated !== false) return -Infinity;
+              if (!currentGunPrice || currentGunPrice <= 0) return -Infinity;
+              const Y = nft.purchasePriceUsd / nft.purchasePriceGun;
+              const qty = nft.quantity ?? 1;
+              return nft.purchasePriceGun * qty * (currentGunPrice - Y);
             };
-            const aPnl = getEffectivePnl(a);
-            const bPnl = getEffectivePnl(b);
+            const aPnl = getXGunPnl(a);
+            const bPnl = getXGunPnl(b);
             if (aPnl !== bPnl) return bPnl - aPnl;
-            const aVal = a.floorPrice ?? a.purchasePriceGun ?? 0;
-            const bVal = b.floorPrice ?? b.purchasePriceGun ?? 0;
-            return bVal - aVal;
+            return a.name.localeCompare(b.name);
           }
           case 'scarcity-asc': {
             const aListings = marketMap?.get(a.name)?.listingCount ?? Infinity;
@@ -291,7 +293,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
     }
 
     return result;
-  }, [preRarityFilteredNFTs, activeRarities, sortBy, marketMap]);
+  }, [preRarityFilteredNFTs, activeRarities, sortBy, marketMap, currentGunPrice]);
 
   // Event handlers
   const handleNFTClick = useCallback((nft: NFT) => {

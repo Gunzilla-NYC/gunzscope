@@ -120,14 +120,18 @@ export function calcPortfolio(input: CalcPortfolioInput): PortfolioCalcResult {
     totalNftQuantity += quantity;
 
     if (nft.purchasePriceGun !== undefined && nft.purchasePriceGun > 0) {
-      totalGunSpent += nft.purchasePriceGun * quantity;
+      const totalCostGun = nft.totalPurchasePriceGun ?? nft.purchasePriceGun * quantity;
+      // Gifts: found sender's cost but user didn't pay — exclude from GUN spent
+      if (nft.transferType !== 'gift') {
+        totalGunSpent += totalCostGun;
+      }
       if (effectiveGunPrice > 0) {
-        nftsUsd += nft.purchasePriceGun * effectiveGunPrice * quantity;
+        nftsUsd += totalCostGun * effectiveGunPrice;
         nftsWithPrice += quantity;
       } else {
         nftsWithoutPrice += quantity;
       }
-    } else if (nft.isFreeTransfer || nft.acquisitionVenue) {
+    } else if (nft.isFreeTransfer || nft.transferType === 'gift' || nft.acquisitionVenue) {
       // Known acquisition (free transfer, zero-cost mint, etc.) — count as resolved data
       nftsFreeTransfer += quantity;
     } else {
