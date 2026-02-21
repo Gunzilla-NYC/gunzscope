@@ -69,6 +69,24 @@ import InfoTooltip from '@/components/ui/InfoTooltip';
 
 const getDefaultRarityColors = () => DEFAULT_RARITY_COLORS;
 
+/** Map MarketRefSource to a short display label for P&L attribution */
+function getPnlMethodLabel(refSource: import('@/lib/nft/types').MarketRefSource | null): string {
+  switch (refSource) {
+    case 'listing_avg':
+    case 'listing_midpoint':
+    case 'listing_low':
+    case 'listing_high':
+    case 'enrichment_listing':
+      return 'VIA LISTING';
+    case 'comparable_sales':
+      return 'VIA SALES';
+    case 'rarity_floor':
+      return 'VIA FLOOR';
+    default:
+      return 'GUN \u0394';
+  }
+}
+
 interface ItemData {
   tokenId: string;
   mintNumber: string;
@@ -1116,6 +1134,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
         let walletPurchasesTimeRange_viewerWallet: { min: string; max: string } | undefined = undefined;
         let walletPurchasesTimeRange_currentOwner: { min: string; max: string } | undefined = undefined;
 
+        // Derive historical GUN/USD from enrichment data when available.
+        // Skips redundant CoinGecko fetches — enrichment already confirmed the rate.
+        const enrichedHistoricalGunUsd = (
+          nft.purchasePriceUsdEstimated === false
+          && nft.purchasePriceUsd != null && nft.purchasePriceUsd > 0
+          && nft.purchasePriceGun != null && nft.purchasePriceGun > 0
+        ) ? nft.purchasePriceUsd / nft.purchasePriceGun : null;
+
         // Identity setup (use null when not available, never empty string)
         const viewerWalletLower = walletAddress?.toLowerCase() ?? null;
         const currentOwnerLower = currentOwnerFromAcquisition?.toLowerCase() ?? null;
@@ -1362,7 +1388,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
               // Calculate USD value from historical GUN price
               if (purchasePriceGun && purchaseDate) {
                 try {
-                  const historicalPrice = await coinGeckoService.getHistoricalGunPrice(purchaseDate);
+                  const historicalPrice = enrichedHistoricalGunUsd ?? await coinGeckoService.getHistoricalGunPrice(purchaseDate);
                   if (historicalPrice) {
                     purchasePriceUsd = purchasePriceGun * historicalPrice;
                   }
@@ -1455,7 +1481,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           // Calculate USD from historical GUN price for decode cost
           if (finalDecodeCostGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              const historicalPrice = enrichedHistoricalGunUsd ?? await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
               if (historicalPrice) {
                 finalDecodeCostUsd = finalDecodeCostGun * historicalPrice;
               }
@@ -1488,7 +1514,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           // Calculate USD from historical GUN price
           if (finalPurchasePriceGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              const historicalPrice = enrichedHistoricalGunUsd ?? await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
               if (historicalPrice) {
                 finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
               }
@@ -1521,7 +1547,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           // Calculate USD from historical GUN price
           if (finalPurchasePriceGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              const historicalPrice = enrichedHistoricalGunUsd ?? await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
               if (historicalPrice) {
                 finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
               }
@@ -1554,7 +1580,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           // Calculate USD from historical GUN price
           if (finalPurchasePriceGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
+              const historicalPrice = enrichedHistoricalGunUsd ?? await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
               if (historicalPrice) {
                 finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
               }
@@ -2301,7 +2327,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     const Y = historicalCostUsd / costBasisGun;
                     return ((currentGunPrice - Y) / Y) * 100;
                   })()}
-                  pnlSource={marketInputs.ref !== null ? 'market' : historicalCostUsd !== null ? 'gun' : null}
+                  pnlSource={historicalCostUsd !== null ? getPnlMethodLabel(marketInputs.ref !== null ? marketInputs.refSource : null) : null}
                   isLoading={loadingDetails}
                 />
                 );
@@ -2422,9 +2448,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         </p>
 
                         {formatUnrealized() ? (
-                          <p className={`text-[13px] mt-0.5 ${getUnrealizedColor()}`}>
-                            {formatUnrealized()}
-                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[13px] ${getUnrealizedColor()}`}>
+                              {formatUnrealized()}
+                            </span>
+                            <span className="font-mono text-[8px] uppercase tracking-[0.15em] text-[var(--gs-gray-3)]">
+                              {getPnlMethodLabel(pnlIsMarketBased ? marketInputs.refSource : null)}
+                            </span>
+                          </div>
                         ) : costBasisGun !== null ? (
                           <p className="text-[13px] mt-0.5 text-white/40">
                             Awaiting market data
@@ -2432,18 +2463,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         ) : null}
 
                         {/* Explanation context */}
-                        {pnlIsMarketBased && marketInputs.refSource ? (
-                          <p className="text-[11px] text-white/30 mt-0.5">
-                            Valued via {marketInputs.refSource === 'listing_avg' ? 'listing average'
-                              : marketInputs.refSource === 'listing_midpoint' ? 'listing midpoint'
-                              : marketInputs.refSource === 'listing_low' ? 'lowest listing'
-                              : marketInputs.refSource === 'listing_high' ? 'highest listing'
-                              : marketInputs.refSource === 'enrichment_listing' ? 'enrichment listing'
-                              : marketInputs.refSource === 'comparable_sales' ? 'comparable sales'
-                              : marketInputs.refSource === 'rarity_floor' ? 'rarity floor'
-                              : 'market data'}
-                          </p>
-                        ) : marketValueUsd !== null && costBasisGun === null ? (
+                        {marketValueUsd !== null && costBasisGun === null ? (
                           <p className="text-data text-white/40 mt-1 leading-relaxed">
                             Estimated from comparable sales and rarity data.
                           </p>
@@ -2519,7 +2539,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                 </span>
                               )}
                             </div>
-                            {costBasisUsdAtAcquisition !== null && costBasisGun > 0 && (
+                            {!pnlIsMarketBased && costBasisUsdAtAcquisition !== null && costBasisGun > 0 && (
                               <p className="text-[11px] text-white/30 mt-0.5">
                                 GUN @ ${(costBasisUsdAtAcquisition / costBasisGun).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} at time of purchase
                               </p>
@@ -2527,15 +2547,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                           </>
                         )}
 
-                        {/* ─── Group 2.5: GUN Performance ─── */}
+                        {/* ─── Group 2.5: GUN Based Performance ─── */}
                         {pnlIsMarketBased && xgunUnrealizedUsd !== null && xgunUnrealizedPct !== null && (
                           <>
                             <div className="flex items-center gap-2 mt-4 mb-2">
-                              <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">GUN Performance</span>
+                              <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">GUN Based Performance</span>
                               <div className="flex-1 h-px bg-white/8" />
                             </div>
-                            <div className="flex items-baseline justify-between">
-                              <span className="text-data uppercase tracking-wider text-white/40">Token &Delta;</span>
+                            <div className="flex justify-end">
                               <span className={`text-[13px] font-medium tabular-nums ${
                                 xgunUnrealizedUsd > 0.01 ? 'text-[var(--gs-lime)]' :
                                 xgunUnrealizedUsd < -0.01 ? 'text-[var(--gs-loss)]' :
@@ -2545,8 +2564,11 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                 {' '}({xgunUnrealizedPct >= 0 ? '+' : ''}{xgunUnrealizedPct.toFixed(1)}%)
                               </span>
                             </div>
-                            <p className="text-[11px] text-white/30 mt-0.5">
-                              GUN token price change since acquisition
+                            <p className="text-[11px] text-white/30 mt-1">
+                              The {nft.name} cost you ${costBasisUsdAtAcquisition!.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} at purchase.
+                            </p>
+                            <p className="text-[11px] text-white/30">
+                              Spending the same {costBasisGun!.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} GUN today would cost ${(costBasisGun! * currentGunPrice!).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.
                             </p>
                           </>
                         )}

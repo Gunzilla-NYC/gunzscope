@@ -15,9 +15,22 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.2.9',
+    version: 'v0.3.0',
     date: 'Feb 21, 2026',
     tag: 'current',
+    items: [
+      'Modal P&L reorganization \u2014 separated market valuation from GUN appreciation into two distinct P&L stories: market-based (via listings/sales/floor) when available, xGUN fallback otherwise',
+      'Unified P&L computation \u2014 QuickStats UNREALIZED and YOUR POSITION P&L now always agree (both use market-first, xGUN fallback)',
+      'Valuation method labels \u2014 QuickStats and YOUR POSITION show specific source: VIA LISTING, VIA SALES, VIA FLOOR, or GUN \u0394',
+      'GUN Based Performance sub-section \u2014 when market data drives headline P&L, a separate section shows pure GUN token appreciation with explanatory narrative',
+      'CoinGecko fetch guard \u2014 modal acquisition pipeline skips redundant historical price fetches when enrichment data already provides confirmed USD values',
+      'Valuation method badges on gallery cards \u2014 6-tier taxonomy (LISTED, SALES, RARITY, FLOOR, COST, UNLISTED) shown on NFT cards',
+      'Hidden redundant GUN @ line \u2014 cost basis section no longer shows "GUN @ $X.XXXX at time of purchase" when GUN Based Performance section is visible',
+    ],
+  },
+  {
+    version: 'v0.2.9',
+    date: 'Feb 21, 2026',
     items: [
       'xGUN P&L formula \u2014 PnL now purely reflects GUN/USD price appreciation: Y\u00a0=\u00a0historicalGunPrice, Z\u00a0=\u00a0currentGunPrice, P&L\u00a0=\u00a0costGun\u00a0\u00d7\u00a0(Z\u2011Y). Removed market\u2011data waterfall (listing/comparable\u2011sales/rarity\u2011floor) from cards, modal, sort, and portfolio summary',
       'Removed pnlSource labels \u2014 "vs listing" / "vs sales" / "vs floor" badges no longer appear on NFT cards since PnL is now single\u2011source',

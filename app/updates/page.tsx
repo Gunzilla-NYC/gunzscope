@@ -17,9 +17,21 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.2.9',
+    version: 'v0.3.0',
     date: 'Feb 21, 2026',
     tag: 'current',
+    title: 'Market value meets GUN appreciation',
+    items: [
+      'Your NFT\u2019s P&L now tells two stories. When market data exists (listings, recent sales, rarity floors), the headline shows what your item is actually worth on the market. GUN token appreciation gets its own section underneath, with a plain-English explanation of what changed.',
+      'The numbers finally match \u2014 the Unrealized column in the top stats bar and the P&L in YOUR POSITION now always show the same value. No more "why are these different" moments.',
+      'Every P&L number now tells you where it came from: VIA LISTING, VIA SALES, VIA FLOOR, or GUN \u0394. No more guessing which crystal ball we\u2019re using.',
+      'Gallery cards now show valuation badges \u2014 LISTED, SALES, RARITY, FLOOR, COST, or UNLISTED \u2014 so you can see at a glance which items have real market data.',
+      'The modal stopped making unnecessary price lookups. If the enrichment pipeline already figured out what you paid, we don\u2019t ask CoinGecko to guess again.',
+    ],
+  },
+  {
+    version: 'v0.2.9',
+    date: 'Feb 21, 2026',
     title: 'P&L that actually makes sense now',
     items: [
       'P&L is now based purely on GUN price movement \u2014 what you paid in GUN, times the difference between then-price and now-price. No more mystery waterfall of floor prices, comparable sales, and vibes. Just math.',
