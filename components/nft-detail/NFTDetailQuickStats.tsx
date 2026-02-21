@@ -28,6 +28,7 @@ interface NFTDetailQuickStatsProps {
   marketValueSource?: MarketRefSource | null;
   unrealizedUsd: number | null;
   unrealizedPct: number | null;
+  pnlSource?: 'market' | 'gun' | null;
   isLoading?: boolean;
 }
 
@@ -39,6 +40,7 @@ export function NFTDetailQuickStats({
   marketValueSource,
   unrealizedUsd,
   unrealizedPct,
+  pnlSource,
   isLoading = false,
 }: NFTDetailQuickStatsProps) {
   if (isLoading) {
@@ -138,6 +140,16 @@ export function NFTDetailQuickStats({
         <div className={`font-mono text-caption tabular-nums mt-0.5 ${unrealizedPct !== null ? getPnlColor() : ''}`}>
           {unrealizedPct !== null ? formatPct(unrealizedPct) : ''}
         </div>
+        {pnlSource === 'market' && (
+          <div className="font-mono text-[8px] uppercase tracking-widest text-[var(--gs-gray-3)] mt-0.5">
+            vs Market
+          </div>
+        )}
+        {pnlSource === 'gun' && (
+          <div className="font-mono text-[8px] uppercase tracking-widest text-[var(--gs-gray-3)] mt-0.5">
+            GUN &Delta;
+          </div>
+        )}
       </div>
     </div>
   );

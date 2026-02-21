@@ -2274,6 +2274,14 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   marketValueUsd={marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null}
                   marketValueSource={marketInputs.refSource}
                   unrealizedUsd={(() => {
+                    // Market-based P&L when market ref available
+                    if (marketInputs.ref !== null && currentGunPrice && currentGunPrice > 0) {
+                      const mktUsd = marketInputs.ref * currentGunPrice;
+                      if (historicalCostUsd !== null && historicalCostUsd > 0) {
+                        return mktUsd - historicalCostUsd;
+                      }
+                    }
+                    // Fall back to xGUN
                     if (historicalCostUsd === null || historicalCostUsd <= 0) return null;
                     if (costBasisGun === null || costBasisGun <= 0) return null;
                     if (!currentGunPrice || currentGunPrice <= 0) return null;
@@ -2281,12 +2289,19 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     return costBasisGun * (currentGunPrice - Y);
                   })()}
                   unrealizedPct={(() => {
+                    if (marketInputs.ref !== null && currentGunPrice && currentGunPrice > 0) {
+                      const mktUsd = marketInputs.ref * currentGunPrice;
+                      if (historicalCostUsd !== null && historicalCostUsd > 0) {
+                        return ((mktUsd - historicalCostUsd) / historicalCostUsd) * 100;
+                      }
+                    }
                     if (historicalCostUsd === null || historicalCostUsd <= 0) return null;
                     if (costBasisGun === null || costBasisGun <= 0) return null;
                     if (!currentGunPrice || currentGunPrice <= 0) return null;
                     const Y = historicalCostUsd / costBasisGun;
                     return ((currentGunPrice - Y) / Y) * 100;
                   })()}
+                  pnlSource={marketInputs.ref !== null ? 'market' : historicalCostUsd !== null ? 'gun' : null}
                   isLoading={loadingDetails}
                 />
                 );
@@ -2308,30 +2323,36 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   ?? (nft.purchasePriceUsd && nft.purchasePriceUsd > 0 ? nft.purchasePriceUsd : null)
                   ?? null;
 
-                // Market value from waterfall (best available price × today's GUN/USD)
-                const marketValueUsd = marketInputs.ref !== null && currentGunPrice !== null
-                  ? marketInputs.ref * currentGunPrice
-                  : null;
-
-                // Cost basis at today's GUN price (what you paid, re-priced at current rate)
+                // ── Unified P&L: prefer market-based when available, fall back to xGUN ──
+                const hasMarketRef = marketInputs.ref !== null && currentGunPrice !== null && currentGunPrice > 0;
+                const marketValueUsd = hasMarketRef ? marketInputs.ref! * currentGunPrice! : null;
                 const costBasisTodayUsd = costBasisGun !== null && currentGunPrice !== null
-                  ? costBasisGun * currentGunPrice
-                  : null;
+                  ? costBasisGun * currentGunPrice : null;
 
-                // Primary display: market value when available, else cost basis at today's price
-                const currentValueUsd = marketValueUsd ?? costBasisTodayUsd;
-
-                // xGUN P&L: pure GUN/USD price appreciation
-                let unrealizedUsd: number | null = null;
-                let unrealizedPct: number | null = null;
-
+                // xGUN P&L (always compute — used in GUN PERFORMANCE sub-section)
+                let xgunUnrealizedUsd: number | null = null;
+                let xgunUnrealizedPct: number | null = null;
                 if (costBasisUsdAtAcquisition !== null && costBasisUsdAtAcquisition > 0
                   && costBasisGun !== null && costBasisGun > 0
                   && currentGunPrice !== null && currentGunPrice > 0) {
                   const Y = costBasisUsdAtAcquisition / costBasisGun;
-                  unrealizedUsd = costBasisGun * (currentGunPrice - Y);
-                  unrealizedPct = ((currentGunPrice - Y) / Y) * 100;
+                  xgunUnrealizedUsd = costBasisGun * (currentGunPrice - Y);
+                  xgunUnrealizedPct = ((currentGunPrice - Y) / Y) * 100;
                 }
+
+                // Market-based P&L (when market ref exists AND we have cost basis)
+                let marketUnrealizedUsd: number | null = null;
+                let marketUnrealizedPct: number | null = null;
+                if (marketValueUsd !== null && costBasisUsdAtAcquisition !== null && costBasisUsdAtAcquisition > 0) {
+                  marketUnrealizedUsd = marketValueUsd - costBasisUsdAtAcquisition;
+                  marketUnrealizedPct = (marketUnrealizedUsd / costBasisUsdAtAcquisition) * 100;
+                }
+
+                // Primary display values: market-based when available, else xGUN
+                const currentValueUsd = marketValueUsd ?? costBasisTodayUsd;
+                const unrealizedUsd = marketUnrealizedUsd ?? xgunUnrealizedUsd;
+                const unrealizedPct = marketUnrealizedPct ?? xgunUnrealizedPct;
+                const pnlIsMarketBased = marketUnrealizedUsd !== null;
 
                 // Status pill based on acquisition type
                 const acquisitionType = currentResolvedAcquisition?.acquisitionType;
@@ -2411,7 +2432,18 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                         ) : null}
 
                         {/* Explanation context */}
-                        {marketValueUsd !== null && costBasisGun === null ? (
+                        {pnlIsMarketBased && marketInputs.refSource ? (
+                          <p className="text-[11px] text-white/30 mt-0.5">
+                            Valued via {marketInputs.refSource === 'listing_avg' ? 'listing average'
+                              : marketInputs.refSource === 'listing_midpoint' ? 'listing midpoint'
+                              : marketInputs.refSource === 'listing_low' ? 'lowest listing'
+                              : marketInputs.refSource === 'listing_high' ? 'highest listing'
+                              : marketInputs.refSource === 'enrichment_listing' ? 'enrichment listing'
+                              : marketInputs.refSource === 'comparable_sales' ? 'comparable sales'
+                              : marketInputs.refSource === 'rarity_floor' ? 'rarity floor'
+                              : 'market data'}
+                          </p>
+                        ) : marketValueUsd !== null && costBasisGun === null ? (
                           <p className="text-data text-white/40 mt-1 leading-relaxed">
                             Estimated from comparable sales and rarity data.
                           </p>
@@ -2492,6 +2524,30 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                                 GUN @ ${(costBasisUsdAtAcquisition / costBasisGun).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} at time of purchase
                               </p>
                             )}
+                          </>
+                        )}
+
+                        {/* ─── Group 2.5: GUN Performance ─── */}
+                        {pnlIsMarketBased && xgunUnrealizedUsd !== null && xgunUnrealizedPct !== null && (
+                          <>
+                            <div className="flex items-center gap-2 mt-4 mb-2">
+                              <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">GUN Performance</span>
+                              <div className="flex-1 h-px bg-white/8" />
+                            </div>
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-data uppercase tracking-wider text-white/40">Token &Delta;</span>
+                              <span className={`text-[13px] font-medium tabular-nums ${
+                                xgunUnrealizedUsd > 0.01 ? 'text-[var(--gs-lime)]' :
+                                xgunUnrealizedUsd < -0.01 ? 'text-[var(--gs-loss)]' :
+                                'text-white/60'
+                              }`}>
+                                {xgunUnrealizedUsd >= 0 ? '+' : '-'}${Math.abs(xgunUnrealizedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {' '}({xgunUnrealizedPct >= 0 ? '+' : ''}{xgunUnrealizedPct.toFixed(1)}%)
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-white/30 mt-0.5">
+                              GUN token price change since acquisition
+                            </p>
                           </>
                         )}
 

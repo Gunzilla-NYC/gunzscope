@@ -6,6 +6,8 @@
 
 import type { NFT } from '@/lib/types';
 import { getItemOrigin, CATEGORY_COLORS as ORIGIN_CATEGORY_COLORS, type OriginCategory } from '@/lib/data/itemOrigins';
+import { getValuationMethod, type ValuationMethod } from '@/lib/nft/valuationMethod';
+export type { ValuationMethod };
 
 export { ORIGIN_CATEGORY_COLORS, type OriginCategory };
 
@@ -52,6 +54,7 @@ export interface NFTCardData {
   marketFloor: number | null;
   originShortName: string | null;
   originCategory: OriginCategory | null;
+  valuationMethod: ValuationMethod | null;
 }
 
 // ============================================================================
@@ -412,5 +415,14 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     marketFloor: market?.floorPriceGun ?? null,
     originShortName: origin?.shortName ?? null,
     originCategory: origin?.category ?? null,
+    valuationMethod: getValuationMethod({
+      purchasePriceGun: nft.purchasePriceGun,
+      purchasePriceUsd: nft.purchasePriceUsd,
+      purchasePriceUsdEstimated: nft.purchasePriceUsdEstimated,
+      isFreeTransfer: nft.isFreeTransfer,
+      comparableSalesMedian: nft.comparableSalesMedian,
+      rarityFloor: nft.rarityFloor,
+      currentLowestListing: nft.currentLowestListing,
+    }),
   };
 }

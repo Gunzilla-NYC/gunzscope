@@ -11,6 +11,7 @@ import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel, ORIGIN_CATEGORY_COLORS } from './utils';
+import { ValuationLabel } from './ValuationLabel';
 import type { NFTGalleryListRowProps } from './types';
 
 export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
@@ -177,6 +178,9 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
             }`}>
               {pnlDisplay}
             </p>
+            {pnlPct !== null && (
+              <ValuationLabel valuation={cardData.valuationMethod} className="mt-0.5" />
+            )}
           </>
         )}
       </div>

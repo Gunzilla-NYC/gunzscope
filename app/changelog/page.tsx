@@ -15,9 +15,31 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.2.9',
+    date: 'Feb 21, 2026',
+    tag: 'current',
+    items: [
+      'xGUN P&L formula \u2014 PnL now purely reflects GUN/USD price appreciation: Y\u00a0=\u00a0historicalGunPrice, Z\u00a0=\u00a0currentGunPrice, P&L\u00a0=\u00a0costGun\u00a0\u00d7\u00a0(Z\u2011Y). Removed market\u2011data waterfall (listing/comparable\u2011sales/rarity\u2011floor) from cards, modal, sort, and portfolio summary',
+      'Removed pnlSource labels \u2014 "vs listing" / "vs sales" / "vs floor" badges no longer appear on NFT cards since PnL is now single\u2011source',
+      'OpenSea event_timestamp fix \u2014 4 parse sites were treating Unix seconds as milliseconds, producing dates in January 1970 and triggering $0.0776 fallback prices',
+      'Stale closure overwrite fix \u2014 async modal loadItemDetails captured resolvedAcquisitions at effect start time; cache\u2011rendered data was overwritten ~1s later. Fixed via resolvedAcquisitionsRef pattern in both NFTDetailModal and useNFTAcquisitionPipeline',
+      'Transfer chain tracing fix \u2014 buildCandidateFromHoldingRaw now uses senderAcquiredAtIso, senderVenue, and senderTxHash when using sender cost data, instead of the transfer date/venue',
+      'Transaction fee extraction \u2014 txFeeGun and senderTxFeeGun computed from receipt.gasUsed \u00d7 receipt.gasPrice in avalanche.ts; propagated through ResolvedAcquisition, selectBestAcquisition, and all candidate builders',
+      'Gas fees display \u2014 YOUR POSITION section in NFTDetailModal shows purchase and transfer gas fees when available',
+      'Server cache hydration sanitization \u2014 PortfolioClient strips legacy purchasePriceUsd values from server\u2011cached NFTs when purchasePriceUsdEstimated !== false',
+      'CoinGecko ATH sanity check \u2014 /api/price/history rejects prices above $0.12 (GUN ATH ~$0.115) and logs a warning',
+      'Stale Next.js server cache bypass \u2014 /api/price/history temporarily switched to cache: \'no\u2011store\' to purge incorrect CoinGecko historical data (revert to revalidate: 86400 after confirmation)',
+      'Enrichment trust guard \u2014 modal no longer overwrites confirmed purchasePriceUsd (purchasePriceUsdEstimated === false) with its own recomputation',
+      'Cache schema v24 \u2014 full client\u2011side re\u2011enrichment forced after CoinGecko data correction and server cache purge',
+      'MetaMask fallback \u2014 main page wallet connect falls back to MetaMask deep link when Dynamic SDK fails to trigger wallet',
+      'wGUN acquisition support \u2014 enrichment orchestrator handles wGUN\u2011based purchases for cost extraction',
+      'useNftPnL hook rewrite \u2014 portfolio summary P&L now uses xGUN formula instead of floor\u2011based calculation',
+      'PnL sort rewrite \u2014 useNFTGalleryFilters pnl\u2011desc sort uses xGUN unrealized USD gain with currentGunPrice threading',
+    ],
+  },
+  {
     version: 'v0.2.8',
     date: 'Feb 19, 2026',
-    tag: 'current',
     items: [
       'Historical price CORS fix \u2014 new /api/price/history server\u2011side proxy routes CoinGecko historical price requests through the server, fixing silent CORS failure that left purchasePriceUsd undefined on all client\u2011side lookups',
       '14\u2011day sparkline \u2014 /api/price/gun now fetches 14d market_chart alongside 7d sparkline; PriceData type extended with sparkline14d; bootstrap and performance hooks prefer 14d data',

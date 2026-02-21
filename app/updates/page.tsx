@@ -17,9 +17,26 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.2.9',
+    date: 'Feb 21, 2026',
+    tag: 'current',
+    title: 'P&L that actually makes sense now',
+    items: [
+      'P&L is now based purely on GUN price movement \u2014 what you paid in GUN, times the difference between then-price and now-price. No more mystery waterfall of floor prices, comparable sales, and vibes. Just math.',
+      'Removed the "vs listing" / "vs sales" / "vs floor" labels from NFT cards. One number. One truth. Less confusion.',
+      'Fixed a fun bug where OpenSea was telling us sale dates were in January 1970. Turns out Unix timestamps in seconds and milliseconds are different things. Who knew. (We do now.)',
+      'Your NFT detail modal was quietly overwriting correct price data about one second after opening. It had the right answer, then threw it away and guessed again. Fixed.',
+      'Transferred NFTs now show when the original purchase happened, not when your buddy sent it to you at 3am',
+      'Gas fees are now visible in the YOUR POSITION section \u2014 because yes, you did pay for that transaction, and you deserve to see exactly how much',
+      'Purged a bunch of stale cached prices that were stuck at $0.0776 (the GUN launch price). If your whole portfolio looked suspiciously cheap, it should look correct now',
+      'Added a sanity check that rejects any historical GUN price above $0.12. If CoinGecko says your NFT cost $47 in GUN, we politely disagree',
+      'MetaMask users on the home page: the connect button actually opens MetaMask now instead of staring at you blankly',
+      'wGUN (wrapped GUN) purchases are now properly tracked for cost basis \u2014 OpenSea offer fills no longer show up as free items',
+    ],
+  },
+  {
     version: 'v0.2.8',
     date: 'Feb 19, 2026',
-    tag: 'current',
     title: 'USD prices, wider charts & empty wallet UX',
     items: [
       'USD cost basis now shows on all items \u2014 previously many items only showed GUN price because the USD lookup was silently failing',
