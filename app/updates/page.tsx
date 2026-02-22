@@ -20,12 +20,12 @@ const UPDATES: UpdateEntry[] = [
     version: 'v0.3.2',
     date: 'Feb 21, 2026',
     tag: 'current',
-    title: 'Big wallets no longer choke',
+    title: 'Your 1,668 NFTs broke everything',
     items: [
-      'If you own 50+ NFTs, enrichment used to start before all your items were even loaded. It would fire once per page of 50, running multiple enrichments in parallel that fought over who got to update the screen. Now it waits until every page is loaded, then enriches the whole collection in one pass. Patience, rewarded.',
-      'Switching wallets mid\u2011enrichment no longer leaves ghost data from the previous wallet. A generation counter ensures stale enrichments from the old wallet get silently ignored instead of overwriting your new wallet\u2019s data.',
-      'After enrichment finishes, the console now prints a diagnostic summary: how many items had dates, costs, USD prices, and listings resolved. If 97% of your 1,668 items are missing dates, now you\u2019ll know exactly why.',
-      'The refresh button no longer nukes your entire cache. Previously it wiped all enrichment data and started from scratch. Now it only clears listing prices so your acquisition history survives the refresh. Re\u2011enrichment is fast because purchase data is already cached.',
+      'Enrichment used to start before all your NFTs were loaded. Every page of 50 kicked off its own pass, and they\u2019d fight over the screen like toddlers with one crayon. Now it waits for the full collection first.',
+      'Switching wallets mid\u2011enrichment used to leave ghost data from the old wallet haunting your screen. Now stale enrichments just\u2026 cease to exist. As they should.',
+      'Console now dumps a diagnostic report after enrichment. Open DevTools if you dare to see how incomplete your data actually is.',
+      'Refresh used to nuke your entire cache from orbit. Now it only clears listing prices. Your purchase history survives.',
     ],
   },
   {

@@ -25,6 +25,9 @@ interface SimpleMetricsProps {
   totalGunSpent: number;
   gunPrice: number | undefined;
   walletCount?: number;
+  cachedAt?: Date | null;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export function SimpleMetrics({
@@ -43,6 +46,9 @@ export function SimpleMetrics({
   totalGunSpent,
   gunPrice,
   walletCount,
+  cachedAt,
+  onRefresh,
+  isRefreshing,
 }: SimpleMetricsProps) {
   return (
     <div className="border-t border-white/[0.06] grid grid-cols-2 sm:grid-cols-4" aria-live="polite" aria-busy={isInitializing}>
@@ -75,6 +81,9 @@ export function SimpleMetrics({
         nftPnL={nftPnL}
         acquisitionBreakdown={acquisitionBreakdown}
         enrichmentProgress={enrichmentProgress}
+        cachedAt={cachedAt}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
       />
     </div>
   );

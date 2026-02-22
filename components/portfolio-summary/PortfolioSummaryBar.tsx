@@ -191,16 +191,11 @@ export default function PortfolioSummaryBar({
         sparklineSpanDays={data.sparklineSpanDays}
         totalValue={data.totalValue}
         isEnriching={data.isEnriching}
-        enrichmentProgress={enrichmentProgress}
-        isEnrichmentComplete={data.isEnrichmentComplete}
         showGunOverlay={showGunOverlay}
         gunSparklineValues={gunSparklineValues}
         hasMarketValue={data.hasMarketValue}
         costBasisTotal={data.totalValue}
         costBasisValues={costBasisSparklineValues}
-        cachedAt={cachedAt}
-        onRefresh={onRefresh}
-        isRefreshing={isRefreshing}
       />
 
       {/* Simple Mode: 4-Cell Metrics Row */}
@@ -224,6 +219,9 @@ export default function PortfolioSummaryBar({
         totalGunSpent={data.totalGunSpent}
         gunPrice={gunPrice}
         walletCount={walletCount}
+        cachedAt={cachedAt}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
       />
 
       {/* Charts + Insights — side-by-side on desktop, stacked on mobile */}

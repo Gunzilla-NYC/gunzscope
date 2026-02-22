@@ -4,12 +4,27 @@ import { DotIndicator } from '@/components/ui/DotIndicator';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { NftPnL, AcquisitionBreakdown } from '../types';
 
+/** Format a date as a relative time string (e.g. "Just now", "2m ago", "1h ago"). */
+function formatRelativeTime(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 interface DataQualityCardProps {
   isInitializing: boolean;
   nftCount: number;
   nftPnL: NftPnL;
   acquisitionBreakdown: AcquisitionBreakdown;
   enrichmentProgress?: EnrichmentProgress | null;
+  cachedAt?: Date | null;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export const DataQualityCard = memo(function DataQualityCard({
@@ -18,6 +33,9 @@ export const DataQualityCard = memo(function DataQualityCard({
   nftPnL,
   acquisitionBreakdown,
   enrichmentProgress,
+  cachedAt,
+  onRefresh,
+  isRefreshing,
 }: DataQualityCardProps) {
   const [holdingsView, setHoldingsView] = useState(2); // 0=counts, 1=percentages, 2=coverage
   const cycle = useCallback(() => setHoldingsView(prev => (prev + 1) % 3), []);
@@ -46,13 +64,38 @@ export const DataQualityCard = memo(function DataQualityCard({
           {holdingsLabels[holdingsView]}
         </p>
         <DotIndicator count={3} activeIndex={holdingsView} />
-        {isScanning && holdingsView === 2 && (
+        {/* State A: Enriching — spinner + counter */}
+        {(isScanning || isRefreshing) && holdingsView === 2 && (
           <span className="flex items-center gap-1 ml-auto">
             <svg className="w-2.5 h-2.5 animate-spin text-[var(--gs-lime)]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="2" strokeOpacity="0.2" />
               <path d="M14.5 8a6.5 6.5 0 0 0-6.5-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
-            <span className="font-mono text-micro text-[var(--gs-lime)] tabular-nums">{enrichedCount}/{nftCount}</span>
+            <span className="font-mono text-micro text-[var(--gs-lime)] tabular-nums">
+              {isRefreshing && !isScanning ? 'Refreshing\u2026' : `${enrichedCount}/${nftCount}`}
+            </span>
+          </span>
+        )}
+        {/* State B: Complete — checkmark + sync timestamp + refresh button */}
+        {!isScanning && !isRefreshing && holdingsView === 2 && nftCount > 0 && enrichedPct > 0 && (
+          <span className="flex items-center gap-1.5 ml-auto" onClick={e => e.stopPropagation()}>
+            <svg className="w-2.5 h-2.5 text-[var(--gs-lime)]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
+              {cachedAt ? `Synced ${formatRelativeTime(cachedAt)}` : 'Enriched'}
+            </span>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                className="text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors min-h-5 min-w-5 flex items-center justify-center"
+                title="Refresh portfolio data"
+              >
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
           </span>
         )}
       </div>
