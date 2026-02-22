@@ -69,6 +69,10 @@ export interface NFT {
   currentHighestListing?: number;
   comparableSalesMedian?: number; // Median GUN price from recent sales of same item+rarity
   rarityFloor?: number; // Floor price for this item's rarity tier
+  // Track B — Market Exit valuation (from waterfall)
+  marketExitGun?: number;          // Estimated sale price in GUN
+  marketExitTier?: 1 | 2 | 3 | 4 | 5 | 6;  // Which waterfall tier was used
+  marketExitTierLabel?: string;    // "EXACT" | "VIA SALES" | "VIA SKIN" | "VIA WEAPON" | "SIMILAR" | "FLOOR"
   metadataDebug?: NFTMetadataDebug; // Debug info for metadata resolution
   /** Raw type_spec from metadata - contains functional tier (rarity field differs from display rarity) */
   typeSpec?: NFTTypeSpec;

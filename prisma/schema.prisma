@@ -307,3 +307,41 @@ model PortfolioCache {
   @@unique([userProfileId, address])
   @@map("portfolio_caches")
 }
+
+// =============================================================================
+// Referrer - Registered referral link owners
+// =============================================================================
+model Referrer {
+  id               String          @id @default(cuid())
+  walletAddress    String          @unique           // Lowercased
+  slug             String          @unique           // 3-20 chars, lowercase alphanumeric + hyphens
+  totalClicks      Int             @default(0)
+  totalConversions Int             @default(0)       // portfolio_loaded count
+  createdAt        DateTime        @default(now())
+  events           ReferralEvent[]
+
+  @@index([slug])
+  @@map("referrers")
+}
+
+// =============================================================================
+// Referral Event - Tracks click → wallet_connected → portfolio_loaded funnel
+// =============================================================================
+model ReferralEvent {
+  id                 String    @id @default(cuid())
+  referrerId         String
+  referrer           Referrer  @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+  sessionId          String                    // Client-generated UUID linking click → conversion
+  referredWallet     String?                   // Filled on wallet_connected
+  status             String    @default("clicked") // clicked → wallet_connected → portfolio_loaded
+  clickedAt          DateTime  @default(now())
+  walletConnectedAt  DateTime?
+  portfolioLoadedAt  DateTime?
+  userAgent          String?
+  ipHash             String?                   // SHA-256 of IP, not raw
+
+  @@unique([referrerId, referredWallet])
+  @@index([referredWallet])
+  @@index([sessionId])
+  @@map("referral_events")
+}

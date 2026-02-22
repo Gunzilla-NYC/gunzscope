@@ -92,6 +92,8 @@ export interface UseNFTEnrichmentResult {
   ) => void;
   cancelEnrichment: () => void;
   retryEnrichment: () => void;
+  /** Max observed mint number per baseName — prep for Tier 5 scarcity matching */
+  scarcityMap: Map<string, number>;
 }
 
 // =============================================================================
@@ -143,6 +145,9 @@ export function useNFTEnrichmentOrchestrator(
   // Cumulative base: tracks total completed items across all startEnrichment calls
   // so that progress never goes backwards when a new page starts enriching
   const cumulativeBaseRef = useRef(0);
+
+  // Scarcity tracking: max observed mint number per baseName (prep for Tier 5)
+  const scarcityMapRef = useRef(new Map<string, number>());
 
   // Store last enrichment args for retry
   const lastArgsRef = useRef<{
@@ -816,6 +821,20 @@ export function useNFTEnrichmentOrchestrator(
         );
       }
 
+      // Scarcity tracking: collect max mint number per baseName (prep for Tier 5)
+      {
+        const map = scarcityMapRef.current;
+        map.clear();
+        for (const nft of nfts) {
+          const mintStr = nft.mintNumber;
+          if (!mintStr || !nft.name) continue;
+          const mint = parseInt(mintStr, 10);
+          if (isNaN(mint) || mint <= 0) continue;
+          const current = map.get(nft.name) ?? 0;
+          if (mint > current) map.set(nft.name, mint);
+        }
+      }
+
       setIsEnriching(false);
     } catch (error) {
       console.error('[NFT Enrichment] Error:', error);
@@ -858,5 +877,6 @@ export function useNFTEnrichmentOrchestrator(
     startEnrichment,
     cancelEnrichment,
     retryEnrichment,
+    scarcityMap: scarcityMapRef.current,
   };
 }

@@ -17,10 +17,22 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.3.3',
+    date: 'Feb 22, 2026',
+    tag: 'current',
+    title: 'What would you actually get for this thing?',
+    items: [
+      'Every NFT now has two price stories. Track\u00a0A (the one you already know) tells you how GUN\u2019s price movement affected your purchase. Track\u00a0B is new \u2014 it estimates what someone might actually pay you right now, based on real sales data. Neither number alone tells the truth in a market this thin. Together they\u2019re\u2026 less wrong.',
+      'Track\u00a0B uses a six\u2011tier waterfall to find the best comparable price. First it checks if your exact item has sold before. Then similar items. Then items with the same skin. Then same weapon type. Then, if all else fails, collection floor. Each tier shows its source label so you know exactly how confident to be \u2014 "EXACT" means someone literally sold yours before, "FLOOR" means we\u2019re basically guessing.',
+      'Recent sales count more than old ones. A sale from last week matters twice as much as one from three months ago. Because a price from 90 days ago in crypto is basically ancient history.',
+      'Gallery cards now show the Market Exit estimate below P&L \u2014 something like "~592\u00a0GUN \u00b7 VIA\u00a0SALES". It\u2019s small. It\u2019s subtle. It\u2019s the number that matters when you\u2019re actually thinking about selling.',
+      'The NFT detail modal got a fourth stats column: Market Exit. Shows the estimated sale price in both GUN and USD, which waterfall tier produced it, and P&L against your cost basis. All the context you need to decide if that sell button is worth clicking.',
+    ],
+  },
+  {
     version: 'v0.3.2',
     date: 'Feb 21, 2026',
-    tag: 'current',
-    title: 'Your 1,668 NFTs broke everything',
+    title: 'Your 2000+ NFTs broke everything',
     items: [
       'Enrichment used to start before all your NFTs were loaded. Every page of 50 kicked off its own pass, and they\u2019d fight over the screen like toddlers with one crayon. Now it waits for the full collection first.',
       'Switching wallets mid\u2011enrichment used to leave ghost data from the old wallet haunting your screen. Now stale enrichments just\u2026 cease to exist. As they should.',

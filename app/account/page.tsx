@@ -12,6 +12,7 @@ import { useShareStats } from '@/lib/hooks/useShareStats';
 import { getRelativeTime } from '@/lib/hooks/useScarcity';
 import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
+import ReferralSection from '@/components/referral/ReferralSection';
 
 const MAX_PORTFOLIO_WALLETS = 5;
 const MAX_TRACKED_WALLETS = 10;
@@ -1036,6 +1037,11 @@ function AccountContent() {
                   </div>
                 </div>
               </section>
+            )}
+
+            {/* ── Referral Program ── */}
+            {primaryWallet?.address && (
+              <ReferralSection walletAddress={primaryWallet.address} />
             )}
 
             {/* ── Notifications ── */}

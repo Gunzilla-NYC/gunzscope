@@ -1,7 +1,8 @@
 /**
  * NFT Detail Quick Stats
  *
- * Compact 3-column stat row: Cost Basis | Market Value | Unrealized P&L
+ * Compact stat row: Cost Basis | Market Value | Unrealized P&L | Market Exit (Track B)
+ * Adapts to 3 or 4 columns based on Track B data availability.
  * RENDER ONLY: All values computed in parent.
  */
 
@@ -30,6 +31,11 @@ interface NFTDetailQuickStatsProps {
   unrealizedPct: number | null;
   pnlSource?: string | null;
   isLoading?: boolean;
+  // Track B — Market Exit
+  marketExitGun?: number | null;
+  marketExitUsd?: number | null;
+  marketExitTierLabel?: string | null;
+  marketExitPnlUsd?: number | null;
 }
 
 export function NFTDetailQuickStats({
@@ -42,11 +48,18 @@ export function NFTDetailQuickStats({
   unrealizedPct,
   pnlSource,
   isLoading = false,
+  marketExitGun,
+  marketExitUsd,
+  marketExitTierLabel,
+  marketExitPnlUsd,
 }: NFTDetailQuickStatsProps) {
+  const hasTrackB = marketExitGun != null && marketExitGun > 0;
+  const colCount = hasTrackB ? 4 : 3;
+
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-2">
-        {[1, 2, 3].map((i) => (
+      <div className={`grid gap-2 ${colCount === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+        {Array.from({ length: colCount }, (_, i) => (
           <div key={i} className="bg-[var(--gs-dark-3)] border border-white/[0.06] p-3 animate-pulse">
             <div className="h-2 w-12 bg-white/10 rounded mb-2" />
             <div className="h-5 w-16 bg-white/10 rounded" />
@@ -65,13 +78,13 @@ export function NFTDetailQuickStats({
   };
 
   // Format currency — dash for missing data
-  const formatUsd = (value: number | null) => {
-    if (value === null) return <span className="text-white/30">&mdash;</span>;
+  const formatUsd = (value: number | null | undefined) => {
+    if (value == null) return <span className="text-white/30">&mdash;</span>;
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatGun = (value: number | null) => {
-    if (value === null) return <span className="text-white/30">&mdash;</span>;
+  const formatGun = (value: number | null | undefined) => {
+    if (value == null) return <span className="text-white/30">&mdash;</span>;
     return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN`;
   };
 
@@ -81,8 +94,16 @@ export function NFTDetailQuickStats({
     return `${sign}${value.toFixed(1)}%`;
   };
 
+  // Track B P&L color
+  const getTrackBPnlColor = () => {
+    if (marketExitPnlUsd == null) return 'text-white/60';
+    if (marketExitPnlUsd > 0.01) return 'text-[var(--gs-profit)]';
+    if (marketExitPnlUsd < -0.01) return 'text-[var(--gs-loss)]';
+    return 'text-white/60';
+  };
+
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={`grid gap-2 ${colCount === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
       {/* Cost Basis */}
       <div
         className="bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 p-3"
@@ -146,6 +167,35 @@ export function NFTDetailQuickStats({
           </div>
         )}
       </div>
+
+      {/* Track B — Market Exit (only shown when data available) */}
+      {hasTrackB && (
+        <div
+          className="bg-[var(--gs-dark-3)] border border-white/[0.06] border-l-2 p-3"
+          style={{ borderLeftColor: 'var(--gs-gray-2)' }}
+          title="Estimated sale price from comparable market data"
+        >
+          <div className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
+            Market Exit
+          </div>
+          <div className="font-display text-sm font-semibold text-[var(--gs-white)] tabular-nums">
+            ~{Math.round(marketExitGun!).toLocaleString()} GUN
+          </div>
+          <div className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums mt-0.5">
+            {formatUsd(marketExitUsd)}
+          </div>
+          {marketExitTierLabel && (
+            <div className="font-mono text-[8px] uppercase tracking-widest text-[var(--gs-gray-3)] mt-0.5">
+              {marketExitTierLabel}
+            </div>
+          )}
+          {marketExitPnlUsd != null && (
+            <div className={`font-mono text-[8px] tabular-nums mt-0.5 ${getTrackBPnlColor()}`}>
+              {marketExitPnlUsd >= 0 ? '+' : '-'}${Math.abs(marketExitPnlUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

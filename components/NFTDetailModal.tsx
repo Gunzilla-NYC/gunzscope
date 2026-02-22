@@ -370,6 +370,22 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     return { historicalCostUsd, unrealizedUsd, unrealizedPct, pnlSource };
   }, [nft.purchasePriceUsdEstimated, nft.purchasePriceUsd, currentPurchaseData?.purchasePriceUsd, currentPurchaseData?.decodeCostUsd, marketInputs, currentGunPrice, costBasisGun]);
 
+  // =============================================================================
+  // Track B — Market Exit valuation (from waterfall)
+  // =============================================================================
+  const trackB = useMemo(() => {
+    if (!nft.marketExitGun || !currentGunPrice) return null;
+    const exitUsd = nft.marketExitGun * currentGunPrice;
+    const costUsd = quickStats.historicalCostUsd;
+    const pnlUsd = costUsd ? exitUsd - costUsd : null;
+    return {
+      gun: nft.marketExitGun,
+      usd: exitUsd,
+      tierLabel: nft.marketExitTierLabel ?? null,
+      pnlUsd,
+    };
+  }, [nft.marketExitGun, nft.marketExitTierLabel, currentGunPrice, quickStats.historicalCostUsd]);
+
   // Render via portal to document.body so the modal sits above all page content
   if (typeof window === 'undefined') return null;
 
@@ -531,6 +547,10 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   unrealizedPct={quickStats.unrealizedPct}
                   pnlSource={quickStats.pnlSource}
                   isLoading={loadingDetails}
+                  marketExitGun={trackB?.gun ?? null}
+                  marketExitUsd={trackB?.usd ?? null}
+                  marketExitTierLabel={trackB?.tierLabel ?? null}
+                  marketExitPnlUsd={trackB?.pnlUsd ?? null}
                 />
               )}
 

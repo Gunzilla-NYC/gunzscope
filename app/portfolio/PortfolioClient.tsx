@@ -39,6 +39,7 @@ import WalletRequiredGate from '@/components/WalletRequiredGate';
 import { useStableEnrichmentUpdates } from '@/lib/hooks/useStableEnrichmentUpdates';
 import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
+import { useReferralTracking } from '@/lib/hooks/useReferralTracking';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
 import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
 import { seedLocalCacheFromNFTs, invalidateListingPrices } from '@/lib/utils/nftCache';
@@ -181,6 +182,12 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Account gate — first search free, then require wallet connection
   const { canSearch, isGated, incrementSearch, getLastSearchedAddress } = useAccountGate();
   const { setShowAuthFlow, primaryWallet } = useDynamicContext();
+
+  // Referral funnel tracking — fires wallet_connected + portfolio_loaded events
+  useReferralTracking({
+    primaryWalletAddress: primaryWallet?.address,
+    isPortfolioLoaded: !!activeWalletData && !loading,
+  });
 
   // Get user profile for portfolio addresses (authenticated users only)
   const { profile, isConnected, isAuthenticated, addTrackedAddress, addPortfolioAddress, isInPortfolio } = useUserProfile();

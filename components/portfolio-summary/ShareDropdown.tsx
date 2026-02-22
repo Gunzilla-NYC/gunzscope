@@ -9,6 +9,7 @@ import DropPanel from '@/components/ui/DropPanel';
 
 interface ShareDropdownProps {
   walletAddress: string;
+  referralSlug?: string | null;
   totalUsd?: string;
   gunBalance?: string;
   nftCount?: number;
@@ -39,6 +40,7 @@ function buildFallbackUrl(
 
 export function ShareDropdown({
   walletAddress,
+  referralSlug,
   totalUsd,
   gunBalance,
   nftCount,
@@ -64,8 +66,21 @@ export function ShareDropdown({
     else setLocalOpen(false);
   }, [ctxClose]);
 
+  /** Append ?ref=slug to a URL when the user has a referral slug */
+  const appendReferral = useCallback((url: string): string => {
+    if (!referralSlug) return url;
+    try {
+      const urlObj = new URL(url);
+      urlObj.searchParams.set('ref', referralSlug);
+      return urlObj.toString();
+    } catch {
+      return url;
+    }
+  }, [referralSlug]);
+
   /** Create a short URL via the API, falling back to the long URL on failure */
   const getShareUrl = useCallback(async (platform: 'x' | 'discord' | 'copy'): Promise<string> => {
+    let url: string;
     try {
       const token = getAuthToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -86,13 +101,15 @@ export function ShareDropdown({
       });
       const data = await res.json();
       if (data.success && data.code) {
-        return `${window.location.origin}/s/${data.code}`;
+        url = `${window.location.origin}/s/${data.code}`;
+        return appendReferral(url);
       }
     } catch {
       // Fall through to fallback
     }
-    return buildFallbackUrl(walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent);
-  }, [walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent]);
+    url = buildFallbackUrl(walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent);
+    return appendReferral(url);
+  }, [walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent, appendReferral]);
 
   const handleCopyLink = useCallback(async () => {
     const url = await getShareUrl('copy');
@@ -213,9 +230,15 @@ export function ShareDropdown({
 
         {/* Share actions */}
         <div className="p-4 space-y-2">
-          <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-3">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-1">
             Choose platform
           </span>
+          {referralSlug && (
+            <span className="font-mono text-[9px] text-[var(--gs-lime)] block mb-2">
+              Sharing with your referral link
+            </span>
+          )}
+          {!referralSlug && <div className="mb-2" />}
 
           {/* Copy Link */}
           <button

@@ -13,6 +13,7 @@ import { useNftPnL } from '@/components/portfolio-summary/hooks/useNftPnL';
 import { ShareDropdown } from '@/components/portfolio-summary/ShareDropdown';
 import DropPanel from '@/components/ui/DropPanel';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
+import { useReferral } from '@/lib/hooks/useReferral';
 
 interface WalletIdentityProps {
   className?: string;
@@ -140,6 +141,9 @@ export default function WalletIdentity({
     return { label: 'Live', color: '#beffd2' };
   };
   const status = getStatus();
+
+  // Referral slug — only fetches for connected user's wallet (no-op if undefined)
+  const { stats: referralStats } = useReferral(primaryWalletAddress ?? undefined);
 
   // Share data — read from context so ShareDropdown can live here
   const portfolioResult = usePortfolioResult();
@@ -284,6 +288,7 @@ export default function WalletIdentity({
           {address && portfolioResult && (
             <ShareDropdown
               walletAddress={address}
+              referralSlug={referralStats?.slug}
               totalUsd={shareTotal}
               gunBalance={shareGunBalance}
               nftCount={portfolioResult.nftCount}
@@ -330,6 +335,7 @@ export default function WalletIdentity({
         {address && portfolioResult && (
           <ShareDropdown
             walletAddress={address}
+            referralSlug={referralStats?.slug}
             totalUsd={shareTotal}
             gunBalance={shareGunBalance}
             nftCount={portfolioResult.nftCount}

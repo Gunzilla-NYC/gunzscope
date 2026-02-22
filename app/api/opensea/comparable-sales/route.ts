@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
-import { OpenSeaService } from '@/lib/api/opensea';
+import { OpenSeaService, type WaterfallData } from '@/lib/api/opensea';
 
 /**
  * GET /api/opensea/comparable-sales
  *
  * Returns a per-item-name valuation table built from recent sales.
  * Groups by "itemName::rarity" key with median and min sale prices.
+ * Also includes waterfall data for Track B market exit valuation.
  * Server-side cached for 2 hours. Client calls once per portfolio load.
  *
- * Response: { items: { "Vulture Legacy::Epic": { medianGun, minGun, saleCount, rarity, name }, ... } }
+ * Response: { items: {...}, waterfall: { byTokenId, byName, bySkin, byWeapon } }
  */
 
 interface CachedResult {
   items: Record<string, { medianGun: number; minGun: number; saleCount: number; rarity: string; name: string }>;
+  waterfall: WaterfallData;
   totalSalesAnalyzed: number;
   updatedAt: string;
 }
@@ -56,7 +58,7 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { items: {}, totalSalesAnalyzed: 0, updatedAt: new Date().toISOString(), error: 'Failed to fetch comparable sales' },
+      { items: {}, waterfall: { byTokenId: {}, byName: {}, bySkin: {}, byWeapon: {} }, totalSalesAnalyzed: 0, updatedAt: new Date().toISOString(), error: 'Failed to fetch comparable sales' },
       { status: 500 }
     );
   }

@@ -55,6 +55,10 @@ export interface NFTCardData {
   originShortName: string | null;
   originCategory: OriginCategory | null;
   valuationMethod: ValuationMethod | null;
+  // Track B — Market Exit
+  trackBGun: number | null;
+  trackBLabel: string | null;
+  trackBDisplay: string | null;
 }
 
 // ============================================================================
@@ -434,5 +438,11 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
       rarityFloor: nft.rarityFloor,
       currentLowestListing: nft.currentLowestListing,
     }),
+    // Track B — Market Exit
+    trackBGun: nft.marketExitGun ?? null,
+    trackBLabel: nft.marketExitTierLabel ?? null,
+    trackBDisplay: nft.marketExitGun != null
+      ? `~${Math.round(nft.marketExitGun).toLocaleString()} GUN`
+      : null,
   };
 }

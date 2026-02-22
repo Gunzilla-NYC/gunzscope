@@ -165,6 +165,11 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
             {pnlPct !== null && viewMode !== 'small' && (
               <ValuationLabel valuation={cardData.valuationMethod} className="mt-0.5" />
             )}
+            {cardData.trackBDisplay && viewMode !== 'small' && (
+              <span className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-0.5 truncate max-w-full">
+                {cardData.trackBDisplay} &middot; {cardData.trackBLabel}
+              </span>
+            )}
           </div>
         )}
       </div>

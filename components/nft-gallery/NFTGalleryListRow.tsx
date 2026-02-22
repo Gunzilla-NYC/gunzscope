@@ -181,6 +181,11 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
             {pnlPct !== null && (
               <ValuationLabel valuation={cardData.valuationMethod} className="mt-0.5" />
             )}
+            {cardData.trackBDisplay && (
+              <p className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-0.5">
+                {cardData.trackBDisplay} &middot; {cardData.trackBLabel}
+              </p>
+            )}
           </>
         )}
       </div>

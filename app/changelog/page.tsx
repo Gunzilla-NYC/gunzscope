@@ -15,9 +15,25 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.3.3',
+    date: 'Feb 22, 2026',
+    tag: 'current',
+    items: [
+      'Tiered valuation waterfall (Track\u00a0B) \u2014 6\u2011tier Market Exit estimate per NFT: EXACT (same tokenId), VIA\u00a0SALES (same baseName), VIA\u00a0SKIN (same skinDesign), VIA\u00a0WEAPON (same weapon), SIMILAR (deferred), FLOOR (collection floor)',
+      'Time\u2011weighted median \u2014 comparable sales weighted by recency (7d\u00a0=\u00a01.0, 7\u201130d\u00a0=\u00a00.75, 30\u201190d\u00a0=\u00a00.50, 90+\u00a0=\u00a00.25); weighted\u2011median walk instead of simple median',
+      'Item name parser \u2014 new parseItemName() extracts skinDesign and weapon from "X for the Y" naming pattern, enabling Tier\u00a03 and Tier\u00a04 waterfall groupings',
+      'Pure valuation service \u2014 lib/portfolio/valuationService.ts walks waterfall with minimum\u2011sale\u2011count gates (1 for EXACT, 2 for all others), returns estimatedGun + tier + tierLabel',
+      'Waterfall data in comparable\u2011sales API \u2014 /api/opensea/comparable\u2011sales now returns waterfall (byTokenId, byName, bySkin, byWeapon) alongside existing items; backward\u2011compatible optional field',
+      'applyValuationTables enhanced \u2014 calls getMarketExitValuation() per NFT, writes marketExitGun, marketExitTier, marketExitTierLabel to NFT objects',
+      'Track\u00a0B on gallery cards \u2014 grid cards (medium+) and list rows show "~592\u00a0GUN \u00b7 VIA\u00a0SALES" below existing P&L and ValuationLabel',
+      'Track\u00a0B in modal QuickStats \u2014 4th column "Market Exit" shows estimated GUN, USD conversion, tier label, and P&L vs cost basis; grid adapts 3\u2192\u20094 columns when data available',
+      'Scarcity tracking prep \u2014 useNFTEnrichmentOrchestrator now tracks max observed mint number per baseName in scarcityMapRef for future Tier\u00a05 matching',
+      'NFT type extended \u2014 3 new fields: marketExitGun, marketExitTier (1\u20116), marketExitTierLabel',
+    ],
+  },
+  {
     version: 'v0.3.2',
     date: 'Feb 21, 2026',
-    tag: 'current',
     items: [
       'Full\u2011pagination enrichment \u2014 enrichment now defers until all NFT pages are loaded (was firing per\u201150\u2011item page, causing concurrent enrichment races and backward progress jumps on wallets with 50+ NFTs)',
       'Generation\u2011guarded enrichment \u2014 startEnrichment increments a generation counter; all state updates (setProgress, setEnrichedNFTs, updateCallback, setIsEnriching) check gen === generationRef.current before writing, preventing stale enrichments from wallet switches',

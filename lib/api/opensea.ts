@@ -1,4 +1,5 @@
 import { toOpenSeaChain } from '@/lib/utils/openseaChain';
+import { parseItemName } from '@/lib/nft/parseItemName';
 
 /** Drop-in replacement for axios.get — removes ~30KB from client bundle */
 async function fetchGet<T = any>(
@@ -78,6 +79,72 @@ export interface ComparableSale {
   saleDate: Date;
   buyerAddress: string;
   sellerAddress: string;
+}
+
+// =============================================================================
+// Waterfall Valuation Types
+// =============================================================================
+
+export interface WaterfallEntry {
+  timeWeightedMedianGun: number;
+  saleCount: number;
+  newestSaleDaysAgo: number;
+}
+
+export interface WaterfallData {
+  byTokenId: Record<string, WaterfallEntry>;
+  byName: Record<string, WaterfallEntry>;
+  bySkin: Record<string, WaterfallEntry>;
+  byWeapon: Record<string, WaterfallEntry>;
+}
+
+/**
+ * Compute a time-weighted median from a set of sales.
+ * Recent sales have more influence:
+ *   0-7 days ago: weight 1.0
+ *   7-30 days:    weight 0.75
+ *   30-90 days:   weight 0.50
+ *   90+ days:     weight 0.25
+ */
+function getTimeWeight(daysAgo: number): number {
+  if (daysAgo <= 7) return 1.0;
+  if (daysAgo <= 30) return 0.75;
+  if (daysAgo <= 90) return 0.50;
+  return 0.25;
+}
+
+function timeWeightedMedian(sales: { price: number; daysAgo: number }[]): number {
+  if (sales.length === 0) return 0;
+  if (sales.length === 1) return sales[0].price;
+
+  // Sort by price ascending
+  const sorted = [...sales].sort((a, b) => a.price - b.price);
+  const weights = sorted.map(s => getTimeWeight(s.daysAgo));
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  const halfWeight = totalWeight / 2;
+
+  // Walk until cumulative weight >= halfWeight
+  let cumulative = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    cumulative += weights[i];
+    if (cumulative >= halfWeight) {
+      return sorted[i].price;
+    }
+  }
+
+  // Fallback: last price
+  return sorted[sorted.length - 1].price;
+}
+
+/**
+ * Build a WaterfallEntry from a list of sales with their days-ago values.
+ */
+function buildWaterfallEntry(sales: { price: number; daysAgo: number }[]): WaterfallEntry {
+  return {
+    timeWeightedMedianGun: timeWeightedMedian(sales),
+    saleCount: sales.length,
+    newestSaleDaysAgo: Math.min(...sales.map(s => s.daysAgo)),
+  };
 }
 
 // Check if running in browser
@@ -889,20 +956,31 @@ export class OpenSeaService {
     salesToFetch: number = 100
   ): Promise<{
     items: Record<string, { medianGun: number; minGun: number; saleCount: number; rarity: string; name: string }>;
+    waterfall: WaterfallData;
     totalSalesAnalyzed: number;
     updatedAt: string;
   }> {
     const items: Record<string, { medianGun: number; minGun: number; saleCount: number; rarity: string; name: string }> = {};
+    const waterfall: WaterfallData = { byTokenId: {}, byName: {}, bySkin: {}, byWeapon: {} };
     const updatedAt = new Date().toISOString();
 
     try {
       const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, salesToFetch);
       if (recentSales.length === 0) {
-        return { items, totalSalesAnalyzed: 0, updatedAt };
+        return { items, waterfall, totalSalesAnalyzed: 0, updatedAt };
       }
 
-      // Group by item name + rarity
+      const now = Date.now();
+
+      // Group by item name + rarity (existing logic)
       const pricesByItem: Record<string, { prices: number[]; rarity: string; name: string }> = {};
+
+      // Waterfall groupings (new)
+      const waterfallByTokenId: Record<string, { price: number; daysAgo: number }[]> = {};
+      const waterfallByName: Record<string, { price: number; daysAgo: number }[]> = {};
+      const waterfallBySkin: Record<string, { price: number; daysAgo: number }[]> = {};
+      const waterfallByWeapon: Record<string, { price: number; daysAgo: number }[]> = {};
+
       const enrichedTokenIds = new Set<string>();
       const MAX_TRAIT_FETCHES = 30;
 
@@ -912,6 +990,8 @@ export class OpenSeaService {
 
         const name = (sale.nftName || '').trim();
         if (!name) continue;
+
+        const daysAgo = Math.max(0, (now - sale.eventTimestamp.getTime()) / (1000 * 60 * 60 * 24));
 
         // Get rarity via trait enrichment
         if (enrichedTokenIds.size >= MAX_TRAIT_FETCHES && !enrichedTokenIds.has(sale.tokenId)) {
@@ -937,9 +1017,34 @@ export class OpenSeaService {
           pricesByItem[key] = { prices: [], rarity: normalized, name };
         }
         pricesByItem[key].prices.push(effectivePrice);
+
+        // --- Waterfall groupings ---
+        const saleEntry = { price: effectivePrice, daysAgo };
+
+        // Tier 1: by tokenId
+        const tokenKey = sale.tokenId;
+        if (tokenKey) {
+          if (!waterfallByTokenId[tokenKey]) waterfallByTokenId[tokenKey] = [];
+          waterfallByTokenId[tokenKey].push(saleEntry);
+        }
+
+        // Tier 2: by baseName
+        if (!waterfallByName[name]) waterfallByName[name] = [];
+        waterfallByName[name].push(saleEntry);
+
+        // Tier 3 & 4: by skin design and weapon (for skins only)
+        const parsed = parseItemName(name);
+        if (parsed.isSkin && parsed.skinDesign) {
+          if (!waterfallBySkin[parsed.skinDesign]) waterfallBySkin[parsed.skinDesign] = [];
+          waterfallBySkin[parsed.skinDesign].push(saleEntry);
+        }
+        if (parsed.weapon) {
+          if (!waterfallByWeapon[parsed.weapon]) waterfallByWeapon[parsed.weapon] = [];
+          waterfallByWeapon[parsed.weapon].push(saleEntry);
+        }
       }
 
-      // Compute median and min for each item
+      // Compute median and min for each item (existing)
       for (const [key, data] of Object.entries(pricesByItem)) {
         const sorted = [...data.prices].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
@@ -955,14 +1060,28 @@ export class OpenSeaService {
         };
       }
 
+      // Build waterfall entries
+      for (const [key, sales] of Object.entries(waterfallByTokenId)) {
+        waterfall.byTokenId[key] = buildWaterfallEntry(sales);
+      }
+      for (const [key, sales] of Object.entries(waterfallByName)) {
+        waterfall.byName[key] = buildWaterfallEntry(sales);
+      }
+      for (const [key, sales] of Object.entries(waterfallBySkin)) {
+        waterfall.bySkin[key] = buildWaterfallEntry(sales);
+      }
+      for (const [key, sales] of Object.entries(waterfallByWeapon)) {
+        waterfall.byWeapon[key] = buildWaterfallEntry(sales);
+      }
+
       if (DEBUG) {
-        console.log(`[getComparableSalesTable] Built table with ${Object.keys(items).length} items from ${recentSales.length} sales`);
+        console.log(`[getComparableSalesTable] Built table with ${Object.keys(items).length} items, waterfall: ${Object.keys(waterfall.byTokenId).length} tokens, ${Object.keys(waterfall.byName).length} names, ${Object.keys(waterfall.bySkin).length} skins, ${Object.keys(waterfall.byWeapon).length} weapons from ${recentSales.length} sales`);
       }
     } catch (error) {
       console.warn('Error building comparable sales table:', error);
     }
 
-    return { items, totalSalesAnalyzed: salesToFetch, updatedAt };
+    return { items, waterfall, totalSalesAnalyzed: salesToFetch, updatedAt };
   }
 
   /**
