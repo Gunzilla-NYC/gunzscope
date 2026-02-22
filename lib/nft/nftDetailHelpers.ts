@@ -35,6 +35,7 @@ import type {
   DataQualityLevel,
   GetPositionLabelInput,
   MarketInputs,
+  MarketRefSource,
   PositionLabelResult,
   PositionState,
 } from './types';
@@ -45,6 +46,28 @@ import type {
 
 /** Maximum entries in token-keyed maps before FIFO eviction */
 export const TOKEN_MAP_SOFT_CAP = 200;
+
+// =============================================================================
+// P&L Display Helpers
+// =============================================================================
+
+/** Map MarketRefSource to a short display label for P&L attribution */
+export function getPnlMethodLabel(refSource: MarketRefSource | null): string {
+  switch (refSource) {
+    case 'listing_avg':
+    case 'listing_midpoint':
+    case 'listing_low':
+    case 'listing_high':
+    case 'enrichment_listing':
+      return 'VIA LISTING';
+    case 'comparable_sales':
+      return 'VIA SALES';
+    case 'rarity_floor':
+      return 'VIA FLOOR';
+    default:
+      return 'GUN \u0394';
+  }
+}
 
 // =============================================================================
 // warnOnce - Dev-only warning utility

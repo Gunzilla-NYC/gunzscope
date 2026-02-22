@@ -17,9 +17,20 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.3.0',
+    version: 'v0.3.1',
     date: 'Feb 21, 2026',
     tag: 'current',
+    title: 'Your portfolio remembers things now',
+    items: [
+      'Historical GUN prices are now stored on the server. The first person who loads a date\u2019s price saves it for everyone else. No more every\u2011user\u2011for\u2011themselves CoinGecko race.',
+      'Price lookups got a new middle step \u2014 before bugging CoinGecko or DefiLlama, we check if anyone else already looked up that date. If they did, you get the answer instantly. If they didn\u2019t, you still do, and then we save it for the next person.',
+      'Your portfolio header now shows when it was last synced from the server. "Synced 2m ago" or "Synced 3d ago" \u2014 so you know if you\u2019re looking at fresh data or last week\u2019s leftovers.',
+      'Manual refresh button next to the sync timestamp. Click it to clear your local cache and re\u2011fetch everything from chain. The button spins while enrichment runs, because we\u2019re fancy like that.',
+    ],
+  },
+  {
+    version: 'v0.3.0',
+    date: 'Feb 21, 2026',
     title: 'Two P&Ls walk into a modal\u2026',
     items: [
       'Your NFT now has two profit stories instead of one confused mess. When we have actual market data (listings, sales, floors), the headline shows what someone might actually pay you. GUN token appreciation gets its own little corner underneath, with a sentence explaining what happened in plain English. You\u2019re welcome.',
@@ -97,7 +108,7 @@ const UPDATES: UpdateEntry[] = [
   {
     version: 'v0.2.4',
     date: 'Feb 17, 2026',
-    title: 'A line that tells you what you spent',
+    title: 'A line that reminds you that you shouldn\u2019t have crossed it',
     items: [
       'Dashed cost basis line on the portfolio chart. Now you can see how much you actually spent next to how much it\u2019s currently worth. Emotional damage, visualized.',
       'Chart dots fade in as your NFTs load, like little data stars being born. Before this they just appeared all at once. No drama.',
@@ -124,7 +135,7 @@ const UPDATES: UpdateEntry[] = [
     items: [
       'Smooth crossfade between chart views instead of the content just vanishing and reappearing.',
       'Multi-wallet NFT count was not, in fact, counting all the wallets. It is now. Addition.',
-      'Gallery count includes duplicates. If you own 3 of the same skin, that\u2019s 3, not 1. More addition.',
+      'Gallery count includes duplicates. If you own 3 of the same skin, that\u2019s 3 versus 1. Joker would be proud.',
       'Holdings breakdown got a cleaner layout. Less visual noise, same data.',
       'Wallet dropdown got spring animations because static dropdowns are for banks.',
     ],
@@ -261,7 +272,7 @@ const UPDATES: UpdateEntry[] = [
     items: [
       'Multi-wallet architecture \u2014 portfolio context, hooks, the whole plumbing. Not glamorous. Very necessary.',
       'Marketplace price enrichment pipeline. We ask OpenSea what you paid. Sometimes it even answers correctly.',
-      'WaffleChart for portfolio composition. Because pie charts are for earnings calls.',
+      'WaffleChart for portfolio composition. Because pie charts are for measuring pies and figuring out how much pizza is left. Never use pie charts. Just don\u2019t.',
     ],
   },
   {

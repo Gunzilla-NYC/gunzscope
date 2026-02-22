@@ -236,6 +236,22 @@ model PriceCache {
 }
 
 // =============================================================================
+// GUN Price History - Shared historical price cache across all users
+// =============================================================================
+model GunPriceHistory {
+  id         String   @id @default(cuid())
+  date       String   @unique // YYYY-MM-DD (daily granularity, matches localStorage key format)
+  priceUsd   Float             // GUN/USD rate for that date
+  source     String            // 'coingecko' | 'defillama' | 'estimated'
+  confidence String            // 'exact' | 'daily' | 'estimated'
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([date])
+  @@map("gun_price_history")
+}
+
+// =============================================================================
 // Share Link - Short URL for portfolio sharing with view tracking
 // =============================================================================
 model ShareLink {

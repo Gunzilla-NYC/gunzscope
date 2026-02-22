@@ -5,8 +5,8 @@ import { NFT, MarketplacePurchase, AcquisitionVenue } from '@/lib/types';
 import { AvalancheService, NFTHoldingAcquisition } from '@/lib/blockchain/avalanche';
 import { usePortfolioConnectedWallets } from '@/lib/contexts/PortfolioContext';
 import { OpenSeaService } from '@/lib/api/opensea';
-import { CoinGeckoService } from '@/lib/api/coingecko';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
+import { resolveHistoricalGunPrice } from '@/lib/pricing/resolveHistoricalGunPrice';
 import {
   FetchStatus,
   TOKEN_MAP_SOFT_CAP,
@@ -372,6 +372,10 @@ export interface AcquisitionData {
   // Offer fill detection
   isOfferFill?: boolean;       // True when acquired via a pre-signed OpenSea offer (wGUN)
 
+  // Historical price resolution metadata
+  priceConfidence?: 'exact' | 'daily' | 'estimated';   // Confidence of the historical GUN rate used
+  historicalPriceSource?: 'cache' | 'coingecko' | 'defillama' | 'estimated'; // Which source provided the rate
+
   // Legacy compatibility
   transferredFrom?: string;    // Alias for fromAddress when acquisitionType=TRANSFER
   isFreeTransfer?: boolean;    // True if TRANSFER with no price (not applicable to paid decodes)
@@ -665,15 +669,14 @@ export function useNFTAcquisitionPipeline(
         [tokenId]: restoredAcquisition,
       }));
 
-      // Patch up missing USD: if GUN price is known but USD isn't, fetch historical price
+      // Patch up missing USD: if GUN price is known but USD isn't, resolve via waterfall
       // This fires asynchronously and updates state when ready (non-blocking)
       if (cachedData.purchasePriceGun && cachedData.purchasePriceGun > 0 && !cachedData.purchasePriceUsd) {
         const priceDate = cachedData.purchaseDate ? new Date(cachedData.purchaseDate) : undefined;
         if (priceDate) {
-          const cg = new CoinGeckoService();
-          cg.getHistoricalGunPrice(priceDate).then(historicalPrice => {
-            if (historicalPrice) {
-              const usd = cachedData.purchasePriceGun! * historicalPrice;
+          resolveHistoricalGunPrice(priceDate).then(result => {
+            if (result) {
+              const usd = cachedData.purchasePriceGun! * result.rate;
               setItemPurchaseData(prev => ({
                 ...prev,
                 [tokenId]: { ...prev[tokenId], purchasePriceUsd: usd },
@@ -794,7 +797,6 @@ export function useNFTAcquisitionPipeline(
       try {
         const avalancheService = new AvalancheService();
         const openSeaService = new OpenSeaService();
-        const coinGeckoService = new CoinGeckoService();
 
         if (!nftContractAddress) {
           return;
@@ -1284,9 +1286,9 @@ export function useNFTAcquisitionPipeline(
               // Calculate USD value from historical GUN price
               if (purchasePriceGun && purchaseDate) {
                 try {
-                  const historicalPrice = await coinGeckoService.getHistoricalGunPrice(purchaseDate);
-                  if (historicalPrice) {
-                    purchasePriceUsd = purchasePriceGun * historicalPrice;
+                  const priceResult = await resolveHistoricalGunPrice(purchaseDate);
+                  if (priceResult) {
+                    purchasePriceUsd = purchasePriceGun * priceResult.rate;
                   }
                 } catch (priceError) {
                   console.warn('[NFTDetailModal] Failed to get historical GUN price:', priceError);
@@ -1410,6 +1412,8 @@ export function useNFTAcquisitionPipeline(
         let finalIsFreeTransfer: boolean;
         let finalTransferType: 'self' | 'gift' | undefined;
         let finalAcquisitionType: AcquisitionType;
+        let lastPriceConfidence: 'exact' | 'daily' | 'estimated' | undefined;
+        let lastPriceSource: 'cache' | 'coingecko' | 'defillama' | 'estimated' | undefined;
 
         // =====================================================================
         // VENUE-DRIVEN MAPPING
@@ -1443,9 +1447,11 @@ export function useNFTAcquisitionPipeline(
           // Calculate USD from historical GUN price for decode cost
           if (finalDecodeCostGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
-              if (historicalPrice) {
-                finalDecodeCostUsd = finalDecodeCostGun * historicalPrice;
+              const priceResult = await resolveHistoricalGunPrice(finalPurchaseDate);
+              if (priceResult) {
+                finalDecodeCostUsd = finalDecodeCostGun * priceResult.rate;
+                lastPriceConfidence = priceResult.confidence;
+                lastPriceSource = priceResult.source;
               }
             } catch (priceError) {
               console.warn('[NFTDetailModal] Failed to get historical GUN price for decode cost:', priceError);
@@ -1483,9 +1489,11 @@ export function useNFTAcquisitionPipeline(
           // Calculate USD from historical GUN price
           if (finalPurchasePriceGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
-              if (historicalPrice) {
-                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              const priceResult = await resolveHistoricalGunPrice(finalPurchaseDate);
+              if (priceResult) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * priceResult.rate;
+                lastPriceConfidence = priceResult.confidence;
+                lastPriceSource = priceResult.source;
               }
             } catch (priceError) {
               console.warn('[NFTDetailModal] Failed to get historical GUN price for OpenSea purchase:', priceError);
@@ -1517,9 +1525,11 @@ export function useNFTAcquisitionPipeline(
           // Calculate USD from historical GUN price
           if (finalPurchasePriceGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
-              if (historicalPrice) {
-                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              const priceResult = await resolveHistoricalGunPrice(finalPurchaseDate);
+              if (priceResult) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * priceResult.rate;
+                lastPriceConfidence = priceResult.confidence;
+                lastPriceSource = priceResult.source;
               }
             } catch (priceError) {
               console.warn('[NFTDetailModal] Failed to get historical GUN price for in-game marketplace purchase:', priceError);
@@ -1550,9 +1560,11 @@ export function useNFTAcquisitionPipeline(
           // Calculate USD from historical GUN price
           if (finalPurchasePriceGun && finalPurchaseDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(finalPurchaseDate);
-              if (historicalPrice) {
-                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              const priceResult = await resolveHistoricalGunPrice(finalPurchaseDate);
+              if (priceResult) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * priceResult.rate;
+                lastPriceConfidence = priceResult.confidence;
+                lastPriceSource = priceResult.source;
               }
             } catch (priceError) {
               console.warn('[NFTDetailModal] Failed to get historical GUN price for OTG marketplace purchase:', priceError);
@@ -1596,9 +1608,11 @@ export function useNFTAcquisitionPipeline(
             const priceDate = openSeaSaleDate ?? acquiredAt;
             if (finalPurchasePriceGun && priceDate) {
               try {
-                const historicalPrice = await coinGeckoService.getHistoricalGunPrice(priceDate);
-                if (historicalPrice) {
-                  finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+                const priceResult = await resolveHistoricalGunPrice(priceDate);
+                if (priceResult) {
+                  finalPurchasePriceUsd = finalPurchasePriceGun * priceResult.rate;
+                  lastPriceConfidence = priceResult.confidence;
+                  lastPriceSource = priceResult.source;
                 }
               } catch (priceError) {
                 console.warn('[NFTDetailModal] Failed to get historical GUN price for transfer:', priceError);
@@ -1614,9 +1628,11 @@ export function useNFTAcquisitionPipeline(
             // Calculate USD from historical GUN price at transfer date
             if (acquiredAt) {
               try {
-                const historicalPrice = await coinGeckoService.getHistoricalGunPrice(acquiredAt);
-                if (historicalPrice) {
-                  finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+                const priceResult = await resolveHistoricalGunPrice(acquiredAt);
+                if (priceResult) {
+                  finalPurchasePriceUsd = finalPurchasePriceGun * priceResult.rate;
+                  lastPriceConfidence = priceResult.confidence;
+                  lastPriceSource = priceResult.source;
                 }
               } catch (priceError) {
                 console.warn('[NFTDetailModal] Failed to get historical GUN price for transfer with chain cost:', priceError);
@@ -1638,9 +1654,11 @@ export function useNFTAcquisitionPipeline(
             const senderPriceDate = finalPurchaseDate ?? acquiredAt;
             if (senderPriceDate) {
               try {
-                const historicalPrice = await coinGeckoService.getHistoricalGunPrice(senderPriceDate);
-                if (historicalPrice) {
-                  finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+                const priceResult = await resolveHistoricalGunPrice(senderPriceDate);
+                if (priceResult) {
+                  finalPurchasePriceUsd = finalPurchasePriceGun * priceResult.rate;
+                  lastPriceConfidence = priceResult.confidence;
+                  lastPriceSource = priceResult.source;
                 }
               } catch (priceError) {
                 console.warn('[NFTDetailModal] Failed to get historical GUN price for sender cost:', priceError);
@@ -1727,9 +1745,11 @@ export function useNFTAcquisitionPipeline(
           const priceDate = finalPurchaseDate ?? acquiredAt;
           if (priceDate) {
             try {
-              const historicalPrice = await coinGeckoService.getHistoricalGunPrice(priceDate);
-              if (historicalPrice) {
-                finalPurchasePriceUsd = finalPurchasePriceGun * historicalPrice;
+              const priceResult = await resolveHistoricalGunPrice(priceDate);
+              if (priceResult) {
+                finalPurchasePriceUsd = finalPurchasePriceGun * priceResult.rate;
+                lastPriceConfidence = priceResult.confidence;
+                lastPriceSource = priceResult.source;
               }
             } catch {
               // Non-blocking — USD value will remain undefined
@@ -1760,6 +1780,10 @@ export function useNFTAcquisitionPipeline(
 
           // Offer fill detection
           isOfferFill: acquisition?.isOfferFill,
+
+          // Historical price resolution metadata
+          priceConfidence: lastPriceConfidence,
+          historicalPriceSource: lastPriceSource,
 
           // Legacy compatibility
           transferredFrom: (hasTransferData && finalAcquisitionType === 'TRANSFER') ? fromAddress : undefined,

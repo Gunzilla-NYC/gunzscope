@@ -33,6 +33,9 @@ interface PortfolioSummaryBarProps {
   onRetryEnrichment?: () => void;
   walletAddress?: string;
   walletCount?: number;
+  cachedAt?: Date | null;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export default function PortfolioSummaryBar({
@@ -45,6 +48,9 @@ export default function PortfolioSummaryBar({
   enrichmentProgress,
   walletAddress,
   walletCount,
+  cachedAt,
+  onRefresh,
+  isRefreshing,
 }: PortfolioSummaryBarProps) {
   // All computed data from hook
   const data = usePortfolioSummaryData(portfolioResult, gunPrice, nfts, enrichmentProgress, walletAddress, gunPriceSparkline);
@@ -192,6 +198,9 @@ export default function PortfolioSummaryBar({
         hasMarketValue={data.hasMarketValue}
         costBasisTotal={data.totalValue}
         costBasisValues={costBasisSparklineValues}
+        cachedAt={cachedAt}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
       />
 
       {/* Simple Mode: 4-Cell Metrics Row */}

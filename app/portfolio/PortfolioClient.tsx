@@ -41,7 +41,7 @@ import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
 import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
-import { seedLocalCacheFromNFTs } from '@/lib/utils/nftCache';
+import { seedLocalCacheFromNFTs, clearWalletCache } from '@/lib/utils/nftCache';
 import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
 import { useChartMilestoneGating } from '@/lib/hooks/useChartMilestoneGating';
 import { usePortfolioSnapshot } from '@/lib/hooks/usePortfolioSnapshot';
@@ -764,6 +764,14 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     return Array.from(set);
   }, [primaryWallet?.address, portfolioAddresses]);
 
+  // Manual refresh — clears localStorage cache and re-fetches from chain
+  const handleRefresh = useCallback(() => {
+    if (!activeWalletData?.address) return;
+    clearWalletCache(activeWalletData.address);
+    setLoadedFromCache(false);
+    handleWalletSubmit(activeWalletData.address, 'avalanche');
+  }, [activeWalletData?.address]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const contextValue: PortfolioContextValue = useMemo(() => ({
     walletData: activeWalletData,
     address: activeWalletData?.address ?? null,
@@ -1100,6 +1108,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               enrichmentProgress={enrichmentProgress}
               onRetryEnrichment={retryEnrichment}
               walletAddress={activeWalletData.address}
+              cachedAt={cachedAt}
+              onRefresh={handleRefresh}
+              isRefreshing={enrichingNFTs}
             />
 
             {/* Cross-sell: leaderboard */}

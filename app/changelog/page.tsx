@@ -15,9 +15,22 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.3.0',
+    version: 'v0.3.1',
     date: 'Feb 21, 2026',
     tag: 'current',
+    items: [
+      'Server\u2011side GUN price history cache \u2014 new GunPriceHistory Prisma model stores confirmed historical GUN/USD rates in Neon PostgreSQL; shared across all users so the first person to resolve a date\u2019s price populates it for everyone',
+      'Waterfall tier 2: server cache \u2014 resolveHistoricalGunPrice now checks the shared server table between localStorage and CoinGecko (3s timeout), with write\u2011through to localStorage on hit and fire\u2011and\u2011forget write\u2011back on CoinGecko/DefiLlama success',
+      'GET /api/gun\u2011price/history \u2014 public endpoint with CDN caching (1h fresh, 24h stale\u2011while\u2011revalidate); 404s cached for 5 min to avoid hammering DB for missing dates',
+      'POST /api/gun\u2011price/history \u2014 validated write endpoint with ATH guard, confidence\u2011based upgrade logic (won\u2019t overwrite daily with estimated), rejects estimated prices from shared table',
+      '"Synced X ago" indicator \u2014 ValueHeader shows when the portfolio was last loaded from server cache, with staleness coloring (>24h = brighter gray)',
+      'Manual refresh button \u2014 spinning refresh icon next to the synced timestamp clears localStorage cache and re\u2011triggers full wallet fetch + enrichment',
+      'Refresh disabled during enrichment \u2014 button grays out and spins while NFT enrichment is active to prevent redundant requests',
+    ],
+  },
+  {
+    version: 'v0.3.0',
+    date: 'Feb 21, 2026',
     items: [
       'Modal P&L reorganization \u2014 separated market valuation from GUN appreciation into two distinct P&L stories: market-based (via listings/sales/floor) when available, xGUN fallback otherwise',
       'Unified P&L computation \u2014 QuickStats UNREALIZED and YOUR POSITION P&L now always agree (both use market-first, xGUN fallback)',

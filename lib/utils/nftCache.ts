@@ -245,9 +245,14 @@ export interface CachedTransferData {
   isFreeTransfer?: boolean;
 }
 
+export type HistoricalPriceSource = 'coingecko' | 'defillama' | 'estimated';
+export type PriceConfidence = 'exact' | 'daily' | 'estimated';
+
 export interface CachedPriceData {
   gunUsdRate: number;
   timestamp: string; // ISO string
+  source?: HistoricalPriceSource;
+  confidence?: PriceConfidence;
 }
 
 /**
@@ -347,19 +352,62 @@ export function getCachedHistoricalGunPrice(date: Date): CacheResult<CachedPrice
 }
 
 /**
- * Set cached historical GUN price (7 days TTL - historical data doesn't change)
+ * Set cached historical GUN price.
+ * - 7 days TTL for confirmed sources (coingecko, defillama)
+ * - 4 hours TTL for estimated prices (so they can be upgraded on next attempt)
  */
 export function setCachedHistoricalGunPrice(
   date: Date,
   rate: number,
-  ttlSeconds: number = 7 * 24 * 60 * 60 // 7 days
+  source?: HistoricalPriceSource,
+  confidence?: PriceConfidence,
+  ttlSeconds?: number,
 ): void {
   const fullKey = buildHistoricalPriceCacheKey(date);
+  const effectiveTtl = ttlSeconds ?? (confidence === 'estimated' ? 4 * 60 * 60 : 7 * 24 * 60 * 60);
   const data: CachedPriceData = {
     gunUsdRate: rate,
     timestamp: date.toISOString(),
+    source,
+    confidence,
   };
-  cacheSet(fullKey, SCHEMA_VERSIONS.priceGunUsd, data, ttlSeconds);
+  cacheSet(fullKey, SCHEMA_VERSIONS.priceGunUsd, data, effectiveTtl);
+}
+
+/**
+ * Find the nearest cached historical GUN price BEFORE the target date.
+ * Scans localStorage for all historical price entries and returns the closest match.
+ * Used as last-resort fallback when all API sources fail.
+ */
+export function findNearestCachedGunPrice(targetDate: Date): CachedPriceData | null {
+  if (typeof window === 'undefined') return null;
+
+  const prefix = `${CACHE_NAMESPACE}:price:gunusd:${SCHEMA_VERSIONS.priceGunUsd}:historical:`;
+  const targetTime = targetDate.getTime();
+  let bestMatch: CachedPriceData | null = null;
+  let bestDiff = Infinity;
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith(prefix)) continue;
+
+    const dateSuffix = key.slice(prefix.length); // YYYY-MM-DD
+    const parsed = new Date(dateSuffix + 'T00:00:00Z');
+    if (isNaN(parsed.getTime())) continue;
+
+    const diff = targetTime - parsed.getTime();
+    if (diff < 0) continue; // Skip dates after target
+    if (diff >= bestDiff) continue;
+
+    // Read the cache entry to ensure it's valid
+    const result = cacheGet<CachedPriceData>(key, SCHEMA_VERSIONS.priceGunUsd);
+    if (!result.hit || !result.value) continue;
+
+    bestDiff = diff;
+    bestMatch = result.value;
+  }
+
+  return bestMatch;
 }
 
 // =============================================================================
