@@ -15,9 +15,21 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.3.1',
+    version: 'v0.3.2',
     date: 'Feb 21, 2026',
     tag: 'current',
+    items: [
+      'Full\u2011pagination enrichment \u2014 enrichment now defers until all NFT pages are loaded (was firing per\u201150\u2011item page, causing concurrent enrichment races and backward progress jumps on wallets with 50+ NFTs)',
+      'Generation\u2011guarded enrichment \u2014 startEnrichment increments a generation counter; all state updates (setProgress, setEnrichedNFTs, updateCallback, setIsEnriching) check gen === generationRef.current before writing, preventing stale enrichments from wallet switches',
+      'Enrichment diagnostic summary \u2014 console.info after completion logs total/cached/fresh/failed counts, date/costGUN/costUSD/listing resolution percentages, free transfer count, and venue breakdown',
+      'Incremental refresh \u2014 handleRefresh uses new invalidateListingPrices() instead of clearWalletCache(); only clears listingFetchedAt/currentLowestListing/currentHighestListing on each cached entry, preserving all acquisition data',
+      'Removed groupNFTsByMetadata import from PortfolioClient \u2014 handleLoadMoreNFTs now passes mergedNFTs (already grouped) directly to startEnrichment instead of re\u2011grouping per page',
+      'cumulativeBaseRef reset \u2014 new startEnrichment calls reset cumulativeBaseRef to 0 alongside generation bump, preventing stale cumulative offsets',
+    ],
+  },
+  {
+    version: 'v0.3.1',
+    date: 'Feb 21, 2026',
     items: [
       'Server\u2011side GUN price history cache \u2014 new GunPriceHistory Prisma model stores confirmed historical GUN/USD rates in Neon PostgreSQL; shared across all users so the first person to resolve a date\u2019s price populates it for everyone',
       'Waterfall tier 2: server cache \u2014 resolveHistoricalGunPrice now checks the shared server table between localStorage and CoinGecko (3s timeout), with write\u2011through to localStorage on hit and fire\u2011and\u2011forget write\u2011back on CoinGecko/DefiLlama success',

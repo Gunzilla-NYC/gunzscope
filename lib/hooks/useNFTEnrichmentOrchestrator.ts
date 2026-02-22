@@ -135,6 +135,11 @@ export function useNFTEnrichmentOrchestrator(
   // Cancellation ref
   const cancelledRef = useRef(false);
 
+  // Generation counter: increments on each startEnrichment call.
+  // Stale enrichments (from a previous wallet or re-trigger) are silently ignored
+  // when their captured generation doesn't match the current one.
+  const generationRef = useRef(0);
+
   // Cumulative base: tracks total completed items across all startEnrichment calls
   // so that progress never goes backwards when a new page starts enriching
   const cumulativeBaseRef = useRef(0);
@@ -610,7 +615,11 @@ export function useNFTEnrichmentOrchestrator(
     // Store args for retry
     lastArgsRef.current = { nfts, walletAddress, avalancheService, marketplaceService, updateCallback, connectedWallets };
 
+    // Cancel any previous enrichment and bump generation
+    cancelledRef.current = true;
+    const gen = ++generationRef.current;
     cancelledRef.current = false;
+    cumulativeBaseRef.current = 0;
     setIsEnriching(true);
 
     const nftContractAddress = NFT_CONTRACT_ADDRESS;
@@ -685,6 +694,7 @@ export function useNFTEnrichmentOrchestrator(
         return nft;
       });
 
+      if (gen !== generationRef.current) return;
       updateCallback(nftsWithCache);
       setEnrichedNFTs(nftsWithCache);
 
@@ -701,6 +711,7 @@ export function useNFTEnrichmentOrchestrator(
       const base = cumulativeBaseRef.current;
 
       if (nftsNeedingEnrichment.length === 0) {
+        if (gen !== generationRef.current) return;
         cumulativeBaseRef.current = base + totalNftCount;
         setProgress({ completed: base + totalNftCount, total: base + totalNftCount, phase: 'complete', failedCount: 0 });
         setIsEnriching(false);
@@ -733,7 +744,7 @@ export function useNFTEnrichmentOrchestrator(
       let completedCount = 0;
 
       for (let i = 0; i < orderedNftsToEnrich.length; i += batchSize) {
-        if (cancelledRef.current) break;
+        if (cancelledRef.current || gen !== generationRef.current) break;
 
         const batch = orderedNftsToEnrich.slice(i, i + batchSize);
 
@@ -750,7 +761,7 @@ export function useNFTEnrichmentOrchestrator(
             const key = enrichedNFT.tokenIds?.[0] || enrichedNFT.tokenId;
             enrichedResults.set(key, enrichedNFT);
             completedCount++;
-            if (!cancelledRef.current) {
+            if (!cancelledRef.current && gen === generationRef.current) {
               setProgress({ completed: base + cachedCount + completedCount, total: base + totalNftCount, phase: 'enriching', failedCount });
             }
 
@@ -759,7 +770,7 @@ export function useNFTEnrichmentOrchestrator(
         );
 
         // Push full batch update to callback
-        if (!cancelledRef.current) {
+        if (!cancelledRef.current && gen === generationRef.current) {
           const updatedNFTs = nfts.map(nft => {
             const key = nft.tokenIds?.[0] || nft.tokenId;
             return enrichedResults.get(key) || nft;
@@ -768,17 +779,49 @@ export function useNFTEnrichmentOrchestrator(
           setEnrichedNFTs(updatedNFTs);
         }
 
-        if (i + batchSize < orderedNftsToEnrich.length && !cancelledRef.current) {
+        if (i + batchSize < orderedNftsToEnrich.length && !cancelledRef.current && gen === generationRef.current) {
           await delay(batchDelayMs);
         }
       }
 
+      if (gen !== generationRef.current) return;
       cumulativeBaseRef.current = base + totalNftCount;
       setProgress({ completed: base + totalNftCount, total: base + totalNftCount, phase: 'complete', failedCount });
+
+      // Diagnostic summary — helps debug resolution gaps on large wallets
+      {
+        const allResults = Array.from(enrichedResults.values());
+        const withDate = allResults.filter(n => n.purchaseDate).length;
+        const withCostGun = allResults.filter(n => n.purchasePriceGun && n.purchasePriceGun > 0).length;
+        const withCostUsd = allResults.filter(n => n.purchasePriceUsd && n.purchasePriceUsd > 0).length;
+        const withListing = allResults.filter(n => n.currentLowestListing && n.currentLowestListing > 0).length;
+        const freeTransfers = allResults.filter(n => n.isFreeTransfer).length;
+
+        // Venue breakdown
+        const venues: Record<string, number> = {};
+        allResults.forEach(n => {
+          const v = n.acquisitionVenue || 'unknown';
+          venues[v] = (venues[v] || 0) + 1;
+        });
+
+        console.info(
+          `[Enrichment Summary] ${walletAddress.slice(0, 8)}...\n` +
+          `  Total: ${totalNftCount} | Cached: ${cachedCount} | Fresh: ${nftsNeedingEnrichment.length} | Failed: ${failedCount}\n` +
+          `  Dates: ${withDate}/${totalNftCount} (${((withDate / totalNftCount) * 100).toFixed(1)}%)\n` +
+          `  Cost GUN: ${withCostGun}/${totalNftCount} (${((withCostGun / totalNftCount) * 100).toFixed(1)}%)\n` +
+          `  Cost USD: ${withCostUsd}/${totalNftCount} (${((withCostUsd / totalNftCount) * 100).toFixed(1)}%)\n` +
+          `  Listings: ${withListing}/${totalNftCount} (${((withListing / totalNftCount) * 100).toFixed(1)}%)\n` +
+          `  Free transfers: ${freeTransfers}\n` +
+          `  Venues: ${Object.entries(venues).map(([v, c]) => `${v}=${c}`).join(', ')}`
+        );
+      }
+
       setIsEnriching(false);
     } catch (error) {
       console.error('[NFT Enrichment] Error:', error);
-      setIsEnriching(false);
+      if (gen === generationRef.current) {
+        setIsEnriching(false);
+      }
     }
   }, [enabled, priorityCount, batchSize, batchDelayMs, enrichSingleNFT]);
 

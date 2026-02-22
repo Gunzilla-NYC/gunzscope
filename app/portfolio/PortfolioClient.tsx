@@ -17,7 +17,7 @@ const NFTGallery = dynamic(() => import('@/components/NFTGallery'), {
 import { WalletData, NFTPaginationInfo } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import type { NetworkInfo } from '@/lib/utils/networkDetector';
-import { groupNFTsByMetadata, mergeIntoGroups } from '@/lib/utils/nftGrouping';
+import { mergeIntoGroups } from '@/lib/utils/nftGrouping';
 import Navbar from '@/components/Navbar';
 
 const DebugPanel = dynamic(() => import('@/components/DebugPanel'), { ssr: false });
@@ -41,7 +41,7 @@ import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
 import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
-import { seedLocalCacheFromNFTs, clearWalletCache } from '@/lib/utils/nftCache';
+import { seedLocalCacheFromNFTs, invalidateListingPrices } from '@/lib/utils/nftCache';
 import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
 import { useChartMilestoneGating } from '@/lib/hooks/useChartMilestoneGating';
 import { usePortfolioSnapshot } from '@/lib/hooks/usePortfolioSnapshot';
@@ -346,18 +346,19 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           isLoadingMore: false,
         }));
 
-        // Start background enrichment for new NFTs using hook
-        const marketplaceConfigured = marketplaceServiceRef.current.isConfigured();
-        const groupedNewNFTs = groupNFTsByMetadata(result.nfts);
-
-        startEnrichment(
-          groupedNewNFTs,
-          activeWalletData.address,
-          avalancheService,
-          marketplaceConfigured ? marketplaceServiceRef.current : null,
-          createUpdateCallback(activeWalletData.address),
-          connectedWallets
-        );
+        // Start background enrichment ONLY when all pages are loaded.
+        // This prevents concurrent enrichment races and backward progress jumps.
+        if (!result.hasMore) {
+          const marketplaceConfigured = marketplaceServiceRef.current.isConfigured();
+          startEnrichment(
+            mergedNFTs,
+            activeWalletData.address,
+            avalancheService,
+            marketplaceConfigured ? marketplaceServiceRef.current : null,
+            createUpdateCallback(activeWalletData.address),
+            connectedWallets
+          );
+        }
       } else {
         setNftPagination(prev => ({
           ...prev,
@@ -536,18 +537,23 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       // This prevents the search bar from showing the wallet address and triggering the dropdown
       setSearchAddress('');
 
-      // Start background enrichment for active wallet's Avalanche NFTs
-      const marketplaceConfigured = marketplaceService.isConfigured();
-      const activeWd = newMap[address.toLowerCase()];
-      if (activeWd) {
-        startEnrichment(
-          activeWd.avalanche.nfts,
-          address,
-          avalancheService,
-          marketplaceConfigured ? marketplaceService : null,
-          createUpdateCallback(address),
-          connectedWallets
-        );
+      // Start background enrichment ONLY when all NFT pages are loaded.
+      // For wallets with >50 NFTs, enrichment is deferred until handleLoadMoreNFTs
+      // fetches the final page — prevents concurrent enrichment races and backward
+      // progress jumps.
+      if (!primaryResult.nftResult.hasMore) {
+        const marketplaceConfigured = marketplaceService.isConfigured();
+        const activeWd = newMap[address.toLowerCase()];
+        if (activeWd) {
+          startEnrichment(
+            activeWd.avalanche.nfts,
+            address,
+            avalancheService,
+            marketplaceConfigured ? marketplaceService : null,
+            createUpdateCallback(address),
+            connectedWallets
+          );
+        }
       }
 
       // Fetch rarity floors + comparable sales + collection floor in parallel, then inject into NFTs
@@ -767,7 +773,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // Manual refresh — clears localStorage cache and re-fetches from chain
   const handleRefresh = useCallback(() => {
     if (!activeWalletData?.address) return;
-    clearWalletCache(activeWalletData.address);
+    invalidateListingPrices(activeWalletData.address);
     setLoadedFromCache(false);
     handleWalletSubmit(activeWalletData.address, 'avalanche');
   }, [activeWalletData?.address]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -666,6 +666,44 @@ export function seedLocalCacheFromNFTs(
 // =============================================================================
 
 /**
+ * Invalidate listing prices for a wallet without destroying acquisition data.
+ * Clears `listingFetchedAt` on each cached NFT so the enrichment pipeline
+ * re-fetches listings while keeping purchase prices, dates, and venues intact.
+ * Use this for manual refresh instead of clearWalletCache.
+ */
+export function invalidateListingPrices(walletAddress: string): void {
+  if (!isBrowser) return;
+
+  const prefix = `${CACHE_NAMESPACE}:nft:detail:${SCHEMA_VERSIONS.nftDetail}:${walletAddress.toLowerCase()}:`;
+
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+
+      try {
+        const entry = JSON.parse(raw) as CacheEntry<CachedNFTDetailData>;
+        if (!entry.data) continue;
+
+        // Clear listing timestamps so enrichment treats them as stale
+        entry.data.listingFetchedAt = undefined;
+        entry.data.currentLowestListing = undefined;
+        entry.data.currentHighestListing = undefined;
+
+        localStorage.setItem(key, JSON.stringify(entry));
+      } catch {
+        // Skip corrupted entries
+      }
+    }
+  } catch (error) {
+    console.error('Error invalidating listing prices:', error);
+  }
+}
+
+/**
  * Clear all caches for a specific wallet
  */
 export function clearWalletCache(walletAddress: string): void {
