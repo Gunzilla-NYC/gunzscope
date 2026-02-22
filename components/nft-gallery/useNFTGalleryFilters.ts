@@ -260,17 +260,23 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
             return a.name.localeCompare(b.name);
           }
           case 'pnl-desc': {
-            // xGUN P&L: sort by USD unrealized gain from GUN price appreciation
-            const getXGunPnl = (nft: NFT): number => {
+            // Market-first P&L sort: prefer market-based (sales/floor/listing),
+            // fall back to GUN token appreciation. Matches deriveCardData() waterfall.
+            const getPnlUsd = (nft: NFT): number => {
               if (!nft.purchasePriceGun || nft.purchasePriceGun <= 0) return -Infinity;
-              if (!nft.purchasePriceUsd || nft.purchasePriceUsd <= 0 || nft.purchasePriceUsdEstimated !== false) return -Infinity;
               if (!currentGunPrice || currentGunPrice <= 0) return -Infinity;
-              const Y = nft.purchasePriceUsd / nft.purchasePriceGun;
               const qty = nft.quantity ?? 1;
+              const marketVal = nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.currentLowestListing;
+              if (marketVal && marketVal > 0) {
+                return (marketVal - nft.purchasePriceGun) * qty * currentGunPrice;
+              }
+              // GUN Δ fallback
+              if (!nft.purchasePriceUsd || nft.purchasePriceUsd <= 0 || nft.purchasePriceUsdEstimated !== false) return -Infinity;
+              const Y = nft.purchasePriceUsd / nft.purchasePriceGun;
               return nft.purchasePriceGun * qty * (currentGunPrice - Y);
             };
-            const aPnl = getXGunPnl(a);
-            const bPnl = getXGunPnl(b);
+            const aPnl = getPnlUsd(a);
+            const bPnl = getPnlUsd(b);
             if (aPnl !== bPnl) return bPnl - aPnl;
             return a.name.localeCompare(b.name);
           }

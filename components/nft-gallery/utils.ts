@@ -365,20 +365,30 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     ? `${priceGun.toLocaleString()} GUN`
     : getCostBasisDisplay(nft).label;
 
-  // P&L: pure GUN/USD price appreciation (xGUN)
-  // Y = historical GUN/USD at purchase, Z = current GUN/USD
-  // F = ((Z - Y) / Y) × 100
-  // Skip when purchasePriceUsd is estimated (pre-CoinGecko fallback) — ratio would be wrong
+  // P&L: market-first waterfall, falling back to GUN token appreciation.
+  // Tiers 1-3 (market-based): compare market GUN value vs cost GUN → percentage
+  // Tier 4 (GUN Δ): compare historical vs current GUN/USD rate → percentage
   const totalCost = priceGun; // already aggregate
   let pnlPct: number | null = null;
   let unrealizedUsd: number | null = null;
 
+  const perItemCostGun = nft.purchasePriceGun;
+  const marketValueGun = nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.currentLowestListing;
+
   if (totalCost !== undefined && totalCost > 0
+    && perItemCostGun && perItemCostGun > 0
+    && marketValueGun && marketValueGun > 0
+    && currentGunPrice && currentGunPrice > 0) {
+    // Market-based P&L: (marketValue - cost) / cost
+    pnlPct = ((marketValueGun - perItemCostGun) / perItemCostGun) * 100;
+    unrealizedUsd = (marketValueGun - perItemCostGun) * qty * currentGunPrice;
+  } else if (totalCost !== undefined && totalCost > 0
     && nft.purchasePriceUsd && nft.purchasePriceUsd > 0
     && nft.purchasePriceUsdEstimated === false
-    && nft.purchasePriceGun && nft.purchasePriceGun > 0
+    && perItemCostGun && perItemCostGun > 0
     && currentGunPrice && currentGunPrice > 0) {
-    const Y = nft.purchasePriceUsd / nft.purchasePriceGun; // historical GUN/USD
+    // GUN Δ fallback: pure GUN/USD price appreciation
+    const Y = nft.purchasePriceUsd / perItemCostGun; // historical GUN/USD
     pnlPct = ((currentGunPrice - Y) / Y) * 100;
     unrealizedUsd = totalCost * (currentGunPrice - Y);
   }
