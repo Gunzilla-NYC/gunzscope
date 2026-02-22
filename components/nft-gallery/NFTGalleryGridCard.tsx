@@ -202,10 +202,10 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
                   }`}>
                     {cardData.trackBPnlPct > 1 ? '\u25B2' : cardData.trackBPnlPct < -1 ? '\u25BC' : '\u2013'}{' '}
                     {cardData.trackBPnlPct >= 0 ? '+' : ''}{cardData.trackBPnlPct.toFixed(1)}%{' '}
-                    <span className="text-[var(--gs-gray-2)]">{cardData.trackBLabel}</span>
+                    <span className="text-[var(--gs-gray-2)]">MARKET</span>
                   </span>
                 ) : (
-                  <span className="font-mono text-[8px] text-[var(--gs-gray-2)]">{cardData.trackBLabel}</span>
+                  <span className="font-mono text-[8px] text-[var(--gs-gray-2)]">MARKET</span>
                 )}
               </div>
             )}

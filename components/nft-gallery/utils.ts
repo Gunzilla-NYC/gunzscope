@@ -457,12 +457,16 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     trackADisplay: trackAPnlPct !== null
       ? `${trackAPnlPct > 1 ? '\u25B2' : trackAPnlPct < -1 ? '\u25BC' : '\u2013'} ${trackAPnlPct >= 0 ? '+' : ''}${trackAPnlPct.toFixed(1)}%`
       : null,
-    // Track B — Market Exit
+    // Track B — Market Exit (fall back to same waterfall as P&L when marketExitGun unavailable)
     trackBPnlPct,
-    trackBGun: nft.marketExitGun ?? null,
-    trackBLabel: nft.marketExitTierLabel ?? null,
-    trackBDisplay: nft.marketExitGun != null
-      ? `~${Math.round(nft.marketExitGun).toLocaleString()} GUN`
+    trackBGun: nft.marketExitGun ?? (marketValueGun && marketValueGun > 0 ? marketValueGun : null),
+    trackBLabel: nft.marketExitTierLabel
+      ?? (nft.comparableSalesMedian ? 'VIA SALES'
+        : nft.rarityFloor ? 'RARITY'
+        : nft.currentLowestListing ? 'LISTED'
+        : null),
+    trackBDisplay: (nft.marketExitGun ?? (marketValueGun && marketValueGun > 0 ? marketValueGun : null)) != null
+      ? `~${Math.round(nft.marketExitGun ?? marketValueGun!).toLocaleString()} GUN`
       : null,
   };
 }
