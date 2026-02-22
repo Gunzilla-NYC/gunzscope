@@ -34,11 +34,10 @@ const UPDATES: UpdateEntry[] = [
     date: 'Feb 22, 2026',
     title: 'What would you actually get for this thing?',
     items: [
-      'Every NFT now has two price stories. Track\u00a0A (the one you already know) tells you how GUN\u2019s price movement affected your purchase. Track\u00a0B is new \u2014 it estimates what someone might actually pay you right now, based on real sales data. Neither number alone tells the truth in a market this thin. Together they\u2019re\u2026 less wrong.',
-      'Track\u00a0B uses a six\u2011tier waterfall to find the best comparable price. First it checks if your exact item has sold before. Then similar items. Then items with the same skin. Then same weapon type. Then, if all else fails, collection floor. Each tier shows its source label so you know exactly how confident to be \u2014 "EXACT" means someone literally sold yours before, "FLOOR" means we\u2019re basically guessing.',
-      'Recent sales count more than old ones. A sale from last week matters twice as much as one from three months ago. Because a price from 90 days ago in crypto is basically ancient history.',
-      'Gallery cards now show the Market Exit estimate below P&L \u2014 something like "~592\u00a0GUN \u00b7 VIA\u00a0SALES". It\u2019s small. It\u2019s subtle. It\u2019s the number that matters when you\u2019re actually thinking about selling.',
-      'The NFT detail modal got a fourth stats column: Market Exit. Shows the estimated sale price in both GUN and USD, which waterfall tier produced it, and P&L against your cost basis. All the context you need to decide if that sell button is worth clicking.',
+      'Each NFT now gets a Market Exit estimate \u2014 what someone might actually pay you, based on real sales data. It\u2019s the number that matters when you\u2019re thinking about selling.',
+      'Six\u2011tier waterfall finds the best comparable price: your exact item \u2192 same name \u2192 same skin \u2192 same weapon \u2192 collection floor. Each tier shows its label so you know if it\u2019s a real signal or an educated guess.',
+      'Recent sales weigh more than old ones. Last week counts double what three months ago does. Because 90\u2011day\u2011old crypto prices are basically fossils.',
+      'Gallery cards now show the exit estimate below P&L. Small, subtle, honest.',
     ],
   },
   {
