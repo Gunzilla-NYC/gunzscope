@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { isAdminWallet } from '@/lib/auth/dynamicAuth';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
 import SparklineConcepts from './SparklineConcepts';
@@ -21,10 +24,21 @@ const colorSwatches = [
 ];
 
 export default function BrandPage() {
+  const router = useRouter();
+  const { primaryWallet, sdkHasLoaded } = useDynamicContext();
   const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Admin gate — redirect non-admin users to home
+  const isAdmin = isAdminWallet(primaryWallet?.address);
+  useEffect(() => {
+    if (sdkHasLoaded && !isAdmin) {
+      router.replace('/');
+    }
+  }, [sdkHasLoaded, isAdmin, router]);
 
   // Setup intersection observer for scroll animations
   useEffect(() => {
+    if (!sdkHasLoaded || !isAdmin) return;
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -44,7 +58,16 @@ export default function BrandPage() {
     });
 
     return () => observerRef.current?.disconnect();
-  }, []);
+  }, [sdkHasLoaded, isAdmin]);
+
+  // Show spinner while SDK is loading or if not admin (redirecting)
+  if (!sdkHasLoaded || !isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--gs-black)]">
+        <div className="w-6 h-6 border-2 border-[var(--gs-lime)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">

@@ -41,6 +41,7 @@ export interface NFTCardData {
   mintData: MintWithRarity[];
   nameInitials: string;
   hasPnL: boolean;
+  /** Merged P&L (Track B when available, fallback to Track A) — used for sorting */
   pnlPct: number | null;
   /** True when item has cost data but PnL isn't computed yet (awaiting historical price) */
   pnlPending: boolean;
@@ -55,7 +56,11 @@ export interface NFTCardData {
   originShortName: string | null;
   originCategory: OriginCategory | null;
   valuationMethod: ValuationMethod | null;
-  // Track B — Market Exit
+  // Track A — GUN Appreciation (xGUN P&L)
+  trackAPnlPct: number | null;
+  trackADisplay: string | null;
+  // Track B — Market Exit (comparable sales waterfall)
+  trackBPnlPct: number | null;
   trackBGun: number | null;
   trackBLabel: string | null;
   trackBDisplay: string | null;
@@ -369,33 +374,42 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     ? `${priceGun.toLocaleString()} GUN`
     : getCostBasisDisplay(nft).label;
 
-  // P&L: market-first waterfall, falling back to GUN token appreciation.
-  // Tiers 1-3 (market-based): compare market GUN value vs cost GUN → percentage
-  // Tier 4 (GUN Δ): compare historical vs current GUN/USD rate → percentage
+  // ── Track A: GUN Appreciation (xGUN P&L) ──
+  // Compares historical GUN/USD price at acquisition vs current GUN/USD price
   const totalCost = priceGun; // already aggregate
-  let pnlPct: number | null = null;
-  let unrealizedUsd: number | null = null;
+  let trackAPnlPct: number | null = null;
+  let trackAUnrealizedUsd: number | null = null;
 
   const perItemCostGun = nft.purchasePriceGun;
+
+  if (totalCost !== undefined && totalCost > 0
+    && nft.purchasePriceUsd && nft.purchasePriceUsd > 0
+    && nft.purchasePriceUsdEstimated === false
+    && perItemCostGun && perItemCostGun > 0
+    && currentGunPrice && currentGunPrice > 0) {
+    const Y = nft.purchasePriceUsd / perItemCostGun; // historical GUN/USD
+    trackAPnlPct = ((currentGunPrice - Y) / Y) * 100;
+    trackAUnrealizedUsd = totalCost * (currentGunPrice - Y);
+  }
+
+  // ── Track B: Market Exit (comparable sales waterfall) ──
+  // Compares market value in GUN vs cost basis in GUN
+  let trackBPnlPct: number | null = null;
+  let trackBUnrealizedUsd: number | null = null;
   const marketValueGun = nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.currentLowestListing;
 
   if (totalCost !== undefined && totalCost > 0
     && perItemCostGun && perItemCostGun > 0
     && marketValueGun && marketValueGun > 0
     && currentGunPrice && currentGunPrice > 0) {
-    // Market-based P&L: (marketValue - cost) / cost
-    pnlPct = ((marketValueGun - perItemCostGun) / perItemCostGun) * 100;
-    unrealizedUsd = (marketValueGun - perItemCostGun) * qty * currentGunPrice;
-  } else if (totalCost !== undefined && totalCost > 0
-    && nft.purchasePriceUsd && nft.purchasePriceUsd > 0
-    && nft.purchasePriceUsdEstimated === false
-    && perItemCostGun && perItemCostGun > 0
-    && currentGunPrice && currentGunPrice > 0) {
-    // GUN Δ fallback: pure GUN/USD price appreciation
-    const Y = nft.purchasePriceUsd / perItemCostGun; // historical GUN/USD
-    pnlPct = ((currentGunPrice - Y) / Y) * 100;
-    unrealizedUsd = totalCost * (currentGunPrice - Y);
+    trackBPnlPct = ((marketValueGun - perItemCostGun) / perItemCostGun) * 100;
+    trackBUnrealizedUsd = (marketValueGun - perItemCostGun) * qty * currentGunPrice;
   }
+
+  // ── Merged P&L: Track B when available, fallback to Track A (used for sorting + backward compat) ──
+  const pnlPct = trackBPnlPct ?? trackAPnlPct;
+  const unrealizedUsd = trackBUnrealizedUsd ?? trackAUnrealizedUsd;
+
   const hasPnL = pnlPct !== null;
   // Item has cost data but PnL couldn't be computed (missing historical USD price)
   const pnlPending = !hasPnL && totalCost !== undefined && totalCost > 0 && !!currentGunPrice;
@@ -438,7 +452,13 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
       rarityFloor: nft.rarityFloor,
       currentLowestListing: nft.currentLowestListing,
     }),
+    // Track A — GUN Appreciation
+    trackAPnlPct,
+    trackADisplay: trackAPnlPct !== null
+      ? `${trackAPnlPct > 1 ? '\u25B2' : trackAPnlPct < -1 ? '\u25BC' : '\u2013'} ${trackAPnlPct >= 0 ? '+' : ''}${trackAPnlPct.toFixed(1)}%`
+      : null,
     // Track B — Market Exit
+    trackBPnlPct,
     trackBGun: nft.marketExitGun ?? null,
     trackBLabel: nft.marketExitTierLabel ?? null,
     trackBDisplay: nft.marketExitGun != null

@@ -11,7 +11,6 @@ import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel, ORIGIN_CATEGORY_COLORS } from './utils';
-import { ValuationLabel } from './ValuationLabel';
 import type { NFTGalleryListRowProps } from './types';
 
 export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isEnriching, onClick, portfolioViewMode }: NFTGalleryListRowProps) {
@@ -164,26 +163,42 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
         </div>
       )}
 
-      {/* P&L */}
-      <div className="flex-shrink-0 text-right min-w-[50px]">
+      {/* P&L — Dual Track */}
+      <div className="flex-shrink-0 text-right min-w-[70px]">
         <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">P&L</p>
         {isEnriching && pnlPending && pnlPct === null ? (
           <span className="skeleton-stat inline-block w-10 h-3.5 mt-0.5" />
         ) : (
           <>
-            <p className={`font-mono text-caption font-medium ${
-              isProfit ? 'text-[var(--gs-profit)]' :
-              isLoss ? 'text-[var(--gs-loss)]' :
-              'text-[var(--gs-gray-3)]'
-            }`}>
-              {pnlDisplay}
-            </p>
-            {pnlPct !== null && (
-              <ValuationLabel valuation={cardData.valuationMethod} className="mt-0.5" />
+            {/* Track A: GUN Appreciation */}
+            {cardData.trackADisplay ? (
+              <p className={`font-mono text-caption font-medium ${
+                cardData.trackAPnlPct !== null && cardData.trackAPnlPct > 1 ? 'text-[var(--gs-profit)]' :
+                cardData.trackAPnlPct !== null && cardData.trackAPnlPct < -1 ? 'text-[var(--gs-loss)]' :
+                'text-[var(--gs-gray-3)]'
+              }`}>
+                {cardData.trackADisplay}{' '}
+                <span className="text-[var(--gs-gray-2)] text-[8px]">GUN</span>
+              </p>
+            ) : (
+              <p className={`font-mono text-caption font-medium ${
+                isProfit ? 'text-[var(--gs-profit)]' :
+                isLoss ? 'text-[var(--gs-loss)]' :
+                'text-[var(--gs-gray-3)]'
+              }`}>
+                {pnlDisplay}
+              </p>
             )}
-            {cardData.trackBDisplay && (
-              <p className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-0.5">
-                {cardData.trackBDisplay} &middot; {cardData.trackBLabel}
+            {/* Track B: Market Exit */}
+            {cardData.trackBPnlPct !== null && (
+              <p className={`font-mono text-[8px] mt-0.5 ${
+                cardData.trackBPnlPct > 1 ? 'text-[var(--gs-profit)]/70' :
+                cardData.trackBPnlPct < -1 ? 'text-[var(--gs-loss)]/70' :
+                'text-[var(--gs-gray-3)]'
+              }`}>
+                {cardData.trackBPnlPct > 1 ? '\u25B2' : cardData.trackBPnlPct < -1 ? '\u25BC' : '\u2013'}{' '}
+                {cardData.trackBPnlPct >= 0 ? '+' : ''}{cardData.trackBPnlPct.toFixed(1)}%{' '}
+                <span className="text-[var(--gs-gray-2)]">{cardData.trackBLabel}</span>
               </p>
             )}
           </>

@@ -15,9 +15,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.3.3',
+    version: 'v0.3.4',
     date: 'Feb 22, 2026',
     tag: 'current',
+    items: [
+      'Dual\u2011track P&L card redesign \u2014 NFTDetailPositionCard restructured into two distinct cards: Track\u00a0A ("Your Deal", lime border) shows GUN token appreciation since purchase; Track\u00a0B ("Market Reality", purple border) shows market\u2011based P&L from comparable sales waterfall',
+      'Cost Basis merged into Track\u00a0A \u2014 standalone COST BASIS section removed; cost basis row now lives inside the Track\u00a0A card as the first data row, followed by TODAY\u2019S VALUE row, providing a natural reading flow from "what you paid" \u2192 "what it\u2019s worth" \u2192 "your P&L"',
+      'P&L hero treatment \u2014 both track cards use a border\u2011top divider to separate data rows from the P&L value, displayed in font\u2011display 20px bold with profit/loss coloring; italic subtext below explains the number in plain English',
+      'Label\u2011left / value\u2011right row pattern \u2014 all data rows use flex justify\u2011between with shrink\u20110 labels (mono 9px uppercase gray) and right\u2011aligned values (display 14px semibold white tabular\u2011nums); arrow separator (\u2192) between GUN and USD amounts',
+      'Track\u00a0B confidence line \u2014 shows data quality indicator (green dot + tier label like "VIA\u00a0SALES" + sample count), plus ABOVE/BELOW FLOOR pill when market exit differs from collection floor',
+      'Card styling standardized \u2014 bg\u2011[var(\u2011\u2011gs\u2011dark\u20113)] with subtle border, 3px colored left border (lime for Track\u00a0A, purple for Track\u00a0B), p\u20115 padding, rounded\u2011lg corners',
+      'Removed Observed Market Range section \u2014 NFTDetailObservedMarketRange component no longer rendered in modal; getPositionOnRange helper removed',
+      'Admin gate on /brand page \u2014 /brand now restricted to admin wallets using existing isAdminWallet() utility; non\u2011admin users redirected to /',
+    ],
+  },
+  {
+    version: 'v0.3.3',
+    date: 'Feb 22, 2026',
     items: [
       'Tiered valuation waterfall (Track\u00a0B) \u2014 6\u2011tier Market Exit estimate per NFT: EXACT (same tokenId), VIA\u00a0SALES (same baseName), VIA\u00a0SKIN (same skinDesign), VIA\u00a0WEAPON (same weapon), SIMILAR (deferred), FLOOR (collection floor)',
       'Time\u2011weighted median \u2014 comparable sales weighted by recency (7d\u00a0=\u00a01.0, 7\u201130d\u00a0=\u00a00.75, 30\u201190d\u00a0=\u00a00.50, 90+\u00a0=\u00a00.25); weighted\u2011median walk instead of simple median',

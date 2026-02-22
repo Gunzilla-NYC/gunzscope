@@ -19,7 +19,6 @@ import {
   toIsoStringSafe,
   computeMarketInputs,
   findRelatedItems,
-  getPnlMethodLabel,
 } from '@/lib/nft/nftDetailHelpers';
 import {
   useNFTAcquisitionPipeline,
@@ -29,10 +28,8 @@ import {
 // =============================================================================
 // Import extracted presentational subcomponents
 // =============================================================================
-import { NFTDetailObservedMarketRange } from '@/components/nft-detail/NFTDetailObservedMarketRange';
 import { NFTDetailPositionCard } from '@/components/nft-detail/NFTDetailPositionCard';
 import { WeaponLabPanel } from '@/components/nft-detail/WeaponLabPanel';
-import { NFTDetailQuickStats } from '@/components/nft-detail/NFTDetailQuickStats';
 import { NFTDetailTraitPills } from '@/components/nft-detail/NFTDetailTraitPills';
 import { getItemOrigin } from '@/lib/data/itemOrigins';
 import type { HoldingAcquisitionData, ResolvedAcquisitionData, MetadataDebugData } from '@/components/nft-detail/types';
@@ -66,13 +63,6 @@ function formatDate(date?: Date): string {
 function getChainDisplayName(chain: string): string {
   if (chain === 'avalanche') return 'GUNZ';
   return chain.toUpperCase();
-}
-
-/** Position of a value on a range bar (clamped 2–98%) */
-function getPositionOnRange(value: number, low: number, high: number): number {
-  if (high === low) return 50;
-  const position = ((value - low) / (high - low)) * 100;
-  return Math.max(2, Math.min(98, position));
 }
 
 interface NFTDetailModalProps {
@@ -331,61 +321,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
     dataQuality: marketInputs.dataQuality,
   }), [marketInputs, currentGunPrice]);
 
-  // =============================================================================
-  // Quick Stats P&L values (pre-computed outside JSX for readability)
-  // =============================================================================
-  const quickStats = useMemo(() => {
-    // Prefer enrichment pipeline's confirmed USD price over modal's own computation
-    const confirmedEnrichedUsd = nft.purchasePriceUsdEstimated === false
-      && nft.purchasePriceUsd != null && nft.purchasePriceUsd > 0
-      ? nft.purchasePriceUsd : null;
-    const historicalCostUsd = confirmedEnrichedUsd
-      ?? currentPurchaseData?.purchasePriceUsd ?? currentPurchaseData?.decodeCostUsd ?? nft.purchasePriceUsd ?? null;
-
-    let unrealizedUsd: number | null = null;
-    let unrealizedPct: number | null = null;
-
-    // Market-based P&L when market ref available
-    if (marketInputs.ref !== null && currentGunPrice && currentGunPrice > 0) {
-      const mktUsd = marketInputs.ref * currentGunPrice;
-      if (historicalCostUsd !== null && historicalCostUsd > 0) {
-        unrealizedUsd = mktUsd - historicalCostUsd;
-        unrealizedPct = ((mktUsd - historicalCostUsd) / historicalCostUsd) * 100;
-      }
-    }
-    // Fall back to xGUN
-    if (unrealizedUsd === null
-      && historicalCostUsd !== null && historicalCostUsd > 0
-      && costBasisGun !== null && costBasisGun > 0
-      && currentGunPrice && currentGunPrice > 0) {
-      const Y = historicalCostUsd / costBasisGun;
-      unrealizedUsd = costBasisGun * (currentGunPrice - Y);
-      unrealizedPct = ((currentGunPrice - Y) / Y) * 100;
-    }
-
-    const pnlSource = historicalCostUsd !== null
-      ? getPnlMethodLabel(marketInputs.ref !== null ? marketInputs.refSource : null)
-      : null;
-
-    return { historicalCostUsd, unrealizedUsd, unrealizedPct, pnlSource };
-  }, [nft.purchasePriceUsdEstimated, nft.purchasePriceUsd, currentPurchaseData?.purchasePriceUsd, currentPurchaseData?.decodeCostUsd, marketInputs, currentGunPrice, costBasisGun]);
-
-  // =============================================================================
-  // Track B — Market Exit valuation (from waterfall)
-  // =============================================================================
-  const trackB = useMemo(() => {
-    if (!nft.marketExitGun || !currentGunPrice) return null;
-    const exitUsd = nft.marketExitGun * currentGunPrice;
-    const costUsd = quickStats.historicalCostUsd;
-    const pnlUsd = costUsd ? exitUsd - costUsd : null;
-    return {
-      gun: nft.marketExitGun,
-      usd: exitUsd,
-      tierLabel: nft.marketExitTierLabel ?? null,
-      pnlUsd,
-    };
-  }, [nft.marketExitGun, nft.marketExitTierLabel, currentGunPrice, quickStats.historicalCostUsd]);
-
   // Render via portal to document.body so the modal sits above all page content
   if (typeof window === 'undefined') return null;
 
@@ -535,25 +470,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                 </div>
               </div>
 
-              {/* ===== 2.25) Quick Stats Row ===== */}
-              {walletAddress && (
-                <NFTDetailQuickStats
-                  costBasisGun={costBasisGun}
-                  costBasisUsd={quickStats.historicalCostUsd}
-                  marketValueGun={marketInputs.ref}
-                  marketValueUsd={marketInputs.ref !== null && currentGunPrice ? marketInputs.ref * currentGunPrice : null}
-                  marketValueSource={marketInputs.refSource}
-                  unrealizedUsd={quickStats.unrealizedUsd}
-                  unrealizedPct={quickStats.unrealizedPct}
-                  pnlSource={quickStats.pnlSource}
-                  isLoading={loadingDetails}
-                  marketExitGun={trackB?.gun ?? null}
-                  marketExitUsd={trackB?.usd ?? null}
-                  marketExitTierLabel={trackB?.tierLabel ?? null}
-                  marketExitPnlUsd={trackB?.pnlUsd ?? null}
-                />
-              )}
-
               {/* ===== 2.5) YOUR POSITION Section ===== */}
               {walletAddress && (
                 <NFTDetailPositionCard
@@ -570,20 +486,6 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   priceConfidence={currentPurchaseData?.priceConfidence}
                 />
               )}
-
-              {/* ===== 3) MarketReferenceSection (Observed Range Visualization) ===== */}
-              <div className="animate-[fade-in-up_0.4s_ease-out_0.2s_both]">
-                <NFTDetailObservedMarketRange
-                  show={!!walletAddress}
-                  loading={loadingDetails}
-                  marketInputs={marketInputs}
-                  costBasisGun={costBasisGun}
-                  getPositionOnRange={getPositionOnRange}
-                  listingsStatus={listingsStatusByTokenId[debugData.tokenKey ?? ''] ?? 'idle'}
-                  listingsError={listingsErrorByTokenId[debugData.tokenKey ?? ''] ?? null}
-                />
-              </div>
-
 
               {/* Locked Weapon Indicator */}
               {isLockedWeapon && (

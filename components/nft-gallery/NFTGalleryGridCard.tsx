@@ -11,7 +11,6 @@ import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel, ORIGIN_CATEGORY_COLORS } from './utils';
-import { ValuationLabel } from './ValuationLabel';
 import type { NFTGalleryGridCardProps } from './types';
 
 export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, portfolioViewMode }: NFTGalleryGridCardProps) {
@@ -134,41 +133,81 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
         </div>
       )}
 
-      {/* Footer with Price & P&L */}
-      <div className={`flex justify-between items-start border-t border-white/[0.06] ${
+      {/* Footer with Price & Dual-Track P&L */}
+      <div className={`border-t border-white/[0.06] ${
         viewMode === 'small' ? 'pt-2 mt-2' : 'pt-2.5 mt-2.5'
       }`}>
-        {/* Price: Show shimmer if enriching and no price yet */}
-        {isEnriching && priceGun === undefined ? (
-          <span className={`skeleton-stat inline-block ${viewMode === 'small' ? 'w-12 h-3' : 'w-14 h-3.5'}`} />
-        ) : (
-          <span className={`font-mono text-[var(--gs-white)] ${
-            viewMode === 'small' ? 'text-caption' : 'text-data'
-          }`}>
-            {priceDisplay}
-          </span>
-        )}
-        {/* P&L: Show shimmer if enriching/pending and no data yet */}
-        {isEnriching && pnlPending && pnlPct === null ? (
-          <span className={`skeleton-stat inline-block ${viewMode === 'small' ? 'w-8 h-3' : 'w-10 h-3.5'}`} />
-        ) : (
-          <div className="flex flex-col items-end">
-            <span className={`font-mono ${
-              viewMode === 'small' ? 'text-label' : 'text-caption'
-            } ${
-              isProfit ? 'text-[var(--gs-profit)]' :
-              isLoss ? 'text-[var(--gs-loss)]' :
-              'text-[var(--gs-gray-3)]'
-            }`}>
-              {pnlDisplay}
-            </span>
-            {pnlPct !== null && viewMode !== 'small' && (
-              <ValuationLabel valuation={cardData.valuationMethod} className="mt-0.5" />
+        {/* Small cards: single line (merged P&L) */}
+        {viewMode === 'small' ? (
+          <div className="flex justify-between items-start">
+            {isEnriching && priceGun === undefined ? (
+              <span className="skeleton-stat inline-block w-12 h-3" />
+            ) : (
+              <span className="font-mono text-caption text-[var(--gs-white)]">{priceDisplay}</span>
             )}
-            {cardData.trackBDisplay && viewMode !== 'small' && (
-              <span className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-0.5 truncate max-w-full">
-                {cardData.trackBDisplay} &middot; {cardData.trackBLabel}
+            {isEnriching && pnlPending && pnlPct === null ? (
+              <span className="skeleton-stat inline-block w-8 h-3" />
+            ) : (
+              <span className={`font-mono text-label ${
+                isProfit ? 'text-[var(--gs-profit)]' :
+                isLoss ? 'text-[var(--gs-loss)]' :
+                'text-[var(--gs-gray-3)]'
+              }`}>
+                {pnlDisplay}
               </span>
+            )}
+          </div>
+        ) : (
+          /* Medium cards: dual-track lines */
+          <div className="space-y-1">
+            {/* Track A: GUN Appreciation */}
+            <div className="flex justify-between items-baseline">
+              {isEnriching && priceGun === undefined ? (
+                <span className="skeleton-stat inline-block w-14 h-3.5" />
+              ) : (
+                <span className="font-mono text-data text-[var(--gs-white)]">{priceDisplay}</span>
+              )}
+              {isEnriching && pnlPending && pnlPct === null ? (
+                <span className="skeleton-stat inline-block w-10 h-3.5" />
+              ) : cardData.trackADisplay ? (
+                <span className={`font-mono text-caption ${
+                  cardData.trackAPnlPct !== null && cardData.trackAPnlPct > 1 ? 'text-[var(--gs-profit)]' :
+                  cardData.trackAPnlPct !== null && cardData.trackAPnlPct < -1 ? 'text-[var(--gs-loss)]' :
+                  'text-[var(--gs-gray-3)]'
+                }`}>
+                  {cardData.trackADisplay}{' '}
+                  <span className="text-[var(--gs-gray-2)]">GUN</span>
+                </span>
+              ) : pnlPct !== null ? (
+                <span className={`font-mono text-caption ${
+                  isProfit ? 'text-[var(--gs-profit)]' :
+                  isLoss ? 'text-[var(--gs-loss)]' :
+                  'text-[var(--gs-gray-3)]'
+                }`}>
+                  {pnlDisplay}
+                </span>
+              ) : null}
+            </div>
+            {/* Track B: Market Exit */}
+            {cardData.trackBDisplay && (
+              <div className="flex justify-between items-baseline">
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">
+                  {cardData.trackBDisplay}
+                </span>
+                {cardData.trackBPnlPct !== null ? (
+                  <span className={`font-mono text-caption ${
+                    cardData.trackBPnlPct > 1 ? 'text-[var(--gs-profit)]/70' :
+                    cardData.trackBPnlPct < -1 ? 'text-[var(--gs-loss)]/70' :
+                    'text-[var(--gs-gray-3)]'
+                  }`}>
+                    {cardData.trackBPnlPct > 1 ? '\u25B2' : cardData.trackBPnlPct < -1 ? '\u25BC' : '\u2013'}{' '}
+                    {cardData.trackBPnlPct >= 0 ? '+' : ''}{cardData.trackBPnlPct.toFixed(1)}%{' '}
+                    <span className="text-[var(--gs-gray-2)]">{cardData.trackBLabel}</span>
+                  </span>
+                ) : (
+                  <span className="font-mono text-[8px] text-[var(--gs-gray-2)]">{cardData.trackBLabel}</span>
+                )}
+              </div>
             )}
           </div>
         )}

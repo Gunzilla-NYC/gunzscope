@@ -146,7 +146,6 @@ export function NFTDetailPositionCard({
   return (
     <div
       className="rounded-xl p-4 animate-[fade-in-up_0.4s_ease-out_0.1s_both]"
-      style={{ backgroundColor: 'rgba(166, 247, 0, 0.06)' }}
     >
       {loadingDetails ? (
         <div className="space-y-2">
@@ -156,11 +155,11 @@ export function NFTDetailPositionCard({
         </div>
       ) : (
         <div>
-          {/* ─── Group 1: Cost Basis ─── */}
-          {costBasisGun !== null && (
-            <>
-              <div className="flex items-center gap-2 mt-4 mb-2">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">Cost Basis</span>
+          {/* ─── Track A: Your Deal (Cost Basis + GUN Appreciation) ─── */}
+          {costBasisGun !== null && currentGunPrice !== null && (
+            <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5" style={{ borderLeftColor: 'var(--gs-lime)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-lime)]">Your Deal</span>
                 {batchInfo && (
                   <InfoTooltip wide>
                     <div className="space-y-2">
@@ -173,7 +172,6 @@ export function NFTDetailPositionCard({
                         </p>
                       )}
                       <div className="border-t border-white/10 pt-1.5 space-y-1">
-                        {/* Current item */}
                         <div className="flex items-baseline justify-between gap-3">
                           <span className="text-[11px] text-[var(--gs-lime)] truncate max-w-[160px]">
                             {nft.name}{nft.mintNumber ? ` #${nft.mintNumber}` : ''}
@@ -182,7 +180,6 @@ export function NFTDetailPositionCard({
                             {costBasisGun.toLocaleString(undefined, { maximumFractionDigits: 0 })} GUN
                           </span>
                         </div>
-                        {/* Sibling items */}
                         {batchInfo.siblings.map(s => (
                           <div key={s.tokenId} className="flex items-baseline justify-between gap-3">
                             <span className="text-[11px] text-white/50 truncate max-w-[160px]">
@@ -199,129 +196,246 @@ export function NFTDetailPositionCard({
                     </div>
                   </InfoTooltip>
                 )}
-                <div className="flex-1 h-px bg-white/8" />
-                {batchInfo && (
-                  <span className="font-mono text-[8px] uppercase tracking-wider text-white/25 whitespace-nowrap">
-                    {batchInfo.count} items
-                  </span>
-                )}
               </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[13px] font-medium text-white/80 tabular-nums">
+
+              {/* Cost Basis row */}
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Cost Basis</span>
+                <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
                   {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
-                </span>
-                {costBasisUsdAtAcquisition !== null && (
-                  <span className="text-[13px] text-white/50 tabular-nums inline-flex items-center gap-1">
-                    ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    {priceConfidence === 'estimated' && (
+                  {costBasisUsdAtAcquisition !== null && (
+                    <>
+                      <span className="text-white/30 mx-0.5">&rarr;</span>
+                      <span className="text-white/50">
+                        ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </>
+                  )}
+                  {priceConfidence === 'estimated' && (
+                    <span className="inline-flex align-middle ml-0.5">
                       <InfoTooltip>
                         <p className="text-[10px] text-white/50">
                           Historical GUN price estimated from nearest available date.
                           Actual cost basis may differ slightly.
                         </p>
                       </InfoTooltip>
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {/* Today's Value row */}
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Today&apos;s Value</span>
+                <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
+                  {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                  <span className="text-white/30 mx-0.5">&rarr;</span>
+                  <span className="text-white/50">
+                    ${(costBasisGun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </span>
+              </div>
+
+              {/* Divider + P&L */}
+              <div className="border-t border-white/[0.06] pt-3 mt-3">
+                {xgunUnrealizedUsd !== null && xgunUnrealizedPct !== null ? (
+                  <>
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">P&L</span>
+                      <span className={`font-display text-[20px] font-bold tabular-nums text-right ${
+                        xgunUnrealizedUsd > 0.01 ? 'text-[var(--gs-profit)]' :
+                        xgunUnrealizedUsd < -0.01 ? 'text-[var(--gs-loss)]' :
+                        'text-white/60'
+                      }`}>
+                        {xgunUnrealizedUsd >= 0 ? '+' : '\u2013'}${Math.abs(xgunUnrealizedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {' '}
+                        <span className="text-[13px] font-semibold">
+                          ({xgunUnrealizedPct >= 0 ? '+' : ''}{xgunUnrealizedPct.toFixed(1)}%)
+                        </span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-light text-[var(--gs-gray-2)] italic mt-1 text-right">
+                      The GUN you spent has appreciated since purchase
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Value</span>
+                    <span className="font-display text-[20px] font-bold text-white tabular-nums text-right">
+                      ${(costBasisGun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ─── Track B: Market Reality (Comparable Sales + Listings) ─── */}
+          {(() => {
+            const exitGun = nft.marketExitGun;
+            const exitTierLabel = nft.marketExitTierLabel;
+            const hasTrackB = exitGun != null && exitGun > 0;
+            const hasMarket = marketRef.hasMarketData;
+
+            if (!hasTrackB && !hasMarket) {
+              return (
+                <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5" style={{ borderLeftColor: 'var(--gs-purple)' }}>
+                  <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-purple)]">Market Reality</span>
+                  <p className="text-[13px] font-medium text-white/85 mt-3">No market data available</p>
+                  <p className="text-[11px] font-light text-[var(--gs-gray-2)] italic">This is an illiquid market; reference values may be unavailable.</p>
+                </div>
+              );
+            }
+
+            // Compute Track B P&L
+            let trackBPnlUsd: number | null = null;
+            let trackBPnlPct: number | null = null;
+            if (hasTrackB && costBasisUsdAtAcquisition !== null && costBasisUsdAtAcquisition > 0 && currentGunPrice) {
+              const exitUsd = exitGun! * currentGunPrice;
+              trackBPnlUsd = exitUsd - costBasisUsdAtAcquisition;
+              trackBPnlPct = ((exitUsd - costBasisUsdAtAcquisition) / costBasisUsdAtAcquisition) * 100;
+            }
+
+            return (
+              <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5" style={{ borderLeftColor: 'var(--gs-purple)' }}>
+                <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-purple)] mb-3 block">Market Reality</span>
+
+                {loadingDetails ? (
+                  <div className="space-y-2">
+                    <div className="h-5 w-32 bg-white/10 rounded animate-pulse" />
+                    <div className="h-5 w-24 bg-white/10 rounded animate-pulse" />
+                    <div className="h-7 w-20 bg-white/10 rounded animate-pulse mt-2" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Estimated Sale row */}
+                    {hasTrackB && (
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Estimated Sale</span>
+                        <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
+                          ~{Math.round(exitGun!).toLocaleString()} GUN
+                          {currentGunPrice ? (
+                            <>
+                              <span className="text-white/30 mx-0.5">&rarr;</span>
+                              <span className="text-white/50">
+                                ${(exitGun! * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </>
+                          ) : null}
+                        </span>
+                      </div>
                     )}
-                  </span>
+                    {!hasTrackB && hasMarket && (
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Estimated Sale</span>
+                        <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
+                          ~{marketRef.gunValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
+                          {marketRef.usdValue != null && (
+                            <>
+                              <span className="text-white/30 mx-0.5">&rarr;</span>
+                              <span className="text-white/50">
+                                ${marketRef.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* VS Cost row */}
+                    {costBasisGun !== null && hasTrackB && costBasisUsdAtAcquisition !== null && currentGunPrice && (
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">VS Cost</span>
+                        <span className={`font-display text-[14px] font-semibold tabular-nums text-right ${
+                          exitGun! * currentGunPrice > costBasisUsdAtAcquisition ? 'text-[var(--gs-profit)]' :
+                          exitGun! * currentGunPrice < costBasisUsdAtAcquisition ? 'text-[var(--gs-loss)]' :
+                          'text-white/60'
+                        }`}>
+                          {(exitGun! * currentGunPrice - costBasisUsdAtAcquisition) >= 0 ? '+' : '\u2013'}${Math.abs(exitGun! * currentGunPrice - costBasisUsdAtAcquisition).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Divider + Market P&L */}
+                    <div className="border-t border-white/[0.06] pt-3 mt-3">
+                      {trackBPnlUsd !== null && trackBPnlPct !== null ? (
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Market P&L</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-display text-[20px] font-bold tabular-nums ${
+                              trackBPnlUsd > 0.01 ? 'text-[var(--gs-profit)]' :
+                              trackBPnlUsd < -0.01 ? 'text-[var(--gs-loss)]' :
+                              'text-white/60'
+                            }`}>
+                              {trackBPnlPct >= 0 ? '+' : ''}{trackBPnlPct.toFixed(1)}%
+                            </span>
+                            <div
+                              role="status"
+                              aria-label={`Position: ${getPositionPillText()}`}
+                              className={`h-5 px-2 rounded-full text-[10px] font-semibold inline-flex items-center gap-1 cursor-help ${getPositionPillStyles()}`}
+                              title={getTooltipText()}
+                            >
+                              {getPositionIcon()}
+                              {getPositionPillText()}
+                            </div>
+                          </div>
+                        </div>
+                      ) : positionLabel.pnlPct !== null ? (
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Market P&L</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-display text-[20px] font-bold tabular-nums ${
+                              positionLabel.state === 'UP' ? 'text-[var(--gs-profit)]' :
+                              positionLabel.state === 'DOWN' ? 'text-[var(--gs-loss)]' :
+                              'text-white/60'
+                            }`}>
+                              {positionLabel.pnlPct >= 0 ? '+' : ''}{(positionLabel.pnlPct * 100).toFixed(1)}%
+                            </span>
+                            <div
+                              role="status"
+                              aria-label={`Position: ${getPositionPillText()}`}
+                              className={`h-5 px-2 rounded-full text-[10px] font-semibold inline-flex items-center gap-1 cursor-help ${getPositionPillStyles()}`}
+                              title={getTooltipText()}
+                            >
+                              {getPositionIcon()}
+                              {getPositionPillText()}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Confidence line */}
+                    <div className="flex items-center gap-2 mt-3">
+                      {exitTierLabel && (
+                        <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-purple)]/80 inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)] inline-block" />
+                          {exitTierLabel}
+                        </span>
+                      )}
+                      {positionLabel.dataQuality && (
+                        <span
+                          className="font-mono text-[9px] text-white/40 cursor-help"
+                          title="Based on observed price range only. Listings are sparse and may not reflect actual sale prices."
+                        >
+                          Data Quality: <span className="capitalize">{positionLabel.dataQuality}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Subtext */}
+                    {hasTrackB && (
+                      <p className="text-[11px] font-light text-[var(--gs-gray-2)] italic mt-1">
+                        What similar items are actually trading for
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
-            </>
-          )}
+            );
+          })()}
 
-          {/* ─── Group 2: GUN Based Performance ─── */}
-          {costBasisGun !== null && currentGunPrice !== null && (
-            <>
-              <div className="flex items-center gap-2 mt-4 mb-2">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">GUN Based Performance</span>
-                <div className="flex-1 h-px bg-white/8" />
-                {xgunUnrealizedUsd !== null && xgunUnrealizedPct !== null && (
-                  <span className={`font-mono text-[11px] font-medium tabular-nums ${
-                    xgunUnrealizedUsd > 0.01 ? 'text-[var(--gs-lime)]' :
-                    xgunUnrealizedUsd < -0.01 ? 'text-[var(--gs-loss)]' :
-                    'text-white/60'
-                  }`}>
-                    {xgunUnrealizedUsd >= 0 ? '+' : '-'}${Math.abs(xgunUnrealizedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    {' '}({xgunUnrealizedPct >= 0 ? '+' : ''}{xgunUnrealizedPct.toFixed(1)}%)
-                  </span>
-                )}
-              </div>
-              {/* Hero number — what your GUN costs today */}
-              <p className="font-display text-2xl font-bold text-white tabular-nums">
-                ${(costBasisGun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-              {costBasisUsdAtAcquisition !== null && (
-                <p className="text-[11px] text-white/30 mt-1">
-                  The {nft.name} cost you ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} at purchase.
-                </p>
-              )}
-              <p className="text-[11px] text-white/30">
-                Spending the same {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} GUN today would cost ${(costBasisGun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.
-              </p>
-            </>
-          )}
-
-          {/* ─── Group 2.5: Market Reference ─── */}
-          <div className="flex items-center gap-2 mt-4 mb-2">
-            <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">Market Reference</span>
-            <div className="flex-1 h-px bg-white/8" />
-            {/* Position pill */}
-            <div
-              role="status"
-              aria-label={`Position: ${getPositionPillText()}`}
-              className={`h-5 px-2 rounded-full text-[10px] font-semibold inline-flex items-center gap-1 cursor-help ${getPositionPillStyles()}`}
-              title={getTooltipText()}
-            >
-              {getPositionIcon()}
-              {getPositionPillText()}
-            </div>
-          </div>
-          {loadingDetails ? (
-            <div className="space-y-2">
-              <div className="h-7 w-32 bg-white/10 rounded animate-pulse" />
-              <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
-              <div className="h-3 w-40 bg-white/10 rounded animate-pulse" />
-            </div>
-          ) : marketRef.hasMarketData ? (
-            <div className="space-y-1">
-              <p className="font-display text-[22px] font-semibold text-white tabular-nums">
-                ≈ ${marketRef.usdValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'} USD
-              </p>
-              <p className="text-[13px] font-medium text-white/85">
-                ≈ {marketRef.gunValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
-              </p>
-              {/* Unrealized P/L percent line */}
-              {positionLabel.pnlPct !== null && (
-                <p className={`text-xs ${
-                  positionLabel.state === 'UP' ? 'text-[var(--gs-lime)]' :
-                  positionLabel.state === 'DOWN' ? 'text-[var(--gs-loss)]' :
-                  'text-white/70'
-                }`}>
-                  Unrealized: {positionLabel.pnlPct >= 0 ? '+' : ''}{(positionLabel.pnlPct * 100).toFixed(1)}%
-                </p>
-              )}
-              {/* Data Quality - neutral styling, spread-based only */}
-              {positionLabel.dataQuality && (
-                <p
-                  className="text-data text-white/60 mt-2 inline-flex items-center gap-1 cursor-help"
-                  title="Based on observed price range only. Listings are sparse and may not reflect actual sale prices."
-                >
-                  Data Quality:{' '}
-                  <span className="capitalize">{positionLabel.dataQuality}</span>
-                  <svg className="w-3 h-3 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <p className="text-base font-medium text-white/85">No active listings found</p>
-              <p className="text-xs text-white/60">
-                This is an illiquid market; reference values may be unavailable.
-              </p>
-            </div>
-          )}
-
-          {/* ─── Group 3: Acquisition Details ─── */}
+          {/* ─── Acquisition Details ─── */}
           <div className="flex items-center gap-2 mt-4 mb-2">
             <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">Acquisition</span>
             <div className="flex-1 h-px bg-white/8" />

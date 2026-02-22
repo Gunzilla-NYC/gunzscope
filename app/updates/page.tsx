@@ -17,9 +17,21 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.3.3',
+    version: 'v0.3.4',
     date: 'Feb 22, 2026',
     tag: 'current',
+    title: 'Two truths and a portfolio',
+    items: [
+      'The NFT detail modal got a proper split personality. Track\u00a0A ("Your Deal") tells you how GUN\u2019s price movement treated your purchase \u2014 what you paid, what that GUN is worth today, and the unrealized P&L. Track\u00a0B ("Market Reality") tells you what the market actually thinks your item is worth based on real sales data. Both live in their own cards with big, impossible\u2011to\u2011miss P&L numbers. Because the truth deserves a spotlight, even when it\u2019s ugly.',
+      'Cost basis is no longer floating alone above everything. It moved inside Track\u00a0A where it belongs \u2014 right above "Today\u2019s Value", so you read top\u2011to\u2011bottom: what you paid, what it\u2019s worth now, how that math worked out. Novel concept, reading order.',
+      'Track\u00a0B now shows exactly how confident you should be in its estimate. A green dot, the tier label ("VIA\u00a0SALES", "FLOOR", etc.), sample count, and whether it\u2019s above or below floor. All the context to decide if the number is a real signal or a educated guess with a nice font.',
+      'The "Observed Market Range" section that used to sit below the position card? Gone. It was information duplication dressed up as a feature. Track\u00a0B now handles all market context in a cleaner format.',
+      'The /brand page is now admin\u2011only. If you\u2019re not an admin wallet, you get redirected to the homepage. Nothing personal \u2014 the brand guidelines just aren\u2019t for everyone.',
+    ],
+  },
+  {
+    version: 'v0.3.3',
+    date: 'Feb 22, 2026',
     title: 'What would you actually get for this thing?',
     items: [
       'Every NFT now has two price stories. Track\u00a0A (the one you already know) tells you how GUN\u2019s price movement affected your purchase. Track\u00a0B is new \u2014 it estimates what someone might actually pay you right now, based on real sales data. Neither number alone tells the truth in a market this thin. Together they\u2019re\u2026 less wrong.',
