@@ -17,9 +17,19 @@ interface UpdateEntry {
 
 const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.3.4',
+    version: 'v0.3.5',
     date: 'Feb 22, 2026',
     tag: 'current',
+    title: 'The card and the modal had a talk',
+    items: [
+      'Fixed a bug where the gallery card would cheerfully tell you your NFT lost 72% based on market data, while the modal for the same NFT claimed it had no idea what a market was. They now read from the same source. Progress.',
+      'Rarity floor estimates no longer pretend to be market data. If all we have is a statistical guess based on what similar\u2011rarity items trade for, we say "Reference Estimate" instead of "Market Reality" \u2014 because calling a guess a fact was getting awkward.',
+      'Gallery cards now only show the MARKET line when we have actual sales data to back it up. No more \u201199.4% MARKET\u201d based on vibes.',
+    ],
+  },
+  {
+    version: 'v0.3.4',
+    date: 'Feb 22, 2026',
     title: 'Two truths and a portfolio',
     items: [
       'The NFT detail modal got a proper split personality. Track\u00a0A ("Your Deal") tells you how GUN\u2019s price movement treated your purchase \u2014 what you paid, what that GUN is worth today, and the unrealized P&L. Track\u00a0B ("Market Reality") tells you what the market actually thinks your item is worth based on real sales data. Both live in their own cards with big, impossible\u2011to\u2011miss P&L numbers. Because the truth deserves a spotlight, even when it\u2019s ugly.',

@@ -189,8 +189,8 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
                 {pnlDisplay}
               </p>
             )}
-            {/* Track B: Market Exit */}
-            {cardData.trackBPnlPct !== null && (
+            {/* Track B: Market Exit — only show for sales-based tiers (1-4), not proxies */}
+            {cardData.trackBPnlPct !== null && cardData.trackBIsSalesBased && (
               <p className={`font-mono text-[8px] mt-0.5 ${
                 cardData.trackBPnlPct > 1 ? 'text-[var(--gs-profit)]/70' :
                 cardData.trackBPnlPct < -1 ? 'text-[var(--gs-loss)]/70' :

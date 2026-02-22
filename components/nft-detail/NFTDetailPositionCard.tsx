@@ -272,10 +272,19 @@ export function NFTDetailPositionCard({
 
           {/* ─── Track B: Market Reality (Comparable Sales + Listings) ─── */}
           {(() => {
-            const exitGun = nft.marketExitGun;
-            const exitTierLabel = nft.marketExitTierLabel;
+            // Use same waterfall as card's deriveCardData() so both views agree
+            const marketValueGun = nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.currentLowestListing;
+            const exitGun = nft.marketExitGun ?? (marketValueGun && marketValueGun > 0 ? marketValueGun : null);
+            const exitTierLabel = nft.marketExitTierLabel
+              ?? (nft.comparableSalesMedian ? 'VIA SALES'
+                : nft.rarityFloor ? 'RARITY'
+                : nft.currentLowestListing ? 'LISTED'
+                : null);
             const hasTrackB = exitGun != null && exitGun > 0;
             const hasMarket = marketRef.hasMarketData;
+            // Sales-based tiers (1-4) get full Market Reality treatment; proxies (5-6) get dimmer Reference Estimate
+            const SALES_LABELS = new Set(['EXACT', 'VIA SALES', 'VIA SKIN', 'VIA WEAPON']);
+            const isSalesBased = exitTierLabel !== null && SALES_LABELS.has(exitTierLabel);
 
             if (!hasTrackB && !hasMarket) {
               return (
@@ -287,6 +296,50 @@ export function NFTDetailPositionCard({
               );
             }
 
+            // ── Low-confidence treatment (rarity floor, collection floor, listed) ──
+            if (hasTrackB && !isSalesBased) {
+              const tierDisplayName = exitTierLabel === 'RARITY' ? 'Rarity Floor'
+                : exitTierLabel === 'FLOOR' ? 'Collection Floor'
+                : exitTierLabel === 'LISTED' ? 'Current Listing'
+                : exitTierLabel === 'SIMILAR' ? 'Similar Scarcity'
+                : 'Estimate';
+
+              return (
+                <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5 opacity-80" style={{ borderLeftColor: 'var(--gs-purple)' }}>
+                  <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-purple)]/70 mb-3 block">Reference Estimate</span>
+
+                  {/* Value row */}
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/30 shrink-0 w-[120px]">{tierDisplayName}</span>
+                    <span className="font-display text-[14px] font-semibold text-white/70 tabular-nums text-right">
+                      ~{Math.round(exitGun!).toLocaleString()} GUN
+                      {currentGunPrice ? (
+                        <>
+                          <span className="text-white/20 mx-0.5">&rarr;</span>
+                          <span className="text-white/40">
+                            ${(exitGun! * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </>
+                      ) : null}
+                    </span>
+                  </div>
+
+                  {/* Warning */}
+                  <div className="border-t border-white/[0.04] pt-2.5 mt-2.5">
+                    <p className="text-[11px] text-white/40 inline-flex items-start gap-1.5">
+                      <span className="text-[var(--gs-purple)]/60 shrink-0 mt-px">{'\u26A0'}</span>
+                      <span>
+                        Based on {exitTierLabel === 'RARITY' ? 'rarity tier average' : exitTierLabel === 'FLOOR' ? 'collection floor' : exitTierLabel === 'LISTED' ? 'current listing price' : 'statistical proxy'}, not actual sales.
+                        <br />
+                        <span className="text-white/30 italic">No comparable sales found for this item.</span>
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            // ── Full confidence treatment (sales-based tiers 1-4) ──
             // Compute Track B P&L
             let trackBPnlUsd: number | null = null;
             let trackBPnlPct: number | null = null;

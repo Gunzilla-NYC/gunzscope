@@ -188,8 +188,8 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
                 </span>
               ) : null}
             </div>
-            {/* Track B: Market Exit */}
-            {cardData.trackBDisplay && (
+            {/* Track B: Market Exit — only show for sales-based tiers (1-4), not proxies */}
+            {cardData.trackBDisplay && cardData.trackBIsSalesBased && (
               <div className="flex justify-between items-baseline">
                 <span className="font-mono text-caption text-[var(--gs-gray-3)]">
                   {cardData.trackBDisplay}

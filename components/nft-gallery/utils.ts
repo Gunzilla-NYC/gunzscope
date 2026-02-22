@@ -64,6 +64,8 @@ export interface NFTCardData {
   trackBGun: number | null;
   trackBLabel: string | null;
   trackBDisplay: string | null;
+  /** True when Track B is backed by actual sales data (tiers 1-4), false for statistical proxies (rarity floor, collection floor) */
+  trackBIsSalesBased: boolean;
 }
 
 // ============================================================================
@@ -468,5 +470,15 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
     trackBDisplay: (nft.marketExitGun ?? (marketValueGun && marketValueGun > 0 ? marketValueGun : null)) != null
       ? `~${Math.round(nft.marketExitGun ?? marketValueGun!).toLocaleString()} GUN`
       : null,
+    // Sales-based = tiers 1-4 (EXACT, VIA SALES, VIA SKIN, VIA WEAPON); proxies = RARITY, FLOOR, SIMILAR, LISTED
+    trackBIsSalesBased: (() => {
+      const label = nft.marketExitTierLabel
+        ?? (nft.comparableSalesMedian ? 'VIA SALES'
+          : nft.rarityFloor ? 'RARITY'
+          : nft.currentLowestListing ? 'LISTED'
+          : null);
+      const SALES_LABELS = new Set(['EXACT', 'VIA SALES', 'VIA SKIN', 'VIA WEAPON']);
+      return label !== null && SALES_LABELS.has(label);
+    })(),
   };
 }

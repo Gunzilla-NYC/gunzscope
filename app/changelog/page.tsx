@@ -15,9 +15,19 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.3.4',
+    version: 'v0.3.5',
     date: 'Feb 22, 2026',
     tag: 'current',
+    items: [
+      'Card/modal market data unification \u2014 NFTDetailPositionCard Track\u00a0B now uses same waterfall as deriveCardData(): marketExitGun \u2192 comparableSalesMedian \u2192 rarityFloor \u2192 currentLowestListing; previously modal only checked marketExitGun + computeMarketInputs (which excluded rarityFloor)',
+      'Tier\u2011confidence gating \u2014 new trackBIsSalesBased boolean on NFTCardData; gallery cards and list rows only show Track\u00a0B MARKET line for sales\u2011based tiers (1\u20114: EXACT, VIA\u00a0SALES, VIA\u00a0SKIN, VIA\u00a0WEAPON); statistical proxies (tiers 5\u20116: RARITY, FLOOR, LISTED, SIMILAR) suppressed from card display',
+      'Modal low\u2011confidence treatment \u2014 tiers 5\u20116 render "Reference Estimate" card instead of "Market Reality": dimmer styling (opacity\u201180), no VS\u00a0COST row, no MARKET\u00a0P&L percentage, warning text explaining it\u2019s a proxy not sales data',
+      'exitTierLabel fallback chain \u2014 modal\u2019s Track\u00a0B exitTierLabel now falls back through VIA\u00a0SALES \u2192 RARITY \u2192 LISTED when marketExitTierLabel is null, matching card behavior',
+    ],
+  },
+  {
+    version: 'v0.3.4',
+    date: 'Feb 22, 2026',
     items: [
       'Dual\u2011track P&L card redesign \u2014 NFTDetailPositionCard restructured into two distinct cards: Track\u00a0A ("Your Deal", lime border) shows GUN token appreciation since purchase; Track\u00a0B ("Market Reality", purple border) shows market\u2011based P&L from comparable sales waterfall',
       'Cost Basis merged into Track\u00a0A \u2014 standalone COST BASIS section removed; cost basis row now lives inside the Track\u00a0A card as the first data row, followed by TODAY\u2019S VALUE row, providing a natural reading flow from "what you paid" \u2192 "what it\u2019s worth" \u2192 "your P&L"',
