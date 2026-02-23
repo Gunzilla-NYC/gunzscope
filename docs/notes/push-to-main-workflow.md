@@ -9,9 +9,12 @@ Append a technical entry for this push:
 - Bullet list of what changed (read the staged/pushed commits)
 - Written in `/changelog` voice: terse, dev-focused (see `/docs/notes/voice-and-tone.md`)
 
-## 2. Update `app/updates/page.tsx`
+## 2. Update `lib/data/updates.ts`
 
-Append a user-facing entry:
+Add a new entry to the `UPDATES` array (at the top). Do NOT edit `app/updates/page.tsx`.
+
+- Set `tag: 'current'` on the new entry; remove `tag: 'current'` from the previous latest
+- The page renders these entries as a collapsible accordion — `tag: 'current'` auto-expands
 - Same dry, sarcastic GUNZscope voice but slightly more polished
 - Keep entries 1-3 sentences max per bullet
 - Don't oversell fixes as features

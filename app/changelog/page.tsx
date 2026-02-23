@@ -15,9 +15,18 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.3.5',
+    version: 'v0.3.6',
     date: 'Feb 22, 2026',
     tag: 'current',
+    items: [
+      'Updates page accordion refactor \u2014 extracted UPDATES data + UpdateEntry interface to lib/data/updates.ts; page.tsx slimmed from 449\u00a0\u2192\u00a048 lines, imports data and delegates to new UpdateTimeline client component',
+      'UpdateTimeline component \u2014 components/updates/UpdateTimeline.tsx; \u2018use client\u2019 accordion with useState\u2011based open set, CSS height transition (200ms ease\u2011in\u2011out), chevron rotation; tag:\u2019current\u2019 entry auto\u2011expanded, others collapsed, multiple can be open simultaneously',
+      'Push\u2011to\u2011main workflow updated \u2014 CLAUDE.md and docs/notes/push\u2011to\u2011main\u2011workflow.md now reference lib/data/updates.ts instead of app/updates/page.tsx for user\u2011facing update entries',
+    ],
+  },
+  {
+    version: 'v0.3.5',
+    date: 'Feb 22, 2026',
     items: [
       'Card/modal market data unification \u2014 NFTDetailPositionCard Track\u00a0B now uses same waterfall as deriveCardData(): marketExitGun \u2192 comparableSalesMedian \u2192 rarityFloor \u2192 currentLowestListing; previously modal only checked marketExitGun + computeMarketInputs (which excluded rarityFloor)',
       'Tier\u2011confidence gating \u2014 new trackBIsSalesBased boolean on NFTCardData; gallery cards and list rows only show Track\u00a0B MARKET line for sales\u2011based tiers (1\u20114: EXACT, VIA\u00a0SALES, VIA\u00a0SKIN, VIA\u00a0WEAPON); statistical proxies (tiers 5\u20116: RARITY, FLOOR, LISTED, SIMILAR) suppressed from card display',
