@@ -129,6 +129,14 @@ export function useReferral(walletAddress: string | undefined): UseReferralRetur
       const regRes = await fetch(`/api/referral/register?wallet=${encodeURIComponent(walletAddress)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (!regRes.ok) {
+        const text = await regRes.text();
+        console.warn('[Referral] register check failed:', regRes.status, text);
+        setError(`Failed to load referral data (${regRes.status})`);
+        return;
+      }
+
       const regData = await regRes.json();
 
       if (regData.success && regData.registered) {
@@ -146,7 +154,8 @@ export function useReferral(walletAddress: string | undefined): UseReferralRetur
       } else {
         setIsRegistered(false);
       }
-    } catch {
+    } catch (err) {
+      console.warn('[Referral] fetch error:', err);
       setError('Failed to load referral data');
     } finally {
       setIsLoading(false);

@@ -15,9 +15,18 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.3.7',
+    date: 'Feb 23, 2026',
+    tag: 'current',
+    items: [
+      'Referral register GET handler \u2014 added try/catch around getReferrerByWallet() DB call; was the only API route handler without error wrapping, causing unhandled throws to return HTML 500 instead of JSON',
+      'useReferral client hook \u2014 added regRes.ok guard before .json() parse; non\u20112xx responses now log status + body via console.warn("[Referral]") and show status code in error message instead of generic "Failed to load referral data"',
+      'Admin\u2011gated /roadmap page \u2014 app/roadmap/page.tsx; converted gunzscope\u2011blockchain\u2011architecture.html to React/Tailwind with brand CSS vars, clip\u2011path corners, proper typography; isAdminWallet() gate with redirect',
+    ],
+  },
+  {
     version: 'v0.3.6',
     date: 'Feb 22, 2026',
-    tag: 'current',
     items: [
       'Updates page accordion refactor \u2014 extracted UPDATES data + UpdateEntry interface to lib/data/updates.ts; page.tsx slimmed from 449\u00a0\u2192\u00a048 lines, imports data and delegates to new UpdateTimeline client component',
       'UpdateTimeline component \u2014 components/updates/UpdateTimeline.tsx; \u2018use client\u2019 accordion with useState\u2011based open set, CSS height transition (200ms ease\u2011in\u2011out), chevron rotation; tag:\u2019current\u2019 entry auto\u2011expanded, others collapsed, multiple can be open simultaneously',

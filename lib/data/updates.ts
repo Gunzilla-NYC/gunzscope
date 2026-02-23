@@ -15,9 +15,18 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.3.7',
+    date: 'Feb 23, 2026',
+    tag: 'current',
+    title: 'The referral section learned to explain itself',
+    items: [
+      'Fixed "Failed to load referral data" showing a dead\u2011end error with no useful info. Now logs the actual HTTP status and server message to the console, so when something breaks you can see why instead of staring at a red wall.',
+      'Added admin\u2011only /roadmap page \u2014 the on\u2011chain architecture doc lives here now, behind the same gate as /brand. If you\u2019re not admin, you get redirected. If you are, you get a very long document about deployment strategies.',
+    ],
+  },
+  {
     version: 'v0.3.6',
     date: 'Feb 22, 2026',
-    tag: 'current',
     title: 'The changelog got an accordion',
     items: [
       'The updates page is now collapsible. Latest version expanded by default, everything else tucked away behind a click. Because scrolling past 25 versions of patch notes to find the one you care about was getting old.',

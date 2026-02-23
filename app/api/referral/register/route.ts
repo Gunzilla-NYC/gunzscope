@@ -73,17 +73,21 @@ export async function GET(request: NextRequest) {
   const wallet = request.nextUrl.searchParams.get('wallet');
   if (!wallet) return jsonError('wallet query param required', 400);
 
-  const referrer = await getReferrerByWallet(wallet);
-  if (!referrer) {
-    return jsonSuccess({ registered: false });
-  }
+  try {
+    const referrer = await getReferrerByWallet(wallet);
+    if (!referrer) {
+      return jsonSuccess({ registered: false });
+    }
 
-  return jsonSuccess({
-    registered: true,
-    referrer: {
-      walletAddress: referrer.walletAddress,
-      slug: referrer.slug,
-      shareUrl: `https://gunzscope.xyz/r/${referrer.slug}`,
-    },
-  });
+    return jsonSuccess({
+      registered: true,
+      referrer: {
+        walletAddress: referrer.walletAddress,
+        slug: referrer.slug,
+        shareUrl: `https://gunzscope.xyz/r/${referrer.slug}`,
+      },
+    });
+  } catch {
+    return jsonError('Failed to check registration', 500);
+  }
 }
