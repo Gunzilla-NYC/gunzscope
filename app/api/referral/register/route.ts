@@ -87,7 +87,8 @@ export async function GET(request: NextRequest) {
         shareUrl: `https://gunzscope.xyz/r/${referrer.slug}`,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error('[Referral] GET /register error:', err);
     return jsonError('Failed to check registration', 500);
   }
 }
