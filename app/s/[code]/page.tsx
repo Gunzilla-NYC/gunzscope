@@ -1,7 +1,9 @@
 import { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getShareLinkByCode, recordClick } from '@/lib/services/shareService';
+import prisma from '@/lib/db';
+import { extractPortfolioSummary } from '@/lib/utils/portfolioSummary';
 import ShareRedirect from './ShareRedirect';
 
 interface PageProps {
@@ -20,13 +22,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `${shortAddr} Portfolio | GUNZscope`;
   const description = `View ${shortAddr}\u2019s GUN token balance and NFT holdings on GUNZscope.`;
 
-  // Reuse the existing OG image route with stored portfolio data
+  // Fetch live portfolio data from PortfolioCache
   const ogUrl = new URL(`/api/og/portfolio/${link.address}`, 'https://gunzscope.xyz');
-  if (link.totalUsd) ogUrl.searchParams.set('v', link.totalUsd);
-  if (link.gunBalance) ogUrl.searchParams.set('g', link.gunBalance);
-  if (link.nftCount !== null) ogUrl.searchParams.set('n', String(link.nftCount));
-  if (link.nftPnlPct) ogUrl.searchParams.set('pnl', link.nftPnlPct);
-  if (link.gunSpent) ogUrl.searchParams.set('gs', link.gunSpent);
+
+  const cache = await prisma.portfolioCache.findFirst({
+    where: { address: link.address.toLowerCase() },
+    orderBy: { savedAt: 'desc' },
+  });
+
+  if (cache) {
+    const summary = extractPortfolioSummary(cache.walletBlob, cache.gunPrice, cache.nftCount);
+    if (summary) {
+      ogUrl.searchParams.set('v', summary.totalUsd);
+      ogUrl.searchParams.set('g', summary.gunBalance);
+      ogUrl.searchParams.set('n', String(summary.nftCount));
+      if (summary.nftPnlPct) ogUrl.searchParams.set('pnl', summary.nftPnlPct);
+      if (summary.gunSpent) ogUrl.searchParams.set('gs', summary.gunSpent);
+    }
+  }
+
   const ogImageUrl = ogUrl.pathname + ogUrl.search;
 
   return {
@@ -54,24 +68,14 @@ export default async function SharePage({ params }: PageProps) {
 
   if (!link) notFound();
 
-  // Archived link — 301 redirect to the active replacement
-  if ('redirect' in link && link.redirect) {
-    redirect(`/s/${link.redirect}`);
-  }
-
   // Record the click (fire-and-forget, don't block page render)
   const headerList = await headers();
   const referrer = headerList.get('referer') ?? undefined;
   const userAgent = headerList.get('user-agent') ?? undefined;
   void recordClick(link.id, referrer, userAgent);
 
-  // Build the destination URL for client-side redirect
-  const destUrl = new URL('/portfolio', 'https://gunzscope.xyz');
-  destUrl.searchParams.set('address', link.address);
-  if (link.totalUsd) destUrl.searchParams.set('v', link.totalUsd);
-  if (link.gunBalance) destUrl.searchParams.set('g', link.gunBalance);
-  if (link.nftCount !== null) destUrl.searchParams.set('n', String(link.nftCount));
-  if (link.nftPnlPct) destUrl.searchParams.set('pnl', link.nftPnlPct);
+  // Redirect to the portfolio page — it fetches live data
+  const destUrl = `/portfolio?address=${encodeURIComponent(link.address)}`;
 
-  return <ShareRedirect destinationUrl={destUrl.pathname + destUrl.search} />;
+  return <ShareRedirect destinationUrl={destUrl} />;
 }

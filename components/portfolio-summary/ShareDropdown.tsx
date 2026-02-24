@@ -91,11 +91,6 @@ export function ShareDropdown({
         headers,
         body: JSON.stringify({
           address: walletAddress,
-          totalUsd,
-          gunBalance,
-          nftCount,
-          nftPnlPct: nftPnlPct !== undefined && nftPnlPct !== null ? nftPnlPct.toFixed(1) : undefined,
-          gunSpent: totalGunSpent,
           platform,
         }),
       });
@@ -110,6 +105,8 @@ export function ShareDropdown({
     url = buildFallbackUrl(walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent);
     return appendReferral(url);
   }, [walletAddress, totalUsd, gunBalance, nftCount, nftPnlPct, totalGunSpent, appendReferral]);
+  // Note: snapshot params are still used in buildFallbackUrl for when the API fails,
+  // but they are NOT sent to the API (which uses PortfolioCache for live OG data).
 
   const handleCopyLink = useCallback(async () => {
     const url = await getShareUrl('copy');

@@ -318,17 +318,21 @@ model PortfolioCache {
 // Referrer - Registered referral link owners
 // =============================================================================
 model Referrer {
-  id               String          @id @default(cuid())
-  walletAddress    String          @unique           // Lowercased
-  slug             String          @unique           // Active slug (auto-derived or custom)
-  slugType         String          @default("custom") // "auto" | "custom"
-  customSlug       String?         @unique           // Preserves custom slug when auto mode is active
-  totalClicks      Int             @default(0)
-  totalConversions Int             @default(0)       // portfolio_loaded count
-  createdAt        DateTime        @default(now())
-  events           ReferralEvent[]
+  id                   String          @id @default(cuid())
+  walletAddress        String          @unique           // Lowercased
+  slug                 String          @unique           // Active slug (auto-derived or custom)
+  slugType             String          @default("custom") // "auto" | "custom"
+  customSlug           String?         @unique           // Preserves custom slug when auto mode is active
+  previousSlug         String?                           // Old slug after a change; 301 redirects for 30 days
+  slugChangedAt        DateTime?                         // When the slug was last changed
+  slugChangesRemaining Int             @default(1)       // Custom slug changes allowed (starts at 1)
+  totalClicks          Int             @default(0)
+  totalConversions     Int             @default(0)       // portfolio_loaded count
+  createdAt            DateTime        @default(now())
+  events               ReferralEvent[]
 
   @@index([slug])
+  @@index([previousSlug])
   @@map("referrers")
 }
 

@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import { useShareReferral, timeAgo } from '@/lib/hooks/useShareReferral';
 import type { ShareSlot, SlugValidation, RecentReferral } from '@/lib/hooks/useShareReferral';
 import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { clipHex } from '@/lib/utils/styles';
 
 // =============================================================================
@@ -97,6 +99,22 @@ function ValidationMessage({ status, message }: { status: string; message?: stri
   );
 }
 
+function SectionLabel({ label, aside }: { label: string; aside?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 mb-2">
+      <span className="w-1.5 h-px bg-[var(--gs-purple)] shrink-0" />
+      <span className="font-mono text-[9px] tracking-[2px] uppercase text-[var(--gs-gray-3)]">
+        {label}
+      </span>
+      {aside && (
+        <span className="ml-auto font-mono text-[9px] tracking-[1px] text-[var(--gs-gray-2)]">
+          {aside}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function StatCell({ value, label, color }: { value: string | number; label: string; color?: string }) {
   return (
     <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-r border-white/[0.06] last:border-r-0">
@@ -113,11 +131,24 @@ function StatCell({ value, label, color }: { value: string | number; label: stri
   );
 }
 
-function StatusBadge({ active }: { active: boolean }) {
+const METHOD_ACCENT: Record<string, string> = {
+  link: '#A6F700',    // Lime
+  discord: '#5865F2', // Discord blue
+  x: '#FFFFFF',       // White
+};
+
+function StatusBadge({ active, locked }: { active: boolean; locked?: boolean }) {
   if (active) {
     return (
       <span className="font-mono text-[9px] uppercase tracking-[1px] px-2 py-0.5 bg-[rgba(0,255,136,0.1)] text-[var(--gs-profit)] border border-[rgba(0,255,136,0.2)]">
         Live
+      </span>
+    );
+  }
+  if (locked) {
+    return (
+      <span className="font-mono text-[9px] uppercase tracking-[1px] px-2 py-0.5 bg-white/[0.04] text-[var(--gs-gray-2)] border border-white/[0.06]">
+        Locked
       </span>
     );
   }
@@ -151,114 +182,63 @@ function Skeleton() {
 // =============================================================================
 
 function HandleSetup({
-  handleMode,
-  setHandleMode,
-  slugInput,
-  setSlugInput,
-  slugValidation,
+  walletAddress,
   isClaimingHandle,
   claimHandle,
-  walletAddress,
   error,
 }: {
-  handleMode: 'auto' | 'custom';
-  setHandleMode: (m: 'auto' | 'custom') => void;
-  slugInput: string;
-  setSlugInput: (v: string) => void;
-  slugValidation: SlugValidation;
+  walletAddress: string;
   isClaimingHandle: boolean;
   claimHandle: () => Promise<void>;
-  walletAddress: string;
   error: string | null;
 }) {
   const autoSlug = walletAddress.slice(0, 6).toLowerCase();
-
-  const borderColor =
-    handleMode === 'custom'
-      ? slugValidation.status === 'available' ? 'rgba(166,247,0,0.4)' :
-        slugValidation.status === 'taken' || slugValidation.status === 'reserved' ? 'rgba(255,68,68,0.4)' :
-        'rgba(255,255,255,0.06)'
-      : 'rgba(255,255,255,0.06)';
-
-  const canClaim = handleMode === 'auto' || slugValidation.status === 'available';
+  const [showConfirm, setShowConfirm] = useState(false);
 
   return (
     <div className="space-y-4">
-      {/* Mode toggle */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setHandleMode('auto')}
-          className={`font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border transition-colors cursor-pointer ${
-            handleMode === 'auto'
-              ? 'border-[var(--gs-lime)] text-[var(--gs-lime)] bg-[rgba(166,247,0,0.06)]'
-              : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.15]'
-          }`}
-          style={{ clipPath: clipHex(4) }}
-        >
-          Auto
-        </button>
-        <button
-          onClick={() => setHandleMode('custom')}
-          className={`font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border transition-colors cursor-pointer ${
-            handleMode === 'custom'
-              ? 'border-[var(--gs-purple)] text-[var(--gs-purple)] bg-[rgba(109,91,255,0.06)]'
-              : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.15]'
-          }`}
-          style={{ clipPath: clipHex(4) }}
-        >
-          Custom
-        </button>
-      </div>
-
-      {/* URL bar */}
+      {/* Preview URL bar */}
       <div
-        className="flex items-stretch overflow-hidden transition-colors"
-        style={{
-          border: `1px solid ${borderColor}`,
-          clipPath: clipHex(6),
-        }}
+        className="flex items-stretch overflow-hidden border border-white/[0.06]"
+        style={{ clipPath: clipHex(6) }}
       >
         <span className="flex items-center px-3 font-mono text-data text-[var(--gs-gray-3)] bg-white/[0.03] whitespace-nowrap select-none border-r border-white/[0.06]">
           gunzscope.xyz/r/
         </span>
-        {handleMode === 'auto' ? (
-          <span className="flex items-center flex-1 min-w-0 px-3 py-2.5 font-mono text-data text-[var(--gs-lime)]">
-            {autoSlug}
-          </span>
-        ) : (
-          <input
-            type="text"
-            value={slugInput}
-            onChange={e => setSlugInput(e.target.value)}
-            placeholder="your-slug"
-            maxLength={20}
-            className="flex-1 min-w-0 px-3 py-2.5 font-mono text-data text-[var(--gs-white)] bg-transparent outline-none placeholder:text-[var(--gs-gray-4)]"
-          />
-        )}
+        <span className="flex items-center flex-1 min-w-0 px-3 py-2.5 font-mono text-data text-[var(--gs-lime)]">
+          {autoSlug}
+        </span>
       </div>
 
-      {/* Validation (custom mode only) */}
-      {handleMode === 'custom' && (
-        <div className="min-h-[16px]">
-          <ValidationMessage status={slugValidation.status} message={slugValidation.message} />
-        </div>
-      )}
+      <p className="font-mono text-[10px] text-[var(--gs-gray-3)]">
+        Your wallet prefix. You can customize this after activation.
+      </p>
 
       {error && (
         <p className="font-mono text-[10px] text-[var(--gs-loss)]">{error}</p>
       )}
 
-      {/* Claim button */}
       <Button
         variant="primary"
         size="md"
         className="w-full"
-        disabled={!canClaim}
         loading={isClaimingHandle}
-        onClick={claimHandle}
+        onClick={() => setShowConfirm(true)}
       >
-        {handleMode === 'auto' ? 'Create Handle' : 'Claim Handle'}
+        Activate Share Link
       </Button>
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title="Activate Share Link"
+        message={`Your share link will be gunzscope.xyz/r/${autoSlug}. You can customize it once later.`}
+        confirmLabel="Activate"
+        onConfirm={() => {
+          setShowConfirm(false);
+          claimHandle();
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 }
@@ -269,58 +249,148 @@ function HandleSetup({
 
 function HandleDisplay({
   slug,
-  slugType,
-  customSlug,
-  onSwitchMode,
+  canCustomize,
   onCopy,
   copied,
+  slugInput,
+  setSlugInput,
+  slugValidation,
+  isClaimingHandle,
+  onCustomize,
 }: {
   slug: string;
-  slugType: 'auto' | 'custom';
-  customSlug: string | null;
-  onSwitchMode: () => Promise<void>;
+  canCustomize: boolean;
   onCopy: () => void;
   copied: boolean;
+  slugInput: string;
+  setSlugInput: (v: string) => void;
+  slugValidation: SlugValidation;
+  isClaimingHandle: boolean;
+  onCustomize: () => Promise<void>;
 }) {
-  const canSwitch = slugType === 'auto' ? !!customSlug : true;
+  const [showCustomizeForm, setShowCustomizeForm] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   return (
     <div className="space-y-3">
-      {/* Mode badge + switch */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[9px] uppercase tracking-[1px] px-2 py-0.5 bg-[rgba(166,247,0,0.08)] text-[var(--gs-lime)] border border-[rgba(166,247,0,0.2)]">
-            {slugType}
-          </span>
-          {canSwitch && (
-            <button
-              onClick={onSwitchMode}
-              className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
-            >
-              Switch to {slugType === 'auto' ? 'custom' : 'auto'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* URL bar */}
-      <div className="flex items-center gap-2">
-        <p className="flex-1 min-w-0 font-mono text-data truncate">
-          <span className="text-[var(--gs-gray-3)]">gunzscope.xyz/r/</span>
-          <span className="text-[var(--gs-lime)]">{slug}</span>
-        </p>
+      {/* URL bar with Claimed indicator */}
+      <div
+        className="flex items-stretch overflow-hidden border border-white/[0.06]"
+        style={{ clipPath: clipHex(5) }}
+      >
+        <span className="flex items-center px-3 font-mono text-data text-[var(--gs-gray-3)] bg-white/[0.03] whitespace-nowrap select-none border-r border-white/[0.06]">
+          gunzscope.xyz/r/
+        </span>
+        <span className="flex items-center flex-1 min-w-0 px-3 py-2 font-mono text-data text-[var(--gs-lime)] truncate">
+          {slug}
+        </span>
+        <span className="flex items-center gap-1 px-2.5 font-mono text-[10px] text-[var(--gs-profit)] whitespace-nowrap border-l border-white/[0.06]">
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+          Claimed
+        </span>
         <button
           onClick={onCopy}
-          className={`shrink-0 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 border transition-colors cursor-pointer ${
+          className={`shrink-0 font-mono text-[10px] uppercase tracking-wider px-3 py-2 border-l border-white/[0.06] transition-colors cursor-pointer ${
             copied
-              ? 'border-[rgba(0,255,136,0.3)] text-[var(--gs-profit)]'
-              : 'border-white/[0.1] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.2]'
+              ? 'text-[var(--gs-profit)]'
+              : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.04]'
           }`}
-          style={{ clipPath: clipHex(4) }}
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
+
+      {/* Customize hint + button */}
+      {canCustomize && !showCustomizeForm && (
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[9px] text-[var(--gs-gray-2)]">
+            You can customize your handle once
+          </span>
+          <button
+            onClick={() => setShowCustomizeForm(true)}
+            className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-white/[0.08] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.15] transition-colors cursor-pointer"
+            style={{ clipPath: clipHex(4) }}
+          >
+            Customize
+          </button>
+        </div>
+      )}
+
+      {/* Inline customize form */}
+      {canCustomize && showCustomizeForm && (
+        <div className="space-y-3 p-3 border border-[var(--gs-purple)]/20 bg-[rgba(109,91,255,0.03)]" style={{ clipPath: clipHex(5) }}>
+          <div
+            className="flex items-stretch overflow-hidden transition-colors"
+            style={{
+              border: `1px solid ${
+                slugValidation.status === 'available' ? 'rgba(166,247,0,0.4)' :
+                slugValidation.status === 'taken' || slugValidation.status === 'reserved' ? 'rgba(255,68,68,0.4)' :
+                'rgba(255,255,255,0.06)'
+              }`,
+              clipPath: clipHex(5),
+            }}
+          >
+            <span className="flex items-center px-3 font-mono text-data text-[var(--gs-gray-3)] bg-white/[0.03] whitespace-nowrap select-none border-r border-white/[0.06]">
+              gunzscope.xyz/r/
+            </span>
+            <input
+              type="text"
+              value={slugInput}
+              onChange={e => setSlugInput(e.target.value)}
+              placeholder="your-slug"
+              maxLength={20}
+              className="flex-1 min-w-0 px-3 py-2.5 font-mono text-data text-[var(--gs-white)] bg-transparent outline-none placeholder:text-[var(--gs-gray-4)]"
+            />
+          </div>
+          <div className="min-h-[16px]">
+            <ValidationMessage status={slugValidation.status} message={slugValidation.message} />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              className="flex-1"
+              disabled={slugValidation.status !== 'available'}
+              loading={isClaimingHandle}
+              onClick={() => setShowConfirm(true)}
+            >
+              Claim Custom Handle
+            </Button>
+            <button
+              onClick={() => setShowCustomizeForm(false)}
+              className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-white/[0.08] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
+              style={{ clipPath: clipHex(4) }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Status hint when locked */}
+      {!canCustomize && (
+        <div className="flex items-center gap-2">
+          <span className="w-[5px] h-[5px] rounded-full shrink-0 bg-[var(--gs-gray-2)]" />
+          <span className="font-mono text-[9px] text-[var(--gs-gray-2)]">
+            Handle locked
+          </span>
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title="Customize Handle"
+        message={`Replace your handle with '${slugInput}'? This is permanent and cannot be changed.`}
+        confirmLabel="Claim"
+        variant="danger"
+        onConfirm={() => {
+          setShowConfirm(false);
+          onCustomize();
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 }
@@ -329,6 +399,14 @@ function HandleDisplay({
 // Share Slot Card
 // =============================================================================
 
+const ICON_CLIP = 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))';
+
+const METHOD_ICON_STYLE: Record<string, { activeBorder: string; activeBg: string }> = {
+  link:    { activeBorder: 'rgba(166,247,0,0.25)', activeBg: 'rgba(166,247,0,0.05)' },
+  discord: { activeBorder: 'rgba(88,101,242,0.3)',  activeBg: 'rgba(88,101,242,0.06)' },
+  x:       { activeBorder: 'rgba(240,240,240,0.15)', activeBg: 'rgba(240,240,240,0.03)' },
+};
+
 function SlotCard({
   slot,
   onGenerate,
@@ -336,6 +414,7 @@ function SlotCard({
   isGenerating,
   isCopied,
   disabled,
+  locked,
 }: {
   slot: ShareSlot;
   onGenerate: () => void;
@@ -343,8 +422,11 @@ function SlotCard({
   isGenerating: boolean;
   isCopied: boolean;
   disabled: boolean;
+  locked: boolean;
 }) {
   const meta = METHOD_META[slot.method];
+  const accent = METHOD_ACCENT[slot.method] ?? '#A6F700';
+  const iconStyle = METHOD_ICON_STYLE[slot.method] ?? METHOD_ICON_STYLE.link;
 
   return (
     <div
@@ -355,21 +437,32 @@ function SlotCard({
       }`}
       style={{ clipPath: clipHex(6) }}
     >
-      {/* Top accent */}
-      {slot.active && <div className="h-[2px] bg-gradient-to-r from-[var(--gs-lime)] to-transparent" />}
+      {/* Top accent — solid method-specific color, full width */}
+      {slot.active && (
+        <div className="h-[2px] w-full" style={{ backgroundColor: accent }} />
+      )}
 
       <div className="p-4 space-y-3">
-        {/* Header row: icon + label + status */}
+        {/* Header row: icon box + label + status */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={slot.active ? 'text-[var(--gs-white)]' : 'text-[var(--gs-gray-3)]'}>
+          <div className="flex items-center gap-2.5">
+            {/* Icon box with corner-cut */}
+            <span
+              className="flex items-center justify-center w-[30px] h-[30px] shrink-0"
+              style={{
+                clipPath: ICON_CLIP,
+                border: `1px solid ${slot.active ? iconStyle.activeBorder : 'var(--gs-gray-1)'}`,
+                backgroundColor: slot.active ? iconStyle.activeBg : 'transparent',
+                color: slot.active ? accent : 'var(--gs-gray-3)',
+              }}
+            >
               {meta.icon}
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[1.5px] text-[var(--gs-white)]">
               {meta.label}
             </span>
           </div>
-          <StatusBadge active={slot.active} />
+          <StatusBadge active={slot.active} locked={locked} />
         </div>
 
         {/* Description */}
@@ -394,27 +487,17 @@ function SlotCard({
         {/* Action buttons */}
         <div className="flex gap-2">
           {slot.active ? (
-            <>
-              <button
-                onClick={onCopy}
-                className={`flex-1 font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border transition-colors cursor-pointer ${
-                  isCopied
-                    ? 'border-[rgba(0,255,136,0.3)] text-[var(--gs-profit)]'
-                    : 'border-white/[0.1] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.2]'
-                }`}
-                style={{ clipPath: clipHex(4) }}
-              >
-                {isCopied ? 'Copied!' : 'Copy'}
-              </button>
-              <button
-                onClick={onGenerate}
-                disabled={isGenerating}
-                className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-white/[0.08] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.15] transition-colors cursor-pointer disabled:opacity-50"
-                style={{ clipPath: clipHex(4) }}
-              >
-                {isGenerating ? 'Regenerating\u2026' : 'Regenerate'}
-              </button>
-            </>
+            <button
+              onClick={onCopy}
+              className={`flex-1 font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border transition-colors cursor-pointer ${
+                isCopied
+                  ? 'border-[rgba(0,255,136,0.3)] text-[var(--gs-profit)]'
+                  : 'border-white/[0.1] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.2]'
+              }`}
+              style={{ clipPath: clipHex(4) }}
+            >
+              {isCopied ? 'Copied!' : 'Copy'}
+            </button>
           ) : (
             <Button
               variant="secondary"
@@ -483,14 +566,13 @@ export default function ShareReferralSection({ walletAddress }: ShareReferralSec
   const {
     handle,
     isHandleClaimed,
-    handleMode,
-    setHandleMode,
     slugInput,
     setSlugInput,
     slugValidation,
     claimHandle,
-    switchMode,
+    customizeHandle,
     isClaimingHandle,
+    canCustomize,
     slots,
     generateLink,
     isGenerating,
@@ -503,13 +585,16 @@ export default function ShareReferralSection({ walletAddress }: ShareReferralSec
     retry,
   } = useShareReferral(walletAddress);
 
-  // Copy handle URL
-  const handleCopyReferralUrl = async () => {
+  // Copy handle URL with feedback
+  const [copiedHandleUrl, setCopiedHandleUrl] = useState(false);
+  const handleCopyReferralUrl = useCallback(async () => {
     if (!handle) return;
     try {
       await navigator.clipboard.writeText(handle.shareUrl);
+      setCopiedHandleUrl(true);
+      setTimeout(() => setCopiedHandleUrl(false), 2000);
     } catch { /* silent */ }
-  };
+  }, [handle]);
 
   return (
     <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
@@ -549,26 +634,30 @@ export default function ShareReferralSection({ walletAddress }: ShareReferralSec
         {!isLoading && walletAddress && (
           <>
             {/* Handle section */}
+            <SectionLabel
+              label="Your Handle"
+              aside={isHandleClaimed
+                ? (canCustomize ? 'Customizable' : undefined)
+                : undefined}
+            />
             {isHandleClaimed && handle ? (
               <HandleDisplay
                 slug={handle.slug}
-                slugType={handle.slugType}
-                customSlug={handle.customSlug}
-                onSwitchMode={switchMode}
+                canCustomize={canCustomize}
                 onCopy={handleCopyReferralUrl}
-                copied={false}
+                copied={copiedHandleUrl}
+                slugInput={slugInput}
+                setSlugInput={setSlugInput}
+                slugValidation={slugValidation}
+                isClaimingHandle={isClaimingHandle}
+                onCustomize={customizeHandle}
               />
             ) : (
               !error && (
                 <HandleSetup
-                  handleMode={handleMode}
-                  setHandleMode={setHandleMode}
-                  slugInput={slugInput}
-                  setSlugInput={setSlugInput}
-                  slugValidation={slugValidation}
+                  walletAddress={walletAddress}
                   isClaimingHandle={isClaimingHandle}
                   claimHandle={claimHandle}
-                  walletAddress={walletAddress}
                   error={error}
                 />
               )
@@ -576,9 +665,7 @@ export default function ShareReferralSection({ walletAddress }: ShareReferralSec
 
             {/* Share Slots (3 cards) */}
             <div>
-              <p className="font-mono text-[9px] tracking-[1.5px] uppercase text-[var(--gs-gray-3)] mb-3">
-                Share Links
-              </p>
+              <SectionLabel label="Share Links" aside="Max 1 per method" />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {slots.map(slot => (
                   <SlotCard
@@ -589,6 +676,7 @@ export default function ShareReferralSection({ walletAddress }: ShareReferralSec
                     isGenerating={!!isGenerating[slot.method]}
                     isCopied={copiedMethod === slot.method}
                     disabled={!isHandleClaimed}
+                    locked={!isHandleClaimed}
                   />
                 ))}
               </div>
@@ -596,18 +684,21 @@ export default function ShareReferralSection({ walletAddress }: ShareReferralSec
 
             {/* Aggregate Stats */}
             {isHandleClaimed && (
+              <div>
+              <SectionLabel label="Totals" />
               <div
                 className="grid grid-cols-2 sm:grid-cols-4 border border-white/[0.06] overflow-hidden"
                 style={{ clipPath: clipHex(6) }}
               >
-                <StatCell value={stats.activeLinks} label="Active Links" />
-                <StatCell value={stats.totalViews} label="Total Views" color="var(--gs-purple)" />
-                <StatCell value={stats.totalConnected} label="Connected" color="var(--gs-purple)" />
+                <StatCell value={stats.activeLinks} label="Active Links" color="var(--gs-lime)" />
+                <StatCell value={stats.totalViews} label="Total Views" color="var(--gs-purple-bright)" />
+                <StatCell value={stats.totalConnected} label="Connected" color="var(--gs-white)" />
                 <StatCell
                   value={`${stats.cvrRate}%`}
                   label="CVR Rate"
-                  color={stats.cvrRate >= 5 ? 'var(--gs-profit)' : undefined}
+                  color={stats.cvrRate >= 5 ? 'var(--gs-profit)' : 'var(--gs-gray-2)'}
                 />
+              </div>
               </div>
             )}
 

@@ -13,6 +13,7 @@ export interface HandleData {
   slug: string;
   slugType: 'auto' | 'custom';
   customSlug: string | null;
+  slugChangesRemaining: number;
   shareUrl: string;
 }
 
@@ -49,14 +50,13 @@ export interface UseShareReferralReturn {
   // Handle state
   handle: HandleData | null;
   isHandleClaimed: boolean;
-  handleMode: 'auto' | 'custom';
-  setHandleMode: (mode: 'auto' | 'custom') => void;
   slugInput: string;
   setSlugInput: (v: string) => void;
   slugValidation: SlugValidation;
   claimHandle: () => Promise<void>;
-  switchMode: () => Promise<void>;
+  customizeHandle: () => Promise<void>;
   isClaimingHandle: boolean;
+  canCustomize: boolean;
 
   // Share slots (always 3 entries)
   slots: ShareSlot[];
@@ -130,7 +130,6 @@ function buildShareUrl(slot: ShareSlot): string {
 export function useShareReferral(walletAddress: string | undefined): UseShareReferralReturn {
   // ── Handle state ───────────────────────────────────────────────────────────
   const [handle, setHandle] = useState<HandleData | null>(null);
-  const [handleMode, setHandleMode] = useState<'auto' | 'custom'>('auto');
 
   // ── Slug input + validation ────────────────────────────────────────────────
   const [slugInput, setSlugInputRaw] = useState('');
@@ -192,7 +191,6 @@ export function useShareReferral(walletAddress: string | undefined): UseShareRef
         const handleData = await handleRes.json();
         if (handleData.success && handleData.handle) {
           setHandle(handleData.handle);
-          setHandleMode(handleData.handle.slugType);
         } else {
           setHandle(null);
         }
@@ -294,7 +292,7 @@ export function useShareReferral(walletAddress: string | undefined): UseShareRef
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Claim Handle (auto or custom)
+  // Claim Handle (always auto — wallet prefix)
   // ═══════════════════════════════════════════════════════════════════════════
 
   const claimHandle = useCallback(async () => {
@@ -303,91 +301,81 @@ export function useShareReferral(walletAddress: string | undefined): UseShareRef
     const token = getAuthToken();
     if (!token) return;
 
-    // Custom mode requires validated slug
-    if (handleMode === 'custom' && slugValidation.status !== 'available') return;
-
     setIsClaimingHandle(true);
     setError(null);
 
     try {
-      const body: Record<string, string> = {
-        walletAddress,
-        slugType: handleMode,
-      };
-      if (handleMode === 'custom') {
-        body.slug = slugInput;
-      }
-
       const res = await fetch('/api/share/handle', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ walletAddress, slugType: 'auto' }),
       });
 
       const data = await res.json();
 
       if (data.success && data.handle) {
         setHandle(data.handle);
-        setHandleMode(data.handle.slugType);
-        toast.success('Handle created!');
-        // Refresh slots + stats
+        toast.success('Share link activated!');
         fetchAll();
-      } else if (res.status === 409) {
-        setSlugValidation({ status: 'taken', message: 'Already taken' });
       } else {
-        setError(data.error ?? 'Failed to create handle');
+        setError(data.error ?? 'Failed to activate handle');
       }
     } catch {
       setError('Network error');
     } finally {
       setIsClaimingHandle(false);
     }
-  }, [walletAddress, handleMode, slugInput, slugValidation.status, fetchAll]);
+  }, [walletAddress, fetchAll]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Switch Mode (auto ↔ custom)
+  // Customize Handle (replace auto slug with custom)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const switchMode = useCallback(async () => {
-    if (!walletAddress || !handle) return;
+  const customizeHandle = useCallback(async () => {
+    if (!walletAddress || slugValidation.status !== 'available') return;
 
     const token = getAuthToken();
     if (!token) return;
 
-    const newMode = handle.slugType === 'auto' ? 'custom' : 'auto';
-
-    // Can't switch to custom if no custom slug claimed
-    if (newMode === 'custom' && !handle.customSlug) {
-      toast.error('Claim a custom slug first');
-      return;
-    }
+    setIsClaimingHandle(true);
+    setError(null);
 
     try {
       const res = await fetch('/api/share/handle', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ walletAddress, slugType: newMode }),
+        body: JSON.stringify({
+          walletAddress,
+          slugType: 'custom',
+          slug: slugInput,
+        }),
       });
 
       const data = await res.json();
 
       if (data.success && data.handle) {
         setHandle(data.handle);
-        setHandleMode(data.handle.slugType);
-        toast.success(`Switched to ${newMode} handle`);
+        setSlugInputRaw('');
+        setSlugValidation({ status: 'idle' });
+        toast.success('Handle customized!');
+        fetchAll();
+      } else if (res.status === 409) {
+        setSlugValidation({ status: 'taken', message: 'Already taken' });
       } else {
-        toast.error(data.error ?? 'Failed to switch mode');
+        setError(data.error ?? 'Failed to customize handle');
       }
     } catch {
-      toast.error('Network error');
+      setError('Network error');
+    } finally {
+      setIsClaimingHandle(false);
     }
-  }, [walletAddress, handle]);
+  }, [walletAddress, slugInput, slugValidation.status, fetchAll]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Generate / Regenerate Share Link
@@ -487,17 +475,19 @@ export function useShareReferral(walletAddress: string | undefined): UseShareRef
   // Return
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // ── Derived ─────────────────────────────────────────────────────────────
+  const canCustomize = !!handle && !handle.customSlug && (handle.slugChangesRemaining ?? 0) > 0;
+
   return {
     handle,
     isHandleClaimed: !!handle,
-    handleMode,
-    setHandleMode,
     slugInput,
     setSlugInput,
     slugValidation,
     claimHandle,
-    switchMode,
+    customizeHandle,
     isClaimingHandle,
+    canCustomize,
 
     slots,
     generateLink,

@@ -10,12 +10,19 @@ import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 const WALLET_RE = /^0x[0-9a-f]{40}$/i;
 
-function formatHandle(referrer: { walletAddress: string; slug: string; slugType: string; customSlug: string | null }) {
+function formatHandle(referrer: {
+  walletAddress: string;
+  slug: string;
+  slugType: string;
+  customSlug: string | null;
+  slugChangesRemaining: number;
+}) {
   return {
     walletAddress: referrer.walletAddress,
     slug: referrer.slug,
     slugType: referrer.slugType,
     customSlug: referrer.customSlug,
+    slugChangesRemaining: referrer.slugChangesRemaining,
     shareUrl: `https://gunzscope.xyz/r/${referrer.slug}`,
   };
 }
@@ -123,7 +130,8 @@ export async function PUT(request: NextRequest) {
     return jsonSuccess({ handle: formatHandle(referrer) });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to switch slug type';
+    const status = msg === 'No slug changes remaining' ? 403 : 400;
     console.error('[Share] PUT /handle error:', err);
-    return jsonError(msg, 400);
+    return jsonError(msg, status);
   }
 }

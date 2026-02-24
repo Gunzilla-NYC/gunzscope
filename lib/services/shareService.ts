@@ -67,16 +67,9 @@ export async function createShareLink(input: CreateShareInput): Promise<ShareLin
 // Lookup
 // =============================================================================
 
-/** Look up a share link by its short code. Returns redirect hint for archived links. */
-export async function getShareLinkByCode(code: string): Promise<(ShareLinkData & { redirect?: string }) | null> {
-  const link = await prisma.shareLink.findUnique({ where: { code } });
-  if (!link) return null;
-
-  // Archived link — provide redirect hint to the active replacement
-  if (link.archived && link.archivedRedirectTo) {
-    return { ...link, redirect: link.archivedRedirectTo };
-  }
-  return link;
+/** Look up a share link by its short code. */
+export async function getShareLinkByCode(code: string): Promise<ShareLinkData | null> {
+  return prisma.shareLink.findUnique({ where: { code } });
 }
 
 // =============================================================================
@@ -189,6 +182,50 @@ export async function upsertShareLink(input: CreateShareInput): Promise<ShareLin
           address,
           platform,
           ...snapshotData,
+        },
+      });
+    } catch (err: unknown) {
+      const prismaErr = err as { code?: string };
+      if (prismaErr.code === 'P2002' && attempt < 2) continue;
+      throw err;
+    }
+  }
+  throw new Error('Failed to generate unique share code');
+}
+
+// =============================================================================
+// Get-or-Create Share Link (v2.1 — permanent, no snapshots)
+// =============================================================================
+
+/**
+ * Get an existing share link for (address, platform), or create a new one if empty.
+ * Links are permanent — once created they are never replaced.
+ * No snapshot data is stored; OG cards use live PortfolioCache instead.
+ */
+export async function getOrCreateShareLink(input: {
+  userProfileId?: string;
+  address: string;
+  platform: SharePlatform | 'copy';
+}): Promise<ShareLinkData> {
+  const address = input.address.toLowerCase();
+  const platform = normalizePlatform(input.platform);
+
+  // Return existing if slot is filled
+  const existing = await prisma.shareLink.findFirst({
+    where: { address, platform, archived: false },
+  });
+  if (existing) return existing;
+
+  // INSERT new (no snapshot fields)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = generateShortCode();
+    try {
+      return await prisma.shareLink.create({
+        data: {
+          code,
+          userProfileId: input.userProfileId ?? null,
+          address,
+          platform,
         },
       });
     } catch (err: unknown) {

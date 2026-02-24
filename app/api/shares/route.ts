@@ -1,17 +1,17 @@
 import { NextRequest } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId } from '@/lib/services/userService';
-import { upsertShareLink } from '@/lib/services/shareService';
+import { getOrCreateShareLink } from '@/lib/services/shareService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 /**
- * POST /api/shares — Create or replace a share link (UPSERT)
+ * POST /api/shares — Get or create a share link (permanent, no snapshots)
  *
  * Auth is optional: authenticated users get credit on the leaderboard,
  * unauthenticated users get a working short URL but no attribution.
  *
  * If an active link already exists for the same (address, platform),
- * it's archived and replaced with a fresh code + snapshot.
+ * the existing link's code is returned (idempotent).
  */
 export async function POST(request: NextRequest) {
   let userProfileId: string | undefined;
@@ -37,14 +37,9 @@ export async function POST(request: NextRequest) {
       return jsonError('platform must be "x", "discord", "copy", or "link"', 400);
     }
 
-    const link = await upsertShareLink({
+    const link = await getOrCreateShareLink({
       userProfileId,
       address: body.address,
-      totalUsd: body.totalUsd ?? undefined,
-      gunBalance: body.gunBalance ?? undefined,
-      nftCount: body.nftCount !== undefined ? Number(body.nftCount) : undefined,
-      nftPnlPct: body.nftPnlPct ?? undefined,
-      gunSpent: body.gunSpent ?? undefined,
       platform,
     });
 

@@ -24,6 +24,9 @@ export interface ReferrerData {
   slug: string;
   slugType: string;
   customSlug: string | null;
+  previousSlug: string | null;
+  slugChangedAt: Date | null;
+  slugChangesRemaining: number;
   totalClicks: number;
   totalConversions: number;
   createdAt: Date;
@@ -93,6 +96,7 @@ export async function createReferrer(walletAddress: string, slug: string): Promi
         slug: normalizedSlug,
         slugType: 'custom',
         customSlug: normalizedSlug,
+        slugChangesRemaining: 1, // Explicit — don't rely on DB default
       },
     });
     return { ok: true, referrer };
@@ -127,6 +131,16 @@ export async function getReferrerBySlug(slug: string): Promise<ReferrerData | nu
 
 export async function getReferrerByWallet(walletAddress: string): Promise<ReferrerData | null> {
   return prisma.referrer.findUnique({ where: { walletAddress: walletAddress.toLowerCase() } });
+}
+
+/** Look up a referrer by their previous slug (for 30-day redirect after slug change). */
+export async function getReferrerByPreviousSlug(slug: string): Promise<ReferrerData | null> {
+  return prisma.referrer.findFirst({
+    where: {
+      previousSlug: slug.toLowerCase(),
+      slugChangedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+    },
+  });
 }
 
 // =============================================================================
@@ -308,6 +322,7 @@ export async function getOrCreateAutoHandle(walletAddress: string): Promise<Refe
           walletAddress: normalizedWallet,
           slug,
           slugType: 'auto',
+          slugChangesRemaining: 1, // Explicit — don't rely on DB default
         },
       });
     } catch (err: unknown) {
@@ -328,6 +343,10 @@ export async function getOrCreateAutoHandle(walletAddress: string): Promise<Refe
  * Switch between auto and custom slug modes.
  * For "auto": sets slug to the auto-derived value.
  * For "custom": sets slug to the previously claimed customSlug (errors if none).
+ *
+ * Enforces slug change limit: each switch that changes the active slug
+ * decrements slugChangesRemaining and stores the old slug as previousSlug
+ * for 30-day redirect.
  */
 export async function switchSlugType(
   walletAddress: string,
@@ -337,26 +356,45 @@ export async function switchSlugType(
   const referrer = await prisma.referrer.findUnique({ where: { walletAddress: normalizedWallet } });
   if (!referrer) throw new Error('Handle not found');
 
+  // Check slug change limit
+  if (referrer.slugChangesRemaining <= 0) {
+    throw new Error('No slug changes remaining');
+  }
+
+  let newSlug: string;
+
   if (type === 'custom') {
     if (!referrer.customSlug) throw new Error('No custom slug claimed yet');
+    newSlug = referrer.customSlug;
+  } else {
+    // Switch to auto
+    newSlug = deriveAutoSlug(normalizedWallet);
+    // If auto slug is taken by someone else, append suffix
+    const slugOwner = await prisma.referrer.findUnique({ where: { slug: newSlug } });
+    if (slugOwner && slugOwner.id !== referrer.id) {
+      const suffix = Math.random().toString(16).slice(2, 4);
+      newSlug = `${deriveAutoSlug(normalizedWallet)}-${suffix}`;
+    }
+  }
+
+  // If the slug isn't actually changing, no-op (don't consume a change)
+  if (newSlug === referrer.slug) {
     return prisma.referrer.update({
       where: { id: referrer.id },
-      data: { slug: referrer.customSlug, slugType: 'custom' },
+      data: { slugType: type },
     });
   }
 
-  // Switch to auto
-  let slug = deriveAutoSlug(normalizedWallet);
-  // If auto slug is taken by someone else, append suffix
-  const slugOwner = await prisma.referrer.findUnique({ where: { slug } });
-  if (slugOwner && slugOwner.id !== referrer.id) {
-    const suffix = Math.random().toString(16).slice(2, 4);
-    slug = `${deriveAutoSlug(normalizedWallet)}-${suffix}`;
-  }
-
+  // Active slug is changing — consume a change and store old slug for redirect
   return prisma.referrer.update({
     where: { id: referrer.id },
-    data: { slug, slugType: 'auto' },
+    data: {
+      slug: newSlug,
+      slugType: type,
+      previousSlug: referrer.slug,
+      slugChangedAt: new Date(),
+      slugChangesRemaining: { decrement: 1 },
+    },
   });
 }
 
@@ -406,6 +444,50 @@ export async function claimCustomSlug(walletAddress: string, slug: string): Prom
 // =============================================================================
 // Admin
 // =============================================================================
+
+/**
+ * Admin: Delete a referrer record entirely so the wallet can re-register.
+ * ReferralEvents cascade-delete via the FK constraint.
+ * Returns the deleted referrer or null if not found.
+ */
+/**
+ * Find a referrer by wallet address OR slug.
+ */
+export async function findReferrerByWalletOrSlug(input: string): Promise<ReferrerData | null> {
+  const normalized = input.toLowerCase();
+  // Full wallet address (0x + 40 hex chars) — search by wallet
+  if (normalized.startsWith('0x') && normalized.length === 42) {
+    return prisma.referrer.findUnique({ where: { walletAddress: normalized } });
+  }
+  // Otherwise treat as slug (includes short 0x-prefixed auto slugs like "0xf943")
+  return prisma.referrer.findFirst({ where: { slug: normalized } });
+}
+
+export async function resetReferrer(walletOrSlug: string): Promise<ReferrerData | null> {
+  const existing = await findReferrerByWalletOrSlug(walletOrSlug);
+  if (!existing) return null;
+
+  await prisma.referrer.delete({ where: { id: existing.id } });
+  return existing;
+}
+
+/**
+ * Admin: Reset slugChangesRemaining back to 1 without deleting the referrer.
+ */
+export async function resetSlugChanges(walletOrSlug: string): Promise<ReferrerData | null> {
+  const existing = await findReferrerByWalletOrSlug(walletOrSlug);
+  if (!existing) return null;
+
+  // Reset slug changes AND clear customSlug so the handle can be re-customized.
+  // Don't touch slug/slugType — changing slug risks unique constraint violations.
+  return prisma.referrer.update({
+    where: { id: existing.id },
+    data: {
+      slugChangesRemaining: 1,
+      customSlug: null,
+    },
+  });
+}
 
 export async function listAllReferrers(
   page = 1,

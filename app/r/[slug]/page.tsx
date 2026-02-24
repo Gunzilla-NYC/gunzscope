@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
-import { getReferrerBySlug } from '@/lib/services/referralService';
+import { redirect } from 'next/navigation';
+import { getReferrerBySlug, getReferrerByPreviousSlug } from '@/lib/services/referralService';
 import ReferralRedirect from './ReferralRedirect';
 
 interface PageProps {
@@ -8,7 +9,13 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const referrer = await getReferrerBySlug(slug);
+  const normalizedSlug = slug.toLowerCase();
+  let referrer = await getReferrerBySlug(normalizedSlug);
+
+  // Check previous slug for 30-day redirect (metadata still resolves for crawlers)
+  if (!referrer) {
+    referrer = await getReferrerByPreviousSlug(normalizedSlug);
+  }
 
   const title = referrer
     ? `Join GUNZscope via ${referrer.slug}`
@@ -25,8 +32,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ReferralPage({ params }: PageProps) {
   const { slug } = await params;
-  const referrer = await getReferrerBySlug(slug.toLowerCase());
+  const normalizedSlug = slug.toLowerCase();
+  const referrer = await getReferrerBySlug(normalizedSlug);
 
-  // Always render redirect — even for invalid slugs (no error page)
-  return <ReferralRedirect slug={referrer ? slug.toLowerCase() : null} />;
+  if (referrer) {
+    return <ReferralRedirect slug={normalizedSlug} />;
+  }
+
+  // Check if this is a previous slug — 301 redirect to the current one
+  const oldRef = await getReferrerByPreviousSlug(normalizedSlug);
+  if (oldRef) {
+    redirect(`/r/${oldRef.slug}`);
+  }
+
+  // Unknown slug — redirect to home
+  return <ReferralRedirect slug={null} />;
 }

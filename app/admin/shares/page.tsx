@@ -1,7 +1,8 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -24,6 +25,103 @@ type TabMode = 'views' | 'shares' | 'portfolios';
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}\u2026${addr.slice(-4)}`;
+}
+
+function HandleTools() {
+  const [wallet, setWallet] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? '';
+
+  const handleDelete = useCallback(async () => {
+    if (!wallet.trim()) return;
+    if (!confirm(`Delete handle for ${wallet}? This removes the referrer and all events.`)) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/admin/referrals', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminSecret}`,
+        },
+        body: JSON.stringify({ wallet: wallet.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Deleted handle for ${data.deleted.slug}`);
+        setWallet('');
+      } else {
+        toast.error(data.error ?? 'Failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [wallet, adminSecret]);
+
+  const handleResetChanges = useCallback(async () => {
+    if (!wallet.trim()) return;
+    setIsResetting(true);
+    try {
+      const res = await fetch('/api/admin/referrals', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminSecret}`,
+        },
+        body: JSON.stringify({ wallet: wallet.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Reset slug changes for ${data.referrer.slug} (now: ${data.referrer.slugChangesRemaining})`);
+      } else {
+        toast.error(data.error ?? 'Failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setIsResetting(false);
+    }
+  }, [wallet, adminSecret]);
+
+  return (
+    <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden mt-6">
+      <div className="h-[2px] bg-gradient-to-r from-[var(--gs-warning)] to-transparent" />
+      <div className="p-6 space-y-4">
+        <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+          Handle Tools
+        </p>
+        <input
+          type="text"
+          value={wallet}
+          onChange={e => setWallet(e.target.value)}
+          placeholder="0x... wallet address or slug"
+          className="w-full px-3 py-2 font-mono text-data text-[var(--gs-white)] bg-[var(--gs-dark-3)] border border-white/[0.08] outline-none placeholder:text-[var(--gs-gray-4)] focus:border-[var(--gs-lime)]/30"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handleDelete}
+            disabled={!wallet.trim() || isDeleting}
+            className="flex-1 font-mono text-[10px] uppercase tracking-wider px-3 py-2 border border-[var(--gs-loss)]/30 text-[var(--gs-loss)] bg-[var(--gs-loss)]/5 hover:bg-[var(--gs-loss)]/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          >
+            {isDeleting ? 'Deleting\u2026' : 'Delete Handle'}
+          </button>
+          <button
+            onClick={handleResetChanges}
+            disabled={!wallet.trim() || isResetting}
+            className="flex-1 font-mono text-[10px] uppercase tracking-wider px-3 py-2 border border-[var(--gs-warning)]/30 text-[var(--gs-warning)] bg-[var(--gs-warning)]/5 hover:bg-[var(--gs-warning)]/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          >
+            {isResetting ? 'Resetting\u2026' : 'Reset Slug Changes'}
+          </button>
+        </div>
+        <p className="font-mono text-[9px] text-[var(--gs-gray-3)]">
+          Delete: removes referrer + all events (wallet can re&#8209;register).
+          Reset: restores slug changes to 1.
+        </p>
+      </div>
+    </section>
+  );
 }
 
 function AdminSharesContent() {
@@ -81,6 +179,7 @@ function AdminSharesContent() {
               <p className="font-mono text-[var(--gs-gray-3)]">Admin access required</p>
             </div>
           ) : (
+            <>
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] bg-gradient-to-r from-[var(--gs-lime)] via-[var(--gs-purple)] to-transparent" />
               <div className="p-6">
@@ -192,6 +291,8 @@ function AdminSharesContent() {
                 )}
               </div>
             </section>
+            <HandleTools />
+            </>
           )}
         </div>
       </main>

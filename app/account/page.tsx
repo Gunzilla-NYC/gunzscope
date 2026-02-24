@@ -11,6 +11,7 @@ import { useFeatureRequests } from '@/lib/hooks/useFeatureRequests';
 import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
 import ShareReferralSection from '@/components/account/ShareReferralSection';
+import AdminPanel from '@/components/account/AdminPanel';
 
 const MAX_PORTFOLIO_WALLETS = 5;
 const MAX_TRACKED_WALLETS = 10;
@@ -176,6 +177,8 @@ function AccountContent() {
   const [alertConfigs, setAlertConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [togglingAlert, setTogglingAlert] = useState<string | null>(null);
   const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
+  const [adminMode, setAdminMode] = useState(false);
+  const isAdmin = primaryWallet?.address?.toLowerCase() === ADMIN_WALLET;
 
   // Sync from profile on first load
   if (profile && !displayNameLoaded) {
@@ -334,9 +337,23 @@ function AccountContent() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase mb-2">
-            Profile
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase mb-2">
+              Profile
+            </h1>
+            {isAdmin && (
+              <button
+                onClick={() => setAdminMode(prev => !prev)}
+                className={`font-mono text-[9px] uppercase tracking-widest px-2.5 py-1 border transition-colors cursor-pointer ${
+                  adminMode
+                    ? 'border-[var(--gs-loss)]/50 text-[var(--gs-loss)] bg-[var(--gs-loss)]/10'
+                    : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:border-[var(--gs-loss)]/30 hover:text-[var(--gs-loss)]'
+                }`}
+              >
+                {adminMode ? '\u2715 Exit Admin' : 'Admin Mode'}
+              </button>
+            )}
+          </div>
           <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
             Manage your identity and portfolio wallets
           </p>
@@ -354,6 +371,9 @@ function AccountContent() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* ── Admin Panel ── */}
+            {adminMode && <AdminPanel adminSecret={process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''} />}
+
             {/* ── Identity Card ── */}
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] gradient-accent-line" />
@@ -547,7 +567,7 @@ function AccountContent() {
                     {slotsUsed === 0 && primaryWallet && (
                       <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
                         <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
-                          Add up to {MAX_PORTFOLIO_WALLETS} wallets to aggregate into a combined portfolio. Switch between them from the navbar.
+                          Add up to {MAX_PORTFOLIO_WALLETS} wallets to track independently. Switch between them from the navbar.
                         </p>
                       </div>
                     )}
@@ -577,20 +597,26 @@ function AccountContent() {
                             >
                               View
                             </Link>
-                            <button
-                              onClick={() => handleRemoveWallet(pa.id)}
-                              disabled={removingId === pa.id}
-                              className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
-                              aria-label="Remove wallet"
-                            >
-                              {removingId === pa.id ? (
-                                <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              )}
-                            </button>
+                            {pa.address.toLowerCase() === walletAddress.toLowerCase() ? (
+                              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5">
+                                Primary
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleRemoveWallet(pa.id)}
+                                disabled={removingId === pa.id}
+                                className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
+                                aria-label="Remove wallet"
+                              >
+                                {removingId === pa.id ? (
+                                  <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -661,11 +687,11 @@ function AccountContent() {
                         href={walletAddress ? `/portfolio?address=${walletAddress}` : '/portfolio'}
                         className="mt-4 flex items-center font-mono text-caption tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
                       >
-                        View combined portfolio {'\u2192'}
+                        View portfolio {'\u2192'}
                       </Link>
                     ) : (
                       <p className="mt-4 font-mono text-caption text-[var(--gs-gray-2)]">
-                        Portfolio wallets are aggregated together. Switch between them from the navbar.
+                        Each portfolio wallet is tracked independently. Switch between them from the navbar.
                       </p>
                     )}
                   </>
@@ -844,96 +870,6 @@ function AccountContent() {
                   </div>
                 )}
 
-                {/* Admin-only: UX testing modes */}
-                {primaryWallet?.address?.toLowerCase() === ADMIN_WALLET && (
-                  <div className="border-t border-[var(--gs-loss)]/20 pt-4 mt-4">
-                    <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-1">
-                      UX Testing
-                    </p>
-                    <p className="font-mono text-caption text-[var(--gs-gray-2)] mb-4">
-                      Simulate different user states. Reloads the page after clearing.
-                    </p>
-                    <div className="space-y-3">
-                      {/* First-time visitor */}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-mono text-data text-[var(--gs-gray-4)]">First&#8209;Time Visitor</p>
-                          <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-0.5">
-                            Nukes everything &mdash; onboarding, welcome, search gate, cache, history
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem('gs-uxr-welcome-dismissed');
-                            localStorage.removeItem('gs-onboarding');
-                            localStorage.removeItem('gs_wallet_hint_dismissed');
-                            sessionStorage.removeItem('gs_search_count');
-                            sessionStorage.removeItem('gs_searched_addrs');
-                            sessionStorage.removeItem('gs_last_search');
-                            localStorage.removeItem('gunzscope:portfolio:history');
-                            const keysToRemove: string[] = [];
-                            for (let i = 0; i < localStorage.length; i++) {
-                              const key = localStorage.key(i);
-                              if (key?.startsWith('zillascope:')) keysToRemove.push(key);
-                            }
-                            keysToRemove.forEach(k => localStorage.removeItem(k));
-                            toast.success('Reset to first-time visitor. Reloading\u2026');
-                            setTimeout(() => window.location.reload(), 800);
-                          }}
-                          className="shrink-0 px-4 py-2 font-mono text-caption uppercase tracking-wider border border-[var(--gs-loss)]/30 text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 transition-colors cursor-pointer"
-                        >
-                          Reset
-                        </button>
-                      </div>
-                      {/* New account (just signed up) */}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-mono text-data text-[var(--gs-gray-4)]">New Account</p>
-                          <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-0.5">
-                            Re&#8209;triggers welcome popup, onboarding checklist &amp; wallet hint
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem('gs-uxr-welcome-dismissed');
-                            localStorage.removeItem('gs-onboarding');
-                            localStorage.removeItem('gs_wallet_hint_dismissed');
-                            toast.success('Reset to new account. Reloading\u2026');
-                            setTimeout(() => window.location.reload(), 800);
-                          }}
-                          className="shrink-0 px-4 py-2 font-mono text-caption uppercase tracking-wider border border-[var(--gs-purple)]/30 text-[var(--gs-purple)] hover:bg-[var(--gs-purple)]/10 transition-colors cursor-pointer"
-                        >
-                          Reset
-                        </button>
-                      </div>
-                      {/* Returning user (stale cache) */}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-mono text-data text-[var(--gs-gray-4)]">Returning User</p>
-                          <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-0.5">
-                            Clears NFT cache &amp; portfolio history only &mdash; keeps onboarding state
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem('gunzscope:portfolio:history');
-                            const keysToRemove: string[] = [];
-                            for (let i = 0; i < localStorage.length; i++) {
-                              const key = localStorage.key(i);
-                              if (key?.startsWith('zillascope:')) keysToRemove.push(key);
-                            }
-                            keysToRemove.forEach(k => localStorage.removeItem(k));
-                            toast.success('Reset to returning user. Reloading\u2026');
-                            setTimeout(() => window.location.reload(), 800);
-                          }}
-                          className="shrink-0 px-4 py-2 font-mono text-caption uppercase tracking-wider border border-[var(--gs-lime)]/30 text-[var(--gs-lime)] hover:bg-[var(--gs-lime)]/10 transition-colors cursor-pointer"
-                        >
-                          Reset
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </section>
 
