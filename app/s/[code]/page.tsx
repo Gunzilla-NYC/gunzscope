@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getShareLinkByCode, recordClick } from '@/lib/services/shareService';
 import ShareRedirect from './ShareRedirect';
@@ -53,6 +53,11 @@ export default async function SharePage({ params }: PageProps) {
   const link = await getShareLinkByCode(code);
 
   if (!link) notFound();
+
+  // Archived link — 301 redirect to the active replacement
+  if ('redirect' in link && link.redirect) {
+    redirect(`/s/${link.redirect}`);
+  }
 
   // Record the click (fire-and-forget, don't block page render)
   const headerList = await headers();

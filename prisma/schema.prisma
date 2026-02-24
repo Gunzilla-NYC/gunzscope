@@ -255,21 +255,27 @@ model GunPriceHistory {
 // Share Link - Short URL for portfolio sharing with view tracking
 // =============================================================================
 model ShareLink {
-  id            String       @id @default(cuid())
-  code          String       @unique           // 8-char alphanumeric, used in /s/{code}
-  userProfileId String?                        // null for unauthenticated shares
-  userProfile   UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
-  address       String                         // wallet address (lowercase)
-  totalUsd      String?                        // portfolio value at share time
-  gunBalance    String?                        // GUN balance string
-  nftCount      Int?                           // NFT count
-  nftPnlPct     String?                        // P&L percentage string
-  gunSpent      String?                        // total GUN spent on NFTs
-  platform      String       @default("copy")  // "x" | "discord" | "copy"
-  viewCount     Int          @default(0)       // denormalized counter for fast reads
-  createdAt     DateTime     @default(now())
-  clicks        ShareClick[]
+  id                 String       @id @default(cuid())
+  code               String       @unique           // 8-char alphanumeric, used in /s/{code}
+  userProfileId      String?                        // null for unauthenticated shares
+  userProfile        UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
+  address            String                         // wallet address (lowercase)
+  totalUsd           String?                        // portfolio value at share time
+  gunBalance         String?                        // GUN balance string
+  nftCount           Int?                           // NFT count
+  nftPnlPct          String?                        // P&L percentage string
+  gunSpent           String?                        // total GUN spent on NFTs
+  platform           String       @default("link")  // "link" | "discord" | "x"
+  viewCount          Int          @default(0)       // denormalized counter for fast reads
+  createdAt          DateTime     @default(now())
+  archived           Boolean      @default(false)   // Soft-deleted when replaced by UPSERT
+  archivedRedirectTo String?                        // Code of the active replacement link
+  clicks             ShareClick[]
 
+  // 1 active link per method per wallet — enforced by partial unique index at DB level:
+  // CREATE UNIQUE INDEX ON share_links (address, platform) WHERE archived = false;
+  // (Prisma doesn't support partial unique indexes, so enforcement is DB-side only)
+  @@index([address, platform])
   @@index([userProfileId])
   @@index([createdAt])
   @@map("share_links")
@@ -314,7 +320,9 @@ model PortfolioCache {
 model Referrer {
   id               String          @id @default(cuid())
   walletAddress    String          @unique           // Lowercased
-  slug             String          @unique           // 3-20 chars, lowercase alphanumeric + hyphens
+  slug             String          @unique           // Active slug (auto-derived or custom)
+  slugType         String          @default("custom") // "auto" | "custom"
+  customSlug       String?         @unique           // Preserves custom slug when auto mode is active
   totalClicks      Int             @default(0)
   totalConversions Int             @default(0)       // portfolio_loaded count
   createdAt        DateTime        @default(now())

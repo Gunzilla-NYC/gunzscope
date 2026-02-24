@@ -5,6 +5,8 @@ import { generateShortCode } from '../utils/shortCode';
 // Types
 // =============================================================================
 
+export type SharePlatform = 'link' | 'discord' | 'x';
+
 export interface CreateShareInput {
   userProfileId?: string;
   address: string;
@@ -13,7 +15,7 @@ export interface CreateShareInput {
   nftCount?: number;
   nftPnlPct?: string;
   gunSpent?: string;
-  platform: 'x' | 'discord' | 'copy';
+  platform: SharePlatform | 'copy'; // 'copy' is legacy, treated as 'link'
 }
 
 export interface ShareLinkData {
@@ -65,9 +67,16 @@ export async function createShareLink(input: CreateShareInput): Promise<ShareLin
 // Lookup
 // =============================================================================
 
-/** Look up a share link by its short code */
-export async function getShareLinkByCode(code: string): Promise<ShareLinkData | null> {
-  return prisma.shareLink.findUnique({ where: { code } });
+/** Look up a share link by its short code. Returns redirect hint for archived links. */
+export async function getShareLinkByCode(code: string): Promise<(ShareLinkData & { redirect?: string }) | null> {
+  const link = await prisma.shareLink.findUnique({ where: { code } });
+  if (!link) return null;
+
+  // Archived link — provide redirect hint to the active replacement
+  if (link.archived && link.archivedRedirectTo) {
+    return { ...link, redirect: link.archivedRedirectTo };
+  }
+  return link;
 }
 
 // =============================================================================
@@ -115,6 +124,171 @@ export async function getUserShareStats(userProfileId: string): Promise<UserShar
   const totalShares = shares.length;
   const totalViews = shares.reduce((sum, s) => sum + s.viewCount, 0);
   return { totalShares, totalViews, shares };
+}
+
+// =============================================================================
+// UPSERT Share Link (1-per-method)
+// =============================================================================
+
+/** Normalize legacy 'copy' platform to 'link'. */
+function normalizePlatform(platform: string): SharePlatform {
+  return platform === 'copy' ? 'link' : platform as SharePlatform;
+}
+
+/**
+ * Create or replace a share link for the given (address, platform) pair.
+ * On conflict: archives the existing link, creates a new one with a fresh code.
+ * Enforces the 1-link-per-method constraint.
+ */
+export async function upsertShareLink(input: CreateShareInput): Promise<ShareLinkData> {
+  const address = input.address.toLowerCase();
+  const platform = normalizePlatform(input.platform);
+  const snapshotData = {
+    totalUsd: input.totalUsd ?? null,
+    gunBalance: input.gunBalance ?? null,
+    nftCount: input.nftCount ?? null,
+    nftPnlPct: input.nftPnlPct ?? null,
+    gunSpent: input.gunSpent ?? null,
+  };
+
+  // Check for existing active link
+  const existing = await prisma.shareLink.findFirst({
+    where: { address, platform, archived: false },
+  });
+
+  const newCode = generateShortCode();
+
+  if (existing) {
+    // Archive the old link and create a new one in a transaction
+    const [, created] = await prisma.$transaction([
+      prisma.shareLink.update({
+        where: { id: existing.id },
+        data: { archived: true, archivedRedirectTo: newCode },
+      }),
+      prisma.shareLink.create({
+        data: {
+          code: newCode,
+          userProfileId: input.userProfileId ?? null,
+          address,
+          platform,
+          ...snapshotData,
+        },
+      }),
+    ]);
+    return created;
+  }
+
+  // No existing link — create new
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = attempt === 0 ? newCode : generateShortCode();
+    try {
+      return await prisma.shareLink.create({
+        data: {
+          code,
+          userProfileId: input.userProfileId ?? null,
+          address,
+          platform,
+          ...snapshotData,
+        },
+      });
+    } catch (err: unknown) {
+      const prismaErr = err as { code?: string };
+      if (prismaErr.code === 'P2002' && attempt < 2) continue;
+      throw err;
+    }
+  }
+  throw new Error('Failed to generate unique share code');
+}
+
+// =============================================================================
+// Share Slots (3 per wallet)
+// =============================================================================
+
+export interface ShareSlot {
+  method: SharePlatform;
+  active: boolean;
+  code: string | null;
+  viewCount: number;
+  createdAt: string | null;
+}
+
+const ALL_METHODS: SharePlatform[] = ['link', 'discord', 'x'];
+
+/** Get the 3 share slots for a wallet — one per method, some may be empty. */
+export async function getShareSlots(address: string): Promise<ShareSlot[]> {
+  const links = await prisma.shareLink.findMany({
+    where: { address: address.toLowerCase(), archived: false },
+  });
+
+  const linkMap = new Map(links.map(l => [l.platform, l]));
+
+  return ALL_METHODS.map(method => {
+    const link = linkMap.get(method);
+    return {
+      method,
+      active: !!link,
+      code: link?.code ?? null,
+      viewCount: link?.viewCount ?? 0,
+      createdAt: link?.createdAt?.toISOString() ?? null,
+    };
+  });
+}
+
+// =============================================================================
+// Unified Stats (share views + referral data)
+// =============================================================================
+
+export interface UnifiedStats {
+  activeLinks: number;
+  totalViews: number;
+  totalConnected: number;
+  totalConversions: number;
+  cvrRate: number;
+}
+
+/** Get combined share + referral stats for a wallet address. */
+export async function getUnifiedStats(address: string): Promise<UnifiedStats> {
+  const normalizedAddr = address.toLowerCase();
+
+  // Active share links count
+  const activeShares = await prisma.shareLink.findMany({
+    where: { address: normalizedAddr, archived: false },
+    select: { viewCount: true },
+  });
+  const activeLinks = activeShares.length;
+
+  // Total views across ALL links (active + archived) — cumulative, survives regeneration
+  const allShares = await prisma.shareLink.findMany({
+    where: { address: normalizedAddr },
+    select: { viewCount: true },
+  });
+  const totalViews = allShares.reduce((sum, s) => sum + s.viewCount, 0);
+
+  // Referral stats from Referrer model
+  const referrer = await prisma.referrer.findUnique({
+    where: { walletAddress: normalizedAddr },
+    select: { totalClicks: true, totalConversions: true, id: true },
+  });
+
+  let totalConnected = 0;
+  const totalConversions = referrer?.totalConversions ?? 0;
+
+  if (referrer) {
+    totalConnected = await prisma.referralEvent.count({
+      where: {
+        referrerId: referrer.id,
+        status: { in: ['wallet_connected', 'portfolio_loaded'] },
+      },
+    });
+  }
+
+  // CVR = wallets connected / total share link views (the real top-of-funnel)
+  const totalImpressions = totalViews + (referrer?.totalClicks ?? 0);
+  const cvrRate = totalImpressions > 0
+    ? Math.round((totalConnected / totalImpressions) * 1000) / 10
+    : 0;
+
+  return { activeLinks, totalViews, totalConnected, totalConversions, cvrRate };
 }
 
 // =============================================================================

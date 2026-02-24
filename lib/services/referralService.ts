@@ -22,6 +22,8 @@ export interface ReferrerData {
   id: string;
   walletAddress: string;
   slug: string;
+  slugType: string;
+  customSlug: string | null;
   totalClicks: number;
   totalConversions: number;
   createdAt: Date;
@@ -86,7 +88,12 @@ export async function createReferrer(walletAddress: string, slug: string): Promi
 
   try {
     const referrer = await prisma.referrer.create({
-      data: { walletAddress: normalizedWallet, slug: normalizedSlug },
+      data: {
+        walletAddress: normalizedWallet,
+        slug: normalizedSlug,
+        slugType: 'custom',
+        customSlug: normalizedSlug,
+      },
     });
     return { ok: true, referrer };
   } catch (err: unknown) {
@@ -268,6 +275,132 @@ export async function getReferrerStats(walletAddress: string): Promise<ReferrerS
     conversionRate,
     recentReferrals,
   };
+}
+
+// =============================================================================
+// Handle System
+// =============================================================================
+
+/** Derive an auto-slug from a wallet address: "0x" + first 4 hex chars. */
+function deriveAutoSlug(walletAddress: string): string {
+  return walletAddress.slice(0, 6).toLowerCase(); // "0xf943"
+}
+
+/**
+ * Get or create an auto-handle for a wallet.
+ * If the wallet already has a Referrer, return it.
+ * Otherwise create one with an auto-derived slug.
+ */
+export async function getOrCreateAutoHandle(walletAddress: string): Promise<ReferrerData> {
+  const normalizedWallet = walletAddress.toLowerCase();
+
+  // Already exists? Return it.
+  const existing = await prisma.referrer.findUnique({ where: { walletAddress: normalizedWallet } });
+  if (existing) return existing;
+
+  // Try to create with the auto-derived slug
+  let slug = deriveAutoSlug(normalizedWallet);
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await prisma.referrer.create({
+        data: {
+          walletAddress: normalizedWallet,
+          slug,
+          slugType: 'auto',
+        },
+      });
+    } catch (err: unknown) {
+      const prismaErr = err as { code?: string };
+      if (prismaErr.code === 'P2002' && attempt < 4) {
+        // Slug collision — append 2 random hex chars
+        const suffix = Math.random().toString(16).slice(2, 4);
+        slug = `${deriveAutoSlug(normalizedWallet)}-${suffix}`;
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('Failed to create auto handle');
+}
+
+/**
+ * Switch between auto and custom slug modes.
+ * For "auto": sets slug to the auto-derived value.
+ * For "custom": sets slug to the previously claimed customSlug (errors if none).
+ */
+export async function switchSlugType(
+  walletAddress: string,
+  type: 'auto' | 'custom',
+): Promise<ReferrerData> {
+  const normalizedWallet = walletAddress.toLowerCase();
+  const referrer = await prisma.referrer.findUnique({ where: { walletAddress: normalizedWallet } });
+  if (!referrer) throw new Error('Handle not found');
+
+  if (type === 'custom') {
+    if (!referrer.customSlug) throw new Error('No custom slug claimed yet');
+    return prisma.referrer.update({
+      where: { id: referrer.id },
+      data: { slug: referrer.customSlug, slugType: 'custom' },
+    });
+  }
+
+  // Switch to auto
+  let slug = deriveAutoSlug(normalizedWallet);
+  // If auto slug is taken by someone else, append suffix
+  const slugOwner = await prisma.referrer.findUnique({ where: { slug } });
+  if (slugOwner && slugOwner.id !== referrer.id) {
+    const suffix = Math.random().toString(16).slice(2, 4);
+    slug = `${deriveAutoSlug(normalizedWallet)}-${suffix}`;
+  }
+
+  return prisma.referrer.update({
+    where: { id: referrer.id },
+    data: { slug, slugType: 'auto' },
+  });
+}
+
+/**
+ * Claim a custom slug for a wallet that already has an auto-handle.
+ * Updates slug to the custom value and stores it in customSlug.
+ */
+export async function claimCustomSlug(walletAddress: string, slug: string): Promise<CreateResult> {
+  const normalizedWallet = walletAddress.toLowerCase();
+  const normalizedSlug = slug.toLowerCase().trim();
+
+  const check = validateSlug(normalizedSlug);
+  if (!check.available) {
+    return { ok: false, code: check.reason === 'reserved' ? 'reserved_slug' : 'invalid_slug' };
+  }
+
+  const referrer = await prisma.referrer.findUnique({ where: { walletAddress: normalizedWallet } });
+  if (!referrer) {
+    // No handle yet — create one directly with custom slug
+    return createReferrer(normalizedWallet, normalizedSlug);
+  }
+
+  // Already has a custom slug
+  if (referrer.customSlug) {
+    return { ok: false, code: 'wallet_exists', existing: referrer };
+  }
+
+  try {
+    const updated = await prisma.referrer.update({
+      where: { id: referrer.id },
+      data: {
+        slug: normalizedSlug,
+        slugType: 'custom',
+        customSlug: normalizedSlug,
+      },
+    });
+    return { ok: true, referrer: updated };
+  } catch (err: unknown) {
+    const prismaErr = err as { code?: string };
+    if (prismaErr.code === 'P2002') {
+      return { ok: false, code: 'slug_taken' };
+    }
+    throw err;
+  }
 }
 
 // =============================================================================

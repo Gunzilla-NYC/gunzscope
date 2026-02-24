@@ -1,14 +1,17 @@
 import { NextRequest } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/dynamicAuth';
 import { getProfileByDynamicId } from '@/lib/services/userService';
-import { createShareLink } from '@/lib/services/shareService';
+import { upsertShareLink } from '@/lib/services/shareService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 /**
- * POST /api/shares — Create a share link
+ * POST /api/shares — Create or replace a share link (UPSERT)
  *
  * Auth is optional: authenticated users get credit on the leaderboard,
  * unauthenticated users get a working short URL but no attribution.
+ *
+ * If an active link already exists for the same (address, platform),
+ * it's archived and replaced with a fresh code + snapshot.
  */
 export async function POST(request: NextRequest) {
   let userProfileId: string | undefined;
@@ -29,12 +32,12 @@ export async function POST(request: NextRequest) {
       return jsonError('address is required', 400);
     }
 
-    const platform = body.platform as 'x' | 'discord' | 'copy';
-    if (!['x', 'discord', 'copy'].includes(platform)) {
-      return jsonError('platform must be "x", "discord", or "copy"', 400);
+    const platform = body.platform as 'x' | 'discord' | 'copy' | 'link';
+    if (!['x', 'discord', 'copy', 'link'].includes(platform)) {
+      return jsonError('platform must be "x", "discord", "copy", or "link"', 400);
     }
 
-    const link = await createShareLink({
+    const link = await upsertShareLink({
       userProfileId,
       address: body.address,
       totalUsd: body.totalUsd ?? undefined,
