@@ -15,9 +15,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.3.8',
+    date: 'Feb 26, 2026',
+    tag: 'current',
+    items: [
+      'Waitlist redirect fix \u2014 paste\u2011address flow (non\u2011Dynamic\u2011SDK users) now passes address as query param to /waitlist; WaitlistClient reads from primaryWallet?.address || searchParams.get(\u2018address\u2019); previously redirected back to / because no Dynamic wallet was connected',
+      'Waitlist page Suspense boundary \u2014 wrapped WaitlistClient in <Suspense> in app/waitlist/page.tsx; required by Next.js for useSearchParams() during static prerender',
+      'Waitlist status API auth removed \u2014 GET /api/waitlist/status no longer requires Dynamic JWT; position and referral count are non\u2011sensitive; paste\u2011address users have no auth token',
+      'useWaitlist hook auth optional \u2014 getAuthToken() now called inside try block; token sent as Authorization header only when available; missing token no longer causes early return that left isLoading stuck at true',
+      'Reusable WalletAddressInput component \u2014 components/ui/WalletAddressInput.tsx; unified chain detection (GunzChain/Solana badge, validation border, hint text) across 5 input locations: home page, admin panel, account page, insanity mode, portfolio search',
+      'WalletAddressInput validateChain prop \u2014 when false, disables red border for non\u2011matching input; used by Handle Tools where slugs are valid input alongside wallet addresses',
+      'Admin panel column layout standardization \u2014 WhitelistTools, WaitlistTools, ShareLeaderboard all use same toolbar\u2011at\u2011top pattern with shrink\u20110 pb\u20113 mb\u20113 border\u2011b divider; address + action button on same row',
+      'Stale .next cache diagnosis \u2014 dev server was serving compiled chunks with old error text "This address isn\u2019t on the early access list yet." from cached .next/dev/ files while source had been updated',
+    ],
+  },
+  {
     version: 'v0.3.7',
     date: 'Feb 23, 2026',
-    tag: 'current',
     items: [
       'Referral register GET handler \u2014 added try/catch around getReferrerByWallet() DB call; was the only API route handler without error wrapping, causing unhandled throws to return HTML 500 instead of JSON',
       'useReferral client hook \u2014 added regRes.ok guard before .json() parse; non\u20112xx responses now log status + body via console.warn("[Referral]") and show status code in error message instead of generic "Failed to load referral data"',

@@ -15,9 +15,19 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.3.8',
+    date: 'Feb 26, 2026',
+    tag: 'current',
+    title: 'The waitlist stopped playing hard to get',
+    items: [
+      'Non\u2011whitelisted wallets now actually reach the waitlist page instead of bouncing back to the home screen. Turns out "join the waitlist" works better when the waitlist lets you in the door.',
+      'Wallet address inputs across the site now share the same component \u2014 chain detection badge, validation hints, the works. Paste an EVM address, get a "GunzChain" badge. Paste a Solana address, get a "Solana" badge. Paste gibberish, get a gentle red nudge.',
+      'The admin panel columns stopped arguing about who gets to be taller. Inputs, buttons, and address bars now line up like they went to the same finishing school.',
+    ],
+  },
+  {
     version: 'v0.3.7',
     date: 'Feb 23, 2026',
-    tag: 'current',
     title: 'The referral section learned to explain itself',
     items: [
       'Fixed "Failed to load referral data" showing a dead\u2011end error with no useful info. Now logs the actual HTTP status and server message to the console, so when something breaks you can see why instead of staring at a red wall.',

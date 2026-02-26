@@ -37,6 +37,8 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import UnlockBanner from '@/components/UnlockBanner';
 import WalletRequiredGate from '@/components/WalletRequiredGate';
 import { useStableEnrichmentUpdates } from '@/lib/hooks/useStableEnrichmentUpdates';
+import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
+import { detectChain } from '@/lib/utils/detectChain';
 import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { useReferralTracking } from '@/lib/hooks/useReferralTracking';
@@ -613,13 +615,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   };
 
   // Detect wallet address chain type
-  const detectedChain = useMemo(() => {
-    const trimmed = searchAddress.trim();
-    if (!trimmed) return null;
-    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return 'gunzchain' as const;
-    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return 'solana' as const;
-    return null;
-  }, [searchAddress]);
+  const detectedChain = detectChain(searchAddress);
 
   // Handle CTA form submit — the "Analyze a Wallet" entry form is ungated
   const handleCtaSearch = (e: React.FormEvent) => {
@@ -861,24 +857,15 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                 Enter a wallet address or connect your wallet to get started.
               </p>
               <form onSubmit={handleCtaSearch} className="flex gap-2 mb-4">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
+                <div className="flex-1">
+                  <WalletAddressInput
                     value={searchAddress}
-                    onChange={(e) => setSearchAddress(e.target.value)}
-                    placeholder="0x... or Solana address"
-                    className={`w-full bg-[var(--gs-dark-1)] border border-white/[0.08] px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/30 transition-colors ${detectedChain ? 'pr-24' : ''}`}
+                    onChange={setSearchAddress}
+                    className="px-3 py-2.5 text-sm bg-[var(--gs-dark-1)] placeholder:text-[var(--gs-gray-2)]"
+                    badgeRight="right-3"
                     style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+                    showHint={false}
                   />
-                  {searchAddress.trim() && detectedChain && (
-                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
-                      detectedChain === 'gunzchain'
-                        ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
-                        : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
-                    }`}>
-                      {detectedChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
-                    </span>
-                  )}
                 </div>
                 <button
                   type="submit"
@@ -973,7 +960,14 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           ) : (
             <div className="flex items-center gap-4 mb-6">
               <form onSubmit={handleSearch} className="flex-1 max-w-md">
-                <div className="relative">
+                <WalletAddressInput
+                  value={searchAddress}
+                  onChange={setSearchAddress}
+                  placeholder="Search another wallet..."
+                  className={`pl-9 py-2 text-sm bg-[var(--gs-dark-2)] rounded-lg placeholder-[var(--gs-gray-3)] ${detectedChain ? 'pr-40' : 'pr-14'}`}
+                  badgeRight="right-14"
+                  badgePadding=""
+                >
                   <svg
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gs-gray-3)]"
                     fill="none"
@@ -982,22 +976,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <input
-                    type="text"
-                    value={searchAddress}
-                    onChange={(e) => setSearchAddress(e.target.value)}
-                    placeholder="Search another wallet..."
-                    className={`w-full pl-9 py-2 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono ${searchAddress.trim() && detectedChain ? 'pr-40' : 'pr-14'}`}
-                  />
-                  {searchAddress.trim() && detectedChain && (
-                    <span className={`absolute right-14 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
-                      detectedChain === 'gunzchain'
-                        ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
-                        : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
-                    }`}>
-                      {detectedChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
-                    </span>
-                  )}
                   <button
                     type="submit"
                     disabled={!searchAddress.trim() || !detectedChain}
@@ -1005,12 +983,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   >
                     Go
                   </button>
-                </div>
-                {searchAddress.trim() && !detectedChain && (
-                  <p className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">
-                    Enter a valid GunzChain (0x...) or Solana address
-                  </p>
-                )}
+                </WalletAddressInput>
               </form>
             </div>
           )}
@@ -1053,7 +1026,14 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                 onSubmit={handleSearch}
                 className="max-w-md mx-auto mb-8"
               >
-                <div className="relative">
+                <WalletAddressInput
+                  value={searchAddress}
+                  onChange={setSearchAddress}
+                  placeholder="Enter a GunzChain or Solana address..."
+                  className={`pl-10 py-3 text-sm bg-[var(--gs-dark-2)] rounded-lg placeholder-[var(--gs-gray-3)] ${detectedChain ? 'pr-40' : 'pr-16'}`}
+                  badgeRight="right-16"
+                  badgePadding=""
+                >
                   <svg
                     className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gs-gray-3)]"
                     fill="none"
@@ -1062,22 +1042,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <input
-                    type="text"
-                    value={searchAddress}
-                    onChange={(e) => setSearchAddress(e.target.value)}
-                    placeholder="Enter a GunzChain or Solana address..."
-                    className={`w-full pl-10 py-3 text-sm bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg text-white placeholder-[var(--gs-gray-3)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition font-mono ${searchAddress.trim() && detectedChain ? 'pr-40' : 'pr-16'}`}
-                  />
-                  {searchAddress.trim() && detectedChain && (
-                    <span className={`absolute right-16 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
-                      detectedChain === 'gunzchain'
-                        ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
-                        : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
-                    }`}>
-                      {detectedChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
-                    </span>
-                  )}
                   <button
                     type="submit"
                     disabled={!searchAddress.trim() || !detectedChain}
@@ -1085,12 +1049,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   >
                     Search
                   </button>
-                </div>
-                {searchAddress.trim() && !detectedChain && (
-                  <p className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1.5">
-                    Enter a valid GunzChain (0x...) or Solana address
-                  </p>
-                )}
+                </WalletAddressInput>
               </form>
 
               <div className="flex items-center justify-center gap-3">

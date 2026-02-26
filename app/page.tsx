@@ -11,6 +11,8 @@ import { FeatureIcon } from '@/components/ui/FeatureIcon';
 import { useTextScramble } from '@/hooks/useTextScramble';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import VersionBadge from '@/components/ui/VersionBadge';
+import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
+import { detectChain } from '@/lib/utils/detectChain';
 
 // Shared animation easings
 const revealEase = [0.16, 1, 0.3, 1] as const;
@@ -134,14 +136,6 @@ export default function HomePage() {
     startOnMount: false
   });
 
-  // Detect wallet address chain type
-  const detectChain = (addr: string): 'gunzchain' | 'solana' | null => {
-    const trimmed = addr.trim();
-    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return 'gunzchain';
-    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return 'solana';
-    return null;
-  };
-
   const handleWalletAddressChange = (value: string) => {
     setWalletAddress(value);
     setWalletChain(detectChain(value));
@@ -169,8 +163,11 @@ export default function HomePage() {
       if (data.success) {
         setShowWalletModal(false);
         router.push(`/portfolio?address=${encodeURIComponent(trimmed)}`);
+      } else if (data.waitlisted) {
+        setShowWalletModal(false);
+        router.push(`/waitlist?address=${encodeURIComponent(trimmed)}`);
       } else {
-        setGateError('This address isn\u2019t on the early access list yet.');
+        setGateError('Unable to validate access. Please try again.');
       }
     } catch {
       setGateError('Failed to validate. Please try again.');
@@ -195,10 +192,13 @@ export default function HomePage() {
         .then((data) => {
           if (data.success) {
             router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+          } else if (data.waitlisted) {
+            // Waitlisted — redirect to waitlist, keep wallet connected
+            router.push(`/waitlist?address=${encodeURIComponent(primaryWallet.address)}`);
           } else {
-            // Not whitelisted — disconnect and show error
+            // Unexpected state — disconnect
             handleLogOut();
-            setGateError('This wallet isn\u2019t on the early access list yet.');
+            setGateError('Unable to validate access. Please try again.');
           }
         })
         .catch(() => {
@@ -814,25 +814,17 @@ export default function HomePage() {
                 /* ── Paste Address View ── */
                 <div>
                   <form onSubmit={handleWalletSubmit} className="flex gap-2">
-                    <div className="flex-1 relative">
-                      <input
-                        ref={pasteInputRef}
-                        type="text"
+                    <div className="flex-1">
+                      <WalletAddressInput
+                        inputRef={pasteInputRef}
                         value={walletAddress}
-                        onChange={(e) => { handleWalletAddressChange(e.target.value); setGateError(null); }}
-                        placeholder="0x... or Solana address"
-                        className={`w-full py-3.5 pl-4 bg-[var(--gs-black)] border border-white/[0.08] text-[var(--gs-white)] font-mono text-sm placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/40 transition-colors clip-corner-sm ${walletChain ? 'pr-28' : 'pr-4'}`}
+                        onChange={(v) => { handleWalletAddressChange(v); setGateError(null); }}
                         disabled={gateLoading}
+                        className="py-3.5 pl-4 text-sm bg-[var(--gs-black)] placeholder:text-[var(--gs-gray-2)] clip-corner-sm"
+                        badgeRight="right-3"
+                        badgePadding="pr-28"
+                        showHint={false}
                       />
-                      {walletAddress.trim() && walletChain && (
-                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-mono text-caption uppercase tracking-wider px-2 py-0.5 rounded-sm ${
-                          walletChain === 'gunzchain'
-                            ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
-                            : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
-                        }`}>
-                          {walletChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
-                        </span>
-                      )}
                     </div>
                     <button
                       type="submit"

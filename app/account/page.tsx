@@ -12,9 +12,11 @@ import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
 import ShareReferralSection from '@/components/account/ShareReferralSection';
 import AdminPanel from '@/components/account/AdminPanel';
+import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
+import { detectChain } from '@/lib/utils/detectChain';
 
 const MAX_PORTFOLIO_WALLETS = 5;
-const MAX_TRACKED_WALLETS = 10;
+const MAX_TRACKED_WALLETS = 3;
 const ADMIN_WALLET = '0xf9434e3057432032bb621aa5144329861869c72f';
 
 const ALERT_TYPES: {
@@ -77,12 +79,6 @@ function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}\u2026${addr.slice(-4)}`;
 }
 
-function isValidEvmAddress(addr: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(addr);
-}
-
-/** Deduplicate wallets that share the same address but differ only by chain.
- *  Prefers the more specific chain name (e.g. "avalanche" over "eip155"). */
 function deduplicateWallets(wallets: { id: string; address: string; chain: string; isPrimary: boolean; createdAt: string }[]) {
   const byAddress = new Map<string, typeof wallets[number]>();
   for (const w of wallets) {
@@ -91,13 +87,32 @@ function deduplicateWallets(wallets: { id: string; address: string; chain: strin
     if (!existing) {
       byAddress.set(key, w);
     } else {
-      // Keep the one with isPrimary, or the more specific chain (not eip155)
       const preferNew = w.isPrimary || (existing.chain === 'eip155' && w.chain !== 'eip155');
       if (preferNew) byAddress.set(key, w);
     }
   }
   return Array.from(byAddress.values());
 }
+
+// =============================================================================
+// Shared primitives
+// =============================================================================
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-4">
+      {children}
+    </p>
+  );
+}
+
+function Divider() {
+  return <div className="border-t border-white/[0.06] my-5" />;
+}
+
+// =============================================================================
+// Login Gate
+// =============================================================================
 
 function LoginGate({ onLogin }: { onLogin: () => void }) {
   const { spanRef, scramble } = useGlitchText('Login or Create Account');
@@ -130,8 +145,11 @@ function LoginGate({ onLogin }: { onLogin: () => void }) {
   );
 }
 
+// =============================================================================
+// Main Account Content
+// =============================================================================
+
 function AccountContent() {
-  // Mark wallet hint as permanently dismissed once user visits this page
   useEffect(() => { localStorage.setItem('gs_wallet_hint_dismissed', '1'); }, []);
 
   const { primaryWallet, user, setShowAuthFlow } = useDynamicContext();
@@ -157,7 +175,6 @@ function AccountContent() {
 
   const { requests: featureRequests } = useFeatureRequests();
 
-  // Local state
   const [newAddress, setNewAddress] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -168,7 +185,6 @@ function AccountContent() {
   const [email, setEmail] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [emailLoaded, setEmailLoaded] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [walletTab, setWalletTab] = useState<'portfolio' | 'tracked'>('portfolio');
   const [newTrackedAddress, setNewTrackedAddress] = useState('');
   const [newTrackedLabel, setNewTrackedLabel] = useState('');
@@ -180,7 +196,6 @@ function AccountContent() {
   const [adminMode, setAdminMode] = useState(false);
   const isAdmin = primaryWallet?.address?.toLowerCase() === ADMIN_WALLET;
 
-  // Sync from profile on first load
   if (profile && !displayNameLoaded) {
     setDisplayName(profile.displayName ?? '');
     setDisplayNameLoaded(true);
@@ -195,7 +210,6 @@ function AccountContent() {
   const slotsUsed = portfolioAddresses.length;
   const isAtLimit = slotsUsed >= MAX_PORTFOLIO_WALLETS;
 
-  // Auto-add primary wallet to portfolio if portfolio is empty (first-time UX)
   const autoAddedRef = useRef(false);
   useEffect(() => {
     if (autoAddedRef.current) return;
@@ -205,6 +219,7 @@ function AccountContent() {
     autoAddedRef.current = true;
     addPortfolioAddress(walletAddress, 'Primary Wallet');
   }, [profile, isLoading, walletAddress, portfolioAddresses.length, addPortfolioAddress]);
+
   const trackedAddresses = profile?.trackedAddresses ?? [];
   const trackedSlotsUsed = trackedAddresses.length;
   const isTrackedAtLimit = trackedSlotsUsed >= MAX_TRACKED_WALLETS;
@@ -214,25 +229,16 @@ function AccountContent() {
     return featureRequests.filter((r) => r.authorId === profile.id);
   }, [featureRequests, profile]);
 
-  const handleCopyAddress = useCallback(() => {
-    navigator.clipboard.writeText(walletAddress);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [walletAddress]);
-
   const handleAddWallet = useCallback(async () => {
     const trimmed = newAddress.trim();
     if (!trimmed) return;
-
-    if (!isValidEvmAddress(trimmed)) {
-      toast.error('Invalid address. Enter a valid 0x EVM address.');
+    if (!detectChain(trimmed)) {
+      toast.error('Invalid address. Enter a valid GunzChain or Solana address.');
       return;
     }
-
     setIsAdding(true);
     const result = await addPortfolioAddress(trimmed, newLabel.trim() || undefined);
     setIsAdding(false);
-
     if (result) {
       toast.success('Wallet added to portfolio');
       setNewAddress('');
@@ -246,27 +252,20 @@ function AccountContent() {
     setRemovingId(id);
     const success = await removePortfolioAddress(id);
     setRemovingId(null);
-
-    if (success) {
-      toast.success('Wallet removed');
-    } else {
-      toast.error('Failed to remove wallet');
-    }
+    if (success) toast.success('Wallet removed');
+    else toast.error('Failed to remove wallet');
   }, [removePortfolioAddress]);
 
   const handleAddTracked = useCallback(async () => {
     const trimmed = newTrackedAddress.trim();
     if (!trimmed) return;
-
-    if (!isValidEvmAddress(trimmed)) {
-      toast.error('Invalid address. Enter a valid 0x EVM address.');
+    if (!detectChain(trimmed)) {
+      toast.error('Invalid address. Enter a valid GunzChain or Solana address.');
       return;
     }
-
     setIsAddingTracked(true);
     const result = await addTrackedAddress(trimmed, newTrackedLabel.trim() || undefined);
     setIsAddingTracked(false);
-
     if (result) {
       toast.success('Wallet added to watchlist');
       setNewTrackedAddress('');
@@ -280,87 +279,89 @@ function AccountContent() {
     setRemovingTrackedId(id);
     const success = await removeTrackedAddress(id);
     setRemovingTrackedId(null);
-
-    if (success) {
-      toast.success('Wallet removed from watchlist');
-    } else {
-      toast.error('Failed to remove wallet');
-    }
+    if (success) toast.success('Wallet removed from watchlist');
+    else toast.error('Failed to remove wallet');
   }, [removeTrackedAddress]);
 
   const handleSaveEmail = useCallback(async () => {
     setIsSavingEmail(true);
     const success = await updateEmail(email.trim() || null);
     setIsSavingEmail(false);
-
-    if (success) {
-      toast.success('Email updated');
-    } else {
-      toast.error('Failed to update email');
-    }
+    if (success) toast.success('Email updated');
+    else toast.error('Failed to update email');
   }, [email, updateEmail]);
 
   const handleSaveDisplayName = useCallback(async () => {
     setIsSavingDisplayName(true);
     const success = await updateDisplayName(displayName.trim() || null);
     setIsSavingDisplayName(false);
-
-    if (success) {
-      toast.success('Display name updated');
-    } else {
-      toast.error('Failed to update display name');
-    }
+    if (success) toast.success('Display name updated');
+    else toast.error('Failed to update display name');
   }, [displayName, updateDisplayName]);
 
   const handleSetPrimary = useCallback(async (address: string) => {
     setSettingPrimary(address);
     const success = await setPrimaryWallet(address);
     setSettingPrimary(null);
-    if (success) {
-      toast.success('Primary wallet updated');
-    } else {
-      toast.error('Failed to update primary wallet');
-    }
+    if (success) toast.success('Primary wallet updated');
+    else toast.error('Failed to update primary wallet');
   }, [setPrimaryWallet]);
 
-  // Gate: require authentication (use `user` not `primaryWallet` — wallet can lag behind SDK init)
   if (!user) {
-    return (
-      <LoginGate onLogin={() => setShowAuthFlow(true)} />
-    );
+    return <LoginGate onLogin={() => setShowAuthFlow(true)} />;
   }
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
       <Navbar />
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      {/* ── Page-level toggle: Admin view vs Profile view ── */}
+      {isAdmin && (
+        <div className={`${adminMode ? 'max-w-7xl' : 'max-w-3xl'} mx-auto px-4 sm:px-6 lg:px-8 pt-10 flex items-center justify-between`}>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setAdminMode(false)}
+              className={`font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 border transition-colors cursor-pointer ${
+                !adminMode
+                  ? 'border-[var(--gs-lime)]/40 text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.08]'
+                  : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)]'
+              }`}
+            >
+              Profile
+            </button>
+            <button
+              onClick={() => setAdminMode(true)}
+              className={`font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 border transition-colors cursor-pointer ${
+                adminMode
+                  ? 'border-[var(--gs-loss)]/40 text-[var(--gs-loss)] bg-[var(--gs-loss)]/[0.08]'
+                  : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:text-[var(--gs-loss)]'
+              }`}
+            >
+              Admin
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Admin Mode: full-width, fills viewport ── */}
+      {adminMode && !isLoading && (
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col" style={{ minHeight: 'calc(100dvh - 140px)' }}>
+          <AdminPanel adminSecret={process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''} />
+        </main>
+      )}
+
+      {/* ── Profile Mode: normal account page ── */}
+      <main className={`max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 ${adminMode ? 'hidden' : ''}`}>
         {/* Page Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase mb-2">
-              Profile
-            </h1>
-            {isAdmin && (
-              <button
-                onClick={() => setAdminMode(prev => !prev)}
-                className={`font-mono text-[9px] uppercase tracking-widest px-2.5 py-1 border transition-colors cursor-pointer ${
-                  adminMode
-                    ? 'border-[var(--gs-loss)]/50 text-[var(--gs-loss)] bg-[var(--gs-loss)]/10'
-                    : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:border-[var(--gs-loss)]/30 hover:text-[var(--gs-loss)]'
-                }`}
-              >
-                {adminMode ? '\u2715 Exit Admin' : 'Admin Mode'}
-              </button>
-            )}
-          </div>
-          <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
+          <h1 className="font-display font-bold text-3xl sm:text-4xl uppercase mb-1">Profile</h1>
+          <p className="font-body text-sm text-[var(--gs-gray-4)]">
             Manage your identity and portfolio wallets
           </p>
         </div>
 
         {isLoading ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-6">
                 <div className="h-3 w-32 bg-white/10 animate-pulse mb-4" />
@@ -370,150 +371,137 @@ function AccountContent() {
             ))}
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* ── Admin Panel ── */}
-            {adminMode && <AdminPanel adminSecret={process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''} />}
+          <div className="space-y-4">
 
-            {/* ── Identity Card ── */}
+            {/* ── Account Card: identity + settings merged ── */}
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] gradient-accent-line" />
               <div className="p-6">
-                {primaryWallet ? (
-                  <>
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                        Connected Wallets
-                      </p>
-                      <span className="flex items-center gap-1.5 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)]" />
-                        Live
-                      </span>
-                    </div>
+                <SectionLabel>Account</SectionLabel>
 
-                    {/* Wallet list from profile (deduplicated by address) */}
-                    {profile && profile.wallets.length > 0 ? (
-                      <div className="space-y-0 mb-4">
-                        {deduplicateWallets(profile.wallets).map((wallet) => (
-                          <div
-                            key={wallet.id}
-                            className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-b-0"
+                {/* Connected wallet(s) */}
+                {primaryWallet && profile && profile.wallets.length > 0 && (
+                  <div className="mb-0">
+                    {deduplicateWallets(profile.wallets).map((wallet) => (
+                      <div
+                        key={wallet.id}
+                        className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-b-0"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] shrink-0" />
+                          <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
+                            {truncateAddress(wallet.address)}
+                          </span>
+                          {wallet.isPrimary && (
+                            <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5 shrink-0">
+                              Primary
+                            </span>
+                          )}
+                          <span className="font-mono text-caption text-[var(--gs-gray-2)]">
+                            {wallet.chain}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!wallet.isPrimary && (
+                            <button
+                              onClick={() => handleSetPrimary(wallet.address)}
+                              disabled={settingPrimary === wallet.address}
+                              className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors disabled:opacity-50"
+                            >
+                              {settingPrimary === wallet.address ? 'Setting\u2026' : 'Set Primary'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(wallet.address); toast.success('Address copied'); }}
+                            className="p-1 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                            aria-label="Copy address"
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
-                                {truncateAddress(wallet.address)}
-                              </span>
-                              {wallet.isPrimary && (
-                                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5 shrink-0">
-                                  Primary
-                                </span>
-                              )}
-                              <span className="font-mono text-caption text-[var(--gs-gray-2)]">
-                                {wallet.chain}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {!wallet.isPrimary && (
-                                <button
-                                  onClick={() => handleSetPrimary(wallet.address)}
-                                  disabled={settingPrimary === wallet.address}
-                                  className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors disabled:opacity-50"
-                                >
-                                  {settingPrimary === wallet.address ? 'Setting\u2026' : 'Set Primary'}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(wallet.address);
-                                  toast.success('Address copied');
-                                }}
-                                className="p-1 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
-                                aria-label="Copy address"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3 mb-4">
-                        <p className="font-mono text-lg text-[var(--gs-lime)] tabular-nums">
-                          {truncateAddress(walletAddress)}
-                        </p>
-                        <button
-                          onClick={handleCopyAddress}
-                          className="p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
-                          aria-label="Copy address"
-                        >
-                          {copied ? (
-                            <svg className="w-4 h-4 text-[var(--gs-lime)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
-                          )}
-                        </button>
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                        Account
-                      </p>
-                      <span className="flex items-center gap-1.5 font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)]" />
-                        Active
-                      </span>
-                    </div>
-
-                    <p className="font-mono text-lg text-[var(--gs-lime)] mb-2">
-                      {profile?.email || 'Email User'}
-                    </p>
-                    <p className="font-mono text-data text-[var(--gs-gray-3)] mb-4">
-                      No wallet connected. Add your in&#8209;game wallet below to track your portfolio.
-                    </p>
-                  </>
-                )}
-
-                {/* Display Name */}
-                {profile && (
-                  <div className="mb-4 pt-4 border-t border-white/[0.06]">
-                    <label className="block font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-2">
-                      Display Name
-                    </label>
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="Enter a display name"
-                        maxLength={30}
-                        className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
-                      />
-                      <button
-                        onClick={handleSaveDisplayName}
-                        disabled={isSavingDisplayName}
-                        className="px-5 py-2.5 font-display font-semibold text-sm uppercase border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        {isSavingDisplayName ? 'Saving\u2026' : 'Save'}
-                      </button>
-                    </div>
-                    <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-1.5">
-                      Shown on feature requests and credits page. Max 30 characters.
-                    </p>
+                    ))}
                   </div>
                 )}
 
-                {profile && (
-                  <p className="font-mono text-data text-[var(--gs-gray-3)]">
-                    Member since {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {/* No wallet connected */}
+                {!primaryWallet && (
+                  <p className="font-mono text-data text-[var(--gs-gray-3)] mb-4">
+                    {profile?.email || 'Email User'} &mdash; No wallet connected.
                   </p>
+                )}
+
+                <Divider />
+
+                {/* Display Name + Email side by side on wider screens, stacked on mobile */}
+                {profile && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Display Name */}
+                    <div>
+                      <label className="block font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-2">
+                        Display Name
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          placeholder="Enter a display name"
+                          maxLength={30}
+                          className="flex-1 min-w-0 px-3 py-2 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                        />
+                        <button
+                          onClick={handleSaveDisplayName}
+                          disabled={isSavingDisplayName}
+                          className="shrink-0 px-4 py-2 font-display font-semibold text-sm uppercase border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {isSavingDisplayName ? '\u2026' : 'Save'}
+                        </button>
+                      </div>
+                      <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-1.5">
+                        Shown on credits page. Max 30 chars.
+                      </p>
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label className="block font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-2">
+                        Email <span className="normal-case tracking-normal text-[var(--gs-gray-2)]">(Optional)</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="your@email.com"
+                          className="flex-1 min-w-0 px-3 py-2 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                        />
+                        <button
+                          onClick={handleSaveEmail}
+                          disabled={isSavingEmail}
+                          className="shrink-0 px-4 py-2 font-display font-semibold text-sm uppercase border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors disabled:opacity-50"
+                        >
+                          {isSavingEmail ? '\u2026' : 'Save'}
+                        </button>
+                      </div>
+                      <p className="font-mono text-caption text-[var(--gs-gray-2)] mt-1.5">
+                        Required for notifications.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Member since */}
+                {profile && (
+                  <>
+                    <Divider />
+                    <div className="flex items-center justify-between text-[var(--gs-gray-3)]">
+                      <span className="font-mono text-caption">Member since {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span className="font-mono text-caption">{deduplicateWallets(profile.wallets).length} wallet{deduplicateWallets(profile.wallets).length !== 1 ? 's' : ''} connected</span>
+                    </div>
+                  </>
                 )}
               </div>
             </section>
@@ -523,10 +511,10 @@ function AccountContent() {
               <div className="h-[2px] gradient-accent-line" />
               <div className="p-6">
                 {/* Tab toggle */}
-                <div className="flex items-center gap-0 mb-5">
+                <div className="flex mb-5">
                   <button
                     onClick={() => setWalletTab('portfolio')}
-                    className={`flex-1 font-mono text-data uppercase tracking-wider py-2.5 text-center transition-colors border cursor-pointer ${
+                    className={`flex-1 font-mono text-data uppercase tracking-wider py-2 text-center transition-colors border cursor-pointer ${
                       walletTab === 'portfolio'
                         ? 'bg-[var(--gs-lime)]/[0.08] border-[var(--gs-lime)]/30 text-[var(--gs-lime)]'
                         : 'bg-transparent border-white/[0.06] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.12]'
@@ -539,7 +527,7 @@ function AccountContent() {
                   </button>
                   <button
                     onClick={() => setWalletTab('tracked')}
-                    className={`flex-1 font-mono text-data uppercase tracking-wider py-2.5 text-center transition-colors border border-l-0 cursor-pointer ${
+                    className={`flex-1 font-mono text-data uppercase tracking-wider py-2 text-center transition-colors border border-l-0 cursor-pointer ${
                       walletTab === 'tracked'
                         ? 'bg-[var(--gs-purple)]/[0.08] border-[var(--gs-purple)]/30 text-[var(--gs-purple)]'
                         : 'bg-transparent border-white/[0.06] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.12]'
@@ -552,344 +540,276 @@ function AccountContent() {
                   </button>
                 </div>
 
-                {/* ── Portfolio Tab ── */}
-                {walletTab === 'portfolio' && (
-                  <>
-                    {/* First-time guidance */}
-                    {slotsUsed === 0 && !primaryWallet && (
-                      <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
-                        <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
-                          <strong className="text-[var(--gs-white)]">In&#8209;Game Player?</strong> Enter your
-                          GunzChain wallet address from Off The Grid to start tracking your NFTs and GUN tokens.
-                        </p>
-                      </div>
-                    )}
-                    {slotsUsed === 0 && primaryWallet && (
-                      <div className="mb-5 px-4 py-3 bg-[var(--gs-lime)]/[0.04] border border-[var(--gs-lime)]/10">
-                        <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
-                          Add up to {MAX_PORTFOLIO_WALLETS} wallets to track independently. Switch between them from the navbar.
-                        </p>
-                      </div>
-                    )}
+                <div>
+                  {/* ── Portfolio Tab content — all 5 slots visible ── */}
+                  {walletTab === 'portfolio' && (
+                    <div className="space-y-2 mb-4">
+                      {Array.from({ length: MAX_PORTFOLIO_WALLETS }).map((_, i) => {
+                        const pa = portfolioAddresses[i];
+                        const isPrimary = pa && walletAddress && pa.address.toLowerCase() === walletAddress.toLowerCase();
 
-                    {/* Wallet list */}
-                    <div className="space-y-0 mb-5">
-                      {portfolioAddresses.map((pa) => (
-                        <div
-                          key={pa.id}
-                          className="flex items-center justify-between py-3 border-b border-white/[0.06] last:border-b-0 group"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] shrink-0" />
-                            <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
-                              {truncateAddress(pa.address)}
-                            </span>
-                            {pa.label && (
-                              <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
-                                {pa.label}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Link
-                              href={`/portfolio?address=${pa.address}`}
-                              className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                        if (pa) {
+                          // ── Filled slot ──
+                          return (
+                            <div
+                              key={pa.id}
+                              className="flex items-center justify-between py-2.5 px-3 border border-white/[0.06] bg-[var(--gs-dark-3)]/30"
                             >
-                              View
-                            </Link>
-                            {pa.address.toLowerCase() === walletAddress.toLowerCase() ? (
-                              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5">
-                                Primary
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => handleRemoveWallet(pa.id)}
-                                disabled={removingId === pa.id}
-                                className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
-                                aria-label="Remove wallet"
-                              >
-                                {removingId === pa.id ? (
-                                  <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] shrink-0" />
+                                <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
+                                  {truncateAddress(pa.address)}
+                                </span>
+                                {pa.label && (
+                                  <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
+                                    {pa.label}
+                                  </span>
                                 )}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Link
+                                  href={`/portfolio?address=${pa.address}`}
+                                  className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                                >
+                                  View
+                                </Link>
+                                {isPrimary ? (
+                                  <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5">
+                                    Primary
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleRemoveWallet(pa.id)}
+                                    disabled={removingId === pa.id}
+                                    className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
+                                    aria-label="Remove wallet"
+                                  >
+                                    {removingId === pa.id ? (
+                                      <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
 
-                      {/* Empty slots — click to focus add form */}
-                      {Array.from({ length: MAX_PORTFOLIO_WALLETS - slotsUsed }).map((_, i) => (
-                        <button
-                          key={`empty-${i}`}
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById('add-wallet-input');
-                            if (input) { input.scrollIntoView({ behavior: 'smooth', block: 'center' }); input.focus(); }
-                          }}
-                          className="flex items-center w-full py-3 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer text-left"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full border border-dashed border-[var(--gs-gray-2)] shrink-0" />
-                          <span className="ml-3 font-mono text-data text-[var(--gs-gray-2)]">
-                            + Add wallet
-                          </span>
-                        </button>
-                      ))}
+                        // ── Empty slot ──
+                        return (
+                          <button
+                            key={`empty-${i}`}
+                            type="button"
+                            onClick={() => {
+                              const input = document.getElementById('add-wallet-input');
+                              if (input) input.focus();
+                            }}
+                            className="w-full flex items-center gap-3 py-2.5 px-3 border border-dashed border-white/[0.06] hover:border-[var(--gs-lime)]/20 transition-colors group cursor-pointer"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-gray-1)] shrink-0 group-hover:bg-[var(--gs-lime)]/30 transition-colors" />
+                            <span className="font-mono text-[11px] text-[var(--gs-gray-2)] group-hover:text-[var(--gs-gray-3)] transition-colors">
+                              + Add wallet&hellip;
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
+                  )}
 
-                    {/* Add wallet form */}
-                    {isAtLimit ? (
-                      <div className="flex items-center gap-2 py-3">
-                        <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        <span className="font-mono text-data text-[var(--gs-warning)]">
-                          Portfolio wallet limit reached ({MAX_PORTFOLIO_WALLETS}/{MAX_PORTFOLIO_WALLETS})
-                        </span>
-                      </div>
-                    ) : (
-                      <form
-                        onSubmit={(e) => { e.preventDefault(); handleAddWallet(); }}
-                        className="space-y-3"
-                      >
-                        <div className="flex gap-3">
-                          <input
-                            id="add-wallet-input"
-                            type="text"
-                            value={newAddress}
-                            onChange={(e) => setNewAddress(e.target.value)}
-                            placeholder="0x wallet address"
-                            className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
-                          />
-                          <input
-                            type="text"
-                            value={newLabel}
-                            onChange={(e) => setNewLabel(e.target.value)}
-                            placeholder="Label (optional)"
-                            className="w-40 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={isAdding || !newAddress.trim()}
-                          className="w-full font-display font-semibold text-sm uppercase px-6 py-2.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isAdding ? 'Adding\u2026' : 'Add Wallet'}
-                        </button>
-                      </form>
-                    )}
-
-                    {slotsUsed > 0 ? (
-                      <Link
-                        href={walletAddress ? `/portfolio?address=${walletAddress}` : '/portfolio'}
-                        className="mt-4 flex items-center font-mono text-caption tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
-                      >
-                        View portfolio {'\u2192'}
-                      </Link>
-                    ) : (
-                      <p className="mt-4 font-mono text-caption text-[var(--gs-gray-2)]">
-                        Each portfolio wallet is tracked independently. Switch between them from the navbar.
-                      </p>
-                    )}
-                  </>
-                )}
-
-                {/* ── Watchlist Tab ── */}
-                {walletTab === 'tracked' && (
-                  <>
-                    {/* Guidance */}
-                    {trackedSlotsUsed === 0 && (
-                      <div className="mb-5 px-4 py-3 bg-[var(--gs-purple)]/[0.04] border border-[var(--gs-purple)]/10">
+                  {/* ── Watchlist Tab content ── */}
+                  {walletTab === 'tracked' && (
+                    <>
+                      <div className="mb-4 px-4 py-3 bg-[var(--gs-purple)]/[0.04] border border-[var(--gs-purple)]/10">
                         <p className="font-mono text-data text-[var(--gs-gray-4)] leading-relaxed">
-                          Track whale wallets, friends, or competitors. Watched wallets are <strong className="text-[var(--gs-white)]">not</strong> included in your portfolio total.
+                          Track whale wallets, friends, or competitors. <strong className="text-[var(--gs-white)]">Not</strong> included in your portfolio total.
                         </p>
                       </div>
-                    )}
+                      <div className="space-y-0">
+                        {Array.from({ length: MAX_TRACKED_WALLETS }).map((_, i) => {
+                          const ta = trackedAddresses[i];
 
-                    {/* Tracked wallet list */}
-                    <div className="space-y-0 mb-5">
-                      {trackedAddresses.map((ta) => (
-                        <div
-                          key={ta.id}
-                          className="flex items-center justify-between py-3 border-b border-white/[0.06] last:border-b-0 group"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-purple)] shrink-0" />
-                            <span className="font-mono text-sm text-[var(--gs-purple)] tabular-nums">
-                              {truncateAddress(ta.address)}
-                            </span>
-                            {ta.label && (
-                              <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
-                                {ta.label}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Link
-                              href={`/portfolio?address=${ta.address}`}
-                              className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
-                            >
-                              View
-                            </Link>
+                          if (ta) {
+                            return (
+                              <div
+                                key={ta.id}
+                                className="flex items-center justify-between py-2.5 px-3 border-b border-white/[0.06] last:border-b-0"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-purple)] shrink-0" />
+                                  <span className="font-mono text-sm text-[var(--gs-purple)] tabular-nums">
+                                    {truncateAddress(ta.address)}
+                                  </span>
+                                  {ta.label && (
+                                    <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
+                                      {ta.label}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Link
+                                    href={`/portfolio?address=${ta.address}`}
+                                    className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                                  >
+                                    View
+                                  </Link>
+                                  <button
+                                    onClick={() => handleRemoveTracked(ta.id)}
+                                    disabled={removingTrackedId === ta.id}
+                                    className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
+                                    aria-label="Remove tracked wallet"
+                                  >
+                                    {removingTrackedId === ta.id ? (
+                                      <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // ── Empty slot ──
+                          return (
                             <button
-                              onClick={() => handleRemoveTracked(ta.id)}
-                              disabled={removingTrackedId === ta.id}
-                              className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
-                              aria-label="Remove tracked wallet"
+                              key={`empty-tracked-${i}`}
+                              type="button"
+                              onClick={() => {
+                                const input = document.getElementById('add-tracked-input');
+                                if (input) input.focus();
+                              }}
+                              className="w-full flex items-center gap-3 py-2.5 px-3 border border-dashed border-white/[0.06] hover:border-[var(--gs-purple)]/20 transition-colors group cursor-pointer"
                             >
-                              {removingTrackedId === ta.id ? (
-                                <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              )}
+                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-gray-1)] shrink-0 group-hover:bg-[var(--gs-purple)]/30 transition-colors" />
+                              <span className="font-mono text-[11px] text-[var(--gs-gray-2)] group-hover:text-[var(--gs-gray-3)] transition-colors">
+                                + Add wallet&hellip;
+                              </span>
                             </button>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Empty slots */}
-                      {Array.from({ length: Math.min(3, MAX_TRACKED_WALLETS - trackedSlotsUsed) }).map((_, i) => (
-                        <button
-                          key={`empty-tracked-${i}`}
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById('add-tracked-input');
-                            if (input) { input.scrollIntoView({ behavior: 'smooth', block: 'center' }); input.focus(); }
-                          }}
-                          className="flex items-center w-full py-3 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer text-left"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full border border-dashed border-[var(--gs-gray-2)] shrink-0" />
-                          <span className="ml-3 font-mono text-data text-[var(--gs-gray-2)]">
-                            + Watch a wallet
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Add tracked wallet form */}
-                    {isTrackedAtLimit ? (
-                      <div className="flex items-center gap-2 py-3">
-                        <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        <span className="font-mono text-data text-[var(--gs-warning)]">
-                          Watchlist limit reached ({MAX_TRACKED_WALLETS}/{MAX_TRACKED_WALLETS})
-                        </span>
+                          );
+                        })}
                       </div>
-                    ) : (
-                      <form
-                        onSubmit={(e) => { e.preventDefault(); handleAddTracked(); }}
-                        className="space-y-3"
-                      >
-                        <div className="flex gap-3">
-                          <input
-                            id="add-tracked-input"
-                            type="text"
-                            value={newTrackedAddress}
-                            onChange={(e) => setNewTrackedAddress(e.target.value)}
-                            placeholder="0x wallet address"
-                            className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-purple)]/50 transition-colors"
-                          />
-                          <input
-                            type="text"
-                            value={newTrackedLabel}
-                            onChange={(e) => setNewTrackedLabel(e.target.value)}
-                            placeholder="Label (optional)"
-                            className="w-40 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-purple)]/50 transition-colors"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={isAddingTracked || !newTrackedAddress.trim()}
-                          className="w-full font-display font-semibold text-sm uppercase px-6 py-2.5 bg-[var(--gs-purple)] text-[var(--gs-white)] hover:bg-[var(--gs-purple)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isAddingTracked ? 'Adding\u2026' : 'Watch Wallet'}
-                        </button>
-                      </form>
-                    )}
-
-                    <p className="mt-4 font-mono text-caption text-[var(--gs-gray-2)]">
-                      Watched wallets are view&#8209;only. They won&apos;t appear in your portfolio total.
-                    </p>
-                  </>
-                )}
-              </div>
-            </section>
-
-            {/* ── Settings ── */}
-            <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
-              <div className="h-[2px] gradient-accent-line" />
-              <div className="p-6">
-                <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-5">
-                  Settings
-                </p>
-
-                {/* Email */}
-                <div className="mb-5">
-                  <label className="block font-mono text-data text-[var(--gs-gray-4)] mb-2">
-                    Email (Optional)
-                  </label>
-                  <div className="flex gap-3">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your@email.com"
-                      className="flex-1 px-3 py-2.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
-                    />
-                    <button
-                      onClick={handleSaveEmail}
-                      disabled={isSavingEmail}
-                      className="px-5 py-2.5 font-display font-semibold text-sm uppercase border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors disabled:opacity-50"
-                    >
-                      {isSavingEmail ? 'Saving\u2026' : 'Save'}
-                    </button>
-                  </div>
+                    </>
+                  )}
                 </div>
 
-                {/* Account info */}
-                {profile && (
-                  <div className="border-t border-white/[0.06] pt-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-caption text-[var(--gs-gray-3)]">Account created</span>
-                      <span className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums">
-                        {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {/* ── Add form — always at the same vertical position ── */}
+                {walletTab === 'portfolio' && (
+                  isAtLimit ? (
+                    <div className="flex items-center gap-2 py-2">
+                      <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="font-mono text-data text-[var(--gs-warning)]">
+                        Portfolio wallet limit reached ({MAX_PORTFOLIO_WALLETS}/{MAX_PORTFOLIO_WALLETS})
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-caption text-[var(--gs-gray-3)]">Connected wallets</span>
-                      <span className="font-mono text-caption text-[var(--gs-gray-4)] tabular-nums">
-                        {deduplicateWallets(profile.wallets).length}
-                      </span>
-                    </div>
-                  </div>
+                  ) : (
+                    <form onSubmit={(e) => { e.preventDefault(); handleAddWallet(); }}>
+                      <div className="flex gap-2 items-start">
+                        <div className="flex-1">
+                          <WalletAddressInput
+                            id="add-wallet-input"
+                            value={newAddress}
+                            onChange={setNewAddress}
+                            className="px-3 py-2 text-sm bg-black/50 placeholder:text-[var(--gs-gray-2)]"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={newLabel}
+                          onChange={(e) => setNewLabel(e.target.value)}
+                          placeholder="Label"
+                          className="w-32 px-3 py-2 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isAdding || !newAddress.trim() || !detectChain(newAddress)}
+                          className="shrink-0 px-4 py-2 font-mono text-[10px] uppercase tracking-wider border border-[var(--gs-lime)]/30 text-[var(--gs-lime)] hover:bg-[var(--gs-lime)]/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          {isAdding ? 'Adding\u2026' : '+ Add'}
+                        </button>
+                      </div>
+                    </form>
+                  )
                 )}
 
+                {walletTab === 'tracked' && (
+                  isTrackedAtLimit ? (
+                    <div className="flex items-center gap-2 py-2">
+                      <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="font-mono text-data text-[var(--gs-warning)]">
+                        Watchlist limit reached ({MAX_TRACKED_WALLETS}/{MAX_TRACKED_WALLETS})
+                      </span>
+                    </div>
+                  ) : (
+                    <form onSubmit={(e) => { e.preventDefault(); handleAddTracked(); }}>
+                      <div className="flex gap-2 items-start">
+                        <div className="flex-1">
+                          <WalletAddressInput
+                            id="add-tracked-input"
+                            value={newTrackedAddress}
+                            onChange={setNewTrackedAddress}
+                            className="px-3 py-2 text-sm bg-black/50 placeholder:text-[var(--gs-gray-2)]"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={newTrackedLabel}
+                          onChange={(e) => setNewTrackedLabel(e.target.value)}
+                          placeholder="Label"
+                          className="w-32 px-3 py-2 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-purple)]/50 transition-colors"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isAddingTracked || !newTrackedAddress.trim() || !detectChain(newTrackedAddress)}
+                          className="shrink-0 px-4 py-2 font-mono text-[10px] uppercase tracking-wider border border-[var(--gs-purple)]/30 text-[var(--gs-purple)] hover:bg-[var(--gs-purple)]/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          {isAddingTracked ? 'Adding\u2026' : '+ Watch'}
+                        </button>
+                      </div>
+                    </form>
+                  )
+                )}
+
+                {/* View portfolio link — only for portfolio tab */}
+                {walletTab === 'portfolio' && slotsUsed > 0 && (
+                  <Link
+                    href={walletAddress ? `/portfolio?address=${walletAddress}` : '/portfolio'}
+                    className="mt-4 inline-flex items-center font-mono text-caption tracking-wide text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+                  >
+                    View portfolio {'\u2192'}
+                  </Link>
+                )}
               </div>
             </section>
 
-            {/* ── My Contributions ── */}
+            {/* ── Share & Referral ── */}
+            {primaryWallet?.address && (
+              <ShareReferralSection walletAddress={primaryWallet.address} />
+            )}
+
+            {/* ── My Feature Requests ── */}
             {myContributions.length > 0 && (
               <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
                 <div className="h-[2px] gradient-accent-line" />
                 <div className="p-6">
-                  <div className="flex items-center justify-between mb-5">
-                    <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                      My Feature Requests
-                    </p>
+                  <div className="flex items-center justify-between mb-4">
+                    <SectionLabel>My Feature Requests</SectionLabel>
                     <Link
                       href="/feature-requests"
-                      className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+                      className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors -mt-4"
                     >
                       View All {'\u2192'}
                     </Link>
                   </div>
-                  <div className="space-y-0">
+                  <div>
                     {myContributions.map((req) => {
                       const statusStyle = {
                         open: { bg: 'bg-[var(--gs-lime)]/10', text: 'text-[var(--gs-lime)]', label: 'Open' },
@@ -924,43 +844,37 @@ function AccountContent() {
               </section>
             )}
 
-            {/* ── Share & Referral ── */}
-            {primaryWallet?.address && (
-              <ShareReferralSection walletAddress={primaryWallet.address} />
-            )}
-
             {/* ── Notifications ── */}
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] gradient-accent-line" />
               <div className="p-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
-                    Notifications
-                  </p>
-                  <span className="font-mono text-micro tracking-widest uppercase px-2 py-1 border border-[var(--gs-warning)]/40 text-[var(--gs-warning)] bg-[var(--gs-warning)]/5 clip-corner-sm">
-                    Experimental
-                  </span>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                      Notifications
+                    </p>
+                    <span className="font-mono text-micro tracking-widest uppercase px-2 py-0.5 border border-[var(--gs-warning)]/40 text-[var(--gs-warning)] bg-[var(--gs-warning)]/5 clip-corner-sm">
+                      Experimental
+                    </span>
+                  </div>
                 </div>
-                <p className="font-mono text-data text-[var(--gs-gray-3)] mb-5">
-                  Email alerts for portfolio events. Requires a saved email address.
-                </p>
 
                 {!profile?.email && (
-                  <div className="mb-5 px-4 py-3 bg-[var(--gs-purple)]/[0.06] border border-[var(--gs-purple)]/20">
-                    <p className="font-mono text-data text-[var(--gs-purple)] leading-relaxed">
-                      Set your email address above to enable notifications.
+                  <div className="mb-4 px-3 py-2.5 bg-[var(--gs-purple)]/[0.06] border border-[var(--gs-purple)]/20">
+                    <p className="font-mono text-data text-[var(--gs-purple)]">
+                      Set your email above to enable notifications.
                     </p>
                   </div>
                 )}
 
                 {alertsLoading ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-16 bg-white/[0.02] animate-pulse" />
+                      <div key={i} className="h-12 bg-white/[0.02] animate-pulse" />
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-0">
                     {ALERT_TYPES.map((alertDef) => {
                       const pref = alertPreferences.find((p) => p.type === alertDef.type);
                       const isEnabled = pref?.enabled ?? false;
@@ -971,18 +885,14 @@ function AccountContent() {
                       return (
                         <div
                           key={alertDef.type}
-                          className={`border transition-colors ${
-                            isEnabled
-                              ? 'border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.02]'
-                              : 'border-white/[0.06] bg-white/[0.01]'
-                          } p-4`}
+                          className="py-3 border-b border-white/[0.06] last:border-b-0"
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2.5">
-                              <span className="font-body text-sm text-[var(--gs-white)]">{alertDef.name}</span>
+                          {/* Compact row: name + description + toggle */}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <span className="font-mono text-data text-[var(--gs-white)]">{alertDef.name}</span>
+                              <p className="font-mono text-caption text-[var(--gs-gray-3)] mt-0.5">{alertDef.description}</p>
                             </div>
-
-                            {/* Toggle */}
                             <button
                               onClick={async () => {
                                 if (!profile?.email) {
@@ -994,63 +904,47 @@ function AccountContent() {
                                 const config = newEnabled ? (localConfig ?? {}) : (savedConfig ?? {});
                                 const success = await updatePreference(alertDef.type, newEnabled, config);
                                 setTogglingAlert(null);
-                                if (success) {
-                                  toast.success(newEnabled ? `${alertDef.name} enabled` : `${alertDef.name} disabled`);
-                                }
+                                if (success) toast.success(newEnabled ? `${alertDef.name} enabled` : `${alertDef.name} disabled`);
                               }}
                               disabled={isToggling}
-                              className={`relative w-10 h-5 rounded-full transition-colors ${
+                              className={`relative shrink-0 w-9 h-[18px] rounded-full transition-colors ${
                                 isEnabled ? 'bg-[var(--gs-lime)]' : 'bg-[var(--gs-gray-1)]'
                               } ${isToggling ? 'opacity-50' : 'cursor-pointer'}`}
                               aria-label={`Toggle ${alertDef.name}`}
                             >
                               <span
-                                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-black transition-transform ${
-                                  isEnabled ? 'translate-x-5' : 'translate-x-0'
+                                className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-black transition-transform ${
+                                  isEnabled ? 'translate-x-[18px]' : 'translate-x-0'
                                 }`}
                               />
                             </button>
                           </div>
 
-                          <p className="font-mono text-data text-[var(--gs-gray-3)] mb-3">{alertDef.description}</p>
-
-                          {/* Config fields */}
+                          {/* Config fields — only when enabled */}
                           {alertDef.hasConfig && isEnabled && alertDef.configFields && (
-                            <div className="flex items-end gap-3 pt-2 border-t border-white/[0.04]">
+                            <div className="flex items-end gap-2 mt-2 pt-2 border-t border-white/[0.04]">
                               {alertDef.configFields.map((field) => (
                                 <div key={field.key} className="flex-1">
-                                  <label className="block font-mono text-label uppercase tracking-wider text-[var(--gs-gray-3)] mb-1.5">
+                                  <label className="block font-mono text-label uppercase tracking-wider text-[var(--gs-gray-3)] mb-1">
                                     {field.label}
                                   </label>
                                   {field.type === 'select' && field.options ? (
                                     <select
                                       value={(localConfig[field.key] as string) ?? field.options[0].value}
-                                      onChange={(e) => {
-                                        setAlertConfigs((prev) => ({
-                                          ...prev,
-                                          [alertDef.type]: { ...localConfig, [field.key]: e.target.value },
-                                        }));
-                                      }}
-                                      className="w-full px-2.5 py-2 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                                      onChange={(e) => setAlertConfigs(prev => ({ ...prev, [alertDef.type]: { ...localConfig, [field.key]: e.target.value } }))}
+                                      className="w-full px-2 py-1.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] focus:outline-none"
                                     >
                                       {field.options.map((opt) => (
-                                        <option key={opt.value} value={opt.value}>
-                                          {opt.label}
-                                        </option>
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
                                       ))}
                                     </select>
                                   ) : (
                                     <input
                                       type="number"
                                       value={(localConfig[field.key] as string) ?? field.defaultValue ?? ''}
-                                      onChange={(e) => {
-                                        setAlertConfigs((prev) => ({
-                                          ...prev,
-                                          [alertDef.type]: { ...localConfig, [field.key]: parseFloat(e.target.value) || 0 },
-                                        }));
-                                      }}
+                                      onChange={(e) => setAlertConfigs(prev => ({ ...prev, [alertDef.type]: { ...localConfig, [field.key]: parseFloat(e.target.value) || 0 } }))}
                                       placeholder={field.placeholder}
-                                      className="w-full px-2.5 py-2 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/50 transition-colors"
+                                      className="w-full px-2 py-1.5 bg-black/50 border border-white/10 text-sm font-mono text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none"
                                     />
                                   )}
                                 </div>
@@ -1060,7 +954,7 @@ function AccountContent() {
                                   const success = await updatePreference(alertDef.type, true, localConfig);
                                   if (success) toast.success('Config saved');
                                 }}
-                                className="px-3 py-2 font-mono text-caption uppercase tracking-wider border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-lime)]/50 hover:text-[var(--gs-lime)] transition-colors"
+                                className="px-3 py-1.5 font-mono text-caption uppercase tracking-wider border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-lime)]/50 hover:text-[var(--gs-lime)] transition-colors"
                               >
                                 Save
                               </button>
@@ -1074,13 +968,13 @@ function AccountContent() {
 
                 {/* Recent alerts */}
                 {recentAlerts.length > 0 && (
-                  <div className="mt-6 pt-4 border-t border-white/[0.06]">
+                  <div className="mt-5 pt-4 border-t border-white/[0.06]">
                     <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-3">
                       Recent Alerts
                     </p>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       {recentAlerts.slice(0, 5).map((alert) => (
-                        <div key={alert.id} className="flex items-center justify-between py-1.5">
+                        <div key={alert.id} className="flex items-center justify-between py-1">
                           <span className="font-mono text-data text-[var(--gs-gray-4)] truncate mr-3">
                             {alert.subject}
                           </span>
@@ -1094,6 +988,7 @@ function AccountContent() {
                 )}
               </div>
             </section>
+
           </div>
         )}
       </main>

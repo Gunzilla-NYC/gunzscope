@@ -224,6 +224,28 @@ model WhitelistEntry {
 }
 
 // =============================================================================
+// Waitlist Entry - Non-whitelisted users waiting for access via referrals
+// =============================================================================
+model WaitlistEntry {
+  id                 String    @id @default(cuid())
+  address            String    @unique           // Normalized to lowercase
+  referrerId         String?   @unique           // FK to Referrer (auto-handle created on join)
+  referrer           Referrer? @relation(fields: [referrerId], references: [id])
+  status             String    @default("waiting") // "waiting" | "promoted" | "manual_promoted"
+  referralCount      Int       @default(0)       // Qualifying wallet_connected referrals
+  promotionThreshold Int       @default(3)       // Referrals needed for auto-promotion
+  promotedAt         DateTime?
+  promotedBy         String?                     // "auto" | "admin"
+  ipHash             String?                     // SHA-256 of joining IP
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("waitlist_entries")
+}
+
+// =============================================================================
 // Price Cache - Stores latest prices + state for dedup in cron jobs
 // =============================================================================
 model PriceCache {
@@ -330,6 +352,7 @@ model Referrer {
   totalConversions     Int             @default(0)       // portfolio_loaded count
   createdAt            DateTime        @default(now())
   events               ReferralEvent[]
+  waitlistEntry        WaitlistEntry?
 
   @@index([slug])
   @@index([previousSlug])

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
+import { detectChain } from '@/lib/utils/detectChain';
 
 interface AdminPanelProps {
   adminSecret: string;
@@ -207,16 +209,18 @@ function HandleTools({ adminSecret }: { adminSecret: string }) {
 
   return (
     <div className="space-y-3">
-      <input
-        type="text"
+      <WalletAddressInput
         value={input}
-        onChange={e => handleInputChange(e.target.value)}
+        onChange={handleInputChange}
         placeholder="0x... wallet address or slug"
-        className={`w-full px-3 py-2 font-mono text-data text-[var(--gs-white)] bg-[var(--gs-dark-3)] border outline-none placeholder:text-[var(--gs-gray-4)] ${
-          lookup?.found ? 'border-[var(--gs-profit)]/40' :
-          lookup && !lookup.found ? 'border-[var(--gs-loss)]/40' :
-          'border-white/[0.08] focus:border-[var(--gs-lime)]/30'
-        }`}
+        className="px-3 py-2 text-data bg-[var(--gs-dark-3)] placeholder:text-[var(--gs-gray-4)]"
+        style={
+          lookup?.found ? { borderColor: 'color-mix(in srgb, var(--gs-profit) 40%, transparent)' } :
+          lookup && !lookup.found ? { borderColor: 'color-mix(in srgb, var(--gs-loss) 40%, transparent)' } :
+          undefined
+        }
+        validateChain={false}
+        showHint={false}
       />
       {/* Lookup result */}
       {isLooking && (
@@ -285,13 +289,13 @@ interface TopPortfolioEntry {
   shareCount: number;
 }
 
-type TabMode = 'views' | 'shares' | 'portfolios';
+type LeaderboardTabMode = 'views' | 'shares' | 'portfolios';
 
 function ShareLeaderboard({ adminSecret }: { adminSecret: string }) {
   const [byViews, setByViews] = useState<LeaderboardEntry[]>([]);
   const [byShares, setByShares] = useState<LeaderboardEntry[]>([]);
   const [topPortfolios, setTopPortfolios] = useState<TopPortfolioEntry[]>([]);
-  const [tab, setTab] = useState<TabMode>('views');
+  const [tab, setTab] = useState<LeaderboardTabMode>('views');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -315,7 +319,7 @@ function ShareLeaderboard({ adminSecret }: { adminSecret: string }) {
     fetchLeaderboard();
   }, [adminSecret]);
 
-  const tabConfig: { key: TabMode; label: string; color: string }[] = [
+  const tabConfig: { key: LeaderboardTabMode; label: string; color: string }[] = [
     { key: 'views', label: 'Views', color: 'var(--gs-lime)' },
     { key: 'shares', label: 'Shares', color: 'var(--gs-purple)' },
     { key: 'portfolios', label: 'Portfolios', color: 'var(--gs-warning)' },
@@ -325,33 +329,37 @@ function ShareLeaderboard({ adminSecret }: { adminSecret: string }) {
     i === 0 ? 'text-[var(--gs-lime)]' : i === 1 ? 'text-[var(--gs-purple)]' : i === 2 ? 'text-[var(--gs-warning)]' : 'text-[var(--gs-gray-3)]';
 
   return (
-    <div>
-      <div className="flex gap-1 mb-4">
-        {tabConfig.map(({ key, label, color }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`font-mono text-caption uppercase tracking-wider px-2.5 py-1 border transition-colors cursor-pointer ${
-              tab === key ? '' : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:bg-white/[0.04]'
-            }`}
-            style={tab === key ? {
-              borderColor: `color-mix(in srgb, ${color} 30%, transparent)`,
-              color,
-              backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
-            } : undefined}
-          >
-            {label}
-          </button>
-        ))}
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* ── Toolbar ── */}
+      <div className="shrink-0 pb-3 mb-3 border-b border-white/[0.06]">
+        <div className="flex gap-1">
+          {tabConfig.map(({ key, label, color }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`font-mono text-caption uppercase tracking-wider px-2.5 py-1.5 border transition-colors cursor-pointer ${
+                tab === key ? '' : 'border-white/[0.08] text-[var(--gs-gray-3)] hover:bg-white/[0.04]'
+              }`}
+              style={tab === key ? {
+                borderColor: `color-mix(in srgb, ${color} 30%, transparent)`,
+                color,
+                backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
+              } : undefined}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* ── List ── */}
       {isLoading ? (
         <p className="font-mono text-caption text-[var(--gs-gray-3)] py-4 text-center">Loading&hellip;</p>
       ) : tab === 'portfolios' ? (
         topPortfolios.length === 0 ? (
           <p className="font-mono text-caption text-[var(--gs-gray-3)] py-4 text-center">No shares yet</p>
         ) : (
-          <div>
+          <div className="flex-1 overflow-y-auto">
             {topPortfolios.map((entry, i) => (
               <div key={entry.address} className="flex items-center justify-between py-2 border-b border-white/[0.06] last:border-b-0">
                 <div className="flex items-center gap-3 min-w-0">
@@ -379,7 +387,7 @@ function ShareLeaderboard({ adminSecret }: { adminSecret: string }) {
         return entries.length === 0 ? (
           <p className="font-mono text-caption text-[var(--gs-gray-3)] py-4 text-center">No shares yet</p>
         ) : (
-          <div>
+          <div className="flex-1 overflow-y-auto">
             {entries.map((entry, i) => (
               <div key={entry.userProfileId} className="flex items-center justify-between py-2 border-b border-white/[0.06] last:border-b-0">
                 <div className="flex items-center gap-3 min-w-0">
@@ -422,6 +430,7 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
   const [newLabel, setNewLabel] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const addressChain = detectChain(newAddress);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -446,7 +455,12 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
   useEffect(() => { fetchList(); }, [fetchList]);
 
   const handleAdd = useCallback(async () => {
-    if (!newAddress.trim()) return;
+    const trimmed = newAddress.trim();
+    if (!trimmed) return;
+    if (!detectChain(trimmed)) {
+      toast.error('Invalid address. Enter a valid GunzChain (0x\u2026) or Solana address.');
+      return;
+    }
     setIsAdding(true);
     try {
       const res = await fetch('/api/admin/whitelist', {
@@ -493,37 +507,42 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
   }, [headers, fetchList]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newAddress}
-          onChange={e => setNewAddress(e.target.value)}
-          placeholder="0x... address"
-          className="flex-1 px-3 py-2 font-mono text-data text-[var(--gs-white)] bg-[var(--gs-dark-3)] border border-white/[0.08] outline-none placeholder:text-[var(--gs-gray-4)] focus:border-[var(--gs-lime)]/30"
-        />
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* ── Toolbar ── */}
+      <div className="shrink-0 pb-3 mb-3 border-b border-white/[0.06] space-y-2">
+        <div className="flex gap-2 items-start">
+          <div className="flex-1 min-w-0">
+            <WalletAddressInput
+              value={newAddress}
+              onChange={setNewAddress}
+              className="px-3 py-1.5 text-data bg-[var(--gs-dark-3)] placeholder:text-[var(--gs-gray-4)]"
+              showHint={false}
+            />
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={!newAddress.trim() || !addressChain || isAdding}
+            className="shrink-0 px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider border border-[var(--gs-lime)]/30 text-[var(--gs-lime)] bg-[var(--gs-lime)]/5 hover:bg-[var(--gs-lime)]/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          >
+            {isAdding ? '+' : 'Add'}
+          </button>
+        </div>
         <input
           type="text"
           value={newLabel}
           onChange={e => setNewLabel(e.target.value)}
-          placeholder="Label"
-          className="w-28 px-3 py-2 font-mono text-data text-[var(--gs-white)] bg-[var(--gs-dark-3)] border border-white/[0.08] outline-none placeholder:text-[var(--gs-gray-4)] focus:border-[var(--gs-lime)]/30"
+          placeholder="Label (optional)"
+          className="w-full px-3 py-1.5 font-mono text-data text-[var(--gs-white)] bg-[var(--gs-dark-3)] border border-white/[0.08] outline-none placeholder:text-[var(--gs-gray-4)] focus:border-[var(--gs-lime)]/30"
         />
-        <button
-          onClick={handleAdd}
-          disabled={!newAddress.trim() || isAdding}
-          className="px-4 py-2 font-mono text-[10px] uppercase tracking-wider border border-[var(--gs-lime)]/30 text-[var(--gs-lime)] bg-[var(--gs-lime)]/5 hover:bg-[var(--gs-lime)]/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
-        >
-          {isAdding ? '+' : 'Add'}
-        </button>
       </div>
 
+      {/* ── List ── */}
       {isLoading ? (
         <p className="font-mono text-caption text-[var(--gs-gray-3)] py-4 text-center">Loading&hellip;</p>
       ) : entries.length === 0 ? (
         <p className="font-mono text-caption text-[var(--gs-gray-3)] py-4 text-center">No entries</p>
       ) : (
-        <div className="max-h-48 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           {entries.map((entry) => (
             <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-white/[0.06] last:border-b-0">
               <div className="flex items-center gap-2 min-w-0">
@@ -549,7 +568,7 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
         </div>
       )}
 
-      <p className="font-mono text-[9px] text-[var(--gs-gray-3)]">
+      <p className="shrink-0 pt-2 font-mono text-[9px] text-[var(--gs-gray-3)]">
         {total} whitelisted address{total !== 1 ? 'es' : ''}
       </p>
     </div>
@@ -557,8 +576,164 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main AdminPanel
+// Sub-section: Waitlist
 // ─────────────────────────────────────────────────────────────────────────────
+
+interface WaitlistAdminEntry {
+  id: string;
+  address: string;
+  status: string;
+  referralCount: number;
+  promotionThreshold: number;
+  createdAt: string;
+}
+
+interface WaitlistAdminStats {
+  totalWaiting: number;
+  totalPromoted: number;
+  totalManualPromoted: number;
+}
+
+function WaitlistTools({ adminSecret }: { adminSecret: string }) {
+  const [entries, setEntries] = useState<WaitlistAdminEntry[]>([]);
+  const [stats, setStats] = useState<WaitlistAdminStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [promoteAddress, setPromoteAddress] = useState('');
+  const [isPromoting, setIsPromoting] = useState(false);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${adminSecret}`,
+  };
+
+  const fetchList = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/waitlist?status=waiting&limit=100', {
+        headers: { Authorization: `Bearer ${adminSecret}` },
+      });
+      const data = await res.json();
+      setEntries(data.entries ?? []);
+      setStats(data.stats ?? null);
+    } catch {
+      // Silently fail
+    } finally {
+      setIsLoading(false);
+    }
+  }, [adminSecret]);
+
+  useEffect(() => { fetchList(); }, [fetchList]);
+
+  const handlePromote = useCallback(async (address: string) => {
+    setPromotingId(address);
+    try {
+      const res = await fetch('/api/admin/waitlist', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ address }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Promoted ${truncateAddress(address)}`);
+        fetchList();
+      } else {
+        toast.error(data.error ?? 'Failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setPromotingId(null);
+    }
+  }, [headers, fetchList]);
+
+  const handleManualPromote = useCallback(async () => {
+    if (!promoteAddress.trim()) return;
+    setIsPromoting(true);
+    await handlePromote(promoteAddress.trim());
+    setPromoteAddress('');
+    setIsPromoting(false);
+  }, [promoteAddress, handlePromote]);
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* ── Toolbar ── */}
+      <div className="shrink-0 pb-3 mb-3 border-b border-white/[0.06] space-y-2">
+        <div className="flex gap-2 items-start">
+          <div className="flex-1 min-w-0">
+            <WalletAddressInput
+              value={promoteAddress}
+              onChange={setPromoteAddress}
+              placeholder="0x... address to promote"
+              className="px-3 py-1.5 text-data bg-[var(--gs-dark-3)] placeholder:text-[var(--gs-gray-4)]"
+              showHint={false}
+            />
+          </div>
+          <button
+            onClick={handleManualPromote}
+            disabled={!promoteAddress.trim() || !detectChain(promoteAddress) || isPromoting}
+            className="shrink-0 px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider border border-[var(--gs-lime)]/30 text-[var(--gs-lime)] bg-[var(--gs-lime)]/5 hover:bg-[var(--gs-lime)]/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          >
+            Promote
+          </button>
+        </div>
+        {stats && (
+          <div className="flex gap-4">
+            <span className="font-mono text-data text-[var(--gs-warning)]">
+              {stats.totalWaiting} waiting
+            </span>
+            <span className="font-mono text-data text-[var(--gs-lime)]">
+              {stats.totalPromoted} auto
+            </span>
+            <span className="font-mono text-data text-[var(--gs-purple)]">
+              {stats.totalManualPromoted} manual
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ── List ── */}
+      {isLoading ? (
+        <p className="font-mono text-caption text-[var(--gs-gray-3)] py-4 text-center">Loading&hellip;</p>
+      ) : entries.length === 0 ? (
+        <p className="font-mono text-caption text-[var(--gs-gray-3)] py-4 text-center">No waiting entries</p>
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          {entries.map((entry) => (
+            <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-white/[0.06] last:border-b-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">
+                  {truncateAddress(entry.address)}
+                </span>
+                <span className="font-mono text-caption text-[var(--gs-gray-3)]">
+                  {entry.referralCount}/{entry.promotionThreshold}
+                </span>
+              </div>
+              <button
+                onClick={() => handlePromote(entry.address)}
+                disabled={promotingId === entry.address}
+                className="px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-lime)] hover:bg-[var(--gs-lime)]/10 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {promotingId === entry.address ? '...' : 'Promote'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Column label
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ColumnLabel({ label }: { label: string }) {
+  return (
+    <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] mb-3 pb-2 border-b border-white/[0.06]">
+      {label}
+    </p>
+  );
+}
 
 function SectionLabel({ label }: { label: string }) {
   return (
@@ -568,33 +743,75 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-function Divider() {
-  return <div className="border-t border-white/[0.06] my-5" />;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Main AdminPanel — tabbed layout
+// ─────────────────────────────────────────────────────────────────────────────
+
+type AdminTab = 'manage' | 'tools';
 
 export default function AdminPanel({ adminSecret }: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<AdminTab>('manage');
+
+  const tabs: { key: AdminTab; label: string }[] = [
+    { key: 'manage', label: 'Whitelist / Waitlist / Leaderboard' },
+    { key: 'tools', label: 'Tools' },
+  ];
+
   return (
-    <section className="bg-[var(--gs-dark-2)] border border-[var(--gs-loss)]/20 overflow-hidden">
-      <div className="h-[2px] bg-gradient-to-r from-[var(--gs-loss)] via-[var(--gs-warning)] to-transparent" />
-      <div className="p-6">
-        <SectionLabel label="UX Testing" />
-        <p className="font-mono text-caption text-[var(--gs-gray-2)] mb-4">
-          Simulate different user states. Reloads the page after clearing.
-        </p>
-        <UXTestingTools />
+    <section className="bg-[var(--gs-dark-2)] border border-[var(--gs-loss)]/20 overflow-hidden flex flex-col h-full">
+      <div className="h-[2px] bg-gradient-to-r from-[var(--gs-loss)] via-[var(--gs-warning)] to-transparent shrink-0" />
 
-        <Divider />
-        <SectionLabel label="Handle Tools" />
-        <HandleTools adminSecret={adminSecret} />
-
-        <Divider />
-        <SectionLabel label="Share Leaderboard" />
-        <ShareLeaderboard adminSecret={adminSecret} />
-
-        <Divider />
-        <SectionLabel label="Whitelist" />
-        <WhitelistTools adminSecret={adminSecret} />
+      {/* Tab bar */}
+      <div className="flex border-b border-white/[0.06] shrink-0">
+        {tabs.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex-1 sm:flex-none px-5 py-3 font-mono text-[10px] uppercase tracking-wider transition-colors cursor-pointer ${
+              activeTab === key
+                ? 'text-[var(--gs-loss)] bg-[var(--gs-loss)]/[0.06] border-b-2 border-[var(--gs-loss)]'
+                : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-gray-4)] hover:bg-white/[0.02]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* Manage tab — 3-column layout */}
+      {activeTab === 'manage' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/[0.06] flex-1 min-h-0">
+          <div className="p-5 flex flex-col min-h-0">
+            <ColumnLabel label="Whitelist" />
+            <WhitelistTools adminSecret={adminSecret} />
+          </div>
+          <div className="p-5 flex flex-col min-h-0">
+            <ColumnLabel label="Waitlist" />
+            <WaitlistTools adminSecret={adminSecret} />
+          </div>
+          <div className="p-5 flex flex-col min-h-0">
+            <ColumnLabel label="Share Leaderboard" />
+            <ShareLeaderboard adminSecret={adminSecret} />
+          </div>
+        </div>
+      )}
+
+      {/* Tools tab — UX Testing + Handle Tools side by side */}
+      {activeTab === 'tools' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/[0.06] flex-1 min-h-0">
+          <div className="p-5">
+            <SectionLabel label="UX Testing" />
+            <p className="font-mono text-caption text-[var(--gs-gray-2)] mb-4">
+              Simulate different user states. Reloads the page after clearing.
+            </p>
+            <UXTestingTools />
+          </div>
+          <div className="p-5">
+            <SectionLabel label="Handle Tools" />
+            <HandleTools adminSecret={adminSecret} />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

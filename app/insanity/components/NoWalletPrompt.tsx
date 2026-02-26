@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
+import { detectChain } from '@/lib/utils/detectChain';
 
 export function NoWalletPrompt() {
   const [input, setInput] = useState('');
-  const isValid = /^0x[a-fA-F0-9]{40}$/.test(input.trim());
+  const isValid = !!detectChain(input);
 
   return (
     <div className="min-h-screen bg-gunzscope">
@@ -30,14 +32,16 @@ export function NoWalletPrompt() {
             }}
             className="flex gap-2 mb-4"
           >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="0x..."
-              className="flex-1 bg-[var(--gs-dark-1)] border border-white/[0.08] px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/30 transition-colors"
-              style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
-            />
+            <div className="flex-1">
+              <WalletAddressInput
+                value={input}
+                onChange={setInput}
+                placeholder="0x... or Solana address"
+                className="px-3 py-2.5 text-sm bg-[var(--gs-dark-1)] placeholder:text-[var(--gs-gray-2)]"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+                showHint={false}
+              />
+            </div>
             <button
               type="submit"
               disabled={!isValid}

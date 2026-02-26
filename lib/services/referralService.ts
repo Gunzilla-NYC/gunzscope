@@ -1,4 +1,6 @@
 import prisma from '../db';
+import { isWhitelisted } from './whitelistService';
+import { incrementReferralAndCheckPromotion } from './waitlistService';
 
 // =============================================================================
 // Constants
@@ -210,9 +212,9 @@ export async function recordWalletConnected(
   });
   if (alreadyReferred) return;
 
-  // Guard: wallet is itself a registered referrer
-  const isReferrer = await prisma.referrer.findUnique({ where: { walletAddress: normalizedWallet } });
-  if (isReferrer) return;
+  // Guard: wallet already has full access (whitelisted users can't be referred)
+  const alreadyWhitelisted = await isWhitelisted(normalizedWallet);
+  if (alreadyWhitelisted) return;
 
   await prisma.referralEvent.update({
     where: { id: event.id },
@@ -222,6 +224,9 @@ export async function recordWalletConnected(
       walletConnectedAt: new Date(),
     },
   });
+
+  // Check if the referrer is on the waitlist and should be promoted
+  await incrementReferralAndCheckPromotion(event.referrerId);
 }
 
 /** Promote wallet_connected to portfolio_loaded (terminal state). */
