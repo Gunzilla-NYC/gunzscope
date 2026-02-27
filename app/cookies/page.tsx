@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+export const metadata: Metadata = {
+  title: 'Cookie Policy',
+  description: 'How GUNZscope uses cookies and similar technologies.',
+};
 
 function CookieContent() {
   return (

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Account | GUNZscope',
+  title: 'Account',
   description: 'Manage your GUNZscope profile, tracked wallets, and notification settings.',
 };
 

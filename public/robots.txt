@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /brand
+Disallow: /roadmap
+Disallow: /strategy
+
+Sitemap: https://gunzscope.xyz/sitemap.xml

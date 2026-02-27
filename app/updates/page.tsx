@@ -1,8 +1,14 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { UPDATES } from '@/lib/data/updates';
 import UpdateTimeline from '@/components/updates/UpdateTimeline';
+
+export const metadata: Metadata = {
+  title: "What's New",
+  description: 'The latest updates to GUNZscope. New features, improvements, and what we shipped this week.',
+};
 
 // =============================================================================
 // Public-facing update log — user-friendly language, no implementation details.

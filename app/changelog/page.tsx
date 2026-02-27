@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+export const metadata: Metadata = {
+  title: 'Changelog',
+  description: 'Technical release notes for GUNZscope. Every version, every fix, every feature.',
+};
 
 // =============================================================================
 // Version History Data

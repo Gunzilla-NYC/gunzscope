@@ -221,7 +221,7 @@ function MarketContent() {
                                   {item.imageUrl && (
                                     <img
                                       src={item.imageUrl}
-                                      alt=""
+                                      alt={item.itemName}
                                       className="w-8 h-8 object-cover bg-black/50 shrink-0"
                                       style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
                                       loading="lazy"
@@ -306,7 +306,7 @@ function MarketContent() {
                         {item.imageUrl && (
                           <img
                             src={item.imageUrl}
-                            alt=""
+                            alt={item.itemName}
                             className="w-10 h-10 object-cover bg-black/50 shrink-0"
                             style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
                             loading="lazy"

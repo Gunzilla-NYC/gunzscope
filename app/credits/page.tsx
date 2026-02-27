@@ -1,4 +1,10 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Credits',
+  description: 'The people and projects that make GUNZscope possible.',
+};
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import prisma from '@/lib/db';

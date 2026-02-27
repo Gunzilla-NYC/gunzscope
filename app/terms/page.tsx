@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description: 'Terms and conditions for using GUNZscope.',
+};
 
 function TermsContent() {
   return (
