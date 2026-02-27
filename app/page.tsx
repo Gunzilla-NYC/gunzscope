@@ -206,9 +206,28 @@ export default function HomePage() {
           handleLogOut();
           setGateError('Failed to validate access. Please try again.');
         });
-    } else if (user) {
-      // Email-only user with no wallet — redirect to portfolio browse mode
-      router.push('/portfolio');
+    } else if (user?.email) {
+      // Email-only user with no wallet — validate email through the gate
+      fetch('/api/access/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            router.push('/portfolio');
+          } else if (data.waitlisted) {
+            router.push(`/waitlist?email=${encodeURIComponent(user.email!)}`);
+          } else {
+            handleLogOut();
+            setGateError('Unable to validate access. Please try again.');
+          }
+        })
+        .catch(() => {
+          handleLogOut();
+          setGateError('Failed to validate access. Please try again.');
+        });
     }
   }, [primaryWallet?.address, user, router, handleLogOut]);
 

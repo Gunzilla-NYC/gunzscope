@@ -21,7 +21,15 @@ export interface UseWaitlistReturn {
 
 const POLL_INTERVAL_MS = 30_000; // Check every 30s for promotion
 
-export function useWaitlist(walletAddress: string | undefined): UseWaitlistReturn {
+/**
+ * Poll waitlist status for a wallet address or email.
+ * @param identifier - wallet address or email
+ * @param type - 'wallet' (default) or 'email'
+ */
+export function useWaitlist(
+  identifier: string | undefined,
+  type: 'wallet' | 'email' = 'wallet'
+): UseWaitlistReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [isPromoted, setIsPromoted] = useState(false);
   const [data, setData] = useState<WaitlistData | null>(null);
@@ -29,17 +37,19 @@ export function useWaitlist(walletAddress: string | undefined): UseWaitlistRetur
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchStatus = useCallback(async () => {
-    if (!walletAddress) return;
+    if (!identifier) return;
 
     try {
       const token = getAuthToken();
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(
-        `/api/waitlist/status?address=${encodeURIComponent(walletAddress)}`,
-        { headers }
-      );
+      // Use ?address= for wallets, ?email= for email users
+      const param = type === 'email'
+        ? `email=${encodeURIComponent(identifier)}`
+        : `address=${encodeURIComponent(identifier)}`;
+
+      const res = await fetch(`/api/waitlist/status?${param}`, { headers });
       const json = await res.json();
 
       if (json.success && json.promoted) {
@@ -62,7 +72,7 @@ export function useWaitlist(walletAddress: string | undefined): UseWaitlistRetur
     } finally {
       setIsLoading(false);
     }
-  }, [walletAddress]);
+  }, [identifier, type]);
 
   // Initial fetch + polling
   useEffect(() => {

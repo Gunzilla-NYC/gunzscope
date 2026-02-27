@@ -11,22 +11,33 @@ import { useWaitlist } from '@/lib/hooks/useWaitlist';
 // =============================================================================
 // Waitlist Client Page
 //
-// Shown to non-whitelisted users. Displays queue position, referral progress,
-// and a shareable referral link. Auto-redirects on promotion.
+// Shown to non-whitelisted users (wallet OR email). Displays queue position,
+// referral progress, and a shareable referral link. Auto-redirects on promotion.
+// Email users are prompted to connect a wallet after promotion.
 // =============================================================================
 
 export default function WaitlistClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { primaryWallet, sdkHasLoaded } = useDynamicContext();
-  // Prefer Dynamic wallet address, fall back to query param (paste-address flow)
+  const { primaryWallet, user, sdkHasLoaded, setShowAuthFlow } = useDynamicContext();
+
+  // Resolve identifier: wallet address OR email
   const walletAddress = primaryWallet?.address || searchParams.get('address') || undefined;
-  const { isLoading, isPromoted, data, error, refresh } = useWaitlist(walletAddress);
+  const emailAddress = user?.email || searchParams.get('email') || undefined;
+  const isEmailOnly = !walletAddress && !!emailAddress;
+
+  // The identifier used for waitlist lookup — wallet takes priority
+  const identifier = walletAddress || emailAddress || undefined;
+
+  const { isLoading, isPromoted, data, error, refresh } = useWaitlist(
+    identifier,
+    isEmailOnly ? 'email' : 'wallet'
+  );
 
   // Referral tracking: fire wallet_connected for referred visitors
   const referralTrackedRef = useRef(false);
   useEffect(() => {
-    if (!walletAddress || referralTrackedRef.current) return;
+    if (!identifier || referralTrackedRef.current) return;
     const slug = localStorage.getItem('gs_ref');
     const sessionId = localStorage.getItem('gs_ref_session');
     if (!slug || !sessionId) return;
@@ -35,14 +46,19 @@ export default function WaitlistClient() {
     fetch('/api/referral/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug, event: 'wallet_connected', walletAddress, sessionId }),
+      body: JSON.stringify({
+        slug,
+        event: 'wallet_connected',
+        walletAddress: walletAddress || emailAddress,
+        sessionId,
+      }),
     })
       .then(() => {
         localStorage.removeItem('gs_ref');
         localStorage.removeItem('gs_ref_session');
       })
       .catch(() => {});
-  }, [walletAddress]);
+  }, [identifier, walletAddress, emailAddress]);
 
   // Promotion celebration state
   const [showCelebration, setShowCelebration] = useState(false);
@@ -50,6 +66,10 @@ export default function WaitlistClient() {
   useEffect(() => {
     if (isPromoted) {
       setShowCelebration(true);
+
+      // Email-only users: stay on celebration, they need to connect a wallet
+      if (isEmailOnly) return;
+
       const timer = setTimeout(() => {
         router.push(
           walletAddress
@@ -59,14 +79,34 @@ export default function WaitlistClient() {
       }, 2500);
       return () => clearTimeout(timer);
     }
-  }, [isPromoted, router, walletAddress]);
+  }, [isPromoted, router, walletAddress, isEmailOnly]);
 
-  // No wallet and no query param → redirect to home
+  // Reconciliation: when a promoted email user connects a wallet, whitelist it and redirect
+  const reconcileRef = useRef(false);
   useEffect(() => {
-    if (sdkHasLoaded && !walletAddress) {
+    if (!isPromoted || !emailAddress || !primaryWallet?.address || reconcileRef.current) return;
+    reconcileRef.current = true;
+
+    fetch('/api/access/reconcile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailAddress, walletAddress: primaryWallet.address }),
+    })
+      .then(() => {
+        router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+      })
+      .catch(() => {
+        // Still redirect — worst case wallet isn't whitelisted yet
+        router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+      });
+  }, [isPromoted, emailAddress, primaryWallet?.address, router]);
+
+  // No wallet, no email → redirect to home
+  useEffect(() => {
+    if (sdkHasLoaded && !identifier) {
       router.replace('/');
     }
-  }, [sdkHasLoaded, walletAddress, router]);
+  }, [sdkHasLoaded, identifier, router]);
 
   // Copy state
   const [copied, setCopied] = useState(false);
@@ -115,7 +155,7 @@ export default function WaitlistClient() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center"
+              className="text-center max-w-sm px-6"
             >
               <div className="w-16 h-16 mx-auto mb-6 border-2 border-[var(--gs-lime)] flex items-center justify-center clip-corner-sm">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gs-lime)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -125,9 +165,23 @@ export default function WaitlistClient() {
               <h1 className="font-display font-bold text-3xl sm:text-4xl uppercase text-[var(--gs-lime)] mb-3">
                 Access Granted
               </h1>
-              <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--gs-gray-3)]">
-                Redirecting to your portfolio...
-              </p>
+              {isEmailOnly ? (
+                <>
+                  <p className="font-body text-sm text-[var(--gs-gray-4)] leading-relaxed mb-6">
+                    Connect a wallet to view your portfolio.
+                  </p>
+                  <button
+                    onClick={() => setShowAuthFlow(true)}
+                    className="min-h-10 font-display font-semibold text-[11px] uppercase tracking-wider px-8 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                  >
+                    Connect Wallet
+                  </button>
+                </>
+              ) : (
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--gs-gray-3)]">
+                  Redirecting to your portfolio...
+                </p>
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -161,6 +215,18 @@ export default function WaitlistClient() {
             <> Just <span className="text-[var(--gs-lime)] font-semibold">{remaining} more</span> to go.</>
           )}
         </p>
+
+        {/* Email-only notice */}
+        {isEmailOnly && (
+          <div className="bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 px-4 py-3 mb-6 text-center">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--gs-gray-3)]">
+              Signed in as <span className="text-[var(--gs-purple)]">{emailAddress}</span>
+            </p>
+            <p className="font-body text-xs text-[var(--gs-gray-4)] mt-1">
+              You&rsquo;ll need to connect a wallet after unlocking access to view your portfolio.
+            </p>
+          </div>
+        )}
 
         {/* ── Progress Bar ──────────────────────────────────────────── */}
         <div className="mb-10">
@@ -248,7 +314,7 @@ export default function WaitlistClient() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { step: '01', title: 'Share Your Link', desc: 'Send your unique referral link to friends who play Off\u00A0The\u00A0Grid.' },
-              { step: '02', title: 'They Connect', desc: 'When they visit and connect their wallet, it counts as a referral.' },
+              { step: '02', title: 'They Connect', desc: 'When they visit and connect a wallet or sign up, it counts as a referral.' },
               { step: '03', title: 'Unlock Access', desc: `${threshold} successful referrals = instant access to GUNZscope.` },
             ].map((item) => (
               <div key={item.step} className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-4">

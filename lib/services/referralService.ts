@@ -300,9 +300,18 @@ export async function getReferrerStats(walletAddress: string): Promise<ReferrerS
 // Handle System
 // =============================================================================
 
-/** Derive an auto-slug from a wallet address: "0x" + first 4 hex chars. */
-function deriveAutoSlug(walletAddress: string): string {
-  return walletAddress.slice(0, 6).toLowerCase(); // "0xf943"
+/**
+ * Derive an auto-slug from a wallet address or email identifier.
+ * Wallet: "0x" + first 4 hex chars → "0xf943"
+ * Email:  username part (before @), truncated to 6 chars, alphanumeric only
+ */
+function deriveAutoSlug(identifier: string): string {
+  if (identifier.startsWith('email:')) {
+    const email = identifier.slice(6); // strip "email:" prefix
+    const username = email.split('@')[0].replace(/[^a-z0-9]/g, '').slice(0, 6);
+    return username || 'user'; // fallback if username is empty after sanitizing
+  }
+  return identifier.slice(0, 6).toLowerCase(); // "0xf943"
 }
 
 /**
