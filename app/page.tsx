@@ -13,6 +13,8 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import VersionBadge from '@/components/ui/VersionBadge';
 import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
 import { detectChain } from '@/lib/utils/detectChain';
+import { useKonamiCode } from '@/hooks/useKonamiCode';
+import KonamiOverlay from '@/components/KonamiOverlay';
 
 // Shared animation easings
 const revealEase = [0.16, 1, 0.3, 1] as const;
@@ -69,6 +71,7 @@ interface SiteStats {
 export default function HomePage() {
   const router = useRouter();
   const heroRef = useRef<HTMLElement>(null);
+  const { triggered: konamiActive, reset: resetKonami } = useKonamiCode();
   const [gunPrice, setGunPrice] = useState<number | null>(null);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
 
@@ -359,6 +362,23 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">
+      {/* Konami Code Easter Egg */}
+      <KonamiOverlay
+        active={konamiActive}
+        onDismiss={resetKonami}
+        onSubmit={(addr) => {
+          fetch('/api/access/konami', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: addr }),
+          }).then((r) => {
+            if (r.ok) {
+              resetKonami();
+              router.push(`/portfolio?address=${addr}`);
+            }
+          });
+        }}
+      />
       {/* Background Effects */}
       <div className="grid-bg" />
       <div className="scanlines" />
