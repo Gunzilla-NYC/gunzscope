@@ -23,6 +23,15 @@ export function useGlitchText(target: string, triggerOnMount = false) {
   const upper = target.toUpperCase();
 
   const scramble = useCallback(() => {
+    const el = spanRef.current;
+    if (!el) return;
+
+    // Lock the element's width so glitch chars don't resize the container
+    if (!el.style.minWidth) {
+      el.style.display = 'inline-block';
+      el.style.minWidth = `${el.offsetWidth}px`;
+    }
+
     let iter = 0;
     const chars = pickGlitchSet();
     const totalSteps = upper.length * 5;
