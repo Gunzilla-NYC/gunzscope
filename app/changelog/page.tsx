@@ -22,12 +22,24 @@ interface VersionEntry {
 const VERSIONS: VersionEntry[] = [
   {
     version: 'v0.3.9',
-    date: 'Feb 26, 2026',
+    date: 'Feb 27, 2026',
     tag: 'current',
     items: [
-      'Admin-gated /strategy page \u2014 6-phase strategic roadmap (Portfolio Intelligence \u2192 Bloomberg of Gaming); vertical timeline with phase nodes, pill-tag items, market scope expansion bar; same isAdminWallet() gate as /brand and /roadmap',
-      'Admin panel Links tab \u2014 new third tab in AdminPanel with card grid linking to all admin/internal pages (/brand, /strategy, /roadmap, /changelog, /updates); colored dot indicators, descriptions, route paths',
-      'Brand page Working Links section \u2014 section 00 at top of brand page with link to Build Games landing preview; Waitlist Flow section 06 with gate redirect, waitlist state, and promotion flow test panels',
+      'Email waitlist gate \u2014 /api/access/validate accepts { email } alongside { address }; emails stored as email:user@example.com identifier in waitlist/referrer tables; deriveAutoSlug handles email: prefix (username before @)',
+      'Email\u2011to\u2011wallet reconciliation \u2014 new POST /api/access/reconcile endpoint; promoted email user connects wallet \u2192 whitelists wallet address with reconciled:{email} note; WaitlistClient detects wallet connection and auto\u2011reconciles',
+      'WaitlistClient email mode \u2014 identifier resolution from wallet OR ?email= search param; "Signed in as" email notice; promotion celebration shows Connect Wallet CTA instead of auto\u2011redirect for email users',
+      'useWaitlist type parameter \u2014 hook accepts type: "wallet" | "email"; fetches /api/waitlist/status with ?address= or ?email= accordingly',
+      'Email gate in app/page.tsx \u2014 email\u2011only Dynamic users (no wallet) now go through /api/access/validate instead of bypassing straight to /portfolio; non\u2011whitelisted emails redirect to /waitlist?email=',
+      'GlitchText container stability \u2014 glitch hover effect no longer resizes the login button; fixed by preserving container dimensions during letter scramble animation',
+      'SEO: robots.txt \u2014 blocks /api/, /admin/, /brand, /roadmap, /strategy; references sitemap.xml',
+      'SEO: dynamic sitemap \u2014 app/sitemap.ts with 13 public pages, priority\u2011weighted (1.0 home \u2192 0.1 legal)',
+      'SEO: root layout metadata \u2014 Viewport export (themeColor #0A0A0A), metadataBase, title.template "%s | GUNZscope", default OG/Twitter cards, JSON\u2011LD WebApplication schema',
+      'SEO: page metadata \u2014 added Metadata exports to changelog, updates, credits, privacy, terms, cookies; created layout.tsx wrappers for client\u2011component pages (market, insanity); noindex on brand/roadmap/strategy',
+      'SEO: canonical URL on /portfolio layout to prevent ?address= duplicates',
+      'SEO: alt text on 4 NFT images in scarcity and market pages (was empty string)',
+      'Admin\u2011gated /strategy page \u2014 6\u2011phase strategic roadmap; vertical timeline with phase nodes, pill\u2011tag items, market scope expansion bar',
+      'Admin panel Links tab \u2014 card grid linking to all admin/internal pages with colored dot indicators',
+      'Brand page Working Links section \u2014 Build Games landing preview link; Waitlist Flow section 06 with gate/state/promotion test panels',
     ],
   },
   {

@@ -16,13 +16,13 @@ export interface UpdateEntry {
 export const UPDATES: UpdateEntry[] = [
   {
     version: 'v0.3.9',
-    date: 'Feb 26, 2026',
+    date: 'Feb 27, 2026',
     tag: 'current',
-    title: 'The admin panel learned to navigate',
+    title: 'Email users, meet the waitlist',
     items: [
-      'New /strategy page behind the admin gate \u2014 the 6-phase roadmap from "portfolio tracker" to "Bloomberg of gaming blockchains." Timeline, phase nodes, scope bar, the whole deal. Only you can see it.',
-      'The admin panel now has a Links tab. Instead of remembering that /brand, /strategy, and /roadmap exist, you can just click them from the admin view. Revolutionary, we know.',
-      'Brand page got a Working Links section at the top and a Waitlist Flow test section at the bottom. One-stop shop for verifying that the gate \u2192 waitlist \u2192 promotion pipeline actually works.',
+      'You can now sign up with email \u2014 same waitlist, same referral flow, same 3\u2011friend threshold. Once you\u2019re in, connect a wallet to see your portfolio.',
+      'The login button stopped doing the cha\u2011cha. Glitch text on hover no longer resizes the button \u2014 letters scramble, container stays put.',
+      'SEO overhaul behind the scenes: every page now has proper metadata, we have a sitemap, and search engines can actually find us. Not that we were hiding.',
     ],
   },
   {
