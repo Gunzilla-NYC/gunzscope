@@ -15,9 +15,15 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.3.9',
+    version: 'v0.4.0',
     date: 'Feb 27, 2026',
     tag: 'current',
+    title: 'I could tell you, but then I\u2019d have to double legendary buzzkill you...',
+    items: [],
+  },
+  {
+    version: 'v0.3.9',
+    date: 'Feb 27, 2026',
     title: 'Email users, meet the waitlist',
     items: [
       'You can now sign up with email \u2014 same waitlist, same referral flow, same 3\u2011friend threshold. Once you\u2019re in, connect a wallet to see your portfolio.',

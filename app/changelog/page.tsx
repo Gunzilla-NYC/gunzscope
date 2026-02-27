@@ -21,9 +21,19 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.3.9',
+    version: 'v0.4.0',
     date: 'Feb 27, 2026',
     tag: 'current',
+    items: [
+      'Konami code easter egg \u2014 useKonamiCode hook listens for \u2191\u2191\u2193\u2193\u2190\u2192\u2190\u2192BA on home page; 2s inactivity timeout resets progress; triggers KonamiOverlay',
+      'KonamiOverlay tactical scan \u2014 full\u2011screen overlay with hex matrix rain (120ms refresh), horizontal scan line (2.5s linear sweep), corner bracket framing, 5\u2011line sequential reveal with motion/react stagger',
+      'Konami whitelist input \u2014 after scan animation completes, WalletAddressInput slides in with clip\u2011path ENTER button; validates via detectChain; ESC or backdrop click to dismiss',
+      'POST /api/access/konami \u2014 accepts { address, email }; attempts promoteFromWaitlist first, falls back to addToWhitelist with "Konami code" label; reconciles email+wallet if both provided',
+    ],
+  },
+  {
+    version: 'v0.3.9',
+    date: 'Feb 27, 2026',
     items: [
       'Email waitlist gate \u2014 /api/access/validate accepts { email } alongside { address }; emails stored as email:user@example.com identifier in waitlist/referrer tables; deriveAutoSlug handles email: prefix (username before @)',
       'Email\u2011to\u2011wallet reconciliation \u2014 new POST /api/access/reconcile endpoint; promoted email user connects wallet \u2192 whitelists wallet address with reconciled:{email} note; WaitlistClient detects wallet connection and auto\u2011reconciles',
