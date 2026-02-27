@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
 import { detectChain } from '@/lib/utils/detectChain';
@@ -747,7 +748,15 @@ function SectionLabel({ label }: { label: string }) {
 // Main AdminPanel — tabbed layout
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'manage' | 'tools';
+type AdminTab = 'manage' | 'tools' | 'links';
+
+const ADMIN_LINKS: { href: string; label: string; description: string; color: string }[] = [
+  { href: '/brand', label: 'Brand Guidelines', description: 'Colors, typography, components, design system', color: 'var(--gs-purple)' },
+  { href: '/strategy', label: 'Strategic Roadmap', description: '6-phase product roadmap \u2014 Build Games 2026', color: 'var(--gs-lime)' },
+  { href: '/roadmap', label: 'Architecture Doc', description: 'On-chain strategy, deployment plan, system design', color: 'var(--gs-warning)' },
+  { href: '/changelog', label: 'Changelog', description: 'Technical release notes (public)', color: 'var(--gs-gray-4)' },
+  { href: '/updates', label: 'Updates', description: 'User-facing release notes (public)', color: 'var(--gs-gray-4)' },
+];
 
 export default function AdminPanel({ adminSecret }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('manage');
@@ -755,6 +764,7 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
   const tabs: { key: AdminTab; label: string }[] = [
     { key: 'manage', label: 'Whitelist / Waitlist / Leaderboard' },
     { key: 'tools', label: 'Tools' },
+    { key: 'links', label: 'Links' },
   ];
 
   return (
@@ -809,6 +819,35 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
           <div className="p-5">
             <SectionLabel label="Handle Tools" />
             <HandleTools adminSecret={adminSecret} />
+          </div>
+        </div>
+      )}
+
+      {/* Links tab — admin-only page links */}
+      {activeTab === 'links' && (
+        <div className="p-5 flex-1 min-h-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {ADMIN_LINKS.map(({ href, label, description, color }) => (
+              <Link
+                key={href}
+                href={href}
+                className="group flex flex-col gap-1 p-4 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="font-mono text-data uppercase tracking-wider text-[var(--gs-white)] group-hover:text-[var(--gs-lime)] transition-colors">
+                    {label}
+                  </span>
+                </div>
+                <p className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
+                  {description}
+                </p>
+                <span className="font-mono text-[9px] text-[var(--gs-gray-2)] mt-1">{href}</span>
+              </Link>
+            ))}
           </div>
         </div>
       )}

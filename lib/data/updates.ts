@@ -15,9 +15,19 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.3.8',
+    version: 'v0.3.9',
     date: 'Feb 26, 2026',
     tag: 'current',
+    title: 'The admin panel learned to navigate',
+    items: [
+      'New /strategy page behind the admin gate \u2014 the 6-phase roadmap from "portfolio tracker" to "Bloomberg of gaming blockchains." Timeline, phase nodes, scope bar, the whole deal. Only you can see it.',
+      'The admin panel now has a Links tab. Instead of remembering that /brand, /strategy, and /roadmap exist, you can just click them from the admin view. Revolutionary, we know.',
+      'Brand page got a Working Links section at the top and a Waitlist Flow test section at the bottom. One-stop shop for verifying that the gate \u2192 waitlist \u2192 promotion pipeline actually works.',
+    ],
+  },
+  {
+    version: 'v0.3.8',
+    date: 'Feb 26, 2026',
     title: 'The waitlist stopped playing hard to get',
     items: [
       'Non\u2011whitelisted wallets now actually reach the waitlist page instead of bouncing back to the home screen. Turns out "join the waitlist" works better when the waitlist lets you in the door.',

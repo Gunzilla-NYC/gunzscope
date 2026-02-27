@@ -15,9 +15,18 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.3.8',
+    version: 'v0.3.9',
     date: 'Feb 26, 2026',
     tag: 'current',
+    items: [
+      'Admin-gated /strategy page \u2014 6-phase strategic roadmap (Portfolio Intelligence \u2192 Bloomberg of Gaming); vertical timeline with phase nodes, pill-tag items, market scope expansion bar; same isAdminWallet() gate as /brand and /roadmap',
+      'Admin panel Links tab \u2014 new third tab in AdminPanel with card grid linking to all admin/internal pages (/brand, /strategy, /roadmap, /changelog, /updates); colored dot indicators, descriptions, route paths',
+      'Brand page Working Links section \u2014 section 00 at top of brand page with link to Build Games landing preview; Waitlist Flow section 06 with gate redirect, waitlist state, and promotion flow test panels',
+    ],
+  },
+  {
+    version: 'v0.3.8',
+    date: 'Feb 26, 2026',
     items: [
       'Waitlist redirect fix \u2014 paste\u2011address flow (non\u2011Dynamic\u2011SDK users) now passes address as query param to /waitlist; WaitlistClient reads from primaryWallet?.address || searchParams.get(\u2018address\u2019); previously redirected back to / because no Dynamic wallet was connected',
       'Waitlist page Suspense boundary \u2014 wrapped WaitlistClient in <Suspense> in app/waitlist/page.tsx; required by Next.js for useSearchParams() during static prerender',
