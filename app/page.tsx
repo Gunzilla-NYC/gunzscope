@@ -19,47 +19,54 @@ import KonamiOverlay from '@/components/KonamiOverlay';
 // Shared animation easings
 const revealEase = [0.16, 1, 0.3, 1] as const;
 
-// Scrambled hint — glitches continuously, reveals on hover
+// Scrambled hint — glitches continuously, reveals in a 3-word window around cursor
 const GLITCH_CHARS = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`0123456789ABCDEFabcdef';
-function ScrambledHint({ text }: { text: string }) {
-  const [display, setDisplay] = useState(text);
-  const [hovered, setHovered] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
+function scrambleWord(word: string) {
+  return word
+    .split('')
+    .map((ch) =>
+      ch === ' ' ? ' ' : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)]
+    )
+    .join('');
+}
+
+function ScrambledHint({ text }: { text: string }) {
+  const words = text.split(' ');
+  const [revealIndex, setRevealIndex] = useState(-1);
+  const [scrambled, setScrambled] = useState<string[]>(() => words.map(scrambleWord));
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const REVEAL_RADIUS = 1; // reveal this many words on each side (total = 2*radius + 1 = 3)
+
+  // Continuously re-scramble non-revealed words
   useEffect(() => {
-    if (hovered) {
-      setDisplay(text);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-    const scramble = () => {
-      setDisplay(
-        text
-          .split('')
-          .map((ch) =>
-            ch === ' ' || ch === '\n'
-              ? ch
-              : Math.random() < 0.35
-                ? ch
-                : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)]
-          )
-          .join('')
-      );
-    };
-    scramble();
-    intervalRef.current = setInterval(scramble, 80);
+    intervalRef.current = setInterval(() => {
+      setScrambled(words.map(scrambleWord));
+    }, 80);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [hovered, text]);
+  }, [words.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <span
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`cursor-default transition-colors duration-300 ${
-        hovered ? 'text-white/40' : 'text-white/20'
-      }`}
+      className="cursor-default"
+      onMouseLeave={() => setRevealIndex(-1)}
     >
-      {display}
+      {words.map((word, i) => {
+        const revealed = revealIndex >= 0 && Math.abs(i - revealIndex) <= REVEAL_RADIUS;
+        return (
+          <span key={i}>
+            <span
+              onMouseEnter={() => setRevealIndex(i)}
+              className={`transition-colors duration-200 ${
+                revealed ? 'text-white/50' : 'text-white/20'
+              }`}
+            >
+              {revealed ? word : scrambled[i] ?? scrambleWord(word)}
+            </span>
+            {i < words.length - 1 ? ' ' : ''}
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -538,8 +545,8 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
-            <div className="mt-6 max-w-sm font-mono text-[11px] leading-[1.6] italic">
-              <ScrambledHint text="Don't have access? In 1986, a developer couldn't beat his own game — so he left a pattern in the code. 30 lives. The oldest backdoor in gaming still opens doors." />
+            <div className="mt-6 max-w-lg font-mono text-[11px] leading-[1.6] italic">
+              <ScrambledHint text="Don't have access? In 1986, a developer couldn't beat his own game — so he left a pattern in the code. 30 lives. The oldest backdoor in gaming still opens doors. Good luck zero." />
             </div>
           </motion.div>
         </div>
