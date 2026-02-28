@@ -34,8 +34,10 @@ function scrambleWord(word: string) {
 function ScrambledHint({ text }: { text: string }) {
   const words = text.split(' ');
   const [revealIndex, setRevealIndex] = useState(-1);
+  const [holdRevealed, setHoldRevealed] = useState(false);
   const [scrambled, setScrambled] = useState<string[]>(() => words.map(scrambleWord));
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const REVEAL_RADIUS = 1; // reveal this many words on each side (total = 2*radius + 1 = 3)
 
   // Continuously re-scramble non-revealed words
@@ -46,28 +48,56 @@ function ScrambledHint({ text }: { text: string }) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [words.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Mobile: tap-and-hold to reveal all text
+  const onTouchStart = useCallback(() => {
+    holdTimerRef.current = setTimeout(() => setHoldRevealed(true), 400);
+  }, []);
+  const onTouchEnd = useCallback(() => {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    setHoldRevealed(false);
+  }, []);
+
   return (
-    <span
-      className="cursor-default"
-      onMouseLeave={() => setRevealIndex(-1)}
-    >
-      {words.map((word, i) => {
-        const revealed = revealIndex >= 0 && Math.abs(i - revealIndex) <= REVEAL_RADIUS;
-        return (
-          <span key={i}>
-            <span
-              onMouseEnter={() => setRevealIndex(i)}
-              className={`transition-colors duration-200 ${
-                revealed ? 'text-white/50' : 'text-white/20'
-              }`}
-            >
-              {revealed ? word : scrambled[i] ?? scrambleWord(word)}
+    <>
+      {/* Mobile: scrambled, tap-and-hold to reveal */}
+      <span
+        className="sm:hidden select-none"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        {holdRevealed
+          ? <span className="text-white/40">{text}</span>
+          : scrambled.map((s, i) => (
+              <span key={i} className="text-white/20">
+                {s}{i < words.length - 1 ? ' ' : ''}
+              </span>
+            ))
+        }
+      </span>
+      {/* Desktop: scramble with hover reveal */}
+      <span
+        className="hidden sm:inline cursor-default"
+        onMouseLeave={() => setRevealIndex(-1)}
+      >
+        {words.map((word, i) => {
+          const revealed = revealIndex >= 0 && Math.abs(i - revealIndex) <= REVEAL_RADIUS;
+          return (
+            <span key={i}>
+              <span
+                onMouseEnter={() => setRevealIndex(i)}
+                className={`transition-colors duration-200 ${
+                  revealed ? 'text-white/50' : 'text-white/20'
+                }`}
+              >
+                {revealed ? word : scrambled[i] ?? scrambleWord(word)}
+              </span>
+              {i < words.length - 1 ? ' ' : ''}
             </span>
-            {i < words.length - 1 ? ' ' : ''}
-          </span>
-        );
-      })}
-    </span>
+          );
+        })}
+      </span>
+    </>
   );
 }
 
@@ -541,7 +571,7 @@ export default function HomePage() {
                 <span className="font-display font-bold text-base uppercase tracking-wider">Connect Wallet</span>
                 <span className="font-mono text-[9px] uppercase tracking-widest opacity-60">Early access, whitelist only</span>
               </div>
-              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <svg className="hidden sm:block w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
