@@ -66,6 +66,7 @@ export default function WaitlistClient() {
   useEffect(() => {
     if (isPromoted) {
       setShowCelebration(true);
+      localStorage.removeItem('gs_waitlist_address');
 
       // Email-only users: stay on celebration, they need to connect a wallet
       if (isEmailOnly) return;

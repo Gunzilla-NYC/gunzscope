@@ -216,6 +216,13 @@ export async function recordWalletConnected(
   const alreadyWhitelisted = await isWhitelisted(normalizedWallet);
   if (alreadyWhitelisted) return;
 
+  // Guard: referred user must have joined the waitlist for referrer to get credit
+  const onWaitlist = await prisma.waitlistEntry.findUnique({
+    where: { address: normalizedWallet },
+    select: { id: true },
+  });
+  if (!onWaitlist) return;
+
   await prisma.referralEvent.update({
     where: { id: event.id },
     data: {
