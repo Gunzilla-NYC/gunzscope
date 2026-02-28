@@ -212,13 +212,14 @@ model AlertLog {
 // Whitelist Entry - Address-based early access gate
 // =============================================================================
 model WhitelistEntry {
-  id        String   @id @default(cuid())
-  address   String   @unique // Normalized to lowercase
-  label     String?  // Optional label (e.g. "Discord user", "OTG player")
-  addedBy   String?  // Who added this entry (admin name or "seed")
-  metadata  String?  // JSON blob for extra data
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String    @id @default(cuid())
+  address   String    @unique // Normalized to lowercase
+  label     String?   // Optional label (e.g. "Discord user", "OTG player")
+  addedBy   String?   // Who added this entry (admin name or "seed")
+  metadata  String?   // JSON blob for extra data
+  expiresAt DateTime? // Null = permanent access; non-null = trial (e.g. 72h Konami trial)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("whitelist_entries")
 }

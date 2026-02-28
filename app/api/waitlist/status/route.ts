@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getWaitlistStatus } from '@/lib/services/waitlistService';
-import { isWhitelisted } from '@/lib/services/whitelistService';
+import { getWaitlistStatus, bumpExpiredTrialThreshold } from '@/lib/services/waitlistService';
+import { getWhitelistStatus } from '@/lib/services/whitelistService';
 import { isBanned } from '@/lib/services/banService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
 
@@ -23,13 +23,34 @@ export async function GET(request: NextRequest) {
     return jsonSuccess({ banned: true });
   }
 
-  // Check if already promoted (whitelisted)
-  const whitelisted = await isWhitelisted(identifier);
-  if (whitelisted) {
-    return jsonSuccess({ promoted: true, identifier: identifier.toLowerCase() });
+  // Check whitelist status (expiry-aware)
+  const wlStatus = await getWhitelistStatus(identifier);
+
+  if (wlStatus.status === 'permanent' || wlStatus.status === 'trial') {
+    return jsonSuccess({
+      promoted: true,
+      identifier: identifier.toLowerCase(),
+      ...(wlStatus.status === 'trial' && {
+        trial: true,
+        expiresAt: wlStatus.expiresAt?.toISOString(),
+      }),
+    });
   }
 
+  // Expired trial — return waitlist data with trialExpired flag
   const status = await getWaitlistStatus(identifier);
+
+  if (wlStatus.status === 'expired') {
+    // Bump referral threshold from 1 → 2 (lazy, idempotent)
+    await bumpExpiredTrialThreshold(identifier);
+    // Re-fetch status after bump to get updated threshold
+    const updatedStatus = await getWaitlistStatus(identifier);
+    return jsonSuccess({
+      trialExpired: true,
+      ...(updatedStatus ?? { waitlisted: true, position: 0, referralCount: 0, promotionThreshold: 2, referralLink: null, slug: null }),
+    });
+  }
+
   if (!status) {
     return jsonError('Not on waitlist', 404);
   }

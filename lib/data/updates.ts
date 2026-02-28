@@ -15,9 +15,19 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.2',
+    version: 'v0.4.3',
     date: 'Feb 28, 2026',
     tag: 'current',
+    title: 'The Konami code learned consequences',
+    items: [
+      'The Konami code used to grant instant permanent access. Now it gives you a 72\u2011hour trial. Full portfolio access, referral link included \u2014 but the clock is ticking. Get 1 friend to sign up through your link within 72 hours and you keep it forever.',
+      'If the trial expires, you\u2019re still better off than everyone else. Regular waitlist needs 3 referrals. Expired Konami users only need 2. Finding the code wasn\u2019t for nothing.',
+      'Second attempts get politely rejected. One trial per customer. No infinite free passes.',
+    ],
+  },
+  {
+    version: 'v0.4.2',
+    date: 'Feb 28, 2026',
     title: 'Bad actors, meet the door',
     items: [
       'Admins can now ban, unban, and reset users from the admin panel. Banned users see an "ACCESS REVOKED" page instead of silently re\u2011enrolling in the waitlist. Reset wipes the slate clean without a ban \u2014 fresh start, no grudge.',

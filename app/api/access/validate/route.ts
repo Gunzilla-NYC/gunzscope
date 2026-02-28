@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
-import { isWhitelisted } from '@/lib/services/whitelistService';
+import { getWhitelistStatus } from '@/lib/services/whitelistService';
 import { isBanned } from '@/lib/services/banService';
-import { joinWaitlist, getWaitlistStatus, BannedError } from '@/lib/services/waitlistService';
+import { joinWaitlist, getWaitlistStatus, bumpExpiredTrialThreshold, BannedError } from '@/lib/services/waitlistService';
 import { claimCustomSlug } from '@/lib/services/referralService';
 
 /**
@@ -43,11 +43,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, banned: true }, { status: 403 });
     }
 
-    // 1. Check whitelist first
-    const whitelisted = await isWhitelisted(identifier);
-    if (whitelisted) {
+    // 1. Check whitelist first (expiry-aware)
+    const wlStatus = await getWhitelistStatus(identifier);
+
+    if (wlStatus.status === 'permanent') {
       console.info(`[ACCESS] WHITELISTED | id="${identifier}" | ip=${ip} | ${new Date().toISOString()}`);
       return NextResponse.json({ success: true });
+    }
+
+    if (wlStatus.status === 'trial') {
+      console.info(`[ACCESS] TRIAL | id="${identifier}" | expires=${wlStatus.expiresAt?.toISOString()} | ip=${ip} | ${new Date().toISOString()}`);
+      return NextResponse.json({
+        success: true,
+        trial: true,
+        expiresAt: wlStatus.expiresAt?.toISOString(),
+      });
+    }
+
+    if (wlStatus.status === 'expired') {
+      // Bump referral threshold from 1 → 2 (lazy, idempotent)
+      await bumpExpiredTrialThreshold(identifier);
+      console.warn(`[ACCESS] TRIAL EXPIRED | id="${identifier}" | ip=${ip} | ${new Date().toISOString()}`);
+      return NextResponse.json({
+        success: false,
+        trialExpired: true,
+        waitlisted: true,
+      });
     }
 
     // 2. Not whitelisted — join/check waitlist
