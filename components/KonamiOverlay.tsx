@@ -163,7 +163,7 @@ function useMatrixRain(active: boolean) {
     }
 
     const lineH = 18;
-    const colCount = Math.floor(window.innerWidth / 18); // wide spacing → text fills left ~40%
+    const colCount = Math.floor(window.innerWidth / 28); // fewer columns → text concentrated on far left
     const rowCount = Math.floor(window.innerHeight / lineH);
     const hexChars = '0123456789ABCDEF';
 
