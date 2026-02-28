@@ -9,7 +9,7 @@ import Footer from '@/components/Footer';
 import { useCountUp } from '@/hooks/useCountUp';
 import { FeatureIcon } from '@/components/ui/FeatureIcon';
 import { useTextScramble } from '@/hooks/useTextScramble';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext, useConnectWithOtp } from '@dynamic-labs/sdk-react-core';
 import VersionBadge from '@/components/ui/VersionBadge';
 import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
 import { detectChain } from '@/lib/utils/detectChain';
@@ -35,7 +35,7 @@ function ScrambledHint({ text }: { text: string }) {
   const words = text.split(' ');
   const [revealIndex, setRevealIndex] = useState(-1);
   const [holdRevealed, setHoldRevealed] = useState(false);
-  const [scrambled, setScrambled] = useState<string[]>(() => words.map(scrambleWord));
+  const [scrambled, setScrambled] = useState<string[]>(() => words.map(() => ''));
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const REVEAL_RADIUS = 1; // reveal this many words on each side (total = 2*radius + 1 = 3)
@@ -168,6 +168,7 @@ export default function HomePage() {
   const [modalView, setModalView] = useState<'choose' | 'paste'>('choose');
   const [showWalletHelp, setShowWalletHelp] = useState(false);
   const { primaryWallet, user, setShowAuthFlow, handleLogOut } = useDynamicContext();
+  const { connectWithEmail, verifyOneTimePassword, retryOneTimePassword } = useConnectWithOtp();
   // Track whether user was already authenticated on mount (don't auto-redirect on page load)
   const wasConnectedOnMount = useRef<boolean | null>(null);
   if (wasConnectedOnMount.current === null) {
@@ -461,6 +462,9 @@ export default function HomePage() {
           resetKonami();
           setShowAuthFlow(true);
         }}
+        connectWithEmail={connectWithEmail}
+        verifyOtp={verifyOneTimePassword}
+        retryOtp={retryOneTimePassword}
       />
       {/* Background Effects */}
       <div className="grid-bg" />
