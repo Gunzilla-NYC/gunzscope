@@ -7,7 +7,16 @@
  */
 
 import prisma from '../db';
+import { isBanned } from './banService';
 import { getOrCreateAutoHandle } from './referralService';
+
+/** Thrown when a banned address tries to join the waitlist */
+export class BannedError extends Error {
+  constructor(address: string) {
+    super(`Address ${address} is banned`);
+    this.name = 'BannedError';
+  }
+}
 
 // =============================================================================
 // Constants
@@ -30,6 +39,8 @@ export interface WaitlistEntryData {
   promotedAt: Date | null;
   promotedBy: string | null;
   createdAt: Date;
+  /** Referrer slug (handle) — populated when listing with include */
+  referrer?: { slug: string; slugType: string } | null;
 }
 
 export interface WaitlistStatus {
@@ -59,6 +70,11 @@ export async function joinWaitlist(
   ipHash?: string | null,
 ): Promise<WaitlistEntryData> {
   const normalized = address.toLowerCase();
+
+  // Ban check — prevent re-enrollment
+  if (await isBanned(normalized)) {
+    throw new BannedError(normalized);
+  }
 
   // Already on waitlist? Return existing.
   const existing = await prisma.waitlistEntry.findUnique({
@@ -209,6 +225,23 @@ export async function promoteFromWaitlist(
   return { promoted: true, reason: by === 'auto' ? 'threshold_met' : 'admin' };
 }
 
+/**
+ * Fully revoke access for an address: delete the waitlist entry entirely.
+ * Called when admin removes someone from the whitelist.
+ * If no waitlist entry exists, this is a no-op.
+ */
+export async function revokeWaitlistPromotion(address: string): Promise<void> {
+  const normalized = address.toLowerCase();
+
+  try {
+    await prisma.waitlistEntry.delete({
+      where: { address: normalized },
+    });
+  } catch {
+    // No waitlist entry — nothing to delete (direct whitelist add)
+  }
+}
+
 // =============================================================================
 // Admin
 // =============================================================================
@@ -230,6 +263,7 @@ export async function listWaitlist(
       orderBy: { createdAt: 'asc' },
       skip: (page - 1) * limit,
       take: limit,
+      include: { referrer: { select: { slug: true, slugType: true } } },
     }),
     prisma.waitlistEntry.count({ where }),
   ]);

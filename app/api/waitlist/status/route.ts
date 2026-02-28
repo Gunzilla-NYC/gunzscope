@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getWaitlistStatus } from '@/lib/services/waitlistService';
 import { isWhitelisted } from '@/lib/services/whitelistService';
+import { isBanned } from '@/lib/services/banService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 /**
@@ -16,6 +17,11 @@ export async function GET(request: NextRequest) {
   // Normalize: wallet address as-is, email gets "email:" prefix
   const identifier = address || (email ? `email:${email.toLowerCase()}` : null);
   if (!identifier) return jsonError('address or email is required', 400);
+
+  // Check ban first
+  if (await isBanned(identifier)) {
+    return jsonSuccess({ banned: true });
+  }
 
   // Check if already promoted (whitelisted)
   const whitelisted = await isWhitelisted(identifier);

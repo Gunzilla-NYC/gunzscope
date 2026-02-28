@@ -15,9 +15,18 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.1',
+    version: 'v0.4.2',
     date: 'Feb 28, 2026',
     tag: 'current',
+    title: 'Bad actors, meet the door',
+    items: [
+      'Admins can now ban, unban, and reset users from the admin panel. Banned users see an "ACCESS REVOKED" page instead of silently re\u2011enrolling in the waitlist. Reset wipes the slate clean without a ban \u2014 fresh start, no grudge.',
+      'Fixed a bug where the Konami code wallet flow got permanently stuck on "Choose Your Handle" \u2014 the Confirm button showed "..." forever because nobody told it to stop submitting. One\u2011liner fix. You won\u2019t notice. That\u2019s the point.',
+    ],
+  },
+  {
+    version: 'v0.4.1',
+    date: 'Feb 28, 2026',
     title: 'The hero section went to the gym',
     items: [
       'Redesigned the landing page hero \u2014 "YOUR OTG" is now a compact super\u2011label with a glowing purple accent, while the scramble word (Intelligence, Lore, Legacy, Edge) takes center stage at 104px. Bigger type, clearer hierarchy.',

@@ -14,6 +14,7 @@ export interface WaitlistData {
 export interface UseWaitlistReturn {
   isLoading: boolean;
   isPromoted: boolean;
+  isBanned: boolean;
   data: WaitlistData | null;
   error: string | null;
   refresh: () => void;
@@ -32,6 +33,7 @@ export function useWaitlist(
 ): UseWaitlistReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [isPromoted, setIsPromoted] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
   const [data, setData] = useState<WaitlistData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -51,6 +53,12 @@ export function useWaitlist(
 
       const res = await fetch(`/api/waitlist/status?${param}`, { headers });
       const json = await res.json();
+
+      if (json.success && json.banned) {
+        setIsBanned(true);
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        return;
+      }
 
       if (json.success && json.promoted) {
         setIsPromoted(true);
@@ -88,5 +96,5 @@ export function useWaitlist(
     fetchStatus();
   }, [fetchStatus]);
 
-  return { isLoading, isPromoted, data, error, refresh };
+  return { isLoading, isPromoted, isBanned, data, error, refresh };
 }

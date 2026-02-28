@@ -362,11 +362,25 @@ export default function KonamiOverlay({
       // Wallet path: defer whitelisting until after handle selection
       const ok = await onSubmit(trimmed, 'address');
       if (!ok) { setSubmitting(false); return; }
+      setSubmitting(false);
       const prefix = trimmed.slice(0, 6).toLowerCase();
       setHandle(prefix);
       setHandleAvailable(null);
+      setHandleChecking(true);
       setPhase('handle');
       setTimeout(() => handleInputRef.current?.focus(), 100);
+      // Trigger initial availability check for auto-generated handle
+      setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/referral/check-slug?slug=${encodeURIComponent(prefix)}`);
+          const data = await res.json();
+          setHandleAvailable(data.available ?? false);
+        } catch {
+          setHandleAvailable(null);
+        } finally {
+          setHandleChecking(false);
+        }
+      }, 200);
     }
   };
 
@@ -609,7 +623,7 @@ export default function KonamiOverlay({
                     Drop your address or email to claim access
                   </div>
                   <div className="flex gap-2">
-                    <div className={`relative flex-1 border bg-black/60 transition-colors ${borderClass}`}>
+                    <div className={`relative flex-1 border bg-black/60 transition-colors clip-corner-sm ${borderClass}`}>
                       <input
                         ref={inputRef}
                         type="text"
@@ -636,8 +650,7 @@ export default function KonamiOverlay({
                       className="shrink-0 px-4 py-2 font-mono text-xs uppercase tracking-widest
                         bg-[var(--gs-lime)] text-black font-bold
                         disabled:opacity-30 disabled:cursor-not-allowed
-                        hover:brightness-110 transition-all"
-                      style={{ clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)' }}
+                        hover:brightness-110 transition-all clip-corner-sm"
                     >
                       {submitting ? '...' : 'Enter'}
                     </button>
@@ -658,7 +671,7 @@ export default function KonamiOverlay({
                   transition={{ duration: 0.3 }}
                   className="mt-6"
                 >
-                  <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5">
+                  <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5 clip-corner-sm">
                     <div className="font-mono text-[var(--gs-lime)] text-sm font-bold tracking-widest uppercase mb-1">
                       Choose Your Handle
                     </div>
@@ -666,7 +679,7 @@ export default function KonamiOverlay({
                       gunzscope.xyz/r/<span className="text-white/70">{handle || '...'}</span>
                     </div>
                     <div className="flex gap-2 mb-2">
-                      <div className={`relative flex-1 border bg-black/60 transition-colors ${handleBorderClass}`}>
+                      <div className={`relative flex-1 border bg-black/60 transition-colors clip-corner-sm ${handleBorderClass}`}>
                         <input
                           ref={handleInputRef}
                           type="text"
@@ -701,8 +714,7 @@ export default function KonamiOverlay({
                         className="shrink-0 px-4 py-2 font-mono text-xs uppercase tracking-widest
                           bg-[var(--gs-lime)] text-black font-bold
                           disabled:opacity-30 disabled:cursor-not-allowed
-                          hover:brightness-110 transition-all cursor-pointer"
-                        style={{ clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)' }}
+                          hover:brightness-110 transition-all cursor-pointer clip-corner-sm"
                       >
                         {submitting ? '...' : 'Confirm'}
                       </button>
@@ -723,7 +735,7 @@ export default function KonamiOverlay({
                   transition={{ duration: 0.4 }}
                   className="mt-6 text-center"
                 >
-                  <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5">
+                  <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5 clip-corner-sm">
                     <div className="font-mono text-[var(--gs-lime)] text-lg font-bold tracking-widest uppercase mb-2">
                       Clearance confirmed
                     </div>
@@ -754,7 +766,7 @@ export default function KonamiOverlay({
                   transition={{ duration: 0.3 }}
                   className="mt-6 text-center"
                 >
-                  <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5">
+                  <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5 clip-corner-sm">
                     <div className="font-mono text-[var(--gs-lime)] text-sm font-bold tracking-widest uppercase mb-1">
                       Transmission received
                     </div>
@@ -839,7 +851,7 @@ export default function KonamiOverlay({
                   transition={{ duration: 0.4 }}
                   className="mt-6 text-center"
                 >
-                  <div className="border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/[0.06] px-6 py-5">
+                  <div className="border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/[0.06] px-6 py-5 clip-corner-sm">
                     <div className="font-mono text-[var(--gs-lime)] text-lg font-bold tracking-widest uppercase mb-2">
                       Access secured
                     </div>

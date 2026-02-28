@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
@@ -10,8 +10,18 @@ interface ReferralRedirectProps {
 
 export default function ReferralRedirect({ slug }: ReferralRedirectProps) {
   const router = useRouter();
-  const { primaryWallet, setShowAuthFlow, sdkHasLoaded } = useDynamicContext();
+  const { primaryWallet, user, setShowAuthFlow, sdkHasLoaded } = useDynamicContext();
   const trackedRef = useRef(false);
+
+  // Prevent hydration mismatch: server always renders spinner, client defers
+  // until mounted so Dynamic SDK state doesn't conflict with SSR output.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Email validation state
+  const [emailValidating, setEmailValidating] = useState(false);
+  const [emailBanned, setEmailBanned] = useState(false);
+  const emailValidatedRef = useRef(false);
 
   // ── Track click + store referral data (once) ──────────────────────────────
   useEffect(() => {
@@ -36,15 +46,42 @@ export default function ReferralRedirect({ slug }: ReferralRedirectProps) {
   // ── Redirect once wallet is connected ─────────────────────────────────────
   useEffect(() => {
     if (primaryWallet?.address) {
-      router.replace('/');
+      router.replace('/waitlist');
     }
   }, [primaryWallet, router]);
+
+  // ── Email-only auth: always send to waitlist ──────────────────────────────
+  useEffect(() => {
+    if (!user?.email || primaryWallet?.address || emailValidatedRef.current) return;
+    emailValidatedRef.current = true;
+    setEmailValidating(true);
+
+    // Join waitlist via validate (auto-creates entry if needed), then redirect
+    fetch('/api/access/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email }),
+    })
+      .then(async (res) => {
+        const json = await res.json();
+        if (json.banned) {
+          setEmailBanned(true);
+          return;
+        }
+        localStorage.setItem('gs_waitlist_address', `email:${user.email!}`);
+        router.push(`/waitlist?email=${encodeURIComponent(user.email!)}`);
+      })
+      .catch(() => {
+        emailValidatedRef.current = false; // Allow retry
+      })
+      .finally(() => setEmailValidating(false));
+  }, [user?.email, primaryWallet?.address, router]);
 
   const handleConnect = useCallback(() => {
     setShowAuthFlow(true);
   }, [setShowAuthFlow]);
 
-  // Already authenticated → redirect immediately
+  // Already authenticated with wallet → redirect (show spinner)
   if (primaryWallet?.address) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-[var(--gs-black)]">
@@ -53,8 +90,40 @@ export default function ReferralRedirect({ slug }: ReferralRedirectProps) {
     );
   }
 
-  // SDK still loading → spinner
-  if (!sdkHasLoaded) {
+  // Not yet mounted or SDK still loading → spinner
+  // (server always hits this path, preventing hydration mismatch)
+  if (!mounted || !sdkHasLoaded) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[var(--gs-black)]">
+        <div className="w-5 h-5 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Email banned → show revoked message
+  if (emailBanned) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[var(--gs-black)]">
+        <div className="max-w-sm text-center px-6">
+          <div className="w-16 h-16 mx-auto mb-6 border-2 border-[var(--gs-loss)] flex items-center justify-center clip-corner-sm">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gs-loss)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            </svg>
+          </div>
+          <h1 className="font-display font-bold text-2xl uppercase text-[var(--gs-loss)] mb-3">
+            Access Revoked
+          </h1>
+          <p className="font-body text-sm text-[var(--gs-gray-4)] leading-relaxed">
+            Your access has been revoked. If you believe this is an error, please contact support.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Email validating → spinner
+  if (emailValidating) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-[var(--gs-black)]">
         <div className="w-5 h-5 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin" />
@@ -119,7 +188,7 @@ export default function ReferralRedirect({ slug }: ReferralRedirectProps) {
 
           {/* Secondary */}
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/waitlist')}
             className="font-mono text-[10px] uppercase tracking-widest text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
           >
             Continue without connecting &rarr;

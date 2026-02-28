@@ -431,6 +431,7 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
   const [newLabel, setNewLabel] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [banningId, setBanningId] = useState<string | null>(null);
   const addressChain = detectChain(newAddress);
 
   const headers = {
@@ -495,7 +496,7 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Removed ${truncateAddress(address)}`);
+        toast.success(`Removed ${address.startsWith('email:') ? address.slice(6) : truncateAddress(address)}`);
         fetchList();
       } else {
         toast.error(data.error ?? 'Failed');
@@ -504,6 +505,52 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
       toast.error('Network error');
     } finally {
       setRemovingId(null);
+    }
+  }, [headers, fetchList]);
+
+  const handleBan = useCallback(async (address: string) => {
+    if (!confirm(`Ban "${address.startsWith('email:') ? address.slice(6) : address}"? They will be removed and cannot re\u2011enroll.`)) return;
+    setBanningId(address);
+    try {
+      const res = await fetch('/api/admin/whitelist', {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ address, action: 'ban' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Banned ${address.startsWith('email:') ? address.slice(6) : truncateAddress(address)}`);
+        fetchList();
+      } else {
+        toast.error(data.error ?? 'Failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setBanningId(null);
+    }
+  }, [headers, fetchList]);
+
+  const handleReset = useCallback(async (address: string) => {
+    if (!confirm(`Reset "${address.startsWith('email:') ? address.slice(6) : address}"? Whitelist + waitlist data cleared. They can re\u2011join fresh.`)) return;
+    setBanningId(address);
+    try {
+      const res = await fetch('/api/admin/whitelist', {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ address, action: 'reset' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Reset ${address.startsWith('email:') ? address.slice(6) : truncateAddress(address)}`);
+        fetchList();
+      } else {
+        toast.error(data.error ?? 'Failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setBanningId(null);
     }
   }, [headers, fetchList]);
 
@@ -547,23 +594,41 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
           {entries.map((entry) => (
             <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-white/[0.06] last:border-b-0">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">
-                  {truncateAddress(entry.address)}
+                <span className="font-mono text-data text-[var(--gs-white)] tabular-nums truncate" title={entry.address}>
+                  {entry.address.startsWith('email:') ? entry.address.slice(6) : truncateAddress(entry.address)}
                 </span>
                 {entry.label && (
-                  <span className="font-mono text-caption text-[var(--gs-gray-3)] truncate">{entry.label}</span>
+                  <span className="font-mono text-caption text-[var(--gs-gray-3)] shrink-0">{entry.label}</span>
                 )}
               </div>
-              <button
-                onClick={() => handleRemove(entry.address)}
-                disabled={removingId === entry.address}
-                className="p-1 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
-                aria-label="Remove"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handleReset(entry.address)}
+                  disabled={banningId === entry.address}
+                  className="px-1.5 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-warning)] hover:bg-[var(--gs-warning)]/10 transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Reset (soft remove, can re-join)"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => handleBan(entry.address)}
+                  disabled={banningId === entry.address}
+                  className="px-1.5 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Ban (hard block, cannot re-enroll)"
+                >
+                  Ban
+                </button>
+                <button
+                  onClick={() => handleRemove(entry.address)}
+                  disabled={removingId === entry.address}
+                  className="p-1 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
+                  aria-label="Remove"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -587,6 +652,7 @@ interface WaitlistAdminEntry {
   referralCount: number;
   promotionThreshold: number;
   createdAt: string;
+  referrer?: { slug: string; slugType: string } | null;
 }
 
 interface WaitlistAdminStats {
@@ -602,6 +668,7 @@ function WaitlistTools({ adminSecret }: { adminSecret: string }) {
   const [promoteAddress, setPromoteAddress] = useState('');
   const [isPromoting, setIsPromoting] = useState(false);
   const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [banningId, setBanningId] = useState<string | null>(null);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -624,6 +691,29 @@ function WaitlistTools({ adminSecret }: { adminSecret: string }) {
   }, [adminSecret]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
+
+  const handleBanWaitlist = useCallback(async (address: string) => {
+    if (!confirm(`Ban "${address.startsWith('email:') ? address.slice(6) : address}"? They will be removed and cannot re\u2011enroll.`)) return;
+    setBanningId(address);
+    try {
+      const res = await fetch('/api/admin/whitelist', {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ address, action: 'ban' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Banned ${address.startsWith('email:') ? address.slice(6) : truncateAddress(address)}`);
+        fetchList();
+      } else {
+        toast.error(data.error ?? 'Failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setBanningId(null);
+    }
+  }, [headers, fetchList]);
 
   const handlePromote = useCallback(async (address: string) => {
     setPromotingId(address);
@@ -702,24 +792,288 @@ function WaitlistTools({ adminSecret }: { adminSecret: string }) {
           {entries.map((entry) => (
             <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-white/[0.06] last:border-b-0">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">
-                  {truncateAddress(entry.address)}
+                <span className="font-mono text-data text-[var(--gs-white)] tabular-nums truncate" title={entry.address}>
+                  {entry.address.startsWith('email:') ? entry.address.slice(6) : truncateAddress(entry.address)}
                 </span>
-                <span className="font-mono text-caption text-[var(--gs-gray-3)]">
+                {entry.referrer?.slug && (
+                  <span className={`font-mono text-caption shrink-0 ${
+                    entry.referrer.slugType === 'custom' ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-gray-3)]'
+                  }`}>
+                    {entry.referrer.slug}
+                  </span>
+                )}
+                <span className="font-mono text-caption text-[var(--gs-gray-3)] shrink-0">
                   {entry.referralCount}/{entry.promotionThreshold}
                 </span>
               </div>
-              <button
-                onClick={() => handlePromote(entry.address)}
-                disabled={promotingId === entry.address}
-                className="px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-lime)] hover:bg-[var(--gs-lime)]/10 transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {promotingId === entry.address ? '...' : 'Promote'}
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handlePromote(entry.address)}
+                  disabled={promotingId === entry.address}
+                  className="px-1.5 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-lime)] hover:bg-[var(--gs-lime)]/10 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {promotingId === entry.address ? '...' : 'Promote'}
+                </button>
+                <button
+                  onClick={() => handleBanWaitlist(entry.address)}
+                  disabled={banningId === entry.address}
+                  className="px-1.5 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-loss)] hover:bg-[var(--gs-loss)]/10 transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Ban (hard block)"
+                >
+                  Ban
+                </button>
+              </div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-section: On-Chain Tools
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEPLOYER_ADDRESS = process.env.NEXT_PUBLIC_DEPLOYER_ADDRESS ?? '';
+const ATTESTATION_CONTRACT = process.env.NEXT_PUBLIC_ATTESTATION_CONTRACT ?? '';
+const GUNZCHAIN_EXPLORER = 'https://gunzscan.io';
+
+interface OnChainInfo {
+  deployerBalance: string | null;
+  totalAttestations: number | null;
+  loading: boolean;
+}
+
+function OnChainTools() {
+  const [info, setInfo] = useState<OnChainInfo>({ deployerBalance: null, totalAttestations: null, loading: false });
+
+  const fetchInfo = useCallback(async () => {
+    setInfo(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/attestation/status');
+      const data = await res.json();
+      setInfo({
+        deployerBalance: data.deployerBalance ?? null,
+        totalAttestations: data.totalAttestations ?? null,
+        loading: false,
+      });
+    } catch {
+      setInfo(prev => ({ ...prev, loading: false }));
+    }
+  }, []);
+
+  const copyToClipboard = useCallback((text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`Copied ${label}`);
+  }, []);
+
+  const entries: { label: string; value: string; explorerPath?: string; color: string }[] = [
+    {
+      label: 'Deployer Wallet',
+      value: DEPLOYER_ADDRESS,
+      explorerPath: DEPLOYER_ADDRESS ? `/address/${DEPLOYER_ADDRESS}` : undefined,
+      color: 'var(--gs-warning)',
+    },
+    {
+      label: 'Attestation Contract',
+      value: ATTESTATION_CONTRACT,
+      explorerPath: ATTESTATION_CONTRACT ? `/address/${ATTESTATION_CONTRACT}` : undefined,
+      color: 'var(--gs-lime)',
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Network info */}
+      <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)] shrink-0" />
+        <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-gray-4)]">
+          GunzChain Mainnet
+        </span>
+        <span className="font-mono text-[9px] text-[var(--gs-gray-2)]">
+          Chain ID 43419
+        </span>
+      </div>
+
+      {/* Addresses */}
+      {entries.map(({ label, value, explorerPath, color }) => (
+        <div key={label} className="space-y-1">
+          <p className="font-mono text-[9px] uppercase tracking-wider" style={{ color }}>
+            {label}
+          </p>
+          {value ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => copyToClipboard(value, label.toLowerCase())}
+                className="font-mono text-data text-[var(--gs-white)] hover:text-[var(--gs-lime)] transition-colors cursor-pointer truncate text-left"
+                title={value}
+              >
+                {truncateAddress(value)}
+              </button>
+              {explorerPath && (
+                <a
+                  href={`${GUNZCHAIN_EXPLORER}${explorerPath}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors shrink-0"
+                  title="View on GunzScan"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          ) : (
+            <p className="font-mono text-[9px] text-[var(--gs-gray-2)] italic">Not configured</p>
+          )}
+        </div>
+      ))}
+
+      {/* Live status */}
+      <div className="pt-3 border-t border-white/[0.06] space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-gray-3)]">
+            Live Status
+          </span>
+          <button
+            onClick={fetchInfo}
+            disabled={info.loading || (!DEPLOYER_ADDRESS && !ATTESTATION_CONTRACT)}
+            className="font-mono text-[9px] uppercase tracking-wider text-[var(--gs-purple)] hover:text-[var(--gs-lime)] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          >
+            {info.loading ? 'Checking\u2026' : 'Check'}
+          </button>
+        </div>
+
+        {info.deployerBalance !== null && (
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Deployer Balance</span>
+            <span className="font-mono text-data tabular-nums text-[var(--gs-warning)]">
+              {info.deployerBalance} GUN
+            </span>
+          </div>
+        )}
+
+        {info.totalAttestations !== null && (
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Total Attestations</span>
+            <span className="font-mono text-data tabular-nums text-[var(--gs-lime)]">
+              {info.totalAttestations}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Quick ref */}
+      <div className="pt-3 border-t border-white/[0.06]">
+        <p className="font-mono text-[9px] text-[var(--gs-gray-2)] leading-relaxed">
+          Deploy: <span className="text-[var(--gs-gray-4)]">cd onchain && npm run deploy:gunzchain</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-section: Banned List
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface BanAdminEntry {
+  id: string;
+  address: string;
+  reason: string | null;
+  bannedBy: string;
+  createdAt: string;
+}
+
+function BannedList({ adminSecret }: { adminSecret: string }) {
+  const [entries, setEntries] = useState<BanAdminEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [unbanningId, setUnbanningId] = useState<string | null>(null);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${adminSecret}`,
+  };
+
+  const fetchList = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/whitelist?view=banned&limit=100', {
+        headers: { Authorization: `Bearer ${adminSecret}` },
+      });
+      const data = await res.json();
+      setEntries(data.entries ?? []);
+      setTotal(data.total ?? 0);
+    } catch {
+      // Silently fail
+    } finally {
+      setIsLoading(false);
+    }
+  }, [adminSecret]);
+
+  useEffect(() => { fetchList(); }, [fetchList]);
+
+  const handleUnban = useCallback(async (address: string) => {
+    if (!confirm(`Unban "${address.startsWith('email:') ? address.slice(6) : address}"? They can re\u2011join the waitlist.`)) return;
+    setUnbanningId(address);
+    try {
+      const res = await fetch('/api/admin/whitelist', {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ address, action: 'unban' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Unbanned ${address.startsWith('email:') ? address.slice(6) : truncateAddress(address)}`);
+        fetchList();
+      } else {
+        toast.error(data.error ?? 'Failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setUnbanningId(null);
+    }
+  }, [headers, fetchList]);
+
+  if (isLoading) {
+    return <p className="font-mono text-caption text-[var(--gs-gray-3)] py-2 text-center">Loading&hellip;</p>;
+  }
+
+  if (total === 0) {
+    return <p className="font-mono text-caption text-[var(--gs-gray-3)] py-2 text-center">No banned users</p>;
+  }
+
+  return (
+    <div>
+      <div className="overflow-y-auto max-h-40">
+        {entries.map((entry) => (
+          <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-white/[0.06] last:border-b-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-mono text-data text-[var(--gs-loss)] tabular-nums truncate" title={entry.address}>
+                {entry.address.startsWith('email:') ? entry.address.slice(6) : truncateAddress(entry.address)}
+              </span>
+              {entry.reason && (
+                <span className="font-mono text-caption text-[var(--gs-gray-3)] shrink-0 truncate max-w-[80px]" title={entry.reason}>
+                  {entry.reason}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => handleUnban(entry.address)}
+              disabled={unbanningId === entry.address}
+              className="px-1.5 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-profit)] hover:bg-[var(--gs-profit)]/10 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              Unban
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="pt-1 font-mono text-[9px] text-[var(--gs-gray-3)]">
+        {total} banned
+      </p>
     </div>
   );
 }
@@ -798,6 +1152,12 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
           <div className="p-5 flex flex-col min-h-0">
             <ColumnLabel label="Waitlist" />
             <WaitlistTools adminSecret={adminSecret} />
+            <div className="shrink-0 mt-4 pt-3 border-t border-[var(--gs-loss)]/20">
+              <p className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-loss)] mb-2">
+                Banned
+              </p>
+              <BannedList adminSecret={adminSecret} />
+            </div>
           </div>
           <div className="p-5 flex flex-col min-h-0">
             <ColumnLabel label="Share Leaderboard" />
@@ -806,9 +1166,9 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
         </div>
       )}
 
-      {/* Tools tab — UX Testing + Handle Tools side by side */}
+      {/* Tools tab — UX Testing + Handle Tools + On-Chain */}
       {activeTab === 'tools' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/[0.06] flex-1 min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/[0.06] flex-1 min-h-0">
           <div className="p-5">
             <SectionLabel label="UX Testing" />
             <p className="font-mono text-caption text-[var(--gs-gray-2)] mb-4">
@@ -819,6 +1179,10 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
           <div className="p-5">
             <SectionLabel label="Handle Tools" />
             <HandleTools adminSecret={adminSecret} />
+          </div>
+          <div className="p-5">
+            <SectionLabel label="On\u2011Chain" />
+            <OnChainTools />
           </div>
         </div>
       )}
