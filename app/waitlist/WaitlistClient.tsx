@@ -77,6 +77,9 @@ export default function WaitlistClient() {
     isEmailOnly ? 'email' : 'wallet'
   );
 
+  // Trial expired state — from URL param or waitlist status API
+  const trialExpired = searchParams.get('trialExpired') === 'true';
+
   // Banned state — can come from hook (polling) or join response
   const [joinBanned, setJoinBanned] = useState(false);
   const isBanned = hookBanned || joinBanned;
@@ -531,12 +534,18 @@ export default function WaitlistClient() {
 
         {/* Title */}
         <h1 className="font-display font-bold text-xl sm:text-2xl uppercase text-center mb-2">
-          You&rsquo;re on the Waitlist
+          {trialExpired ? 'Trial Ended' : 'You\u2019re on the Waitlist'}
         </h1>
         <p className="font-body text-sm text-[var(--gs-gray-4)] text-center leading-relaxed mb-10">
-          Refer {threshold} friends to unlock instant access.
-          {remaining > 0 && (
-            <> Just <span className="text-[var(--gs-lime)] font-semibold">{remaining} more</span> to go.</>
+          {trialExpired ? (
+            <>Your 72&#8209;hour trial has expired. Refer <span className="text-[var(--gs-lime)] font-semibold">{threshold} friend{threshold !== 1 ? 's' : ''}</span> for permanent access.</>
+          ) : (
+            <>
+              Refer {threshold} friend{threshold !== 1 ? 's' : ''} to unlock instant access.
+              {remaining > 0 && (
+                <> Just <span className="text-[var(--gs-lime)] font-semibold">{remaining} more</span> to go.</>
+              )}
+            </>
           )}
         </p>
 

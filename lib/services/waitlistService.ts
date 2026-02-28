@@ -25,6 +25,12 @@ export class BannedError extends Error {
 /** Default referral threshold for auto-promotion */
 export const DEFAULT_PROMOTION_THRESHOLD = 3;
 
+/** Threshold during active Konami trial (1 referral = permanent access) */
+export const TRIAL_PROMOTION_THRESHOLD = 1;
+
+/** Threshold after Konami trial expires (still a reward for finding the code) */
+export const EXPIRED_TRIAL_PROMOTION_THRESHOLD = 2;
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -94,6 +100,63 @@ export async function joinWaitlist(
       ipHash: ipHash ?? null,
     },
   });
+}
+
+/**
+ * Create or update a waitlist entry for a Konami trial user.
+ * Sets promotionThreshold to 1 (instead of default 3).
+ * If already on the waitlist, downgrades threshold to 1.
+ */
+export async function joinWaitlistForTrial(
+  address: string,
+): Promise<WaitlistEntryData> {
+  const normalized = address.toLowerCase();
+
+  // Already on waitlist? Update threshold to 1.
+  const existing = await prisma.waitlistEntry.findUnique({
+    where: { address: normalized },
+  });
+  if (existing) {
+    if (existing.promotionThreshold > 1 && existing.status === 'waiting') {
+      return prisma.waitlistEntry.update({
+        where: { address: normalized },
+        data: { promotionThreshold: 1 },
+      });
+    }
+    return existing;
+  }
+
+  // Create auto-handle for referral link
+  const referrer = await getOrCreateAutoHandle(normalized);
+
+  // Create waitlist entry with reduced threshold
+  return prisma.waitlistEntry.create({
+    data: {
+      address: normalized,
+      referrerId: referrer.id,
+      promotionThreshold: 1,
+    },
+  });
+}
+
+/**
+ * Bump a Konami trial user's threshold from 1 → 2 after trial expiry.
+ * Idempotent: only updates if threshold is currently 1.
+ */
+export async function bumpExpiredTrialThreshold(address: string): Promise<void> {
+  const normalized = address.toLowerCase();
+  try {
+    await prisma.waitlistEntry.updateMany({
+      where: {
+        address: normalized,
+        status: 'waiting',
+        promotionThreshold: TRIAL_PROMOTION_THRESHOLD,
+      },
+      data: { promotionThreshold: EXPIRED_TRIAL_PROMOTION_THRESHOLD },
+    });
+  } catch {
+    // No entry — that's fine
+  }
 }
 
 // =============================================================================
@@ -208,18 +271,20 @@ export async function promoteFromWaitlist(
       },
     });
 
-    // Add to whitelist (swallow unique constraint if already exists)
-    try {
-      await tx.whitelistEntry.create({
-        data: {
-          address: normalized,
-          label: `waitlist:${by}`,
-          addedBy: by,
-        },
-      });
-    } catch {
-      // Already whitelisted — that's fine
-    }
+    // Add to whitelist — upsert to convert trial → permanent if entry exists
+    await tx.whitelistEntry.upsert({
+      where: { address: normalized },
+      create: {
+        address: normalized,
+        label: `waitlist:${by}`,
+        addedBy: by,
+      },
+      update: {
+        expiresAt: null, // Convert trial to permanent
+        label: `waitlist:${by}`,
+        addedBy: by,
+      },
+    });
   });
 
   return { promoted: true, reason: by === 'auto' ? 'threshold_met' : 'admin' };

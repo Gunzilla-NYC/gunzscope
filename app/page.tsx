@@ -300,7 +300,15 @@ export default function HomePage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
+          // Store trial expiry for countdown display if applicable
+          if (data.trial && data.expiresAt) {
+            localStorage.setItem('gs_trial_expires', data.expiresAt);
+          }
           router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+        } else if (data.trialExpired) {
+          // Trial expired — redirect to waitlist with trial-expired flag
+          localStorage.setItem('gs_waitlist_address', primaryWallet.address);
+          router.push(`/waitlist?address=${encodeURIComponent(primaryWallet.address)}&trialExpired=true`);
         } else if (data.waitlisted) {
           localStorage.setItem('gs_waitlist_address', primaryWallet.address);
           router.push(`/waitlist?address=${encodeURIComponent(primaryWallet.address)}`);

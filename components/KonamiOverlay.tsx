@@ -737,10 +737,13 @@ export default function KonamiOverlay({
                 >
                   <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5 clip-corner-sm">
                     <div className="font-mono text-[var(--gs-lime)] text-lg font-bold tracking-widest uppercase mb-2">
-                      Clearance confirmed
+                      Trial access granted
                     </div>
-                    <div className="font-mono text-[11px] text-white/50 tracking-wider mb-3">
-                      {displayId} added to whitelist
+                    <div className="font-mono text-[11px] text-white/50 tracking-wider mb-1">
+                      72 hours of full access activated
+                    </div>
+                    <div className="font-mono text-[9px] text-white/30 tracking-wider mb-3">
+                      Refer 1 friend to keep it forever
                     </div>
                     <div className="flex items-center justify-center gap-2">
                       <motion.div

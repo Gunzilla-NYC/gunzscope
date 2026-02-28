@@ -21,9 +21,26 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.4.2',
+    version: 'v0.4.3',
     date: 'Feb 28, 2026',
     tag: 'current',
+    items: [
+      'Konami trial access \u2014 Konami code now grants 72\u2011hour trial whitelist instead of permanent access; WhitelistEntry gains expiresAt DateTime? field (null\u00a0=\u00a0permanent, non\u2011null\u00a0=\u00a0trial)',
+      'getWhitelistStatus() discriminated union \u2014 returns { status: permanent | trial | expired | none, expiresAt? }; replaces boolean isWhitelisted() in validate and waitlist/status endpoints',
+      'Konami API rewrite \u2014 checks existing whitelist status before granting; permanent \u2192 no\u2011op, active trial \u2192 return existing info, expired \u2192 403 "trial already used", none \u2192 creates 72h trial entry + waitlist entry with threshold\u00a01',
+      'joinWaitlistForTrial() \u2014 creates or updates waitlist entry with promotionThreshold:\u00a01 (vs default 3); idempotent downgrade if already on waitlist',
+      'Tiered referral thresholds \u2014 DEFAULT_PROMOTION_THRESHOLD=3, TRIAL_PROMOTION_THRESHOLD=1, EXPIRED_TRIAL_PROMOTION_THRESHOLD=2',
+      'bumpExpiredTrialThreshold() \u2014 lazy idempotent upgrade 1\u21922 on expired trial detection; called from validate and waitlist/status endpoints',
+      'promoteFromWaitlist() upsert pattern \u2014 converts expired trial to permanent whitelist (sets expiresAt:\u00a0null) when referral threshold met',
+      'Validate API trial\u2011aware responses \u2014 { trial: true, expiresAt } for active trials; { trialExpired: true, waitlisted: true } with threshold bump for expired',
+      'Home page trialExpired redirect \u2014 expired trial users redirect to /waitlist?address=xxx&trialExpired=true; active trial stores expiresAt in localStorage',
+      'KonamiOverlay messaging \u2014 "TRIAL ACCESS GRANTED" with "72 hours of full access activated" and "Refer 1 friend to keep it forever"',
+      'WaitlistClient trialExpired state \u2014 reads ?trialExpired=true URL param; shows "Trial Ended" header with dynamic referral count based on per\u2011entry promotionThreshold',
+    ],
+  },
+  {
+    version: 'v0.4.2',
+    date: 'Feb 28, 2026',
     items: [
       'Ban/reset system \u2014 BanEntry model in Prisma; banService with isBanned/banAddress/unbanAddress/resetAddress/listBans; ban guards on /api/access/validate, /api/access/konami, /api/access/reconcile, /api/waitlist/status, and joinWaitlist(); banned users get 403 with { banned: true }',
       'Admin PATCH /api/admin/whitelist \u2014 { address, action: "ban"|"unban"|"reset", reason? }; ban removes from whitelist + waitlist + blocks re\u2011enrollment; reset clears whitelist + waitlist without ban (user can rejoin); GET ?view=banned returns paginated ban list',
