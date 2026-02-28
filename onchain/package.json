@@ -6,7 +6,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:gunzchain": "hardhat run scripts/deploy.ts --network gunzchain",
-    "deploy:gunzchain-testnet": "hardhat run scripts/deploy.ts --network gunzchainTestnet"
+    "deploy:gunzchain-testnet": "hardhat run scripts/deploy.ts --network gunzchainTestnet",
+    "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

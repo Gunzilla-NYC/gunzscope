@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useWaitlist } from '@/lib/hooks/useWaitlist';
+import { detectChain } from '@/lib/utils/detectChain';
 
 // =============================================================================
 // Waitlist Client Page
@@ -14,25 +15,71 @@ import { useWaitlist } from '@/lib/hooks/useWaitlist';
 // Shown to non-whitelisted users (wallet OR email). Displays queue position,
 // referral progress, and a shareable referral link. Auto-redirects on promotion.
 // Email users are prompted to connect a wallet after promotion.
+//
+// Users arriving without authentication (e.g. from "Join Waitlist" button)
+// see a join form where they can enter a wallet address or email.
 // =============================================================================
+
+function isEmailInput(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 export default function WaitlistClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { primaryWallet, user, sdkHasLoaded, setShowAuthFlow } = useDynamicContext();
 
-  // Resolve identifier: wallet address OR email
+  // Manual join state — for users arriving without an authenticated session
+  // Restore from localStorage so returning users see their position automatically
+  const [manualIdentifier, setManualIdentifier] = useState<string | undefined>(() => {
+    if (typeof window === 'undefined') return undefined;
+    try {
+      const saved = localStorage.getItem('gs_waitlist_id');
+      if (saved) {
+        const parsed = JSON.parse(saved) as { id: string; isEmail: boolean };
+        return parsed.id;
+      }
+    } catch { /* corrupted data — ignore */ }
+    return undefined;
+  });
+  const [manualIsEmail, setManualIsEmail] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const saved = localStorage.getItem('gs_waitlist_id');
+      if (saved) {
+        const parsed = JSON.parse(saved) as { id: string; isEmail: boolean };
+        return parsed.isEmail;
+      }
+    } catch { /* corrupted data — ignore */ }
+    return false;
+  });
+  const [joinInput, setJoinInput] = useState('');
+  const [joinSubmitting, setJoinSubmitting] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  // Handle (gamer tag) state
+  const [handle, setHandle] = useState('');
+  const [handleChecking, setHandleChecking] = useState(false);
+  const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
+  const [handleError, setHandleError] = useState<string | null>(null);
+  const handleDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Resolve identifier: wallet address OR email OR manually joined
   const walletAddress = primaryWallet?.address || searchParams.get('address') || undefined;
   const emailAddress = user?.email || searchParams.get('email') || undefined;
-  const isEmailOnly = !walletAddress && !!emailAddress;
+  const isEmailOnly = (!walletAddress && !!emailAddress) || (!walletAddress && manualIsEmail);
 
-  // The identifier used for waitlist lookup — wallet takes priority
-  const identifier = walletAddress || emailAddress || undefined;
+  // The identifier used for waitlist lookup — wallet takes priority, then email, then manual
+  const identifier = walletAddress || emailAddress || manualIdentifier || undefined;
 
-  const { isLoading, isPromoted, data, error, refresh } = useWaitlist(
+  const { isLoading, isPromoted, isBanned: hookBanned, data, error, refresh } = useWaitlist(
     identifier,
     isEmailOnly ? 'email' : 'wallet'
   );
+
+  // Banned state — can come from hook (polling) or join response
+  const [joinBanned, setJoinBanned] = useState(false);
+  const isBanned = hookBanned || joinBanned;
 
   // Referral tracking: fire wallet_connected for referred visitors
   const referralTrackedRef = useRef(false);
@@ -42,6 +89,12 @@ export default function WaitlistClient() {
     const sessionId = localStorage.getItem('gs_ref_session');
     if (!slug || !sessionId) return;
 
+    // Build the DB-format identifier: wallet address as-is, email with "email:" prefix
+    const trackAddress = walletAddress
+      || (emailAddress ? `email:${emailAddress.toLowerCase()}` : null)
+      || (manualIsEmail ? `email:${identifier.toLowerCase()}` : identifier);
+    if (!trackAddress) return;
+
     referralTrackedRef.current = true;
     fetch('/api/referral/track', {
       method: 'POST',
@@ -49,7 +102,7 @@ export default function WaitlistClient() {
       body: JSON.stringify({
         slug,
         event: 'wallet_connected',
-        walletAddress: walletAddress || emailAddress,
+        walletAddress: trackAddress,
         sessionId,
       }),
     })
@@ -58,7 +111,7 @@ export default function WaitlistClient() {
         localStorage.removeItem('gs_ref_session');
       })
       .catch(() => {});
-  }, [identifier, walletAddress, emailAddress]);
+  }, [identifier, walletAddress, emailAddress, manualIsEmail]);
 
   // Promotion celebration state
   const [showCelebration, setShowCelebration] = useState(false);
@@ -67,6 +120,7 @@ export default function WaitlistClient() {
     if (isPromoted) {
       setShowCelebration(true);
       localStorage.removeItem('gs_waitlist_address');
+      localStorage.removeItem('gs_waitlist_id');
 
       // Email-only users: stay on celebration, they need to connect a wallet
       if (isEmailOnly) return;
@@ -102,12 +156,111 @@ export default function WaitlistClient() {
       });
   }, [isPromoted, emailAddress, primaryWallet?.address, router]);
 
-  // No wallet, no email → redirect to home
-  useEffect(() => {
-    if (sdkHasLoaded && !identifier) {
-      router.replace('/');
+  // Handle input change with debounced availability check
+  const handleHandleChange = useCallback((value: string) => {
+    const sanitized = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    setHandle(sanitized);
+    setHandleError(null);
+    setHandleAvailable(null);
+
+    if (handleDebounceRef.current) clearTimeout(handleDebounceRef.current);
+
+    if (!sanitized || sanitized.length < 3) {
+      setHandleChecking(false);
+      return;
     }
-  }, [sdkHasLoaded, identifier, router]);
+
+    setHandleChecking(true);
+    handleDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/referral/check-slug?slug=${encodeURIComponent(sanitized)}`);
+        const json = await res.json();
+        if (json.success) {
+          setHandleAvailable(json.available);
+          if (!json.available) {
+            setHandleError(
+              json.reason === 'reserved' ? 'This handle is reserved'
+              : json.reason === 'invalid' ? 'Invalid format (3\u201120 chars, letters, numbers, hyphens)'
+              : 'This handle is taken'
+            );
+          }
+        }
+      } catch {
+        // Silently fail — non-critical
+      } finally {
+        setHandleChecking(false);
+      }
+    }, 400);
+  }, []);
+
+  // Join waitlist handler — validates input, calls /api/access/validate
+  const handleJoin = useCallback(async () => {
+    const trimmed = joinInput.trim();
+    if (!trimmed) return;
+
+    const email = isEmailInput(trimmed);
+    const chain = detectChain(trimmed);
+
+    if (!email && !chain) {
+      setJoinError('Enter a valid wallet address or email');
+      return;
+    }
+
+    // If handle is entered but not available, block submit
+    if (handle && handleAvailable === false) {
+      setJoinError('Please choose an available handle');
+      return;
+    }
+
+    setJoinSubmitting(true);
+    setJoinError(null);
+
+    try {
+      const body: Record<string, string> = email
+        ? { email: trimmed.toLowerCase() }
+        : { address: trimmed };
+
+      if (handle && handle.length >= 3) {
+        body.handle = handle;
+      }
+
+      const res = await fetch('/api/access/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+
+      if (json.banned) {
+        setJoinBanned(true);
+        return;
+      }
+
+      if (json.success) {
+        // Already whitelisted — redirect to portfolio
+        router.push(
+          email
+            ? '/portfolio'
+            : `/portfolio?address=${encodeURIComponent(trimmed)}`
+        );
+        return;
+      }
+
+      // Waitlisted — set manual identifier to activate the existing UI
+      const id = email ? trimmed.toLowerCase() : trimmed;
+      setManualIdentifier(id);
+      setManualIsEmail(email);
+
+      // Persist so returning users auto-load their position
+      try {
+        localStorage.setItem('gs_waitlist_id', JSON.stringify({ id, isEmail: email }));
+      } catch { /* storage full — non-critical */ }
+    } catch {
+      setJoinError('Something went wrong. Please try again.');
+    } finally {
+      setJoinSubmitting(false);
+    }
+  }, [joinInput, handle, handleAvailable, router]);
 
   // Copy state
   const [copied, setCopied] = useState(false);
@@ -126,11 +279,181 @@ export default function WaitlistClient() {
     window.open(`https://x.com/intent/tweet?text=${text}`, '_blank');
   }, [data?.referralLink]);
 
-  // Loading state
-  if (!sdkHasLoaded || (isLoading && !data)) {
+  // Banned state — hard block, no re-enrollment
+  if (isBanned) {
+    return (
+      <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
+        <Navbar />
+        <main className="max-w-lg mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-6 border-2 border-[var(--gs-loss)] flex items-center justify-center clip-corner-sm">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gs-loss)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <h1 className="font-display font-bold text-2xl sm:text-3xl uppercase text-[var(--gs-loss)] mb-3">
+              Access Revoked
+            </h1>
+            <p className="font-body text-sm text-[var(--gs-gray-4)] leading-relaxed">
+              Your access has been revoked. If you believe this is an error, please contact support.
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Loading state — only show spinner if we have an identifier to look up
+  if (!sdkHasLoaded || (identifier && isLoading && !data)) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-[var(--gs-black)]">
         <div className="w-5 h-5 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // No identifier yet — show join form
+  if (!identifier) {
+    const inputVal = joinInput.trim();
+    const inputIsEmail = isEmailInput(inputVal);
+    const inputChain = detectChain(inputVal);
+    const inputValid = inputVal.length === 0 || inputIsEmail || !!inputChain;
+
+    return (
+      <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
+        <Navbar />
+        <main className="max-w-lg mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <div className="text-center mb-10">
+            <h1 className="font-display font-bold text-2xl sm:text-3xl uppercase mb-3">
+              Join the Waitlist
+            </h1>
+            <p className="font-body text-sm text-[var(--gs-gray-4)] leading-relaxed">
+              Enter your wallet address or email to reserve your spot.<br />
+              Refer 3 friends to skip the line &amp; get instant access.
+            </p>
+          </div>
+
+          <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 sm:p-5 mb-4">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] mb-3">
+              Wallet Address or Email
+            </p>
+
+            <div className="relative mb-3">
+              <input
+                type="text"
+                value={joinInput}
+                onChange={(e) => { setJoinInput(e.target.value); setJoinError(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleJoin(); }}
+                placeholder="0x... or email@example.com"
+                disabled={joinSubmitting}
+                autoFocus
+                className={`w-full font-mono text-sm text-[var(--gs-white)] bg-[var(--gs-dark-3)] px-3 py-2.5 outline-none transition-colors border ${
+                  !inputValid
+                    ? 'border-[var(--gs-loss)]/40 focus:border-[var(--gs-loss)]/60'
+                    : 'border-white/[0.08] focus:border-[var(--gs-lime)]/30'
+                } ${inputChain ? 'pr-24' : ''} placeholder:text-[var(--gs-gray-2)]`}
+              />
+              {inputVal.length > 0 && inputChain && (
+                <span className={`absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-sm pointer-events-none ${
+                  inputChain === 'gunzchain'
+                    ? 'bg-[var(--gs-profit)]/15 text-[var(--gs-profit)]'
+                    : 'bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]'
+                }`}>
+                  {inputChain === 'gunzchain' ? 'GunzChain' : 'Solana'}
+                </span>
+              )}
+              {inputVal.length > 0 && inputIsEmail && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-sm pointer-events-none bg-[var(--gs-purple)]/15 text-[var(--gs-purple-bright)]">
+                  Email
+                </span>
+              )}
+            </div>
+
+            {/* Handle input */}
+            <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] mb-2 mt-4">
+              Choose a Handle
+            </p>
+            <div className="relative mb-1">
+              <input
+                type="text"
+                value={handle}
+                onChange={(e) => handleHandleChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleJoin(); }}
+                placeholder="your-gamer-tag"
+                disabled={joinSubmitting}
+                maxLength={20}
+                className={`w-full font-mono text-sm text-[var(--gs-white)] bg-[var(--gs-dark-3)] px-3 py-2.5 outline-none transition-colors border ${
+                  handleError
+                    ? 'border-[var(--gs-loss)]/40 focus:border-[var(--gs-loss)]/60'
+                    : handleAvailable === true
+                    ? 'border-[var(--gs-profit)]/40 focus:border-[var(--gs-profit)]/60'
+                    : 'border-white/[0.08] focus:border-[var(--gs-lime)]/30'
+                } placeholder:text-[var(--gs-gray-2)]`}
+              />
+              {handleChecking && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <span className="w-3 h-3 border-2 border-[var(--gs-gray-3)]/30 border-t-[var(--gs-gray-3)] rounded-full animate-spin inline-block" />
+                </span>
+              )}
+              {!handleChecking && handle.length >= 3 && handleAvailable === true && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-profit)]">
+                  Available
+                </span>
+              )}
+              {!handleChecking && handleError && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-wider text-[var(--gs-loss)]">
+                  Taken
+                </span>
+              )}
+            </div>
+            <p className="font-mono text-[9px] text-[var(--gs-gray-2)] mb-3">
+              {handleError || 'Used for your referral link. You can change it later.'}
+            </p>
+
+            {joinError && (
+              <p className="font-mono text-[10px] text-[var(--gs-loss)] mb-3">{joinError}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={joinSubmitting || !inputVal}
+              className="w-full min-h-10 font-display font-semibold text-[11px] uppercase tracking-wider px-8 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors clip-corner-sm cursor-pointer"
+            >
+              {joinSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-[var(--gs-black)]/30 border-t-[var(--gs-black)] rounded-full animate-spin" />
+                  Joining...
+                </span>
+              ) : (
+                'Join Waitlist'
+              )}
+            </button>
+          </div>
+
+          {/* How It Works */}
+          <div className="mt-10 pt-8 border-t border-white/[0.06]">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] mb-5 text-center">
+              How It Works
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { step: '01', title: 'Join & Share', desc: 'Enter your wallet or email to get a unique referral link.' },
+                { step: '02', title: 'Friends Connect', desc: 'When they visit and connect a wallet or sign up, it counts as a referral.' },
+                { step: '03', title: 'Unlock Access', desc: '3 successful referrals = instant access to GUNZscope.' },
+              ].map((item) => (
+                <div key={item.step} className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-4">
+                  <span className="font-display font-bold text-lg text-[var(--gs-lime)]">{item.step}</span>
+                  <h3 className="font-display font-semibold text-sm uppercase mt-2 mb-1">{item.title}</h3>
+                  <p className="font-body text-xs text-[var(--gs-gray-4)] leading-relaxed">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -221,7 +544,7 @@ export default function WaitlistClient() {
         {isEmailOnly && (
           <div className="bg-[var(--gs-dark-2)] border border-[var(--gs-purple)]/20 px-4 py-3 mb-6 text-center">
             <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--gs-gray-3)]">
-              Signed in as <span className="text-[var(--gs-purple)]">{emailAddress}</span>
+              Signed in as <span className="text-[var(--gs-purple)]">{emailAddress || manualIdentifier}</span>
             </p>
             <p className="font-body text-xs text-[var(--gs-gray-4)] mt-1">
               You&rsquo;ll need to connect a wallet after unlocking access to view your portfolio.

@@ -169,11 +169,14 @@ export default function HomePage() {
   const [showWalletHelp, setShowWalletHelp] = useState(false);
   const { primaryWallet, user, setShowAuthFlow, handleLogOut } = useDynamicContext();
   const { connectWithEmail, verifyOneTimePassword, retryOneTimePassword } = useConnectWithOtp();
-  // Track whether user was already authenticated on mount (don't auto-redirect on page load)
+  // Track whether user had a WALLET connected on mount (don't auto-redirect on page load).
+  // Email-only auth is tracked separately — email users need the validation flow to run.
   const wasConnectedOnMount = useRef<boolean | null>(null);
   if (wasConnectedOnMount.current === null) {
-    wasConnectedOnMount.current = !!primaryWallet || !!user;
+    wasConnectedOnMount.current = !!primaryWallet;
   }
+  // Track whether email validation has been attempted (prevent duplicate calls)
+  const emailValidatingRef = useRef(false);
 
   // Text scramble effect for hero text (LayerZero style)
   const heroScramble = useTextScramble({
@@ -284,62 +287,56 @@ export default function HomePage() {
       .catch(() => {}); // Fail silently — user can still interact normally
   }, [primaryWallet, user, router]);
 
-  // Auto-redirect to portfolio when user authenticates (fresh connection only)
-  // All paths are gated by the address whitelist — non-whitelisted wallets get disconnected.
+  // Wallet validation — fresh wallet connection only (not on page load with existing wallet)
   useEffect(() => {
-    if (wasConnectedOnMount.current) return;
+    if (wasConnectedOnMount.current || !primaryWallet?.address) return;
 
-    if (primaryWallet?.address) {
-      // Check whitelist before allowing access
-      fetch('/api/access/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: primaryWallet.address }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
-          } else if (data.waitlisted) {
-            // Waitlisted — redirect to waitlist, keep wallet connected
-            localStorage.setItem('gs_waitlist_address', primaryWallet.address);
-            router.push(`/waitlist?address=${encodeURIComponent(primaryWallet.address)}`);
-          } else {
-            // Unexpected state — disconnect
-            handleLogOut();
-            setGateError('Unable to validate access. Please try again.');
-          }
-        })
-        .catch(() => {
-          // On network error, fail closed — disconnect
+    // Check whitelist before allowing access
+    fetch('/api/access/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: primaryWallet.address }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+        } else if (data.waitlisted) {
+          localStorage.setItem('gs_waitlist_address', primaryWallet.address);
+          router.push(`/waitlist?address=${encodeURIComponent(primaryWallet.address)}`);
+        } else {
           handleLogOut();
-          setGateError('Failed to validate access. Please try again.');
-        });
-    } else if (user?.email) {
-      // Email-only user with no wallet — validate email through the gate
-      fetch('/api/access/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email }),
+          setGateError('Unable to validate access. Please try again.');
+        }
       })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            router.push('/portfolio');
-          } else if (data.waitlisted) {
-            localStorage.setItem('gs_waitlist_address', `email:${user.email!}`);
-            router.push(`/waitlist?email=${encodeURIComponent(user.email!)}`);
-          } else {
-            handleLogOut();
-            setGateError('Unable to validate access. Please try again.');
-          }
-        })
-        .catch(() => {
-          handleLogOut();
-          setGateError('Failed to validate access. Please try again.');
-        });
-    }
+      .catch(() => {
+        handleLogOut();
+        setGateError('Failed to validate access. Please try again.');
+      });
   }, [primaryWallet?.address, user, router, handleLogOut]);
+
+  // Email-only users always go to the waitlist/referral flow.
+  // Email auth is for joining the waitlist, not for portfolio access.
+  useEffect(() => {
+    if (!user?.email || primaryWallet?.address || emailValidatingRef.current) return;
+    emailValidatingRef.current = true;
+
+    // Join waitlist via validate (auto-creates entry if needed), then redirect
+    fetch('/api/access/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email }),
+    })
+      .then((res) => res.json())
+      .then(() => {
+        // Always send email users to waitlist — even if whitelisted, they need a wallet
+        localStorage.setItem('gs_waitlist_address', `email:${user.email!}`);
+        router.push(`/waitlist?email=${encodeURIComponent(user.email!)}`);
+      })
+      .catch(() => {
+        emailValidatingRef.current = false; // Allow retry
+      });
+  }, [user?.email, primaryWallet?.address, router]);
 
   // Social proof visibility state
   const socialProofRef = useRef<HTMLDivElement>(null);
@@ -601,7 +598,7 @@ export default function HomePage() {
               </svg>
               <div className="flex flex-col items-start">
                 <span className="font-display font-bold text-base uppercase tracking-wider">Connect Wallet</span>
-                <span className="font-mono text-[9px] uppercase tracking-widest opacity-60">Early access, whitelist only</span>
+                <span className="font-mono text-[9px] uppercase tracking-widest opacity-70">Early access, whitelist only</span>
               </div>
               <svg className="hidden sm:block w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
@@ -950,14 +947,15 @@ export default function HomePage() {
                   {/* Join Waitlist tile */}
                   <button
                     type="button"
-                    onClick={() => setModalView('paste')}
+                    onClick={() => { closeWalletModal(); router.push('/waitlist'); }}
                     className="w-full text-left p-5 bg-[rgba(28,28,28,0.5)] backdrop-blur-md border border-white/[0.06] hover:bg-[rgba(36,36,36,0.7)] hover:border-[var(--gs-lime)]/40 group cursor-pointer clip-corner-sm overflow-hidden transition-all duration-200"
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 flex items-center justify-center border border-white/[0.08] bg-[rgba(36,36,36,0.6)] text-[var(--gs-gray-3)] group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm shrink-0 transition-colors duration-200">
-                        {/* Queue/list icon */}
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                        {/* Konami wave icon */}
+                        <svg className="w-5 h-5" viewBox="0 0 907 762" fill="none" stroke="currentColor" strokeWidth={60}>
+                          <path d="M723.63 1L685.584 107C653.538 189.83 609.28 222.86 562.29 238.64C514.49 250.14 466.78 256.74 421.51 266.56C391.38 275.94 367.86 296.5 348.75 323.05C329.64 349.6 314.89 382.18 302.31 415.72L271.78 510.81H1.42L45.22 389.1C60.45 350.56 79.9 324.14 101.82 305.53C148.17 276.08 224.61 257.73 320.26 233.42C376.03 206.81 406.51 151.85 421.82 94.76L454.15 1H723.63Z" />
+                          <path d="M906.04 250.72L862.22 370.27C842.23 411.88 820.41 439.7 797.64 458.67C751.08 487.82 678.99 502.64 587.53 523.62C539.32 558.97 489.55 644.71 481.89 673.29L451.59 760.53H182.11L220.16 654.48C252.21 571.7 295.86 538.68 342.1 522.49C389.11 510.47 459.15 499.24 480.67 491.57C533.49 466.15 587.09 389.37 603.43 345.81L633.96 250.72H906.04Z" />
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isWhitelisted, addToWhitelist } from '@/lib/services/whitelistService';
+import { isBanned } from '@/lib/services/banService';
 
 /**
  * POST /api/access/reconcile
@@ -29,6 +30,14 @@ export async function POST(request: NextRequest) {
     if (!emailWhitelisted) {
       return NextResponse.json(
         { success: false, error: 'Email is not whitelisted' },
+        { status: 403 }
+      );
+    }
+
+    // Check if the wallet is banned
+    if (await isBanned(walletAddress)) {
+      return NextResponse.json(
+        { success: false, banned: true, error: 'Wallet is banned' },
         { status: 403 }
       );
     }

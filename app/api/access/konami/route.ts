@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { addToWhitelist } from '@/lib/services/whitelistService';
+import { isBanned } from '@/lib/services/banService';
 import { promoteFromWaitlist } from '@/lib/services/waitlistService';
 import { getOrCreateAutoHandle, claimCustomSlug } from '@/lib/services/referralService';
 
@@ -11,6 +12,11 @@ export async function POST(req: Request) {
     const identifier = address?.toLowerCase() || (email ? `email:${email.toLowerCase()}` : null);
     if (!identifier) {
       return NextResponse.json({ error: 'Missing identifier' }, { status: 400 });
+    }
+
+    // Ban check — konami doesn't override a ban
+    if (await isBanned(identifier)) {
+      return NextResponse.json({ success: false, banned: true }, { status: 403 });
     }
 
     // Promote from waitlist if they're on it, otherwise whitelist directly

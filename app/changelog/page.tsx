@@ -21,9 +21,24 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.4.1',
+    version: 'v0.4.2',
     date: 'Feb 28, 2026',
     tag: 'current',
+    items: [
+      'Ban/reset system \u2014 BanEntry model in Prisma; banService with isBanned/banAddress/unbanAddress/resetAddress/listBans; ban guards on /api/access/validate, /api/access/konami, /api/access/reconcile, /api/waitlist/status, and joinWaitlist(); banned users get 403 with { banned: true }',
+      'Admin PATCH /api/admin/whitelist \u2014 { address, action: "ban"|"unban"|"reset", reason? }; ban removes from whitelist + waitlist + blocks re\u2011enrollment; reset clears whitelist + waitlist without ban (user can rejoin); GET ?view=banned returns paginated ban list',
+      'AdminPanel ban/reset UI \u2014 Ban/Reset buttons on whitelist entries, Ban button on waitlist entries, dedicated Banned Users section with unban capability',
+      'WaitlistClient banned state \u2014 useWaitlist hook returns isBanned; banned users see "ACCESS REVOKED" page with support contact instead of join form',
+      'ReferralRedirect banned handling \u2014 email\u2011only validate returning { banned: true } shows revoked message instead of redirect',
+      'KonamiOverlay wallet flow fix \u2014 submitting state was never reset after successful wallet submission, permanently disabling the Confirm button in the handle phase; added setSubmitting(false) + initial handle availability check via /api/referral/check\u2011slug',
+      'Home page validation refactor \u2014 separated wallet and email validation into independent useEffect blocks; wasConnectedOnMount now tracks wallet only (email users always validate); emailValidatingRef prevents duplicate email validation calls',
+      'Attestation status API \u2014 GET /api/attestation/status route stub',
+      'Hardhat config \u2014 updated GunzChain testnet RPC URL; added Fuji (Avalanche C\u2011Chain testnet) network',
+    ],
+  },
+  {
+    version: 'v0.4.1',
+    date: 'Feb 28, 2026',
     items: [
       'Hero redesign \u2014 split title into super\u2011label ("YOUR OTG" at text\u20112xl\u20113xl with 0.15em tracking) + dominant scramble headline (text\u20116xl\u2011[104px]); removed "Arsenal" line; purple glow text\u2011shadow on OTG (40px blur, 0.3 opacity)',
       'Scramble words updated \u2014 Intelligence, Lore, Legacy, Edge (was Intelligence, Dominance, Advantage, Edge)',

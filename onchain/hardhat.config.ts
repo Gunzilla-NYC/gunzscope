@@ -21,8 +21,13 @@ const config: HardhatUserConfig = {
       accounts: [DEPLOYER_KEY],
     },
     gunzchainTestnet: {
-      url: "https://rpc.testnet.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc",
+      url: "https://rpc.gunz.dev/ext/bc/ryk9vkvNuKtewME2PeCgybo9sdWXGmCkBrrx4VPuZPdVdAak8/rpc",
       chainId: 49321,
+      accounts: [DEPLOYER_KEY],
+    },
+    fuji: {
+      url: "https://api.avax-test.network/ext/bc/C/rpc",
+      chainId: 43113,
       accounts: [DEPLOYER_KEY],
     },
   },

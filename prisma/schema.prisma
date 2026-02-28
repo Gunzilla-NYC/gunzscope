@@ -224,6 +224,19 @@ model WhitelistEntry {
 }
 
 // =============================================================================
+// Ban Entry - Hard-blocked addresses that cannot re-enroll
+// =============================================================================
+model BanEntry {
+  id        String   @id @default(cuid())
+  address   String   @unique // Normalized to lowercase
+  reason    String?           // Admin-provided reason
+  bannedBy  String   @default("admin")
+  createdAt DateTime @default(now())
+
+  @@map("ban_entries")
+}
+
+// =============================================================================
 // Waitlist Entry - Non-whitelisted users waiting for access via referrals
 // =============================================================================
 model WaitlistEntry {
