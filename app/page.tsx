@@ -94,7 +94,7 @@ export default function HomePage() {
 
   // Text scramble effect for hero text (LayerZero style)
   const heroScramble = useTextScramble({
-    words: ['Intelligence', 'Dominance', 'Advantage', 'Edge'],
+    words: ['Intelligence', 'Lore', 'Legacy', 'Edge'],
     scrambleDuration: 600,
     pauseDuration: 2000,
   });
@@ -366,17 +366,18 @@ export default function HomePage() {
       <KonamiOverlay
         active={konamiActive}
         onDismiss={resetKonami}
-        onSubmit={(addr) => {
-          fetch('/api/access/konami', {
+        onSubmit={async (id, type) => {
+          const body = type === 'email' ? { email: id } : { address: id };
+          const r = await fetch('/api/access/konami', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address: addr }),
-          }).then((r) => {
-            if (r.ok) {
-              resetKonami();
-              router.push(`/portfolio?address=${addr}`);
-            }
+            body: JSON.stringify(body),
           });
+          return r.ok;
+        }}
+        onProceed={() => {
+          resetKonami();
+          setShowAuthFlow(true);
         }}
       />
       {/* Background Effects */}
@@ -436,18 +437,30 @@ export default function HomePage() {
             </span>
           </motion.div>
 
-          {/* Title */}
+          {/* Super-label */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: revealEase }}
+            className="font-display font-bold text-xl sm:text-2xl md:text-3xl tracking-[0.15em] uppercase mb-3 text-[var(--gs-white)]"
+          >
+            Your{' '}
+            <span
+              className="text-[var(--gs-purple-bright)]"
+              style={{ textShadow: '0 0 40px rgba(109, 91, 255, 0.3)' }}
+            >
+              OTG
+            </span>
+          </motion.div>
+
+          {/* Headline — scramble word */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1, ease: revealEase }}
-            className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-wide uppercase mb-6"
+            transition={{ duration: 0.8, delay: 0.15, ease: revealEase }}
+            className="font-display font-bold text-6xl sm:text-7xl md:text-8xl lg:text-[104px] leading-[0.9] tracking-wide uppercase mb-6 text-[var(--gs-lime)] relative hero-underline min-w-[280px]"
           >
-            <span className="block text-[var(--gs-white)]">Your OTG</span>
-            <span className="block text-[var(--gs-purple-bright)]">Arsenal</span>
-            <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px]">
-              {heroScramble.displayText}
-            </span>
+            {heroScramble.displayText}
           </motion.h1>
 
           {/* Subtitle */}
@@ -455,12 +468,11 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: revealEase }}
-            className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-[560px] mb-10"
+            className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-none mb-10"
           >
-            Track, analyze, and dominate your <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> NFT portfolio.
-            Real&#8209;time P&L, acquisition tracking, and weapon intelligence across{' '}
-            <strong className="text-[var(--gs-white)] font-medium">GunzChain</strong> and{' '}
-            <strong className="text-[var(--gs-white)] font-medium">Solana</strong>.
+            The tactical intelligence layer for <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong>.
+            <br />
+            Start your legacy, analyze the market, dominate the meta.
           </motion.p>
 
           {/* Connect Wallet CTA */}
@@ -469,6 +481,9 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: revealEase }}
           >
+            <p className="font-mono text-[11px] text-white/30 mb-3">
+              Early access&thinsp;&mdash;&thinsp;whitelist only.
+            </p>
             <button
               type="button"
               onClick={() => { setShowWalletModal(true); setModalView('choose'); setGateError(null); }}
@@ -485,6 +500,13 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
+            <div className="mt-4 max-w-sm">
+              <p className="font-mono text-[11px] leading-[1.6] text-white/25 italic">
+                Don&rsquo;t have access? In 1986, a developer couldn&rsquo;t
+                beat his own game&thinsp;&mdash;&thinsp;so he left a pattern in the code.
+                30&nbsp;lives. The oldest backdoor in gaming still opens doors.
+              </p>
+            </div>
           </motion.div>
         </div>
         </div>
