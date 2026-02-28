@@ -437,30 +437,25 @@ export default function HomePage() {
             </span>
           </motion.div>
 
-          {/* Super-label */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1, ease: revealEase }}
-            className="font-display font-bold text-xl sm:text-2xl md:text-3xl tracking-[0.15em] uppercase mb-3 text-[var(--gs-white)]"
-          >
-            Your{' '}
-            <span
-              className="text-[var(--gs-purple-bright)]"
-              style={{ textShadow: '0 0 40px rgba(109, 91, 255, 0.3)' }}
-            >
-              OTG
-            </span>
-          </motion.div>
-
-          {/* Headline — scramble word */}
+          {/* Title */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.15, ease: revealEase }}
-            className="font-display font-bold text-6xl sm:text-7xl md:text-8xl lg:text-[104px] leading-[0.9] tracking-wide uppercase mb-6 text-[var(--gs-lime)] relative hero-underline min-w-[280px]"
+            transition={{ duration: 0.8, delay: 0.1, ease: revealEase }}
+            className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-wide uppercase mb-6"
           >
-            {heroScramble.displayText}
+            <span className="block">
+              <span className="text-[var(--gs-white)]">Your </span>
+              <span
+                className="text-[var(--gs-purple-bright)]"
+                style={{ textShadow: '0 0 40px rgba(109, 91, 255, 0.3)' }}
+              >
+                OTG
+              </span>
+            </span>
+            <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px]">
+              {heroScramble.displayText}
+            </span>
           </motion.h1>
 
           {/* Subtitle */}
@@ -481,13 +476,10 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: revealEase }}
           >
-            <p className="font-mono text-[11px] text-white/30 mb-3">
-              Early access&thinsp;&mdash;&thinsp;whitelist only.
-            </p>
             <button
               type="button"
               onClick={() => { setShowWalletModal(true); setModalView('choose'); setGateError(null); }}
-              className="group relative px-8 py-4 bg-[rgba(166,247,0,0.85)] backdrop-blur-md text-[var(--gs-black)] font-display font-bold text-base uppercase tracking-wider hover:bg-[rgba(166,247,0,0.95)] hover:shadow-[0_0_30px_rgba(166,247,0,0.3)] transition-all clip-corner cursor-pointer flex items-center gap-3"
+              className="group relative px-8 py-3.5 bg-[rgba(166,247,0,0.85)] backdrop-blur-md text-[var(--gs-black)] hover:bg-[rgba(166,247,0,0.95)] hover:shadow-[0_0_30px_rgba(166,247,0,0.3)] transition-all clip-corner cursor-pointer flex items-center gap-3"
             >
               {/* Hex icon */}
               <svg className="w-5 h-5 transition-transform group-hover:rotate-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -495,13 +487,16 @@ export default function HomePage() {
                 <path d="M12 12L2.5 7.5M12 12L21.5 7.5" />
                 <path d="M12 12V22" />
               </svg>
-              Connect Wallet
+              <div className="flex flex-col items-start">
+                <span className="font-display font-bold text-base uppercase tracking-wider">Connect Wallet</span>
+                <span className="font-mono text-[9px] uppercase tracking-widest opacity-60">Early access, whitelist only</span>
+              </div>
               <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
-            <div className="mt-4 max-w-sm">
-              <p className="font-mono text-[11px] leading-[1.6] text-white/25 italic">
+            <div className="mt-6 max-w-sm">
+              <p className="font-mono text-[11px] leading-[1.6] text-white/35 italic">
                 Don&rsquo;t have access? In 1986, a developer couldn&rsquo;t
                 beat his own game&thinsp;&mdash;&thinsp;so he left a pattern in the code.
                 30&nbsp;lives. The oldest backdoor in gaming still opens doors.
@@ -514,7 +509,7 @@ export default function HomePage() {
         {/* Hero Stats Bar */}
         <div className="absolute bottom-0 left-0 right-0 border-t border-white/[0.06] glass-effect z-10">
           <div className="max-w-7xl mx-auto flex flex-wrap">
-          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0 bg-[var(--gs-lime)]/[0.03]">
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] bg-[var(--gs-lime)]/[0.03]">
             <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-lime)] block mb-1">GUN Price</span>
             <span className="font-display text-3xl font-bold text-[var(--gs-white)]">
               {gunPrice !== null ? (
@@ -524,39 +519,21 @@ export default function HomePage() {
               )}
             </span>
           </div>
-          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
-            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked Value</span>
-            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
-              {siteStats?.portfolioValueUsd != null ? (
-                `$${portfolioValueCountUp.displayValue}`
-              ) : (
-                <span className="skeleton-stat inline-block w-28 h-7" />
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06]">
+            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">NFTs Tracked</span>
+            <span className="font-display text-3xl font-bold text-[var(--gs-white)]">
+              {siteStats?.nftsTracked != null ? nftsCountUp.displayValue : (
+                <span className="skeleton-stat inline-block w-20 h-8" />
               )}
             </span>
           </div>
-          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] last:border-r-0">
-            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total Tracked P&L</span>
-            <span className={`font-display text-2xl font-bold ${
-              siteStats?.unrealizedPnlUsd != null
-                ? siteStats.unrealizedPnlUsd >= 0
-                  ? 'text-[var(--gs-profit)]'
-                  : 'text-[var(--gs-loss)]'
-                : ''
-            }`}>
-              {siteStats?.unrealizedPnlUsd != null ? (
-                `${siteStats.unrealizedPnlUsd >= 0 ? '+' : '-'}$${pnlCountUp.displayValue}`
-              ) : (
-                <span className="skeleton-stat inline-block w-24 h-7" />
-              )}
-            </span>
+          <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06]">
+            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Blocks Scanned</span>
+            <span className="font-display text-3xl font-bold text-[var(--gs-white)]">15M+</span>
           </div>
           <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
-            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Total NFTs Tracked</span>
-            <span className="font-display text-2xl font-bold text-[var(--gs-white)]">
-              {siteStats?.nftsTracked != null ? nftsCountUp.displayValue : (
-                <span className="skeleton-stat inline-block w-16 h-7" />
-              )}
-            </span>
+            <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Tracking</span>
+            <span className="font-display text-3xl font-bold text-[var(--gs-profit)]">24/7</span>
           </div>
           </div>
         </div>
@@ -604,9 +581,9 @@ export default function HomePage() {
           <div ref={socialProofRef} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
               { value: socialProofVisible && siteStats?.walletsTracked != null ? walletsCountUp.displayValue : (siteStats?.walletsTracked ?? '—'), label: 'Wallets Connected', color: 'text-[var(--gs-lime)]' },
-              { value: socialProofVisible && siteStats?.nftsTracked != null ? socialNftsCountUp.displayValue : (siteStats?.nftsTracked ?? '—'), label: 'NFTs Analyzed', color: 'text-[var(--gs-purple-bright)]' },
-              { value: '2', label: 'Chains Supported', color: 'text-[var(--gs-white)]' },
-              { value: '24/7', label: 'Live Tracking', color: 'text-[var(--gs-profit)]' },
+              { value: '50+', label: 'Collections Indexed', color: 'text-[var(--gs-purple-bright)]' },
+              { value: '12', label: 'Data Points per NFT', color: 'text-[var(--gs-white)]' },
+              { value: '3', label: 'Pricing Sources', color: 'text-[var(--gs-profit)]' },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
@@ -625,22 +602,6 @@ export default function HomePage() {
               </motion.div>
             ))}
           </div>
-
-          {/* Community quote */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '0px 0px -50px 0px' }}
-            transition={{ duration: 0.6, delay: 0.4, ease: revealEase }}
-            className="mt-12 text-center"
-          >
-            <blockquote className="font-body text-lg italic text-[var(--gs-gray-4)] max-w-2xl mx-auto">
-              "Waiting for someone cool from the OTG Discord to put a testimonial here."
-            </blockquote>
-            <cite className="block mt-4 font-mono text-data tracking-wider uppercase text-[var(--gs-gray-3)]">
-              — OTG Discord Cool Person
-            </cite>
-          </motion.div>
         </div>
       </section>
 
