@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GUNZscope — OTG Arsenal Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ———————————————————————————————————————————————————
+   CSS VARIABLES — GUNZSCOPE BRAND SYSTEM
+   ——————————————————————————————————————————————————— */
+:root {
+  --gs-lime: #A6F700;
+  --gs-lime-dim: #7FB800;
+  --gs-lime-glow: rgba(166, 247, 0, 0.15);
+  --gs-lime-glow-strong: rgba(166, 247, 0, 0.3);
+  --gs-purple: #6D5BFF;
+  --gs-purple-bright: #8577FF;
+  --gs-purple-dim: #5648CC;
+  --gs-purple-glow: rgba(109, 91, 255, 0.1);
+  --gs-purple-glow-strong: rgba(109, 91, 255, 0.25);
+  --gs-black: #0A0A0A;
+  --gs-black-pure: #000000;
+  --gs-dark-1: #111111;
+  --gs-dark-2: #161616;
+  --gs-dark-3: #1C1C1C;
+  --gs-dark-4: #242424;
+  --gs-gray-1: #333333;
+  --gs-gray-2: #555555;
+  --gs-gray-3: #888888;
+  --gs-gray-4: #AAAAAA;
+  --gs-white: #F0F0F0;
+  --gs-white-dim: #CCCCCC;
+  --gs-profit: #00FF88;
+  --gs-loss: #FF4444;
+  --gs-warning: #FFAA00;
+  --gs-rarity-common: #8A8A8A;
+  --gs-rarity-uncommon: #4A9EAD;
+  --gs-rarity-rare: #4A7AFF;
+  --gs-rarity-epic: #B44AFF;
+  --gs-rarity-legendary: #FF8C00;
+  --gs-rarity-mythic: #FF4466;
+  --gs-rarity-classified: #E74C3C;
+  --gs-avax-red: #E84142;
+  --font-display: 'Chakra Petch', sans-serif;
+  --font-body: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --border-subtle: 1px solid rgba(255,255,255,0.06);
+  --border-accent: 1px solid rgba(166,247,0,0.2);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+}
+
+/* ———————————————————————————————————————————————————
+   RESET & BASE
+   ——————————————————————————————————————————————————— */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: var(--gs-gray-1) var(--gs-black); }
+body { font-family: var(--font-body); background: var(--gs-black); color: var(--gs-white); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+::selection { background: var(--gs-lime); color: var(--gs-black); }
+a { color: inherit; text-decoration: none; }
+
+/* ———————————————————————————————————————————————————
+   BACKGROUND EFFECTS
+   ——————————————————————————————————————————————————— */
+.grid-bg {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(166,247,0,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(166,247,0,0.02) 1px, transparent 1px),
+    linear-gradient(rgba(109,91,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109,91,255,0.012) 1px, transparent 1px);
+  background-size: 60px 60px, 60px 60px, 90px 90px, 90px 90px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+}
+.scanlines {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+}
+
+/* ———————————————————————————————————————————————————
+   NAVIGATION
+   ——————————————————————————————————————————————————— */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 0 var(--space-xl); height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(10,10,10,0.88); backdrop-filter: blur(20px);
+  border-bottom: var(--border-subtle);
+}
+.nav-logo { display: flex; align-items: center; gap: var(--space-sm); }
+.nav-logo-icon {
+  width: 28px; height: 28px; border: 2px solid var(--gs-lime);
+  border-radius: 4px; display: flex; align-items: center; justify-content: center;
+}
+.nav-logo-icon::before {
+  content: ''; width: 8px; height: 8px;
+  background: var(--gs-lime); clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+.nav-logo-text {
+  font-family: var(--font-display); font-weight: 700; font-size: 18px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--gs-white);
+}
+.nav-logo-text span { color: var(--gs-purple); }
+.nav-version {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px;
+  color: var(--gs-gray-3); padding: 2px 6px; border: 1px solid var(--gs-gray-1);
+  border-radius: 2px; margin-left: 8px;
+}
+.nav-links { display: flex; align-items: center; gap: var(--space-lg); list-style: none; }
+.nav-links a {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--gs-gray-3); transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--gs-lime); }
+.nav-cta {
+  font-family: var(--font-display) !important; font-size: 12px !important;
+  font-weight: 600 !important; letter-spacing: 2px !important;
+  padding: 8px 20px; background: transparent;
+  border: 1px solid var(--gs-lime) !important; color: var(--gs-lime) !important;
+  cursor: pointer; transition: all 0.3s;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.nav-cta:hover { background: var(--gs-lime) !important; color: var(--gs-black) !important; }
+
+/* ———————————————————————————————————————————————————
+   HERO
+   ——————————————————————————————————————————————————— */
+.hero {
+  position: relative; min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 120px var(--space-xl) var(--space-3xl); overflow: hidden;
+}
+.hero-bg-glow {
+  position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 900px;
+  background: radial-gradient(circle, rgba(166,247,0,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero-bg-glow-2 {
+  position: absolute; bottom: -100px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(109,91,255,0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero-content { position: relative; z-index: 2; max-width: 900px; }
+
+.hero-badges { display: flex; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-xl); }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: var(--space-sm);
+  padding: 6px 14px; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 2px; text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  animation: fadeInUp 0.8s ease both;
+}
+.hero-badge-primary {
+  border: 1px solid rgba(166,247,0,0.3); background: rgba(166,247,0,0.05); color: var(--gs-lime);
+}
+.hero-badge-avax {
+  border: 1px solid rgba(232,65,66,0.3); background: rgba(232,65,66,0.05); color: var(--gs-avax-red);
+  animation-delay: 0.05s;
+}
+.hero-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%; animation: pulse-dot 2s infinite;
+}
+.hero-badge-primary .hero-badge-dot { background: var(--gs-lime); }
+.hero-badge-avax .hero-badge-dot { background: var(--gs-avax-red); }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.hero-title {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(48px, 7vw, 88px); line-height: 0.95;
+  letter-spacing: -1px; text-transform: uppercase;
+  margin-bottom: var(--space-lg); animation: fadeInUp 0.8s ease 0.1s both;
+}
+.hero-title .line-1 { display: block; color: var(--gs-white); }
+.hero-title .line-2 { display: block; color: var(--gs-purple-bright); }
+.hero-title .line-3 {
+  display: block; color: var(--gs-lime); position: relative;
+}
+.hero-title .line-3::after {
+  content: ''; position: absolute; bottom: -4px; left: 0; width: 100%; height: 2px;
+  background: linear-gradient(90deg, var(--gs-lime), var(--gs-purple), transparent); opacity: 0.5;
+}
+.hero-subtitle {
+  font-family: var(--font-body); font-size: 18px; font-weight: 300;
+  line-height: 1.7; color: var(--gs-gray-4); max-width: 600px;
+  margin-bottom: var(--space-xl); animation: fadeInUp 0.8s ease 0.2s both;
+}
+.hero-subtitle strong { color: var(--gs-white); font-weight: 500; }
+.hero-actions {
+  display: flex; gap: var(--space-md); animation: fadeInUp 0.8s ease 0.3s both;
+}
+.btn-primary {
+  font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  letter-spacing: 2px; text-transform: uppercase; padding: 14px 32px;
+  background: var(--gs-lime); color: var(--gs-black); border: none;
+  cursor: pointer; transition: all 0.3s;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.btn-primary:hover { background: #B8FF33; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(166,247,0,0.2); }
+.btn-secondary {
+  font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  letter-spacing: 2px; text-transform: uppercase; padding: 14px 32px;
+  background: transparent; color: var(--gs-white-dim); border: 1px solid var(--gs-gray-1);
+  cursor: pointer; transition: all 0.3s;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.btn-secondary:hover { border-color: var(--gs-lime); color: var(--gs-lime); }
+
+/* Crosshairs */
+.crosshair { position: absolute; width: 24px; height: 24px; opacity: 0.12; }
+.crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--gs-lime); }
+.crosshair::before { width: 1px; height: 100%; left: 50%; }
+.crosshair::after { height: 1px; width: 100%; top: 50%; }
+.crosshair-1 { top: 20%; right: 15%; }
+.crosshair-2 { bottom: 25%; right: 30%; }
+.crosshair-purple::before, .crosshair-purple::after { background: var(--gs-purple); }
+.crosshair-3 { top: 35%; right: 8%; }
+
+/* Hero Stats */
+.hero-stats {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  display: flex; border-top: var(--border-subtle);
+  background: rgba(10,10,10,0.6); backdrop-filter: blur(10px); z-index: 2;
+}
+.hero-stat {
+  flex: 1; padding: var(--space-lg) var(--space-xl);
+  border-right: var(--border-subtle); display: flex; flex-direction: column; gap: 4px;
+}
+.hero-stat:last-child { border-right: none; }
+.hero-stat-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--gs-gray-3);
+}
+.hero-stat-value {
+  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--gs-white);
+}
+.hero-stat-value .accent { color: var(--gs-purple-bright); }
+.hero-stat-value .lime { color: var(--gs-lime); }
+
+/* ———————————————————————————————————————————————————
+   SECTIONS COMMON
+   ——————————————————————————————————————————————————— */
+section { position: relative; z-index: 2; }
+.section-header {
+  display: flex; align-items: baseline; gap: var(--space-md); margin-bottom: var(--space-xl);
+}
+.section-number { font-family: var(--font-mono); font-size: 11px; color: var(--gs-purple-dim); letter-spacing: 1px; }
+.section-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 32px;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.section-line {
+  flex: 1; height: 1px; align-self: center; opacity: 0.4;
+  background: linear-gradient(90deg, var(--gs-purple-dim), transparent);
+}
+
+/* ———————————————————————————————————————————————————
+   ARCHITECTURE SECTION
+   ——————————————————————————————————————————————————— */
+.arch-section { padding: var(--space-3xl) var(--space-xl); border-top: var(--border-subtle); }
+.arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); }
+.arch-narrative {
+  display: flex; flex-direction: column; justify-content: center; gap: var(--space-lg);
+}
+.arch-narrative p {
+  font-family: var(--font-body); font-size: 16px; font-weight: 300;
+  line-height: 1.7; color: var(--gs-gray-4);
+}
+.arch-narrative p strong { color: var(--gs-white); font-weight: 500; }
+.arch-narrative p em { color: var(--gs-lime); font-style: normal; font-weight: 500; }
+
+.arch-diagram {
+  background: var(--gs-dark-2); border: var(--border-subtle); padding: var(--space-xl);
+  position: relative; overflow: hidden;
+}
+.arch-diagram::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--gs-avax-red), var(--gs-purple), transparent); opacity: 0.5;
+}
+.arch-diagram-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--gs-gray-3); margin-bottom: var(--space-lg);
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+.arch-diagram-label::before { content: ''; width: 8px; height: 1px; background: var(--gs-avax-red); }
+
+.arch-chain-row {
+  display: flex; gap: var(--space-md); align-items: stretch; margin-bottom: var(--space-md);
+}
+.arch-chain-box {
+  flex: 1; padding: var(--space-md); border: var(--border-subtle); background: var(--gs-dark-3);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.arch-chain-name {
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.arch-chain-type {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--gs-gray-3);
+}
+.arch-chain-ops {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+}
+.arch-op {
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 2px;
+}
+.arch-op-read { background: rgba(166,247,0,0.1); color: var(--gs-lime); border: 1px solid rgba(166,247,0,0.2); }
+.arch-op-write { background: rgba(109,91,255,0.1); color: var(--gs-purple-bright); border: 1px solid rgba(109,91,255,0.2); }
+
+.arch-arrow {
+  display: flex; align-items: center; justify-content: center; padding: var(--space-sm) 0;
+}
+.arch-arrow-line {
+  width: 100%; height: 1px; position: relative;
+  background: linear-gradient(90deg, transparent, var(--gs-purple-dim), var(--gs-lime-dim), transparent);
+}
+.arch-arrow-label {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+  color: var(--gs-gray-3); text-transform: uppercase; white-space: nowrap;
+  background: var(--gs-dark-2); padding: 0 6px;
+}
+
+.arch-center-box {
+  padding: var(--space-md); border: 1px solid rgba(166,247,0,0.2);
+  background: rgba(166,247,0,0.03); text-align: center;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.arch-center-name {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px; color: var(--gs-lime);
+}
+.arch-center-sub {
+  font-family: var(--font-mono); font-size: 9px; color: var(--gs-gray-3);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+
+/* ———————————————————————————————————————————————————
+   FEATURES
+   ——————————————————————————————————————————————————— */
+.features-section { padding: var(--space-3xl) var(--space-xl); border-top: var(--border-subtle); }
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: rgba(255,255,255,0.04); border: var(--border-subtle);
+}
+.feature-card {
+  padding: var(--space-xl); background: var(--gs-dark-1);
+  position: relative; transition: all 0.4s ease; overflow: hidden;
+}
+.feature-card:hover { background: var(--gs-dark-2); }
+.feature-card:hover .feature-icon { color: var(--gs-lime); border-color: var(--gs-lime); }
+.feature-card:hover::after { opacity: 1; }
+.feature-card::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--gs-lime), var(--gs-purple)); opacity: 0; transition: opacity 0.4s;
+}
+.feature-icon {
+  width: 40px; height: 40px; border: 1px solid var(--gs-gray-1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--gs-gray-3); margin-bottom: var(--space-lg); transition: all 0.3s;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+.feature-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 16px;
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: var(--space-sm); color: var(--gs-white);
+}
+.feature-desc {
+  font-family: var(--font-body); font-size: 14px; font-weight: 300;
+  line-height: 1.6; color: var(--gs-gray-3);
+}
+.feature-tag {
+  display: inline-block; margin-top: var(--space-sm);
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 2px;
+}
+.feature-tag-live { background: rgba(0,255,136,0.1); color: var(--gs-profit); border: 1px solid rgba(0,255,136,0.15); }
+.feature-tag-soon { background: rgba(255,170,0,0.1); color: var(--gs-warning); border: 1px solid rgba(255,170,0,0.15); }
+
+/* ———————————————————————————————————————————————————
+   PLATFORM STATS
+   ——————————————————————————————————————————————————— */
+.stats-section {
+  padding: var(--space-2xl) var(--space-xl); border-top: var(--border-subtle);
+  background: var(--gs-dark-1);
+}
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-xl);
+  text-align: center;
+}
+.stat-number {
+  font-family: var(--font-display); font-size: clamp(36px, 5vw, 56px);
+  font-weight: 700; color: var(--gs-lime); line-height: 1;
+  margin-bottom: var(--space-sm);
+}
+.stat-number .purple { color: var(--gs-purple-bright); }
+.stat-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--gs-gray-3);
+}
+
+/* ———————————————————————————————————————————————————
+   VALUATION SYSTEM
+   ——————————————————————————————————————————————————— */
+.valuation-section { padding: var(--space-3xl) var(--space-xl); border-top: var(--border-subtle); }
+.valuation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); }
+.valuation-info { display: flex; flex-direction: column; justify-content: center; gap: var(--space-lg); }
+.valuation-info p {
+  font-family: var(--font-body); font-size: 16px; font-weight: 300;
+  line-height: 1.7; color: var(--gs-gray-4);
+}
+.valuation-info p strong { color: var(--gs-white); font-weight: 500; }
+
+.valuation-tiers {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.val-tier {
+  display: grid; grid-template-columns: 44px 1fr auto; gap: var(--space-md);
+  align-items: center; padding: 10px var(--space-md);
+  background: var(--gs-dark-2); border: var(--border-subtle);
+  transition: all 0.3s;
+}
+.val-tier:hover { border-color: rgba(166,247,0,0.2); background: var(--gs-dark-3); }
+.val-tier-num {
+  font-family: var(--font-mono); font-size: 10px; color: var(--gs-gray-3);
+  letter-spacing: 1px; text-align: center;
+}
+.val-tier-name {
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; color: var(--gs-white);
+}
+.val-tier-desc {
+  font-family: var(--font-mono); font-size: 10px; color: var(--gs-gray-3);
+}
+.val-tier-confidence {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 2px;
+}
+.confidence-high { background: rgba(0,255,136,0.1); color: var(--gs-profit); border: 1px solid rgba(0,255,136,0.15); }
+.confidence-good { background: rgba(166,247,0,0.1); color: var(--gs-lime); border: 1px solid rgba(166,247,0,0.15); }
+.confidence-moderate { background: rgba(255,170,0,0.1); color: var(--gs-warning); border: 1px solid rgba(255,170,0,0.15); }
+.confidence-low { background: rgba(255,68,68,0.08); color: var(--gs-loss); border: 1px solid rgba(255,68,68,0.1); }
+
+/* ———————————————————————————————————————————————————
+   DASHBOARD PREVIEW
+   ——————————————————————————————————————————————————— */
+.preview-section { padding: var(--space-3xl) var(--space-xl); border-top: var(--border-subtle); }
+.preview-frame {
+  background: var(--gs-dark-2); border: var(--border-subtle);
+  border-radius: var(--radius-md); overflow: hidden; position: relative;
+}
+.preview-frame::before {
+  content: ''; position: absolute; inset: 0;
+  border: 1px solid transparent;
+  border-image: linear-gradient(135deg, rgba(166,247,0,0.12), rgba(109,91,255,0.12)) 1;
+  pointer-events: none;
+}
+.preview-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-md) var(--space-lg); border-bottom: var(--border-subtle);
+  background: rgba(0,0,0,0.3);
+}
+.preview-dots { display: flex; gap: 6px; }
+.preview-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gs-gray-1); }
+.preview-dot.red { background: #FF5F57; }
+.preview-dot.yellow { background: #FEBC2E; }
+.preview-dot.green { background: #28C840; }
+.preview-url {
+  font-family: var(--font-mono); font-size: 11px; color: var(--gs-gray-3);
+  background: var(--gs-dark-3); padding: 4px 16px; border-radius: 4px; border: var(--border-subtle);
+}
+.preview-body { padding: var(--space-xl); }
+
+.dash-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-xl); }
+.dash-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--gs-gray-3); margin-bottom: 4px; }
+.dash-value { font-family: var(--font-display); font-size: 36px; font-weight: 700; color: var(--gs-white); }
+.dash-value .small { font-size: 20px; color: var(--gs-gray-4); }
+.dash-change {
+  font-family: var(--font-mono); font-size: 13px; color: var(--gs-profit);
+  padding: 4px 10px; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.15); border-radius: 4px;
+}
+.dash-pnl-tracks { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-bottom: var(--space-xl); }
+.dash-track {
+  padding: var(--space-md); background: var(--gs-dark-3); border: var(--border-subtle);
+}
+.dash-track-label {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--gs-gray-3); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.dash-track-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+}
+.dash-track-value {
+  font-family: var(--font-display); font-size: 20px; font-weight: 700;
+}
+.dash-track-sub {
+  font-family: var(--font-mono); font-size: 10px; color: var(--gs-gray-3); margin-top: 2px;
+}
+
+.dash-nft-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); }
+.dash-nft-card {
+  background: var(--gs-dark-3); border: var(--border-subtle); padding: var(--space-md);
+  transition: all 0.3s; position: relative; overflow: hidden;
+}
+.dash-nft-card:hover { border-color: rgba(166,247,0,0.3); transform: translateY(-2px); }
+.dash-nft-img {
+  width: 100%; aspect-ratio: 1; background: var(--gs-dark-4);
+  margin-bottom: var(--space-sm); position: relative;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.7; transition: opacity 0.3s;
+}
+.dash-nft-card:hover .dash-nft-img { opacity: 0.9; }
+.dash-nft-img-placeholder { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--gs-gray-1); }
+.dash-nft-rarity {
+  position: absolute; top: 6px; left: 6px;
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 2px;
+}
+.dash-nft-name {
+  font-family: var(--font-display); font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; color: var(--gs-white);
+  margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dash-nft-type {
+  font-family: var(--font-mono); font-size: 9px; color: var(--gs-gray-3);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: var(--space-sm);
+}
+.dash-nft-footer {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding-top: var(--space-sm); border-top: var(--border-subtle);
+}
+.dash-nft-price { font-family: var(--font-mono); font-size: 11px; color: var(--gs-white); }
+.dash-nft-pnl { font-family: var(--font-mono); font-size: 10px; }
+.dash-nft-pnl.profit { color: var(--gs-profit); }
+.dash-nft-pnl.loss { color: var(--gs-loss); }
+.dash-nft-source { font-family: var(--font-mono); font-size: 7px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--gs-gray-2); }
+
+/* Rarity badge colors */
+.badge-rare { background: rgba(74,122,255,0.15); color: var(--gs-rarity-rare); border: 1px solid rgba(74,122,255,0.2); }
+.badge-epic { background: rgba(180,74,255,0.15); color: var(--gs-rarity-epic); border: 1px solid rgba(180,74,255,0.2); }
+.badge-legendary { background: rgba(255,140,0,0.15); color: var(--gs-rarity-legendary); border: 1px solid rgba(255,140,0,0.2); }
+.badge-classified { background: rgba(231,76,60,0.15); color: var(--gs-rarity-classified); border: 1px solid rgba(231,76,60,0.2); }
+
+/* ———————————————————————————————————————————————————
+   ROADMAP
+   ——————————————————————————————————————————————————— */
+.roadmap-section { padding: var(--space-3xl) var(--space-xl); border-top: var(--border-subtle); }
+.roadmap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,255,255,0.04); border: var(--border-subtle); }
+.roadmap-phase {
+  padding: var(--space-xl); background: var(--gs-dark-1);
+  position: relative; overflow: hidden;
+}
+.roadmap-phase::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.roadmap-phase-1::before { background: var(--gs-lime); }
+.roadmap-phase-2::before { background: var(--gs-purple); }
+.roadmap-phase-3::before { background: linear-gradient(90deg, var(--gs-purple), var(--gs-avax-red)); }
+
+.roadmap-phase-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: var(--space-sm);
+}
+.roadmap-phase-1 .roadmap-phase-label { color: var(--gs-lime); }
+.roadmap-phase-2 .roadmap-phase-label { color: var(--gs-purple-bright); }
+.roadmap-phase-3 .roadmap-phase-label { color: var(--gs-avax-red); }
+
+.roadmap-phase-title {
+  font-family: var(--font-display); font-size: 18px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--gs-white);
+  margin-bottom: var(--space-lg);
+}
+.roadmap-items {
+  list-style: none; display: flex; flex-direction: column; gap: var(--space-sm);
+}
+.roadmap-items li {
+  font-family: var(--font-body); font-size: 14px; font-weight: 300;
+  color: var(--gs-gray-4); padding-left: var(--space-md); position: relative;
+}
+.roadmap-items li::before {
+  content: ''; position: absolute; left: 0; top: 8px;
+  width: 4px; height: 4px; border-radius: 1px;
+}
+.roadmap-phase-1 .roadmap-items li::before { background: var(--gs-lime); }
+.roadmap-phase-2 .roadmap-items li::before { background: var(--gs-purple); }
+.roadmap-phase-3 .roadmap-items li::before { background: var(--gs-avax-red); }
+.roadmap-items li .done {
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--gs-profit); margin-left: 6px;
+}
+.roadmap-items li .wip {
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--gs-warning); margin-left: 6px;
+}
+
+/* ———————————————————————————————————————————————————
+   BUILD GAMES CTA
+   ——————————————————————————————————————————————————— */
+.buildgames-section {
+  padding: var(--space-2xl) var(--space-xl); border-top: var(--border-subtle);
+  background: linear-gradient(135deg, rgba(232,65,66,0.04), rgba(109,91,255,0.04));
+  text-align: center;
+}
+.buildgames-badge {
+  display: inline-flex; align-items: center; gap: var(--space-sm);
+  padding: 6px 14px; margin-bottom: var(--space-lg);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--gs-avax-red);
+  border: 1px solid rgba(232,65,66,0.3); background: rgba(232,65,66,0.05);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+.buildgames-title {
+  font-family: var(--font-display); font-size: clamp(24px, 4vw, 42px);
+  font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: var(--space-md);
+}
+.buildgames-title .avax { color: var(--gs-avax-red); }
+.buildgames-title .white { color: var(--gs-white); }
+.buildgames-desc {
+  font-family: var(--font-body); font-size: 16px; font-weight: 300;
+  color: var(--gs-gray-4); max-width: 640px; margin: 0 auto var(--space-lg);
+  line-height: 1.7;
+}
+.buildgames-desc strong { color: var(--gs-white); font-weight: 500; }
+
+/* ———————————————————————————————————————————————————
+   FOOTER
+   ——————————————————————————————————————————————————— */
+.footer {
+  padding: var(--space-2xl) var(--space-xl); border-top: var(--border-subtle);
+  display: flex; justify-content: space-between; align-items: center;
+  position: relative; z-index: 2;
+}
+.footer-left { display: flex; align-items: center; gap: var(--space-lg); }
+.footer-brand {
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--gs-gray-2);
+}
+.footer-brand span { color: var(--gs-purple); }
+.footer-links { display: flex; gap: var(--space-md); }
+.footer-links a {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--gs-gray-2); transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--gs-lime); }
+.footer-right { font-family: var(--font-mono); font-size: 10px; color: var(--gs-gray-2); letter-spacing: 1px; }
+
+/* ———————————————————————————————————————————————————
+   ANIMATIONS
+   ——————————————————————————————————————————————————— */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.observe { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.observe.visible { opacity: 1; transform: translateY(0); }
+
+/* Counter animation */
+.counter { display: inline-block; }
+
+/* ———————————————————————————————————————————————————
+   RESPONSIVE
+   ——————————————————————————————————————————————————— */
+@media (max-width: 1024px) {
+  .arch-grid, .valuation-grid { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-nft-grid { grid-template-columns: repeat(2, 1fr); }
+  .roadmap-grid { grid-template-columns: 1fr; }
+  .hero-stats { flex-wrap: wrap; }
+  .hero-stat { min-width: 50%; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-lg); }
+}
+@media (max-width: 768px) {
+  .nav { padding: 0 var(--space-md); }
+  .nav-links { display: none; }
+  .hero { padding: 100px var(--space-md) var(--space-3xl); }
+  .hero-title { font-size: 40px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .dash-nft-grid { grid-template-columns: 1fr; }
+  .dash-pnl-tracks { grid-template-columns: 1fr; }
+  .footer { flex-direction: column; gap: var(--space-lg); text-align: center; }
+  .footer-left { flex-direction: column; }
+  section { padding-left: var(--space-md) !important; padding-right: var(--space-md) !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="scanlines"></div>
+
+<!-- ——— NAVIGATION ——— -->
+<nav class="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon"></div>
+    <div class="nav-logo-text">GUNZ<span>scope</span></div>
+    <span class="nav-version">v0.1 EA</span>
+  </a>
+  <ul class="nav-links">
+    <a href="#architecture">Architecture</a>
+    <a href="#features">Features</a>
+    <a href="#valuation">Valuation</a>
+    <a href="#preview">Dashboard</a>
+    <a href="#roadmap">Roadmap</a>
+    <a class="nav-cta" href="https://gunzscope.vercel.app">Launch App &#8594;</a>
+  </ul>
+</nav>
+
+<!-- ——— HERO ——— -->
+<section class="hero">
+  <div class="hero-bg-glow"></div>
+  <div class="hero-bg-glow-2"></div>
+  <div class="crosshair crosshair-1"></div>
+  <div class="crosshair crosshair-2"></div>
+  <div class="crosshair crosshair-purple crosshair-3"></div>
+
+  <div class="hero-content">
+    <div class="hero-badges">
+      <div class="hero-badge hero-badge-primary">
+        <span class="hero-badge-dot"></span>
+        v0.1 Early Access
+      </div>
+      <div class="hero-badge hero-badge-avax">
+        <span class="hero-badge-dot"></span>
+        Avalanche Build Games 2026
+      </div>
+    </div>
+
+    <h1 class="hero-title">
+      <span class="line-1">Your OTG</span>
+      <span class="line-2">Arsenal</span>
+      <span class="line-3">Intelligence</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      Track, analyze, and value your <strong>Off The Grid</strong> NFT portfolio with
+      dual-track P&amp;L, tiered valuations, and weapon intelligence across
+      <strong>GunzChain</strong> and <strong>Solana</strong>. Built on <strong>Avalanche</strong>.
+    </p>
+
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="window.open('https://gunzscope.vercel.app','_blank')">Connect Wallet</button>
+      <button class="btn-secondary">View Architecture</button>
+    </div>
+  </div>
+
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <span class="hero-stat-label">Chains Supported</span>
+      <span class="hero-stat-value"><span class="lime">2</span></span>
+    </div>
+    <div class="hero-stat">
+      <span class="hero-stat-label">NFTs Analyzed</span>
+      <span class="hero-stat-value">11,026</span>
+    </div>
+    <div class="hero-stat">
+      <span class="hero-stat-label">Wallets Connected</span>
+      <span class="hero-stat-value"><span class="accent">8</span></span>
+    </div>
+    <div class="hero-stat">
+      <span class="hero-stat-label">Valuation Tiers</span>
+      <span class="hero-stat-value">6</span>
+    </div>
+  </div>
+</section>
+
+<!-- ——— ARCHITECTURE ——— -->
+<section class="arch-section" id="architecture">
+  <div class="section-header observe">
+    <span class="section-number">01</span>
+    <h2 class="section-title">Multi-Chain Architecture</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="arch-grid">
+    <div class="arch-narrative observe">
+      <p>
+        GUNZscope operates a <strong>hybrid multi-chain architecture</strong> &mdash; reading game state
+        from <em>GunzChain</em> (an Avalanche L1) while writing platform-native data to <em>AVAX C-Chain</em>.
+      </p>
+      <p>
+        This isn't a workaround &mdash; it's a <strong>feature</strong>. GunzChain is permissioned for contract deployment,
+        so GUNZscope writes attestations, reputation badges, and trade intents to C-Chain. The result is
+        <strong>cross-L1 composability</strong> within the Avalanche ecosystem &mdash; exactly the multi-chain thesis
+        Avalanche is built on.
+      </p>
+      <p>
+        Solana provides the second read layer for NFTs minted on that chain,
+        giving players a <strong>unified view</strong> regardless of where their assets live.
+      </p>
+    </div>
+
+    <div class="arch-diagram observe">
+      <div class="arch-diagram-label">Hybrid Architecture</div>
+
+      <div class="arch-chain-row">
+        <div class="arch-chain-box">
+          <div class="arch-chain-name" style="color: var(--gs-lime);">GunzChain</div>
+          <div class="arch-chain-type">Avalanche L1 &middot; Permissioned</div>
+          <div class="arch-chain-ops">
+            <span class="arch-op arch-op-read">Read NFTs</span>
+            <span class="arch-op arch-op-read">Read GUN</span>
+            <span class="arch-op arch-op-read">Read TXs</span>
+          </div>
+        </div>
+        <div class="arch-chain-box">
+          <div class="arch-chain-name" style="color: #9945FF;">Solana</div>
+          <div class="arch-chain-type">Layer 1 &middot; Permissionless</div>
+          <div class="arch-chain-ops">
+            <span class="arch-op arch-op-read">Read NFTs</span>
+            <span class="arch-op arch-op-read">Read SPL</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">
+        <div class="arch-arrow-line">
+          <span class="arch-arrow-label">Read Layer &uarr; &middot; Write Layer &darr;</span>
+        </div>
+      </div>
+
+      <div class="arch-center-box" style="margin-bottom: var(--space-md);">
+        <div class="arch-center-name">GUNZscope</div>
+        <div class="arch-center-sub">Analytics &middot; Valuation &middot; Intelligence</div>
+      </div>
+
+      <div class="arch-arrow">
+        <div class="arch-arrow-line">
+          <span class="arch-arrow-label">Portfolio Attestations &middot; Reputation &middot; OTC Intents</span>
+        </div>
+      </div>
+
+      <div class="arch-chain-box" style="border-color: rgba(232,65,66,0.2);">
+        <div class="arch-chain-name" style="color: var(--gs-avax-red);">AVAX C-Chain</div>
+        <div class="arch-chain-type">Avalanche &middot; Permissionless</div>
+        <div class="arch-chain-ops">
+          <span class="arch-op arch-op-write">Write Attestations</span>
+          <span class="arch-op arch-op-write">Write Badges</span>
+          <span class="arch-op arch-op-write">Write Intents</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ——— FEATURES ——— -->
+<section class="features-section" id="features">
+  <div class="section-header observe">
+    <span class="section-number">02</span>
+    <h2 class="section-title">Core Features</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="features-grid observe">
+    <div class="feature-card">
+      <div class="feature-icon">&#128200;</div>
+      <div class="feature-title">Dual-Track P&amp;L</div>
+      <div class="feature-desc">Two independent performance metrics &mdash; GUN token appreciation (Track A) and market-based valuation via comparable sales (Track B). See the full picture, not just one number.</div>
+      <span class="feature-tag feature-tag-live">Live</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128279;</div>
+      <div class="feature-title">Cross-Chain</div>
+      <div class="feature-desc">Unified portfolio across GunzChain (Avalanche L1) and Solana. 300+ wallets supported via Dynamic Labs. One dashboard, complete visibility.</div>
+      <span class="feature-tag feature-tag-live">Live</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128269;</div>
+      <div class="feature-title">Acquisition Intel</div>
+      <div class="feature-desc">Automatic detection of how each NFT was acquired &mdash; HEX decode, marketplace purchase, or transfer &mdash; with original GUN cost basis at time of transaction.</div>
+      <span class="feature-tag feature-tag-live">Live</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128171;</div>
+      <div class="feature-title">Weapon Lab</div>
+      <div class="feature-desc">Compatibility detection via model codes extracted from asset URLs. Identifies locked special editions (Classified rarity) vs modifiable weapons. Not name matching &mdash; real data.</div>
+      <span class="feature-tag feature-tag-soon">In Progress</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128176;</div>
+      <div class="feature-title">Tiered Valuation</div>
+      <div class="feature-desc">6-tier valuation waterfall from exact item sales to collection floor. Each tier carries a confidence indicator so you know when a price is market reality vs statistical proxy.</div>
+      <span class="feature-tag feature-tag-live">Live</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#127991;&#65039;</div>
+      <div class="feature-title">Rarity Intelligence</div>
+      <div class="feature-desc">Dual rarity system &mdash; display rarity and functional tier. Classified items flagged as locked special editions. 7-tier hierarchy from Common to Classified.</div>
+      <span class="feature-tag feature-tag-live">Live</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#9997;&#65039;</div>
+      <div class="feature-title">On-Chain Attestations</div>
+      <div class="feature-desc">Portfolio snapshots written to AVAX C-Chain. Provable valuations for trading credibility, leaderboard rankings, and verifiable portfolio history.</div>
+      <span class="feature-tag feature-tag-soon">Phase 1</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#128081;</div>
+      <div class="feature-title">Reputation System</div>
+      <div class="feature-desc">Soulbound badges earned through milestones &mdash; collection size, trade volume, Weapon Lab certifications. Non-transferable, chain-verified credibility.</div>
+      <span class="feature-tag feature-tag-soon">Phase 2</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#9889;</div>
+      <div class="feature-title">Live Pricing</div>
+      <div class="feature-desc">GUN token price via CoinGecko with historical tracking for accurate cost basis at time of acquisition. Real-time portfolio updates as prices move.</div>
+      <span class="feature-tag feature-tag-live">Live</span>
+    </div>
+  </div>
+</section>
+
+<!-- ——— PLATFORM STATS ——— -->
+<section class="stats-section">
+  <div class="stats-grid observe">
+    <div>
+      <div class="stat-number">11,026</div>
+      <div class="stat-label">NFTs Analyzed</div>
+    </div>
+    <div>
+      <div class="stat-number"><span class="purple">2</span></div>
+      <div class="stat-label">Chains Supported</div>
+    </div>
+    <div>
+      <div class="stat-number">6</div>
+      <div class="stat-label">Valuation Tiers</div>
+    </div>
+    <div>
+      <div class="stat-number">24/7</div>
+      <div class="stat-label">Live Tracking</div>
+    </div>
+  </div>
+</section>
+
+<!-- ——— VALUATION SYSTEM ——— -->
+<section class="valuation-section" id="valuation">
+  <div class="section-header observe">
+    <span class="section-number">03</span>
+    <h2 class="section-title">Valuation Waterfall</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="valuation-grid">
+    <div class="valuation-info observe">
+      <p>
+        Not all valuations are created equal. GUNZscope distinguishes between
+        <strong>market reality</strong> (actual sales data) and <strong>statistical proxies</strong>
+        (estimates based on similar items).
+      </p>
+      <p>
+        Each NFT's value flows through a 6-tier waterfall &mdash; starting with the most specific
+        data available and widening only when needed. Every valuation carries a
+        <strong>confidence indicator</strong> so you always know what you're looking at.
+      </p>
+      <p>
+        The dual-track P&amp;L system then applies two independent lenses:
+        <strong>GUN appreciation</strong> (how the token itself has performed since acquisition)
+        and <strong>market reference</strong> (what comparable items are trading for now).
+      </p>
+    </div>
+
+    <div class="valuation-tiers observe">
+      <div class="val-tier">
+        <div class="val-tier-num">T1</div>
+        <div>
+          <div class="val-tier-name">Exact Item</div>
+          <div class="val-tier-desc">This specific tokenId has sold before</div>
+        </div>
+        <span class="val-tier-confidence confidence-high">Exact</span>
+      </div>
+      <div class="val-tier">
+        <div class="val-tier-num">T2</div>
+        <div>
+          <div class="val-tier-name">Same Variant</div>
+          <div class="val-tier-desc">Same skin + weapon + rarity</div>
+        </div>
+        <span class="val-tier-confidence confidence-high">High</span>
+      </div>
+      <div class="val-tier">
+        <div class="val-tier-num">T3</div>
+        <div>
+          <div class="val-tier-name">Same Skin</div>
+          <div class="val-tier-desc">Same skin design at same rarity, any weapon</div>
+        </div>
+        <span class="val-tier-confidence confidence-good">Good</span>
+      </div>
+      <div class="val-tier">
+        <div class="val-tier-num">T4</div>
+        <div>
+          <div class="val-tier-name">Same Weapon</div>
+          <div class="val-tier-desc">Same weapon + rarity, any skin</div>
+        </div>
+        <span class="val-tier-confidence confidence-moderate">Moderate</span>
+      </div>
+      <div class="val-tier">
+        <div class="val-tier-num">T5</div>
+        <div>
+          <div class="val-tier-name">Similar Items</div>
+          <div class="val-tier-desc">Same type + rarity class</div>
+        </div>
+        <span class="val-tier-confidence confidence-moderate">Estimate</span>
+      </div>
+      <div class="val-tier">
+        <div class="val-tier-num">T6</div>
+        <div>
+          <div class="val-tier-name">Collection Floor</div>
+          <div class="val-tier-desc">Fallback to collection-wide floor price</div>
+        </div>
+        <span class="val-tier-confidence confidence-low">Floor</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ——— DASHBOARD PREVIEW ——— -->
+<section class="preview-section" id="preview">
+  <div class="section-header observe">
+    <span class="section-number">04</span>
+    <h2 class="section-title">Dashboard Preview</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="preview-frame observe">
+    <div class="preview-toolbar">
+      <div class="preview-dots">
+        <div class="preview-dot red"></div>
+        <div class="preview-dot yellow"></div>
+        <div class="preview-dot green"></div>
+      </div>
+      <div class="preview-url">gunzscope.xyz/portfolio</div>
+      <div></div>
+    </div>
+    <div class="preview-body">
+      <div class="dash-header">
+        <div>
+          <div class="dash-title">Total Portfolio Value</div>
+          <div class="dash-value">$2,847<span class="small">.32</span></div>
+        </div>
+        <div class="dash-change">&#9650; +14.5%</div>
+      </div>
+
+      <!-- Dual Track P&L -->
+      <div class="dash-pnl-tracks">
+        <div class="dash-track">
+          <div class="dash-track-label">
+            <span class="dash-track-dot" style="background: var(--gs-lime);"></span>
+            Track A &middot; GUN Appreciation
+          </div>
+          <div class="dash-track-value" style="color: var(--gs-profit);">+$412.50</div>
+          <div class="dash-track-sub">GUN price movement since acquisition</div>
+        </div>
+        <div class="dash-track">
+          <div class="dash-track-label">
+            <span class="dash-track-dot" style="background: var(--gs-purple);"></span>
+            Track B &middot; Market Reference
+          </div>
+          <div class="dash-track-value" style="color: var(--gs-loss);">-$186.20</div>
+          <div class="dash-track-sub">Based on comparable sales data</div>
+        </div>
+      </div>
+
+      <div class="dash-nft-grid">
+        <div class="dash-nft-card">
+          <div class="dash-nft-img">
+            <span class="dash-nft-rarity badge-epic" style="font-size: 8px; padding: 2px 6px;">Epic</span>
+            <span class="dash-nft-img-placeholder">V</span>
+          </div>
+          <div class="dash-nft-name">Vulture</div>
+          <div class="dash-nft-type">Assault Rifle</div>
+          <div class="dash-nft-footer">
+            <div>
+              <span class="dash-nft-price">1,200 GUN</span>
+              <div class="dash-nft-source">Via Sales &middot; T2</div>
+            </div>
+            <span class="dash-nft-pnl profit">+23.4%</span>
+          </div>
+        </div>
+        <div class="dash-nft-card">
+          <div class="dash-nft-img">
+            <span class="dash-nft-rarity badge-legendary" style="font-size: 8px; padding: 2px 6px;">Legendary</span>
+            <span class="dash-nft-img-placeholder">K</span>
+          </div>
+          <div class="dash-nft-name">Kestrel</div>
+          <div class="dash-nft-type">Sniper Rifle</div>
+          <div class="dash-nft-footer">
+            <div>
+              <span class="dash-nft-price">3,400 GUN</span>
+              <div class="dash-nft-source">Exact &middot; T1</div>
+            </div>
+            <span class="dash-nft-pnl profit">+8.7%</span>
+          </div>
+        </div>
+        <div class="dash-nft-card">
+          <div class="dash-nft-img">
+            <span class="dash-nft-rarity badge-classified" style="font-size: 8px; padding: 2px 6px;">&#128274; Classified</span>
+            <span class="dash-nft-img-placeholder">VS</span>
+          </div>
+          <div class="dash-nft-name">Vulture Solana</div>
+          <div class="dash-nft-type">Special Edition &middot; Locked</div>
+          <div class="dash-nft-footer">
+            <div>
+              <span class="dash-nft-price">&mdash; GUN</span>
+              <div class="dash-nft-source">No Mods Available</div>
+            </div>
+            <span class="dash-nft-pnl" style="color: var(--gs-gray-3);">Locked</span>
+          </div>
+        </div>
+        <div class="dash-nft-card">
+          <div class="dash-nft-img">
+            <span class="dash-nft-rarity badge-rare" style="font-size: 8px; padding: 2px 6px;">Rare</span>
+            <span class="dash-nft-img-placeholder">RS</span>
+          </div>
+          <div class="dash-nft-name">Reflex Sight</div>
+          <div class="dash-nft-type">Weapon Attachment</div>
+          <div class="dash-nft-footer">
+            <div>
+              <span class="dash-nft-price">400 GUN</span>
+              <div class="dash-nft-source">Via Floor &middot; T6</div>
+            </div>
+            <span class="dash-nft-pnl loss">-5.2%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ——— ROADMAP ——— -->
+<section class="roadmap-section" id="roadmap">
+  <div class="section-header observe">
+    <span class="section-number">05</span>
+    <h2 class="section-title">On-Chain Roadmap</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="roadmap-grid observe">
+    <div class="roadmap-phase roadmap-phase-1">
+      <div class="roadmap-phase-label">Phase 1 &middot; Now</div>
+      <div class="roadmap-phase-title">Analytics + Attestations</div>
+      <ul class="roadmap-items">
+        <li>Cross-chain portfolio analytics <span class="done">&#10003; Live</span></li>
+        <li>Dual-track P&amp;L system <span class="done">&#10003; Live</span></li>
+        <li>Tiered valuation waterfall <span class="done">&#10003; Live</span></li>
+        <li>Acquisition intelligence <span class="done">&#10003; Live</span></li>
+        <li>Weapon Lab compatibility <span class="wip">In Progress</span></li>
+        <li>Deploy Attestation Registry on AVAX C-Chain</li>
+        <li>"Certify My Portfolio" &mdash; first on-chain write</li>
+      </ul>
+    </div>
+    <div class="roadmap-phase roadmap-phase-2">
+      <div class="roadmap-phase-label">Phase 2 &middot; Next</div>
+      <div class="roadmap-phase-title">Reputation + Social</div>
+      <ul class="roadmap-items">
+        <li>Soulbound badge contracts</li>
+        <li>Milestone auto-detection</li>
+        <li>Weapon Lab certification registry</li>
+        <li>Loadout publishing system</li>
+        <li>Portfolio snapshot oracle (weekly)</li>
+        <li>Leaderboard v1 &mdash; provable rankings</li>
+        <li>Referral system with on-chain tracking</li>
+      </ul>
+    </div>
+    <div class="roadmap-phase roadmap-phase-3">
+      <div class="roadmap-phase-label">Phase 3 &middot; Future</div>
+      <div class="roadmap-phase-title">OTC + Marketplace</div>
+      <ul class="roadmap-items">
+        <li>Trade intent registry on C-Chain</li>
+        <li>Intent matching engine</li>
+        <li>Curated loadout marketplace</li>
+        <li>Apply for GunzChain deployment permission</li>
+        <li>Migrate contracts to GunzChain (if approved)</li>
+        <li>Season system launch</li>
+        <li>Full composability with GUNZ marketplace</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ——— BUILD GAMES CTA ——— -->
+<section class="buildgames-section">
+  <div class="observe">
+    <div class="buildgames-badge">
+      <span style="color: var(--gs-avax-red);">&#9650;</span>
+      Avalanche Build Games 2026
+    </div>
+    <div class="buildgames-title">
+      <span class="white">Cross-L1</span>
+      <span class="avax"> Composability</span>
+      <span class="white"> in Action</span>
+    </div>
+    <p class="buildgames-desc">
+      GUNZscope demonstrates the <strong>Avalanche multi-chain thesis</strong> &mdash; reading game state
+      from GunzChain (an Avalanche L1) and writing platform data to C-Chain.
+      Not a workaround for permissioned constraints. A <strong>feature</strong>.
+    </p>
+    <button class="btn-primary" onclick="window.open('https://gunzscope.vercel.app','_blank')">Launch App &#8594;</button>
+  </div>
+</section>
+
+<!-- ——— FOOTER ——— -->
+<footer class="footer">
+  <div class="footer-left">
+    <div class="footer-brand">GUNZ<span>scope</span></div>
+    <div class="footer-links">
+      <a href="#">X</a>
+    </div>
+  </div>
+  <div class="footer-right">
+    &copy; 2026 GUNZscope &middot; Built with &#10084; for the Gunzilla community &middot; Not affiliated with Gunzilla Games
+  </div>
+</footer>
+
+<!-- ——— SCRIPTS ——— -->
+<script>
+// Intersection Observer for scroll animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.observe').forEach(el => observer.observe(el));
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// Nav active state
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => { if (scrollY >= s.offsetTop - 100) current = s.getAttribute('id'); });
+  navLinks.forEach(l => {
+    l.classList.remove('active');
+    if (l.getAttribute('href') === '#' + current) l.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
