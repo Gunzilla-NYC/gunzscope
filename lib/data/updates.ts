@@ -15,9 +15,19 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.4.1',
+    date: 'Feb 28, 2026',
+    tag: 'current',
+    title: 'The hero section went to the gym',
+    items: [
+      'Redesigned the landing page hero \u2014 "YOUR OTG" is now a compact super\u2011label with a glowing purple accent, while the scramble word (Intelligence, Lore, Legacy, Edge) takes center stage at 104px. Bigger type, clearer hierarchy.',
+      'New subtitle copy: "The tactical intelligence layer for Off The Grid. Start your legacy, analyze the market, dominate the meta."',
+      'Cleaned up the CTA area \u2014 "Early access \u2014 whitelist only" sets expectations before the button, and there\u2019s a subtle hint for the adventurous.',
+    ],
+  },
+  {
     version: 'v0.4.0',
     date: 'Feb 27, 2026',
-    tag: 'current',
     title: 'I could tell you, but then I\u2019d have to double legendary buzzkill you...',
     items: [],
   },

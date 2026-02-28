@@ -21,9 +21,20 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.4.1',
+    date: 'Feb 28, 2026',
+    tag: 'current',
+    items: [
+      'Hero redesign \u2014 split title into super\u2011label ("YOUR OTG" at text\u20112xl\u20113xl with 0.15em tracking) + dominant scramble headline (text\u20116xl\u2011[104px]); removed "Arsenal" line; purple glow text\u2011shadow on OTG (40px blur, 0.3 opacity)',
+      'Scramble words updated \u2014 Intelligence, Lore, Legacy, Edge (was Intelligence, Dominance, Advantage, Edge)',
+      'Hero subtitle rewrite \u2014 "The tactical intelligence layer for Off The Grid / Start your legacy, analyze the market, dominate the meta."',
+      'CTA section hierarchy \u2014 "Early access \u2014 whitelist only" label above Connect Wallet button; Konami hint below at white/25 opacity; removed redundant "Connect here" link',
+      'KonamiOverlay v2 \u2014 "Ready Player Zero" title with rotating subtitles (3 variants, module\u2011level counter); custom input accepting EVM/Solana/email with type badge; onSubmit returns Promise<boolean>; confirmed state with "CLEARANCE CONFIRMED" card; auto\u2011proceeds to Dynamic auth after 2.5s via onProceed callback',
+    ],
+  },
+  {
     version: 'v0.4.0',
     date: 'Feb 27, 2026',
-    tag: 'current',
     items: [
       'Konami code easter egg \u2014 useKonamiCode hook listens for \u2191\u2191\u2193\u2193\u2190\u2192\u2190\u2192BA on home page; 2s inactivity timeout resets progress; triggers KonamiOverlay',
       'KonamiOverlay tactical scan \u2014 full\u2011screen overlay with hex matrix rain (120ms refresh), horizontal scan line (2.5s linear sweep), corner bracket framing, 5\u2011line sequential reveal with motion/react stagger',
