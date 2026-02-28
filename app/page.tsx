@@ -251,6 +251,7 @@ export default function HomePage() {
         router.push(`/portfolio?address=${encodeURIComponent(trimmed)}`);
       } else if (data.waitlisted) {
         setShowWalletModal(false);
+        localStorage.setItem('gs_waitlist_address', trimmed);
         router.push(`/waitlist?address=${encodeURIComponent(trimmed)}`);
       } else {
         setGateError('Unable to validate access. Please try again.');
@@ -261,6 +262,27 @@ export default function HomePage() {
       setGateLoading(false);
     }
   };
+
+  // Returning waitlisted user detection — auto-redirect if still on waitlist
+  useEffect(() => {
+    if (primaryWallet || user) return; // Already authenticated, normal flow handles it
+    const waitlistAddr = localStorage.getItem('gs_waitlist_address');
+    if (!waitlistAddr) return;
+    const isEmail = waitlistAddr.startsWith('email:');
+    const param = isEmail
+      ? `email=${encodeURIComponent(waitlistAddr.replace('email:', ''))}`
+      : `address=${encodeURIComponent(waitlistAddr)}`;
+    fetch(`/api/waitlist/status?${param}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.promoted) {
+          localStorage.removeItem('gs_waitlist_address');
+        } else if (data.position != null) {
+          router.push(`/waitlist?${param}`);
+        }
+      })
+      .catch(() => {}); // Fail silently — user can still interact normally
+  }, [primaryWallet, user, router]);
 
   // Auto-redirect to portfolio when user authenticates (fresh connection only)
   // All paths are gated by the address whitelist — non-whitelisted wallets get disconnected.
@@ -280,6 +302,7 @@ export default function HomePage() {
             router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
           } else if (data.waitlisted) {
             // Waitlisted — redirect to waitlist, keep wallet connected
+            localStorage.setItem('gs_waitlist_address', primaryWallet.address);
             router.push(`/waitlist?address=${encodeURIComponent(primaryWallet.address)}`);
           } else {
             // Unexpected state — disconnect
@@ -304,6 +327,7 @@ export default function HomePage() {
           if (data.success) {
             router.push('/portfolio');
           } else if (data.waitlisted) {
+            localStorage.setItem('gs_waitlist_address', `email:${user.email!}`);
             router.push(`/waitlist?email=${encodeURIComponent(user.email!)}`);
           } else {
             handleLogOut();
@@ -450,11 +474,15 @@ export default function HomePage() {
         active={konamiActive}
         onDismiss={resetKonami}
         onSubmit={async (id, type) => {
-          const body = type === 'email' ? { email: id } : { address: id };
+          if (type === 'address') {
+            // Wallet: defer whitelisting to handle confirm step inside overlay
+            return true;
+          }
+          // Email: whitelist immediately (no handle step)
           const r = await fetch('/api/access/konami', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body: JSON.stringify({ email: id }),
           });
           return r.ok;
         }}
@@ -838,7 +866,7 @@ export default function HomePage() {
                   </button>
                 )}
                 <h2 className="font-display font-bold text-sm uppercase tracking-wider text-[var(--gs-white)]">
-                  {modalView === 'choose' ? 'Connect Wallet' : 'Enter Address'}
+                  {modalView === 'choose' ? 'Connect Whitelisted Wallet' : 'Enter Address'}
                 </h2>
               </div>
               <button
@@ -900,13 +928,47 @@ export default function HomePage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] mb-1 group-hover:text-[var(--gs-purple-bright)] transition-colors duration-200">
-                          External Wallet
+                          Email / External Wallet
                         </div>
                         <div className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
                           MetaMask, Rabby, WalletConnect & 300+ more
                         </div>
                       </div>
                       <svg className="w-4 h-4 text-[var(--gs-gray-2)] group-hover:text-[var(--gs-purple-bright)] transition-all duration-200 group-hover:translate-x-0.5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 h-px bg-white/[0.06]" />
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-2)]">or</span>
+                    <div className="flex-1 h-px bg-white/[0.06]" />
+                  </div>
+
+                  {/* Join Waitlist tile */}
+                  <button
+                    type="button"
+                    onClick={() => setModalView('paste')}
+                    className="w-full text-left p-5 bg-[rgba(28,28,28,0.5)] backdrop-blur-md border border-white/[0.06] hover:bg-[rgba(36,36,36,0.7)] hover:border-[var(--gs-lime)]/40 group cursor-pointer clip-corner-sm overflow-hidden transition-all duration-200"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 flex items-center justify-center border border-white/[0.08] bg-[rgba(36,36,36,0.6)] text-[var(--gs-gray-3)] group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm shrink-0 transition-colors duration-200">
+                        {/* Queue/list icon */}
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] mb-1 group-hover:text-[var(--gs-lime)] transition-colors duration-200">
+                          Join Waitlist
+                        </div>
+                        <div className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
+                          Refer 3 friends to skip the line & get instant access
+                        </div>
+                      </div>
+                      <svg className="w-4 h-4 text-[var(--gs-gray-2)] group-hover:text-[var(--gs-lime)] transition-all duration-200 group-hover:translate-x-0.5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                       </svg>
                     </div>

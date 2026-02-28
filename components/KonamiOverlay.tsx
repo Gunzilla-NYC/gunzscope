@@ -14,7 +14,7 @@ interface KonamiOverlayProps {
   retryOtp?: () => Promise<void>;
 }
 
-type Phase = 'input' | 'confirmed' | 'otp' | 'authenticated';
+type Phase = 'input' | 'handle' | 'confirmed' | 'otp' | 'authenticated';
 
 // Tactical scan lines that appear in sequence
 const SCAN_LINES = [
@@ -251,6 +251,14 @@ export default function KonamiOverlay({
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const resendTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Handle/gamer tag state
+  const [handle, setHandle] = useState('');
+  const [handleError, setHandleError] = useState<string | null>(null);
+  const [handleChecking, setHandleChecking] = useState(false);
+  const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
+  const handleDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const handleInputRef = useRef<HTMLInputElement>(null);
+
   const cleanup = useCallback(() => {
     timerRef.current.forEach(clearTimeout);
     timerRef.current = [];
@@ -265,6 +273,11 @@ export default function KonamiOverlay({
     setOtpError(null);
     setVerifying(false);
     setCanResend(false);
+    setHandle('');
+    setHandleError(null);
+    setHandleChecking(false);
+    setHandleAvailable(null);
+    if (handleDebounceRef.current) clearTimeout(handleDebounceRef.current);
   }, []);
 
   useEffect(() => {
@@ -299,9 +312,9 @@ export default function KonamiOverlay({
     }
   }, [phase]);
 
-  // ESC to dismiss (only during input phase)
+  // ESC to dismiss (during input or handle phase)
   useEffect(() => {
-    if (!active || phase !== 'input') return;
+    if (!active || (phase !== 'input' && phase !== 'handle')) return;
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss(); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -323,34 +336,93 @@ export default function KonamiOverlay({
     if (!isValid || submitting) return;
     setSubmitting(true);
     const trimmed = value.trim();
-    const ok = await onSubmit(trimmed, isEmail ? 'email' : 'address');
-    if (!ok) { setSubmitting(false); return; }
 
-    setPhase('confirmed');
-
-    // Email path: send OTP after brief confirmation display
-    if (isEmail && connectWithEmail) {
-      setSubmittedEmail(trimmed);
-      const t = setTimeout(async () => {
-        try {
-          await connectWithEmail(trimmed);
-          setPhase('otp');
-        } catch {
-          // Fall back to standard Dynamic modal if OTP send fails
-          onDismiss();
-          onProceed();
-        }
-      }, 1500);
-      timerRef.current.push(t);
+    if (isEmail) {
+      // Email path: whitelist now, then OTP
+      const ok = await onSubmit(trimmed, 'email');
+      if (!ok) { setSubmitting(false); return; }
+      setPhase('confirmed');
+      if (connectWithEmail) {
+        setSubmittedEmail(trimmed);
+        const t = setTimeout(async () => {
+          try {
+            await connectWithEmail(trimmed);
+            setPhase('otp');
+          } catch {
+            onDismiss();
+            onProceed();
+          }
+        }, 1500);
+        timerRef.current.push(t);
+      } else {
+        const t = setTimeout(() => { onDismiss(); onProceed(); }, 2500);
+        timerRef.current.push(t);
+      }
     } else {
-      // Wallet address path: proceed to Dynamic modal after 2.5s
-      const t = setTimeout(() => {
-        onDismiss();
-        onProceed();
-      }, 2500);
-      timerRef.current.push(t);
+      // Wallet path: defer whitelisting until after handle selection
+      const ok = await onSubmit(trimmed, 'address');
+      if (!ok) { setSubmitting(false); return; }
+      const prefix = trimmed.slice(0, 6).toLowerCase();
+      setHandle(prefix);
+      setHandleAvailable(null);
+      setPhase('handle');
+      setTimeout(() => handleInputRef.current?.focus(), 100);
     }
   };
+
+  // Handle input change with debounced availability check
+  const onHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20);
+    setHandle(raw);
+    setHandleError(null);
+    setHandleAvailable(null);
+    if (handleDebounceRef.current) clearTimeout(handleDebounceRef.current);
+    if (raw.length < 3) return;
+    setHandleChecking(true);
+    handleDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/referral/check-slug?slug=${encodeURIComponent(raw)}`);
+        const data = await res.json();
+        setHandleAvailable(data.available ?? false);
+        if (!data.available && data.reason) {
+          setHandleError(data.reason === 'reserved' ? 'Reserved' : data.reason === 'invalid' ? 'Invalid format' : 'Taken');
+        }
+      } catch {
+        setHandleAvailable(null);
+      } finally {
+        setHandleChecking(false);
+      }
+    }, 400);
+  };
+
+  // Handle confirm: whitelist + create referrer with chosen handle
+  const confirmHandle = async () => {
+    if (handleChecking || (handle.length >= 3 && handleAvailable !== true)) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/access/konami', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: value.trim(), handle }),
+      });
+      if (!res.ok) { setHandleError('Failed to register'); setSubmitting(false); return; }
+      setPhase('confirmed');
+      const t = setTimeout(() => { onDismiss(); onProceed(); }, 2500);
+      timerRef.current.push(t);
+    } catch {
+      setHandleError('Network error');
+      setSubmitting(false);
+    }
+  };
+
+  // Handle border color
+  const handleBorderClass = !handle.trim() || handle.length < 3
+    ? 'border-white/[0.08]'
+    : handleAvailable === true
+      ? 'border-[var(--gs-lime)]/40'
+      : handleAvailable === false
+        ? 'border-red-500/40'
+        : 'border-white/[0.08]';
 
   // OTP digit input handler
   const handleOtpChange = (index: number, digit: string) => {
@@ -441,7 +513,7 @@ export default function KonamiOverlay({
       : 'border-red-500/40';
 
   // Allow backdrop dismiss only during input phase
-  const canDismiss = phase === 'input';
+  const canDismiss = phase === 'input' || phase === 'handle';
 
   return (
     <AnimatePresence>
@@ -513,7 +585,7 @@ export default function KonamiOverlay({
                 className="mt-6 text-center"
               >
                 <div className="font-display text-3xl sm:text-4xl font-bold text-[var(--gs-lime)] tracking-wider uppercase">
-                  Ready Player Zero
+                  Ready <span className="text-[#6D5BFF]">Player</span> Zero
                 </div>
                 <div className="font-mono text-[9px] tracking-[0.3em] text-white/40 mt-1">
                   {subtitle}
@@ -572,6 +644,72 @@ export default function KonamiOverlay({
                   </div>
                   <div className="font-mono text-[9px] text-white/20 mt-2 text-center">
                     press ESC to dismiss
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ── HANDLE PHASE (wallet only) ── */}
+              {phase === 'handle' && (
+                <motion.div
+                  key="handle"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                  className="mt-6"
+                >
+                  <div className="border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] px-6 py-5">
+                    <div className="font-mono text-[var(--gs-lime)] text-sm font-bold tracking-widest uppercase mb-1">
+                      Choose Your Handle
+                    </div>
+                    <div className="font-mono text-[10px] text-white/40 tracking-wider mb-4">
+                      gunzscope.xyz/r/<span className="text-white/70">{handle || '...'}</span>
+                    </div>
+                    <div className="flex gap-2 mb-2">
+                      <div className={`relative flex-1 border bg-black/60 transition-colors ${handleBorderClass}`}>
+                        <input
+                          ref={handleInputRef}
+                          type="text"
+                          value={handle}
+                          onChange={onHandleChange}
+                          onKeyDown={(e) => { if (e.key === 'Enter') confirmHandle(); }}
+                          placeholder="your-handle"
+                          maxLength={20}
+                          className="w-full bg-transparent px-3 py-2.5 font-mono text-sm text-white/90
+                            placeholder:text-white/20 outline-none"
+                          spellCheck={false}
+                          autoComplete="off"
+                        />
+                        {handle.length >= 3 && (
+                          <span className={`absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px]
+                            uppercase tracking-widest px-1.5 py-0.5 border ${
+                              handleChecking
+                                ? 'border-white/20 text-white/40'
+                                : handleAvailable === true
+                                  ? 'border-[var(--gs-lime)]/30 text-[var(--gs-lime)]/70'
+                                  : handleAvailable === false
+                                    ? 'border-red-500/30 text-red-400/70'
+                                    : 'border-white/20 text-white/40'
+                            }`}>
+                            {handleChecking ? '...' : handleAvailable === true ? 'Available' : handleAvailable === false ? (handleError || 'Taken') : ''}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={confirmHandle}
+                        disabled={submitting || handleChecking || handle.length < 3 || handleAvailable !== true}
+                        className="shrink-0 px-4 py-2 font-mono text-xs uppercase tracking-widest
+                          bg-[var(--gs-lime)] text-black font-bold
+                          disabled:opacity-30 disabled:cursor-not-allowed
+                          hover:brightness-110 transition-all cursor-pointer"
+                        style={{ clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)' }}
+                      >
+                        {submitting ? '...' : 'Confirm'}
+                      </button>
+                    </div>
+                    <div className="font-mono text-[9px] text-white/20 mt-2 text-center">
+                      you can change this later
+                    </div>
                   </div>
                 </motion.div>
               )}
