@@ -444,14 +444,12 @@ export default function HomePage() {
             transition={{ duration: 0.8, delay: 0.1, ease: revealEase }}
             className="font-display font-bold text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[0.95] tracking-wide uppercase mb-6"
           >
-            <span className="block">
-              <span className="text-[var(--gs-white)]">Your </span>
-              <span
-                className="text-[var(--gs-purple-bright)]"
-                style={{ textShadow: '0 0 40px rgba(109, 91, 255, 0.3)' }}
-              >
-                OTG
-              </span>
+            <span className="block text-[var(--gs-white)]">Your OTG</span>
+            <span
+              className="block text-[var(--gs-purple-bright)]"
+              style={{ textShadow: '0 0 40px rgba(109, 91, 255, 0.3)' }}
+            >
+              Player
             </span>
             <span className="block text-[var(--gs-lime)] relative hero-underline min-w-[280px]">
               {heroScramble.displayText}
