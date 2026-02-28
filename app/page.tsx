@@ -19,6 +19,51 @@ import KonamiOverlay from '@/components/KonamiOverlay';
 // Shared animation easings
 const revealEase = [0.16, 1, 0.3, 1] as const;
 
+// Scrambled hint — glitches continuously, reveals on hover
+const GLITCH_CHARS = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`0123456789ABCDEFabcdef';
+function ScrambledHint({ text }: { text: string }) {
+  const [display, setDisplay] = useState(text);
+  const [hovered, setHovered] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  useEffect(() => {
+    if (hovered) {
+      setDisplay(text);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    const scramble = () => {
+      setDisplay(
+        text
+          .split('')
+          .map((ch) =>
+            ch === ' ' || ch === '\n'
+              ? ch
+              : Math.random() < 0.35
+                ? ch
+                : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)]
+          )
+          .join('')
+      );
+    };
+    scramble();
+    intervalRef.current = setInterval(scramble, 80);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [hovered, text]);
+
+  return (
+    <span
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`cursor-default transition-colors duration-300 ${
+        hovered ? 'text-white/40' : 'text-white/20'
+      }`}
+    >
+      {display}
+    </span>
+  );
+}
+
 // Features data
 const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing'; title: string; desc: string }[] = [
   {
@@ -493,12 +538,8 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
-            <div className="mt-6 max-w-sm">
-              <p className="font-mono text-[11px] leading-[1.6] text-white/35 italic">
-                Don&rsquo;t have access? In 1986, a developer couldn&rsquo;t
-                beat his own game&thinsp;&mdash;&thinsp;so he left a pattern in the code.
-                30&nbsp;lives. The oldest backdoor in gaming still opens doors.
-              </p>
+            <div className="mt-6 max-w-sm font-mono text-[11px] leading-[1.6] italic">
+              <ScrambledHint text="Don't have access? In 1986, a developer couldn't beat his own game — so he left a pattern in the code. 30 lives. The oldest backdoor in gaming still opens doors." />
             </div>
           </motion.div>
         </div>
