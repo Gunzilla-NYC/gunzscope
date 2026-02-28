@@ -227,7 +227,7 @@ export default function KonamiOverlay({ active, onDismiss, onSubmit, onProceed }
                 transition={{ delay: 0.3, duration: 0.4 }}
                 className="mt-6 text-center"
               >
-                <div className="font-[family-name:var(--font-chakra)] text-2xl sm:text-3xl font-bold text-[var(--gs-lime)] tracking-wider uppercase">
+                <div className="font-display text-3xl sm:text-4xl font-bold text-[var(--gs-lime)] tracking-wider uppercase">
                   Ready Player Zero
                 </div>
                 <div className="font-mono text-[9px] tracking-[0.3em] text-white/40 mt-1">
