@@ -18,10 +18,10 @@ export const UPDATES: UpdateEntry[] = [
     version: 'v0.4.4',
     date: 'Mar 1, 2026',
     tag: 'current',
-    title: 'Your batch purchase was lying to you',
+    title: 'Your portfolio just went on\u2011chain',
     items: [
-      'Fixed a bug where buying multiple NFTs in one OpenSea transaction assigned the total price to every single item. If you bought 4 weapons for 6,590 GUN total, each one said it cost 6,590. Math was never our strong suit.',
       'On\u2011chain portfolio attestation \u2014 you can now stamp a cryptographic proof of your holdings onto Avalanche C\u2011Chain. It\u2019s in the share menu. Your portfolio, verified on\u2011chain, no trust required.',
+      'Fixed a bug where buying multiple NFTs in one OpenSea transaction assigned the total price to every single item. If you bought 4 weapons for 6,590 GUN total, each one said it cost 6,590. Math was never our strong suit.',
     ],
   },
   {
