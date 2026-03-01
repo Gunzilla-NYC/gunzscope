@@ -45,6 +45,8 @@ interface ScatterDatum {
   venue: string;
   collection: string;
   quality: string;
+  /** True when NFT has no market valuation — positioned via GUN appreciation P&L */
+  noMarketData?: boolean;
 }
 
 const MARGIN = { top: 40, right: 20, bottom: 38, left: 58 };
@@ -222,6 +224,15 @@ function ScatterChartZoomed({
         <linearGradient id="stem-loss" x1="0" y1="1" x2="0" y2="0">
           <stop offset="0%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
           <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0.4} />
+        </linearGradient>
+        {/* GUN Δ — hollow dots reuse profit/loss colors with dashed stems */}
+        <linearGradient id="stem-gun-delta-profit" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor={chartTheme.colors.profit} stopOpacity={0} />
+          <stop offset="100%" stopColor={chartTheme.colors.profit} stopOpacity={0.3} />
+        </linearGradient>
+        <linearGradient id="stem-gun-delta-loss" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor={chartTheme.colors.loss} stopOpacity={0} />
+          <stop offset="100%" stopColor={chartTheme.colors.loss} stopOpacity={0.3} />
         </linearGradient>
       </>
     ),
@@ -414,11 +425,70 @@ function ScatterChartZoomed({
               const isProfit = d.floor >= d.cost;
               const isLocked = lockedId === d.id;
               const r = sizeScale(d.quantity);
+              const isNew = newIds.has(d.id);
+              const staggerDelay = randomDelayMap.get(d.id) ?? 0;
+
+              // GUN Δ dots: hollow green/red outline, fixed size, one per individual NFT
+              if (d.noMarketData) {
+                const hr = 4; // fixed radius for all hollow dots
+                const dotColor = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
+                const stemGrad = isProfit ? 'url(#stem-gun-delta-profit)' : 'url(#stem-gun-delta-loss)';
+                const highlightGrad = isProfit ? 'url(#dot-highlight-profit)' : 'url(#dot-highlight-loss)';
+                return (
+                  <g
+                    key={d.id}
+                    style={isNew ? {
+                      animation: `star-appear 2.5s cubic-bezier(0.22, 1, 0.36, 1) ${staggerDelay.toFixed(2)}s both`,
+                      transformOrigin: `${cx}px ${cy}px`,
+                    } : undefined}
+                  >
+                    <line
+                      x1={cx} y1={innerHeight} x2={cx} y2={cy}
+                      stroke={stemGrad}
+                      strokeWidth={isLocked ? 2 : 1}
+                      strokeDasharray="4 3"
+                      pointerEvents="none"
+                      style={{ transition: 'stroke-width 200ms ease' }}
+                    />
+                    {/* Outer glow */}
+                    <circle
+                      cx={cx} cy={cy}
+                      r={isLocked ? hr + 10 : hr + 4}
+                      fill={dotColor}
+                      fillOpacity={isLocked ? 0.12 : 0.04}
+                      pointerEvents="none"
+                      style={{ transition: 'r 250ms ease, fill-opacity 250ms ease' }}
+                    />
+                    {/* Hollow circle — stroke only */}
+                    <Circle
+                      cx={cx} cy={cy}
+                      r={isLocked ? hr + 2 : hr}
+                      fill="none"
+                      stroke={dotColor}
+                      strokeWidth={isLocked ? 2 : 1.5}
+                      strokeOpacity={isLocked ? 0.95 : 0.6}
+                      filter={isLocked ? 'url(#scatter-glow)' : undefined}
+                      pointerEvents="none"
+                      data-dot=""
+                      style={{ transition: 'r 250ms ease, stroke-opacity 250ms ease, stroke-width 250ms ease' }}
+                    />
+                    {/* Inner highlight */}
+                    <circle
+                      cx={cx} cy={cy}
+                      r={isLocked ? hr + 1 : hr - 1}
+                      fill={highlightGrad}
+                      fillOpacity={isLocked ? 0.3 : 0.1}
+                      pointerEvents="none"
+                      style={{ transition: 'r 250ms ease, fill-opacity 250ms ease' }}
+                    />
+                  </g>
+                );
+              }
+
+              // Market-valued dots: filled green/red
               const color = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
               const highlightId = isProfit ? 'dot-highlight-profit' : 'dot-highlight-loss';
               const stemId = isProfit ? 'stem-profit' : 'stem-loss';
-              const isNew = newIds.has(d.id);
-              const staggerDelay = randomDelayMap.get(d.id) ?? 0;
 
               return (
                 <g
@@ -469,8 +539,7 @@ function ScatterChartZoomed({
 
             {/* HUD lock-on overlay */}
             {lockedId && lockedPoint && lockedDatum && (() => {
-              const isProfit = lockedDatum.floor >= lockedDatum.cost;
-              const color = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
+              const color = lockedDatum.floor >= lockedDatum.cost ? chartTheme.colors.profit : chartTheme.colors.loss;
               const r = sizeScale(lockedDatum.quantity);
               return (
                 <HudLockOverlay
@@ -539,41 +608,58 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
   const [lockedDatum, setLockedDatum] = useState<ScatterDatum | null>(null);
 
   const scatterData = useMemo<ScatterDatum[]>(() => {
-    return nfts
-      .filter(nft => {
-        if (nft.purchasePriceGun == null || nft.purchasePriceGun <= 0) return false;
-        const value = nft.currentLowestListing ?? nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.floorPrice;
-        return value != null && value > 0;
-      })
-      .map(nft => ({
-        id: nft.tokenId,
-        name: nft.name,
-        cost: nft.purchasePriceGun!,
-        floor: (nft.currentLowestListing ?? nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.floorPrice)!,
-        quantity: nft.quantity ?? 1,
-        venue: nft.acquisitionVenue ?? 'unknown',
-        collection: nft.collection,
-        quality: nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '',
-      }));
-  }, [nfts]);
+    const result: ScatterDatum[] = [];
+    for (const nft of nfts) {
+      if (nft.purchasePriceGun == null || nft.purchasePriceGun <= 0) continue;
+      const cost = nft.purchasePriceGun;
+      const marketValue = nft.currentLowestListing ?? nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.floorPrice;
+
+      if (marketValue != null && marketValue > 0) {
+        // Market-valued: filled dot
+        result.push({
+          id: nft.tokenId, name: nft.name, cost,
+          floor: marketValue, quantity: nft.quantity ?? 1,
+          venue: nft.acquisitionVenue ?? 'unknown',
+          collection: nft.collection,
+          quality: nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '',
+        });
+      } else if (
+        gunPrice && gunPrice > 0
+        && nft.purchasePriceUsd && nft.purchasePriceUsd > 0
+      ) {
+        // GUN Δ: hollow dots — one per individual NFT (not grouped)
+        const historicalGunUsd = nft.purchasePriceUsd / cost;
+        const syntheticFloor = cost * (gunPrice / historicalGunUsd);
+        const qty = nft.quantity ?? 1;
+        for (let i = 0; i < qty; i++) {
+          // Small deterministic jitter so stacked dots don't overlap perfectly
+          const jitter = qty > 1 ? (i - (qty - 1) / 2) * cost * 0.02 : 0;
+          result.push({
+            id: qty > 1 ? `${nft.tokenId}:${i}` : nft.tokenId,
+            name: nft.name, cost: cost + jitter,
+            floor: syntheticFloor, quantity: 1,
+            venue: nft.acquisitionVenue ?? 'unknown',
+            collection: nft.collection,
+            quality: nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '',
+            noMarketData: true,
+          });
+        }
+      }
+    }
+    return result;
+  }, [nfts, gunPrice]);
 
   const stats = useMemo(() => {
     let profitable = 0;
     let losing = 0;
+    let gunDelta = 0;
     for (const d of scatterData) {
+      if (d.noMarketData) { gunDelta++; continue; }
       if (d.floor >= d.cost) profitable++;
       else losing++;
     }
-    return { profitable, losing, total: scatterData.length };
+    return { profitable, losing, gunDelta, total: scatterData.length };
   }, [scatterData]);
-
-  const withCostOnly = useMemo(() => {
-    return nfts.filter(nft => {
-      if (nft.purchasePriceGun == null || nft.purchasePriceGun <= 0) return false;
-      const value = nft.currentLowestListing ?? nft.comparableSalesMedian ?? nft.rarityFloor ?? nft.floorPrice;
-      return !value || value <= 0;
-    }).length;
-  }, [nfts]);
 
   const hasChartData = scatterData.length >= 2;
   const chartHeight = CHART_HEIGHT;
@@ -667,15 +753,35 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
           </ParentSize>
 
           {/* Legend + locked item data */}
-          <div className="flex items-center gap-3 mt-2 h-[28px]">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.profit, boxShadow: `0 0 4px ${chartTheme.colors.profit}40` }} />
-              <span className="font-mono text-micro text-[var(--gs-gray-3)]">Profit</span>
+          <div className="flex items-center gap-2.5 mt-2 h-[28px]">
+            {/* Market-based group */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.profit, boxShadow: `0 0 4px ${chartTheme.colors.profit}40` }} />
+                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Profit</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.loss, boxShadow: `0 0 4px ${chartTheme.colors.loss}40` }} />
+                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Loss</span>
+              </div>
+              <span className="font-mono text-[8px] uppercase tracking-widest text-[var(--gs-gray-2)]">market</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.loss, boxShadow: `0 0 4px ${chartTheme.colors.loss}40` }} />
-              <span className="font-mono text-micro text-[var(--gs-gray-3)]">Loss</span>
+            {/* Divider */}
+            <div className="w-px h-3 bg-white/10" />
+            {/* GUN Δ group */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ border: `1.5px solid ${chartTheme.colors.profit}`, boxShadow: `0 0 4px ${chartTheme.colors.profit}40` }} />
+                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Profit</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ border: `1.5px solid ${chartTheme.colors.loss}`, boxShadow: `0 0 4px ${chartTheme.colors.loss}40` }} />
+                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Loss</span>
+              </div>
+              <span className="font-mono text-[8px] uppercase tracking-widest text-[var(--gs-gray-2)]">gun&nbsp;&#916;</span>
             </div>
+            {/* Size hint */}
+            <div className="w-px h-3 bg-white/10" />
             <span className="font-mono text-micro text-[var(--gs-gray-2)]">
               Size&nbsp;=&nbsp;qty
             </span>
@@ -684,6 +790,7 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
               const pnl = lockedDatum.floor - lockedDatum.cost;
               const pnlPct = lockedDatum.cost > 0 ? (pnl / lockedDatum.cost) * 100 : 0;
               const isProfit = pnl >= 0;
+              const isGunDelta = !!lockedDatum.noMarketData;
               const accentColor = isProfit ? chartTheme.colors.profit : chartTheme.colors.loss;
               const qualityCol = RARITY_COLORS[lockedDatum.quality] || '#888888';
               return (
@@ -717,7 +824,7 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
                     Cost {formatGun(lockedDatum.cost)}
                   </span>
                   <span style={{ display: 'inline-block', minWidth: 56, color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
-                    Val {formatGun(lockedDatum.floor)}
+                    {isGunDelta ? 'GUN \u0394' : 'Val'} {formatGun(lockedDatum.floor)}
                   </span>
                   <span
                     style={{
@@ -737,9 +844,7 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
         </>
       ) : (
         <p className="font-mono text-caption text-[var(--gs-gray-3)] text-center py-4">
-          {withCostOnly > 0
-            ? `${withCostOnly} NFTs have cost data but no value estimate yet`
-            : 'Need at least 2 NFTs with both cost and value data'}
+          Need at least 2 NFTs with cost and value data
         </p>
       )}
     </div>
@@ -757,7 +862,7 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
           NFT Cost vs Value
         </p>
         <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
-          {hasChartData ? `${stats.total} items` : `${withCostOnly + scatterData.length} with cost`}
+          {hasChartData ? `${stats.total} items` : `${scatterData.length} with cost`}
         </span>
         <span className="ml-auto flex items-center gap-2">
           {hasChartData ? (
@@ -768,6 +873,11 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
               <span className="font-mono text-micro tabular-nums px-1.5 py-0.5 text-[var(--gs-loss)]" style={{ background: 'rgba(255,68,68,0.06)' }}>
                 {stats.losing} {'\u25BC'}
               </span>
+              {stats.gunDelta > 0 && (
+                <span className="font-mono text-micro tabular-nums px-1.5 py-0.5 text-[var(--gs-gray-3)]" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  {stats.gunDelta} &#916;
+                </span>
+              )}
             </>
           ) : (
             <span className="font-mono text-micro text-[var(--gs-gray-3)]">needs value data</span>

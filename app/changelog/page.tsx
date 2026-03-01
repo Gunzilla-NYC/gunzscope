@@ -21,9 +21,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.4.5',
+    version: 'v0.4.6',
     date: 'Mar 1, 2026',
     tag: 'current',
+    items: [
+      'GUN\u00a0\u0394 hollow dots on Cost\u00a0vs\u00a0Value scatter chart \u2014 NFTs without market valuation (no listing, comparable sale, rarity floor, or collection floor) now appear as hollow circles positioned via synthetic floor derived from GUN token appreciation: syntheticFloor\u00a0=\u00a0cost\u00a0\u00d7\u00a0(gunPrice\u00a0/\u00a0historicalGunUsd)',
+      'Hollow dots use profit/loss green/red coloring (not amber) with dashed stems to distinguish from filled market\u2011valued dots; fixed 4px radius, no quantity scaling',
+      'Grouped GUN\u00a0\u0394 NFTs (\u00d72, \u00d73) expanded into individual hollow dots with deterministic \u00b12% cost jitter to prevent visual stacking',
+      'Legend restructured with MARKET / GUN\u00a0\u0394 sections separated by pipe dividers; each section shows filled vs hollow profit/loss indicators',
+      'portfolioInsights.ts \u2014 generateInsights now includes GUN\u00a0\u0394 items in total unrealized P&L; added getGunDeltaPnlUsd() helper for Track\u00a0A currency appreciation; new gun_delta insight type with isNeutral amber styling',
+      'Insight quantity counting uses nft.quantity\u00a0??\u00a01 instead of array length \u2014 grouped \u00d72 NFTs count as 2 individual items in "below cost basis" and totalTracked denominators',
+      'InsightsPanel.tsx \u2014 gun_delta icon (swap arrows SVG) with amber accent when isNeutral',
+      'portfolioInsights test suite expanded to 12 tests; added quantity>1 coverage',
+    ],
+  },
+  {
+    version: 'v0.4.5',
+    date: 'Mar 1, 2026',
     items: [
       'Autonomys Auto Drive integration \u2014 attestation metadata uploaded to Autonomys DSN via @autonomys/auto\u2011drive SDK; /api/attestation/upload route accepts JSON payload, returns CID + gateway URL; usePortfolioAttestation uploads before on\u2011chain tx, falls back to inline data:\u00a0URI if upload fails',
       'On\u2011Chain Explorer \u2014 public /explore page queries PortfolioAttested events from C\u2011Chain contract; /api/attestation/events route with chunked queryFilter (49k block range per call, public RPC 50k limit) + 5\u2011min server\u2011side cache + stale fallback on error; useExplorer hook',

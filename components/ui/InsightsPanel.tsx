@@ -75,15 +75,22 @@ export default function InsightsPanel({ insights, isLoading, onInsightClick }: I
                 <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             )}
+            {insight.type === 'gun_delta' && (
+              <svg className="w-3 h-3" style={{ color: '#F59E0B' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+              </svg>
+            )}
             <span>{insight.label}</span>
             {insight.nftName && (
               <span className="text-white/40 truncate max-w-[80px]">· {insight.nftName}</span>
             )}
           </span>
           <span
-            className={`text-data font-mono font-medium ${
-              insight.isPositive ? 'text-[var(--gs-profit)]' : 'text-[var(--gs-loss)]'
-            }`}
+            className="text-data font-mono font-medium"
+            style={{
+              color: insight.isNeutral ? '#F59E0B'
+                : insight.isPositive ? 'var(--gs-profit)' : 'var(--gs-loss)',
+            }}
           >
             {insight.value}
           </span>
