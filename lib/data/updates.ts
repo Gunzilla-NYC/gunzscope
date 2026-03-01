@@ -15,23 +15,32 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.6',
+    version: 'v0.4.7',
     date: 'Mar 1, 2026',
     tag: 'current',
-    title: 'The invisible 6 finally showed up',
+    title: 'Nothing is free, especially on\u2011chain',
     items: [
-      'Your Cost vs Value chart was hiding NFTs that didn\u2019t have market data \u2014 no listings, no recent sales, nothing to price them against. They had GUN appreciation P&L on their cards, but the chart pretended they didn\u2019t exist. Now they show up as hollow circles, positioned by how much GUN itself moved since you bought them.',
-      'Filled dots = market\u2011priced. Hollow dots = GUN\u2011only. Both green for profit, red for loss. If you own multiples, each one gets its own dot instead of one bigger circle.',
-      'The insights panel now counts individual NFTs, not grouped cards. "14 of 17" was a lie \u2014 your \u00d72 holdings are two items, not one.',
+      'Attestations now cost 0.01\u00a0AVAX. Somebody has to pay for the block space. Your wallet shows the fee before you sign \u2014 no surprises, no hidden charges.',
+      'When you look up your attestation on the block explorer, the metadata link now goes to gunzscope.xyz instead of some third\u2011party domain you\u2019ve never heard of. Same permanent storage underneath. Better front door.',
+    ],
+  },
+  {
+    version: 'v0.4.6',
+    date: 'Mar 1, 2026',
+    title: 'The chart was lying by omission',
+    items: [
+      'Your Cost vs Value chart quietly ignored every NFT that didn\u2019t have market data. No listings, no sales, no dot on the chart. Gone. Those NFTs still had GUN appreciation on their cards, but the chart pretended they didn\u2019t exist. Now they show up as hollow circles \u2014 positioned by how much GUN moved since you bought them.',
+      'Filled dot = someone put a price on it. Hollow dot = GUN math only. Both turn green or red. If you own three of something, you get three dots, not one big one.',
+      'The insights panel said "14 of 17 items" when it meant 14 of 22. Turns out a \u00d72 grouped card is two NFTs, not one. Counting is hard.',
     ],
   },
   {
     version: 'v0.4.5',
     date: 'Mar 1, 2026',
-    title: 'Now you can watch it happen',
+    title: 'Proof, but make it public',
     items: [
-      'On\u2011chain explorer \u2014 a new /explore page shows every portfolio attestation live on Avalanche C\u2011Chain. Wallet addresses, GUN values, timestamps, links to Snowtrace and Autonomys. Public page, no login required.',
-      'Attestation metadata now stored permanently on Autonomys decentralized storage network. Your portfolio proof lives on\u2011chain AND off\u2011chain \u2014 the Merkle root on Avalanche, the full item list on Autonomys. Both verifiable, both permanent.',
+      'New /explore page \u2014 every portfolio attestation that hits C\u2011Chain shows up here. Wallets, GUN totals, timestamps, links to the actual transactions. No login required. Go see who\u2019s actually using this thing.',
+      'Your attestation metadata now lives on decentralized storage permanently. The Merkle root sits on Avalanche, the full item list sits on Autonomys. Both verifiable. Both not going anywhere.',
     ],
   },
   {

@@ -13,7 +13,8 @@ export const AVALANCHE_CHAIN_ID_HEX = '0xA86A';
 
 // ABI — only the functions we call (keeps bundle small)
 export const ATTESTATION_ABI = [
-  'function attest(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, string metadataURI) external returns (uint256)',
+  'function attest(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, string metadataURI) external payable returns (uint256)',
+  'function attestFee() external view returns (uint256)',
   'function getAttestationCount(address wallet) external view returns (uint256)',
   'function getAttestation(address wallet, uint256 index) external view returns (tuple(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, uint48 timestamp, string metadataURI))',
   'function getLatestAttestation(address wallet) external view returns (tuple(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, uint48 timestamp, string metadataURI))',
@@ -61,12 +62,16 @@ export async function submitAttestation(
 ): Promise<{ txHash: string; attestationId: number }> {
   const contract = getWriteContract(signer);
 
+  // Read the current fee from the contract
+  const fee: bigint = await contract.attestFee();
+
   const tx = await contract.attest(
     params.blockNumber,
     params.merkleRoot,
     params.totalValueGun,
     params.itemCount,
     params.metadataURI,
+    { value: fee },
   );
 
   const receipt = await tx.wait();
@@ -140,6 +145,16 @@ export async function verifyHolding(
 ): Promise<boolean> {
   const contract = getReadContract(provider);
   return contract.verifyHolding(wallet, attestationIndex, leaf, proof);
+}
+
+/**
+ * Get the current attestation fee (in wei).
+ */
+export async function getAttestFee(
+  provider: ethers.Provider,
+): Promise<bigint> {
+  const contract = getReadContract(provider);
+  return contract.attestFee();
 }
 
 /**

@@ -53,20 +53,42 @@ export declare namespace PortfolioAttestation {
 export interface PortfolioAttestationInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "UPGRADE_INTERFACE_VERSION"
       | "attest"
+      | "attestFee"
       | "getAttestation"
       | "getAttestationCount"
       | "getLatestAttestation"
+      | "initialize"
+      | "owner"
+      | "proxiableUUID"
+      | "setFee"
       | "totalAttestations"
+      | "totalFeesCollected"
+      | "transferOwnership"
+      | "upgradeToAndCall"
       | "verifyHolding"
+      | "withdraw"
   ): FunctionFragment;
 
-  getEvent(nameOrSignatureOrTopic: "PortfolioAttested"): EventFragment;
+  getEvent(
+    nameOrSignatureOrTopic:
+      | "FeeUpdated"
+      | "Initialized"
+      | "OwnerTransferred"
+      | "PortfolioAttested"
+      | "Upgraded"
+  ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "UPGRADE_INTERFACE_VERSION",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "attest",
     values: [BigNumberish, BytesLike, BigNumberish, BigNumberish, string]
   ): string;
+  encodeFunctionData(functionFragment: "attestFee", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "getAttestation",
     values: [AddressLike, BigNumberish]
@@ -80,15 +102,46 @@ export interface PortfolioAttestationInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "initialize",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(functionFragment: "owner", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "proxiableUUID",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setFee",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "totalAttestations",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "totalFeesCollected",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transferOwnership",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "upgradeToAndCall",
+    values: [AddressLike, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "verifyHolding",
     values: [AddressLike, BigNumberish, BytesLike, BytesLike[]]
   ): string;
+  encodeFunctionData(functionFragment: "withdraw", values?: undefined): string;
 
+  decodeFunctionResult(
+    functionFragment: "UPGRADE_INTERFACE_VERSION",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "attest", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "attestFee", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getAttestation",
     data: BytesLike
@@ -101,14 +154,72 @@ export interface PortfolioAttestationInterface extends Interface {
     functionFragment: "getLatestAttestation",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "proxiableUUID",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "setFee", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "totalAttestations",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "totalFeesCollected",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "transferOwnership",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "upgradeToAndCall",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "verifyHolding",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "withdraw", data: BytesLike): Result;
+}
+
+export namespace FeeUpdatedEvent {
+  export type InputTuple = [oldFee: BigNumberish, newFee: BigNumberish];
+  export type OutputTuple = [oldFee: bigint, newFee: bigint];
+  export interface OutputObject {
+    oldFee: bigint;
+    newFee: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace InitializedEvent {
+  export type InputTuple = [version: BigNumberish];
+  export type OutputTuple = [version: bigint];
+  export interface OutputObject {
+    version: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace OwnerTransferredEvent {
+  export type InputTuple = [oldOwner: AddressLike, newOwner: AddressLike];
+  export type OutputTuple = [oldOwner: string, newOwner: string];
+  export interface OutputObject {
+    oldOwner: string;
+    newOwner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace PortfolioAttestedEvent {
@@ -138,6 +249,18 @@ export namespace PortfolioAttestedEvent {
     itemCount: bigint;
     blockNumber: bigint;
     metadataURI: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace UpgradedEvent {
+  export type InputTuple = [implementation: AddressLike];
+  export type OutputTuple = [implementation: string];
+  export interface OutputObject {
+    implementation: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -188,6 +311,8 @@ export interface PortfolioAttestation extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  UPGRADE_INTERFACE_VERSION: TypedContractMethod<[], [string], "view">;
+
   attest: TypedContractMethod<
     [
       blockNumber: BigNumberish,
@@ -197,8 +322,10 @@ export interface PortfolioAttestation extends BaseContract {
       metadataURI: string
     ],
     [bigint],
-    "nonpayable"
+    "payable"
   >;
+
+  attestFee: TypedContractMethod<[], [bigint], "view">;
 
   getAttestation: TypedContractMethod<
     [wallet: AddressLike, index: BigNumberish],
@@ -218,7 +345,33 @@ export interface PortfolioAttestation extends BaseContract {
     "view"
   >;
 
+  initialize: TypedContractMethod<
+    [_attestFee: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  owner: TypedContractMethod<[], [string], "view">;
+
+  proxiableUUID: TypedContractMethod<[], [string], "view">;
+
+  setFee: TypedContractMethod<[newFee: BigNumberish], [void], "nonpayable">;
+
   totalAttestations: TypedContractMethod<[], [bigint], "view">;
+
+  totalFeesCollected: TypedContractMethod<[], [bigint], "view">;
+
+  transferOwnership: TypedContractMethod<
+    [newOwner: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  upgradeToAndCall: TypedContractMethod<
+    [newImplementation: AddressLike, data: BytesLike],
+    [void],
+    "payable"
+  >;
 
   verifyHolding: TypedContractMethod<
     [
@@ -231,10 +384,15 @@ export interface PortfolioAttestation extends BaseContract {
     "view"
   >;
 
+  withdraw: TypedContractMethod<[], [void], "nonpayable">;
+
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
   ): T;
 
+  getFunction(
+    nameOrSignature: "UPGRADE_INTERFACE_VERSION"
+  ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "attest"
   ): TypedContractMethod<
@@ -246,8 +404,11 @@ export interface PortfolioAttestation extends BaseContract {
       metadataURI: string
     ],
     [bigint],
-    "nonpayable"
+    "payable"
   >;
+  getFunction(
+    nameOrSignature: "attestFee"
+  ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "getAttestation"
   ): TypedContractMethod<
@@ -266,8 +427,33 @@ export interface PortfolioAttestation extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "initialize"
+  ): TypedContractMethod<[_attestFee: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "owner"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "proxiableUUID"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "setFee"
+  ): TypedContractMethod<[newFee: BigNumberish], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "totalAttestations"
   ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "totalFeesCollected"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "transferOwnership"
+  ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "upgradeToAndCall"
+  ): TypedContractMethod<
+    [newImplementation: AddressLike, data: BytesLike],
+    [void],
+    "payable"
+  >;
   getFunction(
     nameOrSignature: "verifyHolding"
   ): TypedContractMethod<
@@ -280,7 +466,31 @@ export interface PortfolioAttestation extends BaseContract {
     [boolean],
     "view"
   >;
+  getFunction(
+    nameOrSignature: "withdraw"
+  ): TypedContractMethod<[], [void], "nonpayable">;
 
+  getEvent(
+    key: "FeeUpdated"
+  ): TypedContractEvent<
+    FeeUpdatedEvent.InputTuple,
+    FeeUpdatedEvent.OutputTuple,
+    FeeUpdatedEvent.OutputObject
+  >;
+  getEvent(
+    key: "Initialized"
+  ): TypedContractEvent<
+    InitializedEvent.InputTuple,
+    InitializedEvent.OutputTuple,
+    InitializedEvent.OutputObject
+  >;
+  getEvent(
+    key: "OwnerTransferred"
+  ): TypedContractEvent<
+    OwnerTransferredEvent.InputTuple,
+    OwnerTransferredEvent.OutputTuple,
+    OwnerTransferredEvent.OutputObject
+  >;
   getEvent(
     key: "PortfolioAttested"
   ): TypedContractEvent<
@@ -288,8 +498,48 @@ export interface PortfolioAttestation extends BaseContract {
     PortfolioAttestedEvent.OutputTuple,
     PortfolioAttestedEvent.OutputObject
   >;
+  getEvent(
+    key: "Upgraded"
+  ): TypedContractEvent<
+    UpgradedEvent.InputTuple,
+    UpgradedEvent.OutputTuple,
+    UpgradedEvent.OutputObject
+  >;
 
   filters: {
+    "FeeUpdated(uint256,uint256)": TypedContractEvent<
+      FeeUpdatedEvent.InputTuple,
+      FeeUpdatedEvent.OutputTuple,
+      FeeUpdatedEvent.OutputObject
+    >;
+    FeeUpdated: TypedContractEvent<
+      FeeUpdatedEvent.InputTuple,
+      FeeUpdatedEvent.OutputTuple,
+      FeeUpdatedEvent.OutputObject
+    >;
+
+    "Initialized(uint64)": TypedContractEvent<
+      InitializedEvent.InputTuple,
+      InitializedEvent.OutputTuple,
+      InitializedEvent.OutputObject
+    >;
+    Initialized: TypedContractEvent<
+      InitializedEvent.InputTuple,
+      InitializedEvent.OutputTuple,
+      InitializedEvent.OutputObject
+    >;
+
+    "OwnerTransferred(address,address)": TypedContractEvent<
+      OwnerTransferredEvent.InputTuple,
+      OwnerTransferredEvent.OutputTuple,
+      OwnerTransferredEvent.OutputObject
+    >;
+    OwnerTransferred: TypedContractEvent<
+      OwnerTransferredEvent.InputTuple,
+      OwnerTransferredEvent.OutputTuple,
+      OwnerTransferredEvent.OutputObject
+    >;
+
     "PortfolioAttested(address,uint256,bytes32,uint256,uint16,uint256,string)": TypedContractEvent<
       PortfolioAttestedEvent.InputTuple,
       PortfolioAttestedEvent.OutputTuple,
@@ -299,6 +549,17 @@ export interface PortfolioAttestation extends BaseContract {
       PortfolioAttestedEvent.InputTuple,
       PortfolioAttestedEvent.OutputTuple,
       PortfolioAttestedEvent.OutputObject
+    >;
+
+    "Upgraded(address)": TypedContractEvent<
+      UpgradedEvent.InputTuple,
+      UpgradedEvent.OutputTuple,
+      UpgradedEvent.OutputObject
+    >;
+    Upgraded: TypedContractEvent<
+      UpgradedEvent.InputTuple,
+      UpgradedEvent.OutputTuple,
+      UpgradedEvent.OutputObject
     >;
   };
 }

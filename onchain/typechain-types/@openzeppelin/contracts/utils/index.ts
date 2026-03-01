@@ -3,3 +3,5 @@
 /* eslint-disable */
 import type * as cryptography from "./cryptography";
 export type { cryptography };
+export type { Address } from "./Address";
+export type { Errors } from "./Errors";

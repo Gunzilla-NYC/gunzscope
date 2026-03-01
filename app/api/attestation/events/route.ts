@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { ATTESTATION_ABI, getContractAddress, getCChainProvider } from '@/lib/attestation/contract';
 
-/** Block at which PortfolioAttestation was deployed on C-Chain */
-const DEPLOYMENT_BLOCK = 79266818;
+/** Historical contract addresses and their deployment blocks on C-Chain */
+const CONTRACT_HISTORY = [
+  { address: '0x5198a3661654748b2752F351efE361DC6Ef4Cd1D', deployBlock: 79266818 },
+  { address: '0xf8f5aa3D940009987F02AD92e44A5434Bab748bf', deployBlock: 79327768 },
+  { address: '0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16', deployBlock: 79329579 }, // UUPS proxy (permanent)
+];
+
 /** Max block range per queryFilter call (public RPC limit) */
 const BLOCK_CHUNK = 49000;
 
@@ -17,6 +22,7 @@ interface AttestationEvent {
   metadataURI: string;
   txHash: string;
   timestamp: number;
+  contractAddress: string;
 }
 
 interface CachedResponse {
@@ -38,21 +44,34 @@ export async function GET() {
 
   try {
     const provider = getCChainProvider();
-    const contract = new ethers.Contract(getContractAddress(), ATTESTATION_ABI, provider);
-
-    // Query PortfolioAttested events in chunks (public RPC has 50k block limit)
-    const filter = contract.filters.PortfolioAttested();
     const latestBlock = await provider.getBlockNumber();
-    const logs: ethers.EventLog[] = [];
 
-    for (let from = DEPLOYMENT_BLOCK; from <= latestBlock; from += BLOCK_CHUNK) {
-      const to = Math.min(from + BLOCK_CHUNK - 1, latestBlock);
-      const chunk = await contract.queryFilter(filter, from, to);
-      logs.push(...(chunk as ethers.EventLog[]));
+    // Include the current contract address in case it's not in history yet
+    const currentAddress = getContractAddress();
+    const allContracts = [...CONTRACT_HISTORY];
+    if (!allContracts.some(c => c.address.toLowerCase() === currentAddress.toLowerCase())) {
+      allContracts.push({ address: currentAddress, deployBlock: CONTRACT_HISTORY.at(-1)?.deployBlock ?? 79266818 });
+    }
+
+    // Query events from all contract addresses
+    const allLogs: (ethers.EventLog & { _contractAddress: string })[] = [];
+
+    for (const { address, deployBlock } of allContracts) {
+      const contract = new ethers.Contract(address, ATTESTATION_ABI, provider);
+      const filter = contract.filters.PortfolioAttested();
+
+      for (let from = deployBlock; from <= latestBlock; from += BLOCK_CHUNK) {
+        const to = Math.min(from + BLOCK_CHUNK - 1, latestBlock);
+        const chunk = await contract.queryFilter(filter, from, to);
+        for (const log of chunk) {
+          (log as ethers.EventLog & { _contractAddress: string })._contractAddress = address;
+          allLogs.push(log as ethers.EventLog & { _contractAddress: string });
+        }
+      }
     }
 
     // Collect unique block numbers for timestamp lookup
-    const blockNumbers = [...new Set(logs.map(l => l.blockNumber))];
+    const blockNumbers = [...new Set(allLogs.map(l => l.blockNumber))];
     const blockTimestamps = new Map<number, number>();
     await Promise.all(
       blockNumbers.map(async (bn) => {
@@ -61,13 +80,14 @@ export async function GET() {
       }),
     );
 
-    // Parse events
+    // Parse events — use first contract's interface (ABI is the same across versions)
+    const iface = new ethers.Interface(ATTESTATION_ABI);
     const events: AttestationEvent[] = [];
     let totalGunWei = BigInt(0);
     const walletSet = new Set<string>();
 
-    for (const log of logs) {
-      const parsed = contract.interface.parseLog({
+    for (const log of allLogs) {
+      const parsed = iface.parseLog({
         topics: [...log.topics],
         data: log.data,
       });
@@ -88,6 +108,7 @@ export async function GET() {
         metadataURI: parsed.args.metadataURI as string,
         txHash: log.transactionHash,
         timestamp: blockTimestamps.get(log.blockNumber) ?? 0,
+        contractAddress: log._contractAddress,
       });
     }
 
