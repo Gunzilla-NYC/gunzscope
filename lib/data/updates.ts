@@ -15,9 +15,28 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.1',
+    version: 'v0.4.3',
     date: 'Feb 28, 2026',
     tag: 'current',
+    title: 'Trial by referral',
+    items: [
+      'New trial access window \u2014 72 hours of full portfolio access including your referral link. Get 1 friend to sign up through your link within the trial and you keep access permanently.',
+      'Expired trial users get a lower referral threshold than the regular waitlist. Early adopters shouldn\u2019t have to work as hard as everyone else.',
+      'One trial per wallet. No infinite retries.',
+    ],
+  },
+  {
+    version: 'v0.4.2',
+    date: 'Feb 28, 2026',
+    title: 'Bad actors, meet the door',
+    items: [
+      'Banned users now see a clear "ACCESS REVOKED" page instead of silently re\u2011enrolling in the waitlist. If you\u2019re out, you know it.',
+      'Fixed a bug where the wallet connection flow could get permanently stuck on "Choose Your Handle" \u2014 the Confirm button showed "..." forever because nobody told it to stop submitting. One\u2011liner fix.',
+    ],
+  },
+  {
+    version: 'v0.4.1',
+    date: 'Feb 28, 2026',
     title: 'The hero section went to the gym',
     items: [
       'Redesigned the landing page hero \u2014 "YOUR OTG" is now a compact super\u2011label with a glowing purple accent, while the scramble word (Intelligence, Lore, Legacy, Edge) takes center stage at 104px. Bigger type, clearer hierarchy.',
@@ -48,6 +67,7 @@ export const UPDATES: UpdateEntry[] = [
     items: [
       'Non\u2011whitelisted wallets now actually reach the waitlist page instead of bouncing back to the home screen. Turns out "join the waitlist" works better when the waitlist lets you in the door.',
       'Wallet address inputs across the site now share the same component \u2014 chain detection badge, validation hints, the works. Paste an EVM address, get a "GunzChain" badge. Paste a Solana address, get a "Solana" badge. Paste gibberish, get a gentle red nudge.',
+      'Internal tooling got a layout pass \u2014 inputs, buttons, and address bars now line up properly across the board.',
     ],
   },
   {
@@ -56,6 +76,7 @@ export const UPDATES: UpdateEntry[] = [
     title: 'The referral section learned to explain itself',
     items: [
       'Fixed "Failed to load referral data" showing a dead\u2011end error with no useful info. Now logs the actual HTTP status and server message to the console, so when something breaks you can see why instead of staring at a red wall.',
+      'New /roadmap page with the on\u2011chain architecture overview. If you\u2019re curious where GUNZscope is headed, it\u2019s all there.',
     ],
   },
   {
@@ -86,6 +107,7 @@ export const UPDATES: UpdateEntry[] = [
       'Cost basis is no longer floating alone above everything. It moved inside Track\u00a0A where it belongs \u2014 right above "Today\u2019s Value", so you read top\u2011to\u2011bottom: what you paid, what it\u2019s worth now, how that math worked out. Novel concept, reading order.',
       'Track\u00a0B now shows exactly how confident you should be in its estimate. A green dot, the tier label ("VIA\u00a0SALES", "FLOOR", etc.), sample count, and whether it\u2019s above or below floor. All the context to decide if the number is a real signal or a educated guess with a nice font.',
       'The "Observed Market Range" section that used to sit below the position card? Gone. It was information duplication dressed up as a feature. Track\u00a0B now handles all market context in a cleaner format.',
+      'The /brand page moved behind a gate. Brand guidelines are internal \u2014 if you need them, you know where to find them.',
     ],
   },
   {
