@@ -472,19 +472,37 @@ function extractCostFromOrderFulfilled(
       : '';
 
     try {
-      // Decode the non-indexed data: (bytes32 orderHash, SpentItem[] offer, ReceivedItem[] consideration)
+      // Decode the non-indexed data. Seaport v1.5 and v1.6 have different layouts:
+      // v1.5: (bytes32 orderHash, SpentItem[] offer, ReceivedItem[] consideration)
+      // v1.6: (bytes32 orderHash, address recipient, SpentItem[] offer, ReceivedItem[] consideration)
       const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-      const decoded = abiCoder.decode(
-        [
-          'bytes32',                                          // orderHash
-          'tuple(uint8,address,uint256,uint256)[]',           // offer (SpentItem[])
-          'tuple(uint8,address,uint256,uint256,address)[]',   // consideration (ReceivedItem[])
-        ],
-        log.data
-      );
 
-      const offerItems = decoded[1] as Array<[bigint, string, bigint, bigint]>;
-      const considerationItems = decoded[2] as Array<[bigint, string, bigint, bigint, string]>;
+      const ABI_V15 = [
+        'bytes32',                                          // orderHash
+        'tuple(uint8,address,uint256,uint256)[]',           // offer (SpentItem[])
+        'tuple(uint8,address,uint256,uint256,address)[]',   // consideration (ReceivedItem[])
+      ];
+      const ABI_V16 = [
+        'bytes32',                                          // orderHash
+        'address',                                          // recipient (new in v1.6)
+        'tuple(uint8,address,uint256,uint256)[]',           // offer (SpentItem[])
+        'tuple(uint8,address,uint256,uint256,address)[]',   // consideration (ReceivedItem[])
+      ];
+
+      let offerItems: Array<[bigint, string, bigint, bigint]>;
+      let considerationItems: Array<[bigint, string, bigint, bigint, string]>;
+
+      try {
+        // Try v1.5 first (more common)
+        const decoded = abiCoder.decode(ABI_V15, log.data);
+        offerItems = decoded[1] as Array<[bigint, string, bigint, bigint]>;
+        considerationItems = decoded[2] as Array<[bigint, string, bigint, bigint, string]>;
+      } catch {
+        // Fallback to v1.6 (has extra recipient field)
+        const decoded = abiCoder.decode(ABI_V16, log.data);
+        offerItems = decoded[2] as Array<[bigint, string, bigint, bigint]>;
+        considerationItems = decoded[3] as Array<[bigint, string, bigint, bigint, string]>;
+      }
 
       const isOfferer = offerer === walletLower;
 

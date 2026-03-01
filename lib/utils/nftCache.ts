@@ -7,7 +7,7 @@ import type { AcquisitionVenue, NFT } from '../types';
 // Schema Versions - Increment when cache structure changes
 // =============================================================================
 const SCHEMA_VERSIONS = {
-  nftDetail: 'v24', // v24: Re-invalidate after purging stale Next.js server cache for CoinGecko historical prices
+  nftDetail: 'v25', // v25: Fix Seaport v1.6 OrderFulfilled ABI decoding — batch purchase prices were tx.value instead of per-item
   transfers: 'v2',
   priceGunUsd: 'v1',
   metadata: 'v1', // v1: NFT metadata cache (name, image, traits, mintNumber)
