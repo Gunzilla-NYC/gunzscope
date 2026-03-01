@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAutoDriveApi } from '@autonomys/auto-drive';
+import prisma from '@/lib/db';
 
-const AUTO_DRIVE_GATEWAY = 'https://gateway.autonomys.xyz/file';
+const METADATA_BASE_URL = 'https://gunzscope.xyz/api/attestation/metadata';
 
 interface AttestationMetadata {
   wallet: string;
@@ -42,12 +43,27 @@ export async function POST(request: NextRequest) {
       apiUrl: 'https://mainnet.auto-drive.autonomys.xyz/api',
     });
 
-    const filename = `gunzscope-attestation-${body.wallet.slice(0, 8)}-${Date.now()}.json`;
+    // Look up display name from DB (best-effort, falls back to truncated address)
+    let label = body.wallet.slice(2, 10);
+    try {
+      const wallet = await prisma.wallet.findFirst({
+        where: { address: body.wallet.toLowerCase() },
+        select: { userProfile: { select: { displayName: true } } },
+      });
+      if (wallet?.userProfile?.displayName) {
+        label = wallet.userProfile.displayName.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
+      }
+    } catch {
+      // DB lookup failed — use address fallback
+    }
+
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `gunzscope-${label}-${body.itemCount}nfts-${date}.json`;
     const cid = await api.uploadObjectAsJSON(body, filename, { compression: true });
 
     return NextResponse.json({
       cid: cid.toString(),
-      url: `${AUTO_DRIVE_GATEWAY}/${cid}`,
+      url: `${METADATA_BASE_URL}/${cid}`,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Upload failed';

@@ -21,9 +21,20 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.4.6',
+    version: 'v0.4.7',
     date: 'Mar 1, 2026',
     tag: 'current',
+    items: [
+      'PortfolioAttestation.sol v2 \u2014 configurable attestFee (0.01\u00a0AVAX default), owner/withdraw/transferOwnership/setFee; attest() now payable with require(msg.value\u00a0>=\u00a0attestFee); totalFeesCollected counter; FeeUpdated + OwnerTransferred events',
+      'Contract redeployed to Avalanche C\u2011Chain: 0xf8f5aa3D940009987F02AD92e44A5434Bab748bf',
+      'Frontend contract layer \u2014 ABI updated with payable attest + attestFee() view; submitAttestation() reads fee from contract and sends as tx value; exported getAttestFee() for UI display',
+      'Metadata URI now routes through gunzscope.xyz/api/attestation/metadata/{cid} instead of gateway.autonomys.xyz \u2014 /api/attestation/metadata/[cid] proxy route with 24h immutable cache',
+      'Test suite expanded to 26 tests: fee enforcement, overpayment, owner withdraw with gas accounting, ownership transfer, fee update, zero\u2011address guard',
+    ],
+  },
+  {
+    version: 'v0.4.6',
+    date: 'Mar 1, 2026',
     items: [
       'GUN\u00a0\u0394 hollow dots on Cost\u00a0vs\u00a0Value scatter chart \u2014 NFTs without market valuation (no listing, comparable sale, rarity floor, or collection floor) now appear as hollow circles positioned via synthetic floor derived from GUN token appreciation: syntheticFloor\u00a0=\u00a0cost\u00a0\u00d7\u00a0(gunPrice\u00a0/\u00a0historicalGunUsd)',
       'Hollow dots use profit/loss green/red coloring (not amber) with dashed stems to distinguish from filled market\u2011valued dots; fixed 4px radius, no quantity scaling',
