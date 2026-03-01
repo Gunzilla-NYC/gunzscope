@@ -30,6 +30,26 @@ const config: HardhatUserConfig = {
       chainId: 43113,
       accounts: [DEPLOYER_KEY],
     },
+    avalanche: {
+      url: "https://avalanche-c-chain-rpc.publicnode.com",
+      chainId: 43114,
+      accounts: [DEPLOYER_KEY],
+    },
+  },
+  etherscan: {
+    apiKey: {
+      avalanche: "verifyContract",
+    },
+    customChains: [
+      {
+        network: "avalanche",
+        chainId: 43114,
+        urls: {
+          apiURL: "https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api",
+          browserURL: "https://snowtrace.io",
+        },
+      },
+    ],
   },
 };
 

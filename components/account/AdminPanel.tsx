@@ -841,12 +841,13 @@ const GUNZCHAIN_EXPLORER = 'https://gunzscan.io';
 
 interface OnChainInfo {
   deployerBalance: string | null;
+  deployerAvaxBalance: string | null;
   totalAttestations: number | null;
   loading: boolean;
 }
 
 function OnChainTools() {
-  const [info, setInfo] = useState<OnChainInfo>({ deployerBalance: null, totalAttestations: null, loading: false });
+  const [info, setInfo] = useState<OnChainInfo>({ deployerBalance: null, deployerAvaxBalance: null, totalAttestations: null, loading: false });
 
   const fetchInfo = useCallback(async () => {
     setInfo(prev => ({ ...prev, loading: true }));
@@ -855,6 +856,7 @@ function OnChainTools() {
       const data = await res.json();
       setInfo({
         deployerBalance: data.deployerBalance ?? null,
+        deployerAvaxBalance: data.deployerAvaxBalance ?? null,
         totalAttestations: data.totalAttestations ?? null,
         loading: false,
       });
@@ -951,6 +953,15 @@ function OnChainTools() {
             <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Deployer Balance</span>
             <span className="font-mono text-data tabular-nums text-[var(--gs-warning)]">
               {info.deployerBalance} GUN
+            </span>
+          </div>
+        )}
+
+        {info.deployerAvaxBalance !== null && (
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">C&#8209;Chain Balance</span>
+            <span className="font-mono text-data tabular-nums text-[var(--gs-error)]">
+              {info.deployerAvaxBalance} AVAX
             </span>
           </div>
         )}
