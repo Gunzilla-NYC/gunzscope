@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  tweet:
+  preview:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,13 +24,29 @@ jobs:
         run: |
           TWEET_JSON=$(node scripts/compose-tweet.mjs)
           echo "tweet_json=$TWEET_JSON" >> "$GITHUB_OUTPUT"
+          TWEET_TEXT=$(echo "$TWEET_JSON" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).text))")
           echo "### Tweet Preview" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "$TWEET_JSON" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).text))" >> "$GITHUB_STEP_SUMMARY"
+          echo "$TWEET_TEXT" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Review the tweet above.** If it looks good, approve the 'post' job to publish it." >> "$GITHUB_STEP_SUMMARY"
+    outputs:
+      tweet_json: ${{ steps.compose.outputs.tweet_json }}
+
+  post:
+    needs: preview
+    runs-on: ubuntu-latest
+    environment: twitter-approval
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Post tweet
-        run: echo '${{ steps.compose.outputs.tweet_json }}' | node scripts/post-tweet.mjs
+        run: echo '${{ needs.preview.outputs.tweet_json }}' | node scripts/post-tweet.mjs
         env:
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
           TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
