@@ -58,8 +58,19 @@ describe('generateInsights', () => {
     const insights = generateInsights(nfts, 0.05);
     const belowCost = insights.find(i => i.type === 'below_cost');
     expect(belowCost).toBeDefined();
-    expect(belowCost?.value).toBe('2');
+    expect(belowCost?.value).toBe('2 of 3');
     expect(belowCost?.isPositive).toBe(false);
+  });
+
+  it('counts individual NFTs when quantity > 1', () => {
+    const nfts: NFT[] = [
+      createMockNFT({ tokenId: '1', purchasePriceGun: 200, floorPrice: 100, quantity: 2 }),
+      createMockNFT({ tokenId: '2', purchasePriceGun: 100, floorPrice: 150 }),
+    ];
+    const insights = generateInsights(nfts, 0.05);
+    const belowCost = insights.find(i => i.type === 'below_cost');
+    expect(belowCost).toBeDefined();
+    expect(belowCost?.value).toBe('2 of 3');
   });
 
   it('does not include below_cost insight if none are below cost', () => {
@@ -101,18 +112,17 @@ describe('generateInsights', () => {
     expect(bestPerformer?.nftName).toBe('With Floor');
   });
 
-  it('uses metadata.name as fallback for nftName', () => {
+  it('uses nft.name for insight nftName', () => {
     const nfts: NFT[] = [
       createMockNFT({
         tokenId: '1',
-        name: '',
-        metadata: { name: 'Metadata Name' },
+        name: 'Display Name',
         purchasePriceGun: 100,
         floorPrice: 200,
       }),
     ];
     const insights = generateInsights(nfts, 0.05);
     const bestPerformer = insights.find(i => i.type === 'best_performer');
-    expect(bestPerformer?.nftName).toBe('Metadata Name');
+    expect(bestPerformer?.nftName).toBe('Display Name');
   });
 });

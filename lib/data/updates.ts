@@ -15,9 +15,19 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.5',
+    version: 'v0.4.6',
     date: 'Mar 1, 2026',
     tag: 'current',
+    title: 'The invisible 6 finally showed up',
+    items: [
+      'Your Cost vs Value chart was hiding NFTs that didn\u2019t have market data \u2014 no listings, no recent sales, nothing to price them against. They had GUN appreciation P&L on their cards, but the chart pretended they didn\u2019t exist. Now they show up as hollow circles, positioned by how much GUN itself moved since you bought them.',
+      'Filled dots = market\u2011priced. Hollow dots = GUN\u2011only. Both green for profit, red for loss. If you own multiples, each one gets its own dot instead of one bigger circle.',
+      'The insights panel now counts individual NFTs, not grouped cards. "14 of 17" was a lie \u2014 your \u00d72 holdings are two items, not one.',
+    ],
+  },
+  {
+    version: 'v0.4.5',
+    date: 'Mar 1, 2026',
     title: 'Now you can watch it happen',
     items: [
       'On\u2011chain explorer \u2014 a new /explore page shows every portfolio attestation live on Avalanche C\u2011Chain. Wallet addresses, GUN values, timestamps, links to Snowtrace and Autonomys. Public page, no login required.',
