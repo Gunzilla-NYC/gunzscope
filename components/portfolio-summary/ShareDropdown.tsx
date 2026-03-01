@@ -28,6 +28,7 @@ interface ShareDropdownProps {
 const ATTEST_LABELS: Record<AttestationStatus, string> = {
   idle: 'Attest On\u2011Chain',
   building: 'Building proof\u2026',
+  uploading: 'Uploading metadata\u2026',
   'switching-chain': 'Switch to Avalanche\u2026',
   signing: 'Sign in wallet\u2026',
   confirming: 'Confirming\u2026',
