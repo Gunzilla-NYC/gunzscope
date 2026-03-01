@@ -21,9 +21,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.4.4',
+    date: 'Mar 1, 2026',
+    tag: 'current',
+    items: [
+      'Seaport v1.6 ABI fix \u2014 extractCostFromOrderFulfilled now tries v1.5 ABI first, falls back to v1.6 (which adds address\u00a0recipient to OrderFulfilled non\u2011indexed data); previous v1.5\u2011only decode silently failed on GunzChain\u2019s Seaport, causing tx.value fallback to assign total batch cost to every item',
+      'NFT detail cache schema v24\u2192v25 \u2014 invalidates all stale entries with incorrect batch\u2011purchase prices',
+      'On\u2011chain portfolio attestation \u2014 usePortfolioAttestation hook builds Merkle tree of NFT holdings, submits root+totalValue to PortfolioAttestation contract on Avalanche C\u2011Chain; ensureAvalancheChain() handles wallet_switchEthereumChain / wallet_addEthereumChain',
+      'ShareDropdown attestation UI \u2014 "Attest On\u2011Chain" button with 7\u2011state flow (idle/building/switching\u2011chain/signing/confirming/success/error); existing attestation indicator; Snowtrace tx link on success',
+      'WalletIdentity passes Dynamic primaryWallet connector + isOwnWallet to ShareDropdown for attestation signing',
+      'Attestation status API \u2014 GET /api/attestation/status reads deployer GUN balance (GunzChain) + AVAX balance (C\u2011Chain) + totalAttestations from contract',
+      'AdminPanel OnChainTools \u2014 added C\u2011Chain AVAX balance display',
+      'Hardhat config \u2014 added avalanche mainnet network (chainId\u00a043114) + Routescan etherscan verification; deploy:avalanche npm script',
+    ],
+  },
+  {
     version: 'v0.4.3',
     date: 'Feb 28, 2026',
-    tag: 'current',
     items: [
       'Konami trial access \u2014 Konami code now grants 72\u2011hour trial whitelist instead of permanent access; WhitelistEntry gains expiresAt DateTime? field (null\u00a0=\u00a0permanent, non\u2011null\u00a0=\u00a0trial)',
       'getWhitelistStatus() discriminated union \u2014 returns { status: permanent | trial | expired | none, expiresAt? }; replaces boolean isWhitelisted() in validate and waitlist/status endpoints',

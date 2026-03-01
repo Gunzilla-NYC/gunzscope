@@ -1,10 +1,15 @@
 /**
  * Contract interaction layer for PortfolioAttestation.
  *
- * Handles reading/writing attestations on GunzChain via ethers.js v6.
+ * Handles reading/writing attestations on Avalanche C-Chain via ethers.js v6.
  */
 
-import { ethers, type BrowserProvider, type Signer } from 'ethers';
+import { ethers, type Signer } from 'ethers';
+
+/** Avalanche C-Chain RPC for read-only contract calls */
+const CCHAIN_RPC = 'https://avalanche-c-chain-rpc.publicnode.com';
+export const AVALANCHE_CHAIN_ID = 43114;
+export const AVALANCHE_CHAIN_ID_HEX = '0xA86A';
 
 // ABI — only the functions we call (keeps bundle small)
 const ATTESTATION_ABI = [
@@ -156,6 +161,43 @@ export async function getSignerFromProvider(
 ): Promise<Signer> {
   const provider = new ethers.BrowserProvider(walletProvider as ethers.Eip1193Provider);
   return provider.getSigner();
+}
+
+/**
+ * Get a read-only provider for Avalanche C-Chain.
+ */
+export function getCChainProvider(): ethers.JsonRpcProvider {
+  return new ethers.JsonRpcProvider(CCHAIN_RPC);
+}
+
+/**
+ * Ensure the user's wallet is on Avalanche C-Chain.
+ * Attempts to switch; if chain not added, adds it first.
+ */
+export async function ensureAvalancheChain(walletProvider: unknown): Promise<void> {
+  const provider = walletProvider as ethers.Eip1193Provider;
+  try {
+    await provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: AVALANCHE_CHAIN_ID_HEX }],
+    });
+  } catch (err: unknown) {
+    // Error code 4902 = chain not added
+    if ((err as { code?: number })?.code === 4902) {
+      await provider.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: AVALANCHE_CHAIN_ID_HEX,
+          chainName: 'Avalanche C-Chain',
+          nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+          rpcUrls: [CCHAIN_RPC],
+          blockExplorerUrls: ['https://snowtrace.io'],
+        }],
+      });
+    } else {
+      throw err;
+    }
+  }
 }
 
 function parseAttestation(raw: unknown[]): OnChainAttestation {

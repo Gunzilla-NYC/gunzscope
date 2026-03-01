@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import {
   usePortfolioWallet,
   usePortfolioResult,
@@ -107,6 +108,19 @@ export default function WalletIdentity({
     return viewedLower === primaryLower ||
       allWalletAddresses.some(a => a.toLowerCase() === viewedLower);
   }, [primaryWalletAddress, address, allWalletAddresses]);
+
+  // Dynamic wallet provider for on-chain attestation signing
+  const { primaryWallet } = useDynamicContext();
+  // getWalletClient returns synchronously in Dynamic SDK v4
+  const walletProviderObj = useMemo(() => {
+    if (!primaryWallet?.connector || !isOwnWallet) return null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (primaryWallet.connector as any).getWalletClient?.() ?? null;
+    } catch {
+      return null;
+    }
+  }, [primaryWallet, isOwnWallet]);
 
   const hasPortfolioAddresses = portfolioAddresses.length > 0;
 
@@ -294,6 +308,9 @@ export default function WalletIdentity({
               nftCount={portfolioResult.nftCount}
               nftPnlPct={nftPnL.pct}
               totalGunSpent={shareGunSpent}
+              nfts={allNfts}
+              isOwnWallet={isOwnWallet}
+              walletProvider={walletProviderObj}
             />
           )}
         </div>
@@ -341,6 +358,9 @@ export default function WalletIdentity({
             nftCount={portfolioResult.nftCount}
             nftPnlPct={nftPnL.pct}
             totalGunSpent={shareGunSpent}
+            nfts={allNfts}
+            isOwnWallet={isOwnWallet}
+            walletProvider={walletProviderObj}
           />
         )}
 
