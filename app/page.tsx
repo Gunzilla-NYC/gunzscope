@@ -517,6 +517,12 @@ export default function HomePage() {
         </div>
 
         <div className="hidden md:flex items-center gap-6">
+          <Link
+            href="/explore"
+            className="font-mono text-data tracking-wider uppercase text-[var(--gs-purple)] hover:text-[var(--gs-purple-bright)] transition-colors"
+          >
+            Explore
+          </Link>
           {user && (
             <Link
               href="/portfolio"

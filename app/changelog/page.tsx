@@ -21,9 +21,20 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.4.4',
+    version: 'v0.4.5',
     date: 'Mar 1, 2026',
     tag: 'current',
+    items: [
+      'Autonomys Auto Drive integration \u2014 attestation metadata uploaded to Autonomys DSN via @autonomys/auto\u2011drive SDK; /api/attestation/upload route accepts JSON payload, returns CID + gateway URL; usePortfolioAttestation uploads before on\u2011chain tx, falls back to inline data:\u00a0URI if upload fails',
+      'On\u2011Chain Explorer \u2014 public /explore page queries PortfolioAttested events from C\u2011Chain contract; /api/attestation/events route with chunked queryFilter (49k block range per call, public RPC 50k limit) + 5\u2011min server\u2011side cache + stale fallback on error; useExplorer hook',
+      'Explorer UI \u2014 stats banner (attestations/wallets/GUN attested), desktop table + mobile cards, Snowtrace tx/address links, Autonomys gateway metadata links, loading skeletons, empty state with portfolio CTA',
+      'Navbar + sitemap + home page Explorer links \u2014 public page, no auth gate; added to isInApp check, desktop GlitchLink, mobile menu, sitemap at hourly/0.7',
+      'Exported ATTESTATION_ABI and getContractAddress() from lib/attestation/contract.ts for event query reuse',
+    ],
+  },
+  {
+    version: 'v0.4.4',
+    date: 'Mar 1, 2026',
     items: [
       'Seaport v1.6 ABI fix \u2014 extractCostFromOrderFulfilled now tries v1.5 ABI first, falls back to v1.6 (which adds address\u00a0recipient to OrderFulfilled non\u2011indexed data); previous v1.5\u2011only decode silently failed on GunzChain\u2019s Seaport, causing tx.value fallback to assign total batch cost to every item',
       'NFT detail cache schema v24\u2192v25 \u2014 invalidates all stale entries with incorrect batch\u2011purchase prices',

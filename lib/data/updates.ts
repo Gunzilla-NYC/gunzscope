@@ -15,9 +15,18 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.4',
+    version: 'v0.4.5',
     date: 'Mar 1, 2026',
     tag: 'current',
+    title: 'Now you can watch it happen',
+    items: [
+      'On\u2011chain explorer \u2014 a new /explore page shows every portfolio attestation live on Avalanche C\u2011Chain. Wallet addresses, GUN values, timestamps, links to Snowtrace and Autonomys. Public page, no login required.',
+      'Attestation metadata now stored permanently on Autonomys decentralized storage network. Your portfolio proof lives on\u2011chain AND off\u2011chain \u2014 the Merkle root on Avalanche, the full item list on Autonomys. Both verifiable, both permanent.',
+    ],
+  },
+  {
+    version: 'v0.4.4',
+    date: 'Mar 1, 2026',
     title: 'Your portfolio just went on\u2011chain',
     items: [
       'On\u2011chain portfolio attestation \u2014 you can now stamp a cryptographic proof of your holdings onto Avalanche C\u2011Chain. It\u2019s in the share menu. Your portfolio, verified on\u2011chain, no trust required.',

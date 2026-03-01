@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NFT } from '@/lib/types';
-import { buildPortfolioTree, computeTotalValueWei } from '@/lib/attestation/merkleTree';
+import { buildPortfolioTree, computeTotalValueWei, nftsToLeaves } from '@/lib/attestation/merkleTree';
 import {
   submitAttestation,
   getLatestAttestation,
@@ -15,6 +15,7 @@ import {
 export type AttestationStatus =
   | 'idle'
   | 'building'
+  | 'uploading'
   | 'switching-chain'
   | 'signing'
   | 'confirming'
@@ -97,19 +98,47 @@ export function usePortfolioAttestation(
       setStatus('building');
       const { root, leafCount } = buildPortfolioTree(nfts);
       const totalValueWei = computeTotalValueWei(nfts);
+      const leaves = nftsToLeaves(nfts);
 
       // Get current block number from C-Chain
       const cchainProvider = getCChainProvider();
       const blockNumber = await cchainProvider.getBlockNumber();
 
-      // Placeholder metadata URI until IPFS integration
-      const metadataURI = `data:application/json,{"wallet":"${walletAddress}","items":${leafCount},"block":${blockNumber}}`;
+      // Step 2: Upload metadata to Autonomys Auto Drive
+      setStatus('uploading');
+      let metadataURI: string;
+      try {
+        const res = await fetch('/api/attestation/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet: walletAddress,
+            merkleRoot: root,
+            totalValueGun: totalValueWei,
+            itemCount: leafCount,
+            blockNumber,
+            timestamp: Date.now(),
+            holdings: leaves.map(([contract, tokenId, valueWei]) => ({
+              contract, tokenId, valueWei,
+            })),
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+          throw new Error(err.error ?? 'Failed to upload metadata');
+        }
+        const { url } = await res.json();
+        metadataURI = url;
+      } catch (uploadErr) {
+        // Fallback to inline data URI if Auto Drive unavailable
+        metadataURI = `data:application/json,${encodeURIComponent(JSON.stringify({ wallet: walletAddress, items: leafCount, block: blockNumber }))}`;
+      }
 
-      // Step 2: Switch to Avalanche C-Chain if needed
+      // Step 3: Switch to Avalanche C-Chain if needed
       setStatus('switching-chain');
       await ensureAvalancheChain(walletProvider);
 
-      // Step 3: Get signer and submit
+      // Step 4: Get signer and submit
       setStatus('signing');
       const signer = await getSignerFromProvider(walletProvider);
 

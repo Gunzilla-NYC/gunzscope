@@ -12,7 +12,7 @@ export const AVALANCHE_CHAIN_ID = 43114;
 export const AVALANCHE_CHAIN_ID_HEX = '0xA86A';
 
 // ABI — only the functions we call (keeps bundle small)
-const ATTESTATION_ABI = [
+export const ATTESTATION_ABI = [
   'function attest(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, string metadataURI) external returns (uint256)',
   'function getAttestationCount(address wallet) external view returns (uint256)',
   'function getAttestation(address wallet, uint256 index) external view returns (tuple(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, uint48 timestamp, string metadataURI))',
@@ -31,7 +31,7 @@ export interface OnChainAttestation {
   metadataURI: string;
 }
 
-function getContractAddress(): string {
+export function getContractAddress(): string {
   const address = process.env.NEXT_PUBLIC_ATTESTATION_CONTRACT;
   if (!address) throw new Error('NEXT_PUBLIC_ATTESTATION_CONTRACT not set');
   return address;
