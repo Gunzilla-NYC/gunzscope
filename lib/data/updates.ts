@@ -15,33 +15,14 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.3',
-    date: 'Feb 28, 2026',
-    tag: 'current',
-    title: 'The Konami code learned consequences',
-    items: [
-      'The Konami code used to grant instant permanent access. Now it gives you a 72\u2011hour trial. Full portfolio access, referral link included \u2014 but the clock is ticking. Get 1 friend to sign up through your link within 72 hours and you keep it forever.',
-      'If the trial expires, you\u2019re still better off than everyone else. Regular waitlist needs 3 referrals. Expired Konami users only need 2. Finding the code wasn\u2019t for nothing.',
-      'Second attempts get politely rejected. One trial per customer. No infinite free passes.',
-    ],
-  },
-  {
-    version: 'v0.4.2',
-    date: 'Feb 28, 2026',
-    title: 'Bad actors, meet the door',
-    items: [
-      'Admins can now ban, unban, and reset users from the admin panel. Banned users see an "ACCESS REVOKED" page instead of silently re\u2011enrolling in the waitlist. Reset wipes the slate clean without a ban \u2014 fresh start, no grudge.',
-      'Fixed a bug where the Konami code wallet flow got permanently stuck on "Choose Your Handle" \u2014 the Confirm button showed "..." forever because nobody told it to stop submitting. One\u2011liner fix. You won\u2019t notice. That\u2019s the point.',
-    ],
-  },
-  {
     version: 'v0.4.1',
     date: 'Feb 28, 2026',
+    tag: 'current',
     title: 'The hero section went to the gym',
     items: [
       'Redesigned the landing page hero \u2014 "YOUR OTG" is now a compact super\u2011label with a glowing purple accent, while the scramble word (Intelligence, Lore, Legacy, Edge) takes center stage at 104px. Bigger type, clearer hierarchy.',
       'New subtitle copy: "The tactical intelligence layer for Off The Grid. Start your legacy, analyze the market, dominate the meta."',
-      'Cleaned up the CTA area \u2014 "Early access \u2014 whitelist only" sets expectations before the button, and there\u2019s a subtle hint for the adventurous.',
+      'Cleaned up the CTA area \u2014 "Early access \u2014 whitelist only" sets expectations before the button.',
     ],
   },
   {
@@ -67,7 +48,6 @@ export const UPDATES: UpdateEntry[] = [
     items: [
       'Non\u2011whitelisted wallets now actually reach the waitlist page instead of bouncing back to the home screen. Turns out "join the waitlist" works better when the waitlist lets you in the door.',
       'Wallet address inputs across the site now share the same component \u2014 chain detection badge, validation hints, the works. Paste an EVM address, get a "GunzChain" badge. Paste a Solana address, get a "Solana" badge. Paste gibberish, get a gentle red nudge.',
-      'The admin panel columns stopped arguing about who gets to be taller. Inputs, buttons, and address bars now line up like they went to the same finishing school.',
     ],
   },
   {
@@ -76,7 +56,6 @@ export const UPDATES: UpdateEntry[] = [
     title: 'The referral section learned to explain itself',
     items: [
       'Fixed "Failed to load referral data" showing a dead\u2011end error with no useful info. Now logs the actual HTTP status and server message to the console, so when something breaks you can see why instead of staring at a red wall.',
-      'Added admin\u2011only /roadmap page \u2014 the on\u2011chain architecture doc lives here now, behind the same gate as /brand. If you\u2019re not admin, you get redirected. If you are, you get a very long document about deployment strategies.',
     ],
   },
   {
@@ -107,7 +86,6 @@ export const UPDATES: UpdateEntry[] = [
       'Cost basis is no longer floating alone above everything. It moved inside Track\u00a0A where it belongs \u2014 right above "Today\u2019s Value", so you read top\u2011to\u2011bottom: what you paid, what it\u2019s worth now, how that math worked out. Novel concept, reading order.',
       'Track\u00a0B now shows exactly how confident you should be in its estimate. A green dot, the tier label ("VIA\u00a0SALES", "FLOOR", etc.), sample count, and whether it\u2019s above or below floor. All the context to decide if the number is a real signal or a educated guess with a nice font.',
       'The "Observed Market Range" section that used to sit below the position card? Gone. It was information duplication dressed up as a feature. Track\u00a0B now handles all market context in a cleaner format.',
-      'The /brand page is now admin\u2011only. If you\u2019re not an admin wallet, you get redirected to the homepage. Nothing personal \u2014 the brand guidelines just aren\u2019t for everyone.',
     ],
   },
   {
