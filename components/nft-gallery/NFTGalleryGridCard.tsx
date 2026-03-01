@@ -11,6 +11,7 @@ import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel, ORIGIN_CATEGORY_COLORS } from './utils';
+import { ValuationLabel } from './ValuationLabel';
 import type { NFTGalleryGridCardProps } from './types';
 
 export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, portfolioViewMode }: NFTGalleryGridCardProps) {
@@ -145,17 +146,20 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
             ) : (
               <span className="font-mono text-caption text-[var(--gs-white)]">{priceDisplay}</span>
             )}
-            {isEnriching && pnlPending && pnlPct === null ? (
-              <span className="skeleton-stat inline-block w-8 h-3" />
-            ) : (
-              <span className={`font-mono text-label ${
-                isProfit ? 'text-[var(--gs-profit)]' :
-                isLoss ? 'text-[var(--gs-loss)]' :
-                'text-[var(--gs-gray-3)]'
-              }`}>
-                {pnlDisplay}
-              </span>
-            )}
+            <div className="text-right">
+              {isEnriching && pnlPending && pnlPct === null ? (
+                <span className="skeleton-stat inline-block w-8 h-3" />
+              ) : (
+                <span className={`font-mono text-label ${
+                  isProfit ? 'text-[var(--gs-profit)]' :
+                  isLoss ? 'text-[var(--gs-loss)]' :
+                  'text-[var(--gs-gray-3)]'
+                }`}>
+                  {pnlDisplay}
+                </span>
+              )}
+              <ValuationLabel valuation={cardData.valuationMethod} className="block mt-0.5" />
+            </div>
           </div>
         ) : (
           /* Medium cards: dual-track lines */
@@ -209,6 +213,8 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
                 )}
               </div>
             )}
+            {/* Valuation source label */}
+            <ValuationLabel valuation={cardData.valuationMethod} className="block text-right" />
           </div>
         )}
       </div>
