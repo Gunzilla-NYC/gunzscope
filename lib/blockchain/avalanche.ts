@@ -727,6 +727,7 @@ export class AvalancheService {
               description: cachedMeta.value.description,
               image: cachedMeta.value.image,
               collection: 'Off The Grid NFT Collection',
+              contractAddress: nftContractAddress,
               chain: 'avalanche',
               traits: cachedMeta.value.traits,
               metadataDebug: {
@@ -839,6 +840,7 @@ export class AvalancheService {
             description: resolvedMeta.description || undefined,
             image: imageUrl,
             collection: 'Off The Grid NFT Collection',
+            contractAddress: nftContractAddress,
             chain: 'avalanche',
             traits,
             metadataDebug,
