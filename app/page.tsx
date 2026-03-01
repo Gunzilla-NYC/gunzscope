@@ -618,7 +618,7 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
-            <div className="mt-6 max-w-[320px] font-mono text-[11px] leading-[1.6] italic">
+            <div className="mt-6 mb-8 max-w-[320px] font-mono text-[11px] leading-[1.6] italic">
               <ScrambledHint text="Don't have access? In 1986, a developer couldn't beat his own game — so he left a pattern in the code. 30 lives. The oldest backdoor in gaming still opens doors. Good luck zero." />
             </div>
           </motion.div>
