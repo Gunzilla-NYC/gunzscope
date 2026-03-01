@@ -33,14 +33,15 @@ while ((match = entryRegex.exec(source)) !== null) {
     while ((itemMatch = itemRegex.exec(itemsBlock)) !== null) {
       // Unescape unicode sequences and special chars
       items.push(itemMatch[1]
-        .replace(/\\u2011/g, '\u2011')
-        .replace(/\\u2014/g, '\u2014')
-        .replace(/\\u2019/g, '\u2019')
-        .replace(/\\u2013/g, '\u2013')
+        .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
         .replace(/\\n/g, '\n')
       );
     }
-    latestEntry = { version, date, tag, title, items };
+    // Unescape unicode in title too
+    const cleanTitle = title
+      ? title.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      : undefined;
+    latestEntry = { version, date, tag, title: cleanTitle, items };
     if (tag === 'current') break;
   }
 }
