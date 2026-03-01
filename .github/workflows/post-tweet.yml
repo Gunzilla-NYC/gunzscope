@@ -1,13 +1,10 @@
-name: Tweet on Update
+name: Post Tweet
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'lib/data/updates.ts'
+  workflow_dispatch:
 
 jobs:
-  preview:
+  post:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,13 +13,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Compose tweet preview
+      - name: Compose and post tweet
         run: |
           TWEET_JSON=$(node scripts/compose-tweet.mjs)
           TWEET_TEXT=$(echo "$TWEET_JSON" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).text))")
-          echo "### Tweet Preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Tweet Posted" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "$TWEET_TEXT" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**To post this tweet:** Go to Actions → **Post Tweet** → Run workflow" >> "$GITHUB_STEP_SUMMARY"
+          echo "$TWEET_JSON" | node scripts/post-tweet.mjs
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
