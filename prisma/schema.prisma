@@ -394,3 +394,55 @@ model ReferralEvent {
   @@index([sessionId])
   @@map("referral_events")
 }
+
+// =============================================================================
+// Item Origin Release - Game release / content drop that items belong to
+// =============================================================================
+model ItemOriginRelease {
+  slug        String   @id             // e.g. 'chemtech-bp', 'halloween'
+  name        String                   // Display name: 'Battle Pass: ChemTech'
+  shortName   String                   // Badge label: 'ChemTech Set'
+  category    String                   // 'battlepass' | 'pro_pack' | 'event' | 'ranked' | 'early_access' | 'reward' | 'content_pack'
+  date        String?                  // ISO 8601 day precision, null if unknown
+  description String?                  // Lore, mechanics, event details
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items      ItemOriginItem[]
+  matchRules ItemOriginMatchRule[]
+
+  @@map("item_origin_releases")
+}
+
+// =============================================================================
+// Item Origin Item - Maps an NFT item name to its release
+// =============================================================================
+model ItemOriginItem {
+  id          String            @id @default(cuid())
+  itemName    String                   // NFT name (stored lowercase for matching)
+  quality     String  @default("")     // For composite keys: 'epic', 'rare', etc. Empty = no quality
+  releaseSlug String
+  release     ItemOriginRelease @relation(fields: [releaseSlug], references: [slug], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+
+  @@unique([itemName, quality])        // One mapping per name+quality combo
+  @@index([releaseSlug])
+  @@map("item_origin_items")
+}
+
+// =============================================================================
+// Item Origin Match Rule - Prefix/contains pattern for bulk item matching
+// =============================================================================
+model ItemOriginMatchRule {
+  id          String            @id @default(cuid())
+  type        String                   // 'prefix' | 'contains'
+  pattern     String                   // Stored lowercase
+  releaseSlug String
+  release     ItemOriginRelease @relation(fields: [releaseSlug], references: [slug], onDelete: Cascade)
+  priority    Int               @default(0) // Higher = evaluated first
+  createdAt   DateTime          @default(now())
+
+  @@unique([type, pattern])
+  @@index([releaseSlug])
+  @@map("item_origin_match_rules")
+}

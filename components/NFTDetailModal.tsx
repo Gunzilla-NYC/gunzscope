@@ -31,7 +31,7 @@ import {
 import { NFTDetailPositionCard } from '@/components/nft-detail/NFTDetailPositionCard';
 import { WeaponLabPanel } from '@/components/nft-detail/WeaponLabPanel';
 import { NFTDetailTraitPills } from '@/components/nft-detail/NFTDetailTraitPills';
-import { getItemOrigin } from '@/lib/data/itemOrigins';
+import { useItemOrigins } from '@/lib/contexts/ItemOriginsContext';
 import type { HoldingAcquisitionData, ResolvedAcquisitionData, MetadataDebugData } from '@/components/nft-detail/types';
 import LockedWeaponIndicator from '@/components/weapon/LockedWeaponIndicator';
 
@@ -77,6 +77,7 @@ interface NFTDetailModalProps {
 
 
 export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, allNfts = [] }: NFTDetailModalProps) {
+  const { getItemOrigin } = useItemOrigins();
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   // GUN price hook - fetches current GUN/USD rate when modal opens
   const { gunPrice: currentGunPrice, timestamp: gunPriceTimestamp } = useGunPrice(isOpen);

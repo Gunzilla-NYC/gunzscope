@@ -5,11 +5,14 @@
  */
 
 import type { NFT } from '@/lib/types';
-import { getItemOrigin, CATEGORY_COLORS as ORIGIN_CATEGORY_COLORS, type OriginCategory } from '@/lib/data/itemOrigins';
+import { CATEGORY_COLORS as ORIGIN_CATEGORY_COLORS, type OriginCategory, type ItemRelease } from '@/lib/data/itemOrigins';
 import { getValuationMethod, type ValuationMethod } from '@/lib/nft/valuationMethod';
 export type { ValuationMethod };
 
 export { ORIGIN_CATEGORY_COLORS, type OriginCategory };
+
+/** Signature for item origin lookup — provided by ItemOriginsContext */
+export type GetItemOriginFn = (itemName: string, quality?: string) => ItemRelease | null;
 
 // ============================================================================
 // Types
@@ -287,10 +290,10 @@ export function getVenueLabel(venue?: string): string {
 const MIN_VALID_PRICE_GUN = 1;
 
 /** Get display text and color for an NFT's cost basis */
-export function getCostBasisDisplay(nft: NFT): { label: string; color: string } {
+export function getCostBasisDisplay(nft: NFT, getItemOrigin?: GetItemOriginFn): { label: string; color: string } {
   const venue = nft.acquisitionVenue;
   const isDecoded = venue === 'decode' || venue === 'decoder' || venue === 'mint' || venue === 'system_mint';
-  const origin = getItemOrigin(nft.name);
+  const origin = getItemOrigin?.(nft.name) ?? null;
   const hasRealPrice = nft.purchasePriceGun !== undefined && nft.purchasePriceGun >= MIN_VALID_PRICE_GUN;
 
   // Gift from external wallet — always show "FREE TRANSFER" regardless of found price
@@ -333,7 +336,7 @@ export function getMarketScarcityColor(listingCount: number): string {
 const RARITY_RANK: Record<string, number> = { Epic: 1, Rare: 2, Uncommon: 3, Common: 4 };
 
 /** Compute display-ready data for a single NFT — used by both grid cards and list rows */
-export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>, currentGunPrice?: number): NFTCardData {
+export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>, currentGunPrice?: number, getItemOrigin?: GetItemOriginFn): NFTCardData {
   // Derive rarity from groupedRarities (accurate for mixed-rarity groups)
   // Falls back to nft.traits for single items
   let rarityName: string;
@@ -366,7 +369,7 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
 
   const qty = nft.quantity ?? 1;
   const market = marketMap?.get(nft.name);
-  const origin = getItemOrigin(nft.name);
+  const origin = getItemOrigin?.(nft.name) ?? null;
 
   // Card price: show aggregate cost basis (what user paid across all items in group)
   // Use totalPurchasePriceGun (sum of per-item caches) when available; fall back to perItem × qty
@@ -374,7 +377,7 @@ export function deriveCardData(nft: NFT, marketMap?: Map<string, MarketItemData>
   const priceGun = nft.totalPurchasePriceGun ?? (perItemGun !== undefined ? perItemGun * qty : undefined);
   const priceDisplay = priceGun !== undefined
     ? `${priceGun.toLocaleString()} GUN`
-    : getCostBasisDisplay(nft).label;
+    : getCostBasisDisplay(nft, getItemOrigin).label;
 
   // ── Track A: GUN Appreciation (xGUN P&L) ──
   // Compares historical GUN/USD price at acquisition vs current GUN/USD price

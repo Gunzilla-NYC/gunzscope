@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
+import { ItemOriginsProvider } from "@/lib/contexts/ItemOriginsContext";
 import { Toaster } from "sonner";
 
 const CrosshairCursor = dynamic(() => import("@/components/CrosshairCursor"));
@@ -117,6 +118,7 @@ export default function RootLayout({
       <body className="antialiased font-body bg-gunzscope">
         <CrosshairCursor />
         <PostHogProvider>
+        <ItemOriginsProvider>
         <DynamicProvider>
           <div id="app-content" className="relative z-10">
             {children}
@@ -128,6 +130,7 @@ export default function RootLayout({
             toastOptions={{ style: toasterStyle, classNames: toasterClassNames }}
           />
         </DynamicProvider>
+        </ItemOriginsProvider>
         </PostHogProvider>
         <Analytics />
         <SpeedInsights />
