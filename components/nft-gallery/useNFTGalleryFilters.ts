@@ -13,7 +13,7 @@ import {
   getRarityRank, getRarityName,
   getItemClass, getMintNumericValue, isNumericMint,
 } from './utils';
-import { getItemOrigin } from '@/lib/data/itemOrigins';
+import { useItemOrigins } from '@/lib/contexts/ItemOriginsContext';
 
 const SEARCH_DEBOUNCE_MS = 200;
 
@@ -35,6 +35,8 @@ function matchesTraits(nft: NFT, query: string): boolean {
 }
 
 export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, MarketItemData>, currentGunPrice?: number) {
+  const { getItemOrigin } = useItemOrigins();
+
   // Modal state
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [selectedTokenKeyString, setSelectedTokenKeyString] = useState<string | null>(null);
@@ -106,7 +108,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
       }
     }
     return counts;
-  }, [nfts]);
+  }, [nfts, getItemOrigin]);
 
   // Calculate portfolio summary: spent, estimated value, and P&L
   const portfolioSummary = useMemo(() => {
@@ -185,7 +187,7 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
     }
 
     return result;
-  }, [nfts, debouncedQuery, selectedItemClass, selectedOrigin]);
+  }, [nfts, debouncedQuery, selectedItemClass, selectedOrigin, getItemOrigin]);
 
   // Calculate rarity counts from pre-rarity-filtered NFTs (so counts are always visible)
   const rarityCounts = useMemo(() => {
