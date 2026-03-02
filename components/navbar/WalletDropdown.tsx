@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { usePortfolioWallet } from '@/lib/contexts/PortfolioContext';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
+import { isAdminWallet } from '@/lib/auth/dynamicAuth';
 import { useGlitchScramble } from './hooks/useGlitchScramble';
 import { truncateAddress } from './utils';
 
@@ -113,6 +114,21 @@ export function WalletDropdown({
     setTimeout(() => setCopied(false), 2000);
   }, [walletAddress]);
 
+  // Admin notification badge — count of open feature requests
+  const isAdmin = isAdminWallet(walletAddress);
+  const [openRequestCount, setOpenRequestCount] = useState(0);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/feature-requests')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: { status?: string }[]) => {
+        const open = Array.isArray(data) ? data.filter(r => r.status === 'open').length : 0;
+        setOpenRequestCount(open);
+      })
+      .catch(() => {});
+  }, [isAdmin, pathname]);
+
   const navItems = [
     { href: '/account', label: 'Profile', active: pathname === '/account' },
     { href: '/feature-requests', label: 'Feature Requests', active: pathname === '/feature-requests' },
@@ -135,7 +151,14 @@ export function WalletDropdown({
         }`}
       >
         <span className={`inline-block transition-opacity duration-150 ${showBrackets ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--gs-lime)' }}>[&nbsp;</span>
-        {display}
+        <span className="relative">
+          {display}
+          {isAdmin && openRequestCount > 0 && (
+            <span className="absolute -top-2.5 -right-3.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-[#FF4444] text-white text-[9px] font-mono font-bold leading-none px-1">
+              {openRequestCount}
+            </span>
+          )}
+        </span>
         <svg
           className={`w-3 h-3 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
@@ -253,13 +276,18 @@ export function WalletDropdown({
                       key={item.href}
                       href={item.href}
                       onClick={close}
-                      className={`block px-4 py-2.5 font-mono text-data tracking-wider uppercase transition-colors ${
+                      className={`flex items-center justify-between px-4 py-2.5 font-mono text-data tracking-wider uppercase transition-colors ${
                         item.active
                           ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
                           : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
                       }`}
                     >
                       {item.label}
+                      {item.href === '/feature-requests' && isAdmin && openRequestCount > 0 && (
+                        <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#FF4444] text-white text-[9px] font-mono font-bold leading-none px-1.5">
+                          {openRequestCount}
+                        </span>
+                      )}
                     </Link>
                   ))}
                 </div>

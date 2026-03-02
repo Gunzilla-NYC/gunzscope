@@ -6,6 +6,7 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Logo from './Logo';
 import { GlitchLink } from './navbar/GlitchLink';
+import { ExperimentsDropdown } from './navbar/ExperimentsDropdown';
 import { WalletDropdown } from './navbar/WalletDropdown';
 import { ProfileDropdown } from './navbar/ProfileDropdown';
 import { TerminalStatusBar } from './navbar/TerminalStatusBar';
@@ -108,10 +109,10 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
               {showNavLinks && (
                 <>
                   <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
-                  {hasWallet && <GlitchLink href={leaderboardHref} label="Leaderboard" isActive={pathname === '/leaderboard'} />}
-                  {hasWallet && <GlitchLink href="/scarcity" label="Scarcity" isActive={pathname === '/scarcity'} />}
-                  {hasWallet && <GlitchLink href="/market" label="Market" isActive={pathname === '/market'} />}
-                  <GlitchLink href="/explore" label="Explore" isActive={pathname === '/explore'} />
+                  <GlitchLink href="/explore" label="Onchain ID" isActive={pathname === '/explore'} />
+                  {hasWallet && (
+                    <ExperimentsDropdown pathname={pathname} leaderboardHref={leaderboardHref} />
+                  )}
                 </>
               )}
             </nav>
@@ -189,27 +190,54 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/[0.06] bg-black/95 backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
-              {showNavLinks && [
-                    { href: '/portfolio', label: 'Portfolio', active: pathname === '/portfolio' },
-                    ...(hasWallet ? [
-                      { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
-                      { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
-                      { href: '/market', label: 'Market', active: pathname === '/market' },
-                    ] : []),
-                    { href: '/explore', label: 'Explore', active: pathname === '/explore' },
-              ].map(item => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
-                    item.active
-                      ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
-                      : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {showNavLinks && (
+                <>
+                  <Link
+                    href="/portfolio"
+                    className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
+                      pathname === '/portfolio'
+                        ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
+                        : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
+                    }`}
+                  >
+                    Portfolio
+                  </Link>
+                  <Link
+                    href="/explore"
+                    className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
+                      pathname === '/explore'
+                        ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
+                        : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
+                    }`}
+                  >
+                    Onchain ID
+                  </Link>
+                  {hasWallet && (
+                    <>
+                      <p className="font-mono text-label tracking-[1.5px] uppercase text-[var(--gs-gray-2)] px-3 py-1.5 mt-1">
+                        Experiments
+                      </p>
+                      {[
+                        { href: leaderboardHref, label: 'Leaderboard', active: pathname === '/leaderboard' },
+                        { href: '/scarcity', label: 'Scarcity', active: pathname === '/scarcity' },
+                        { href: '/market', label: 'Market', active: pathname === '/market' },
+                      ].map(item => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`font-mono text-body-sm tracking-wider uppercase px-3 pl-5 py-2.5 transition-colors ${
+                            item.active
+                              ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
+                              : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
+                          }`}
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
 
               {/* Profile / wallet section */}
               <div className={showNavLinks ? 'mt-1 pt-1 border-t border-white/[0.06]' : ''}>

@@ -38,8 +38,13 @@ function getRelativeTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+function isAutonomysURI(uri: string): boolean {
+  return uri.startsWith('https://gateway.autonomys.xyz/') ||
+    uri.includes('/api/attestation/metadata/');
+}
+
 function getMetadataLink(uri: string): { label: string; href: string | null; isAutonomys: boolean } {
-  if (uri.startsWith(`${AUTONOMYS_GATEWAY}/`) || uri.startsWith('https://gateway.autonomys.xyz/file/')) {
+  if (isAutonomysURI(uri)) {
     return { label: 'View', href: uri, isAutonomys: true };
   }
   if (uri.startsWith('data:')) {
@@ -97,7 +102,7 @@ function MobileCard({ event, index, total }: { event: AttestationEvent; index: n
               href={meta.href}
               target="_blank"
               rel="noopener noreferrer"
-              className={`font-mono text-[9px] uppercase tracking-widest hover:underline ${meta.isAutonomys ? 'text-[var(--gs-purple)]' : 'text-[var(--gs-gray-3)]'}`}
+              className={`font-mono text-[9px] uppercase tracking-widest hover:underline ${meta.isAutonomys ? 'text-[#4A7AFF]' : 'text-[var(--gs-gray-3)]'}`}
             >
               {meta.label}
             </a>
@@ -119,6 +124,8 @@ function MobileCard({ event, index, total }: { event: AttestationEvent; index: n
 /* ─── Main content ─── */
 function ExploreContent() {
   const { events, stats, isLoading, error, lastUpdated, refetch } = useExplorer();
+
+  const autonomysCount = events.filter(e => isAutonomysURI(e.metadataURI)).length;
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
@@ -189,21 +196,19 @@ function ExploreContent() {
             href={`${SNOWTRACE_BASE}/address/${CONTRACT_ADDRESS}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+            className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-[#E84142] hover:text-[var(--gs-white)] transition-colors"
           >
             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 19.5h20L12 2zm0 4l6.5 11.5h-13L12 6z" /></svg>
             Avalanche C&#8209;Chain
           </a>
           <span className="text-white/10">|</span>
-          <a
-            href="https://autonomys.xyz"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] hover:text-[var(--gs-purple)] transition-colors"
+          <span
+            className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-[#4A7AFF] cursor-default"
+            title={`${autonomysCount} attestation${autonomysCount === 1 ? '' : 's'} stored on Autonomys Distributed Storage Network`}
           >
             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" opacity="0.3"/><circle cx="12" cy="12" r="5"/></svg>
             Autonomys DSN
-          </a>
+          </span>
           <span className="text-white/10">|</span>
           <a
             href={`${SNOWTRACE_BASE}/address/${CONTRACT_ADDRESS}#code`}
@@ -306,7 +311,7 @@ function ExploreContent() {
                             href={meta.href}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`font-mono text-[9px] uppercase tracking-widest hover:underline ${meta.isAutonomys ? 'text-[var(--gs-purple)]' : 'text-[var(--gs-gray-3)]'}`}
+                            className={`font-mono text-[9px] uppercase tracking-widest hover:underline ${meta.isAutonomys ? 'text-[#4A7AFF]' : 'text-[var(--gs-gray-3)]'}`}
                           >
                             {meta.label}
                           </a>

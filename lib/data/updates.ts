@@ -15,9 +15,19 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.5.0',
+    version: 'v0.5.1',
     date: 'Mar 2, 2026',
     tag: 'current',
+    title: 'Less clutter, more signal',
+    items: [
+      'Leaderboard, Scarcity, and Market now live under an "Experiments" dropdown instead of cluttering the nav bar. They\u2019re still experimental. The dropdown makes that clear without pretending otherwise.',
+      'The "Explore" link is now "Onchain ID." Because that\u2019s what it actually is \u2014 your on\u2011chain identity, verified and attested. Naming things correctly turns out to be important.',
+      'Autonomys attestation count in the tooltip was undercounting because newer attestations go through a different URL path. Fixed. Math is hard when your data has two front doors.',
+    ],
+  },
+  {
+    version: 'v0.5.0',
+    date: 'Mar 2, 2026',
     title: 'The market page stopped hoarding data',
     items: [
       'The market page used to take 4\u20118 seconds on a cold load because it fetched things one at a time like a polite queue at the post office. Now it fetches in parallel. Noticeably faster.',

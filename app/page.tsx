@@ -521,7 +521,7 @@ export default function HomePage() {
             href="/explore"
             className="font-mono text-data tracking-wider uppercase text-[var(--gs-purple)] hover:text-[var(--gs-purple-bright)] transition-colors"
           >
-            Explore
+            Onchain ID
           </Link>
           {user && (
             <Link
