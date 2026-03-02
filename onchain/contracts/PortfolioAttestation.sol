@@ -60,28 +60,31 @@ contract PortfolioAttestation is Initializable, UUPSUpgradeable {
         attestFee = _attestFee;
     }
 
-    /// @notice Create an on-chain attestation of your portfolio holdings.
+    /// @notice Create an on-chain attestation of a portfolio's holdings.
+    /// @param wallet The wallet whose portfolio is being attested (can differ from msg.sender)
     /// @param blockNumber The block number at which holdings were verified
     /// @param merkleRoot Merkle root of the sorted holdings leaf set
     /// @param totalValueGun Total portfolio value in GUN (18 decimals)
     /// @param itemCount Number of NFT items in the portfolio
     /// @param metadataURI IPFS/Arweave URI containing the full holdings list
-    /// @return attestationId Index of this attestation in the caller's history
+    /// @return attestationId Index of this attestation in the wallet's history
     function attest(
+        address wallet,
         uint256 blockNumber,
         bytes32 merkleRoot,
         uint256 totalValueGun,
         uint16  itemCount,
         string calldata metadataURI
     ) external payable returns (uint256 attestationId) {
+        require(wallet != address(0), "Zero wallet");
         require(msg.value >= attestFee, "Insufficient fee");
         require(blockNumber <= block.number, "Future block");
         require(merkleRoot != bytes32(0), "Empty merkle root");
         require(bytes(metadataURI).length > 0, "Empty metadata URI");
 
-        attestationId = _attestations[msg.sender].length;
+        attestationId = _attestations[wallet].length;
 
-        _attestations[msg.sender].push(Attestation({
+        _attestations[wallet].push(Attestation({
             blockNumber: blockNumber,
             merkleRoot: merkleRoot,
             totalValueGun: totalValueGun,
@@ -96,7 +99,7 @@ contract PortfolioAttestation is Initializable, UUPSUpgradeable {
         }
 
         emit PortfolioAttested(
-            msg.sender,
+            wallet,
             attestationId,
             merkleRoot,
             totalValueGun,

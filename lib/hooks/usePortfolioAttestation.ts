@@ -100,11 +100,16 @@ export function usePortfolioAttestation(
       const totalValueWei = computeTotalValueWei(nfts);
       const leaves = nftsToLeaves(nfts);
 
-      // Get current block number from C-Chain
-      const cchainProvider = getCChainProvider();
-      const blockNumber = await cchainProvider.getBlockNumber();
+      // Step 2: Switch to Avalanche C-Chain if needed
+      setStatus('switching-chain');
+      await ensureAvalancheChain(walletProvider);
 
-      // Step 2: Upload metadata to Autonomys Auto Drive
+      // Step 3: Get signer and block number from the SAME provider (avoids RPC mismatch)
+      setStatus('signing');
+      const signer = await getSignerFromProvider(walletProvider);
+      const blockNumber = await signer.provider!.getBlockNumber();
+
+      // Step 4: Upload metadata to Autonomys Auto Drive
       setStatus('uploading');
       let metadataURI: string;
       try {
@@ -134,16 +139,10 @@ export function usePortfolioAttestation(
         metadataURI = `data:application/json,${encodeURIComponent(JSON.stringify({ wallet: walletAddress, items: leafCount, block: blockNumber }))}`;
       }
 
-      // Step 3: Switch to Avalanche C-Chain if needed
-      setStatus('switching-chain');
-      await ensureAvalancheChain(walletProvider);
-
-      // Step 4: Get signer and submit
-      setStatus('signing');
-      const signer = await getSignerFromProvider(walletProvider);
-
+      // Step 5: Submit attestation
       setStatus('confirming');
       const result = await submitAttestation(signer, {
+        wallet: walletAddress,
         blockNumber,
         merkleRoot: root,
         totalValueGun: totalValueWei,
@@ -156,7 +155,7 @@ export function usePortfolioAttestation(
       setStatus('success');
 
       // Refresh latest attestation
-      const att = await getLatestAttestation(cchainProvider, walletAddress);
+      const att = await getLatestAttestation(getCChainProvider(), walletAddress);
       setLatestAttestation(att);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Attestation failed';

@@ -11,6 +11,7 @@
     "deploy:avalanche": "hardhat run scripts/deploy.ts --network avalanche"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-ledger": "^1.2.2",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@types/node": "^20.0.0",
     "hardhat": "^2.22.0",
