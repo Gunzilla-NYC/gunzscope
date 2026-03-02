@@ -9,10 +9,18 @@ const ATTESTATION_CONTRACT = process.env.NEXT_PUBLIC_ATTESTATION_CONTRACT ?? '';
 export async function GET() {
   const gunzProvider = new ethers.JsonRpcProvider(GUNZCHAIN_RPC);
   const cChainProvider = new ethers.JsonRpcProvider(CCHAIN_RPC);
-  const result: { deployerBalance: string | null; deployerAvaxBalance: string | null; totalAttestations: number | null } = {
+  const result: {
+    deployerBalance: string | null;
+    deployerAvaxBalance: string | null;
+    totalAttestations: number | null;
+    contractAvaxBalance: string | null;
+    attestFee: string | null;
+  } = {
     deployerBalance: null,
     deployerAvaxBalance: null,
     totalAttestations: null,
+    contractAvaxBalance: null,
+    attestFee: null,
   };
 
   try {
@@ -37,11 +45,17 @@ export async function GET() {
     if (ATTESTATION_CONTRACT) {
       const contract = new ethers.Contract(
         ATTESTATION_CONTRACT,
-        ['function totalAttestations() view returns (uint256)'],
+        ['function totalAttestations() view returns (uint256)', 'function attestFee() view returns (uint256)'],
         cChainProvider,
       );
-      const total = await contract.totalAttestations();
+      const [total, fee, balance] = await Promise.all([
+        contract.totalAttestations(),
+        contract.attestFee(),
+        cChainProvider.getBalance(ATTESTATION_CONTRACT),
+      ]);
       result.totalAttestations = Number(total);
+      result.contractAvaxBalance = parseFloat(ethers.formatEther(balance)).toFixed(4);
+      result.attestFee = parseFloat(ethers.formatEther(fee)).toFixed(4);
     }
   } catch {
     // Contract not deployed or wrong address — leave null

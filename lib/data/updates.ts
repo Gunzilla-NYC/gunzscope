@@ -15,9 +15,17 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.4.9',
+    date: 'Mar 2, 2026',
+    tag: 'current',
+    title: 'Plumbing',
+    items: [
+      'Backend fixes and internal tooling. Nothing you\u2019d notice. That\u2019s the point.',
+    ],
+  },
+  {
     version: 'v0.4.8',
     date: 'Mar 1, 2026',
-    tag: 'current',
     title: 'Your MetaMask is not your gaming wallet',
     items: [
       'You can now attest any wallet you\u2019re tracking \u2014 not just the one paying for gas. Connect MetaMask, pick your in\u2011game wallet, hit attest. The on\u2011chain record shows the right address. Before this, it showed whoever signed the transaction, which was\u2026 not the point.',

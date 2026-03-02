@@ -21,9 +21,19 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.4.9',
+    date: 'Mar 2, 2026',
+    tag: 'current',
+    items: [
+      '/api/attestation/status \u2014 now returns contractAvaxBalance (contract\u2019s AVAX balance from collected fees) and attestFee (current fee in AVAX); batched via Promise.all with existing totalAttestations query',
+      'ATTESTATION_ABI extended with owner() view and withdraw() \u2014 new exports: withdrawFees(signer) calls contract.withdraw() and waits for receipt; getContractOwner(provider) reads on\u2011chain owner address',
+      'OnChainTools admin component \u2014 AVAX Earned + Current Fee rows in Live Status; Withdraw button with 5\u2011state flow (idle/switching/signing/confirming/success); chain switch via ensureAvalancheChain, signer from Dynamic\u2019s primaryWallet.connector.getWalletClient(); tx hash links to Snowtrace on success',
+      'Admin panel auth fix \u2014 production showed empty whitelist/waitlist because NEXT_PUBLIC_ADMIN_SECRET was not set in Vercel; fetch callbacks use data.entries\u00a0??\u00a0[] which treats 401 as empty data silently',
+    ],
+  },
+  {
     version: 'v0.4.8',
     date: 'Mar 1, 2026',
-    tag: 'current',
     items: [
       'PortfolioAttestation.sol v3 \u2014 attest() now takes explicit `address wallet` as first parameter instead of using msg.sender; enables delegation (wallet\u00a0A pays, wallet\u00a0B gets the attestation); require(wallet\u00a0!=\u00a0address(0)) guard',
       'UUPS proxy upgraded on C\u2011Chain: implementation 0x80A6C9661Fb0fEd1cCEBf568bCb709D548B98358; proxy address unchanged (0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16)',
