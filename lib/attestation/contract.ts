@@ -20,6 +20,8 @@ export const ATTESTATION_ABI = [
   'function getLatestAttestation(address wallet) external view returns (tuple(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, uint48 timestamp, string metadataURI))',
   'function verifyHolding(address wallet, uint256 attestationIndex, bytes32 leaf, bytes32[] proof) external view returns (bool)',
   'function totalAttestations() external view returns (uint256)',
+  'function owner() external view returns (address)',
+  'function withdraw() external',
   'event PortfolioAttested(address indexed wallet, uint256 indexed attestationId, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, uint256 blockNumber, string metadataURI)',
 ] as const;
 
@@ -168,6 +170,29 @@ export async function getTotalAttestations(
   const contract = getReadContract(provider);
   const total = await contract.totalAttestations();
   return Number(total);
+}
+
+/**
+ * Withdraw all collected AVAX fees from the attestation contract to the owner.
+ * Must be called by the contract owner.
+ */
+export async function withdrawFees(
+  signer: Signer,
+): Promise<{ txHash: string }> {
+  const contract = getWriteContract(signer);
+  const tx = await contract.withdraw();
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash };
+}
+
+/**
+ * Get the contract owner address.
+ */
+export async function getContractOwner(
+  provider: ethers.Provider,
+): Promise<string> {
+  const contract = getReadContract(provider);
+  return contract.owner();
 }
 
 /**
