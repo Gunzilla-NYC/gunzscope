@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useExplorer, type AttestationEvent } from '@/lib/hooks/useExplorer';
 
-const CONTRACT_ADDRESS = '0x5198a3661654748b2752F351efE361DC6Ef4Cd1D';
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_ATTESTATION_CONTRACT ?? '0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16';
 const SNOWTRACE_BASE = 'https://snowtrace.io';
 const AUTONOMYS_GATEWAY = 'https://gateway.autonomys.xyz/file';
 
@@ -62,13 +62,13 @@ function SkeletonRow() {
 }
 
 /* ─── Mobile card ─── */
-function MobileCard({ event, index }: { event: AttestationEvent; index: number }) {
+function MobileCard({ event, index, total }: { event: AttestationEvent; index: number; total: number }) {
   const meta = getMetadataLink(event.metadataURI);
   return (
     <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 space-y-2.5">
       <div className="flex items-center justify-between">
         <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">
-          #{index + 1}
+          #{total - index}
         </span>
         <span className="font-mono text-[9px] text-[var(--gs-gray-3)]" title={new Date(event.timestamp).toLocaleString()}>
           {getRelativeTime(event.timestamp)}
@@ -280,7 +280,7 @@ function ExploreContent() {
                   const meta = getMetadataLink(event.metadataURI);
                   return (
                     <tr key={`${event.txHash}-${event.attestationId}`} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3.5 font-mono text-data text-[var(--gs-gray-3)] tabular-nums">{i + 1}</td>
+                      <td className="px-4 py-3.5 font-mono text-data text-[var(--gs-gray-3)] tabular-nums">{events.length - i}</td>
                       <td className="px-4 py-3.5">
                         <a
                           href={`${SNOWTRACE_BASE}/address/${event.wallet}`}
@@ -337,7 +337,7 @@ function ExploreContent() {
         {!isLoading && events.length > 0 && (
           <div className="md:hidden space-y-2">
             {events.map((event, i) => (
-              <MobileCard key={`${event.txHash}-${event.attestationId}`} event={event} index={i} />
+              <MobileCard key={`${event.txHash}-${event.attestationId}`} event={event} index={i} total={events.length} />
             ))}
           </div>
         )}
