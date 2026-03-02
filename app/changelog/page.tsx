@@ -21,9 +21,20 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.5.0',
+    version: 'v0.5.1',
     date: 'Mar 2, 2026',
     tag: 'current',
+    items: [
+      'Nav restructure \u2014 Leaderboard, Scarcity, Market grouped under \u201cExperiments\u201d dropdown; new ExperimentsDropdown component with GlitchLink\u2011style trigger (useGlitchScramble, brackets, chevron), close\u2011on\u2011outside/Escape/route\u2011change',
+      '\u201cExplore\u201d renamed to \u201cOnchain ID\u201d across navbar (desktop GlitchLink + mobile menu) and home page',
+      'Explore page \u2014 Autonomys DSN changed from external link to static label; Avalanche link color \u2192 AVAX red (#E84142); Autonomys label color \u2192 brand blue (#4A7AFF); per\u2011row metadata links blue',
+      'Autonomys attestation count fix \u2014 isAutonomysURI() helper matches both direct gateway URLs (gateway.autonomys.xyz) and proxy URLs (/api/attestation/metadata/{cid}); tooltip now shows correct count',
+      'Admin notification badge on WalletDropdown \u2014 fetches /api/feature\u2011requests, counts status=open; red pill badge on trigger + inline badge next to Feature Requests nav item; admin\u2011only, refreshes on route change',
+    ],
+  },
+  {
+    version: 'v0.5.0',
+    date: 'Mar 2, 2026',
     items: [
       '/api/market/listings \u2014 parallelized getActiveListingsDetailed + getCollectionSaleEvents via Promise.all; previously sequential',
       'Module\u2011level collection sales cache in OpenSeaService.getCollectionSaleEvents \u2014 keyed by slug::afterDateMs, 30\u2011min TTL; findUsableSalesCache() cross\u2011key reuse (unfiltered 200\u2011entry cache serves 50\u2011entry unfiltered requests)',
