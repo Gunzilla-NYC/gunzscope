@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
 import { detectChain } from '@/lib/utils/detectChain';
+import ItemOriginsTools from '@/components/account/ItemOriginsTools';
 
 interface AdminPanelProps {
   adminSecret: string;
@@ -1113,7 +1114,7 @@ function SectionLabel({ label }: { label: string }) {
 // Main AdminPanel — tabbed layout
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'manage' | 'tools' | 'links';
+type AdminTab = 'manage' | 'tools' | 'links' | 'items';
 
 const ADMIN_LINKS: { href: string; label: string; description: string; color: string }[] = [
   { href: '/brand', label: 'Brand Guidelines', description: 'Colors, typography, components, design system', color: 'var(--gs-purple)' },
@@ -1130,6 +1131,7 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
     { key: 'manage', label: 'Whitelist / Waitlist / Leaderboard' },
     { key: 'tools', label: 'Tools' },
     { key: 'links', label: 'Links' },
+    { key: 'items', label: 'Item Database' },
   ];
 
   return (
@@ -1196,6 +1198,11 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
             <OnChainTools />
           </div>
         </div>
+      )}
+
+      {/* Items tab — item origin database CRUD */}
+      {activeTab === 'items' && (
+        <ItemOriginsTools adminSecret={adminSecret} />
       )}
 
       {/* Links tab — admin-only page links */}
