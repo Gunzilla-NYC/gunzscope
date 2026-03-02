@@ -490,6 +490,8 @@ function WhitelistTools({ adminSecret }: { adminSecret: string }) {
   }, [newAddress, newLabel, headers, fetchList]);
 
   const handleRemove = useCallback(async (address: string) => {
+    const display = address.startsWith('email:') ? address.slice(6) : address;
+    if (!confirm(`Remove "${display}" from the whitelist?\n\nThis will:\n\u2022 Revoke their early access immediately\n\u2022 Reset any waitlist promotion progress\n\u2022 They can re\u2011join the waitlist but start from zero`)) return;
     setRemovingId(address);
     try {
       const res = await fetch('/api/admin/whitelist', {

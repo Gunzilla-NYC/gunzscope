@@ -234,6 +234,18 @@ export interface MarketListingsResponse {
   error?: string;
 }
 
+// Market reference prices — populated by /api/market/listings, served by /api/market/reference-prices
+export interface MarketReferencePriceData {
+  byItemName: Record<string, {
+    floorGun: number;
+    avgSaleGun7d: number | null;
+    listingCount: number;
+    recentSales: number;
+  }>;
+  updatedAt: string | null;
+  cached: boolean;
+}
+
 // Leaderboard entry from /api/leaderboard
 export interface LeaderboardEntry {
   rank: number;

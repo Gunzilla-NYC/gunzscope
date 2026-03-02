@@ -43,6 +43,7 @@ import { bootstrapPortfolioHistory } from '@/lib/utils/portfolioHistory';
 import { usePortfolioAutoLoad } from '@/lib/hooks/usePortfolioAutoLoad';
 import { useReferralTracking } from '@/lib/hooks/useReferralTracking';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
+import type { MarketReferencePriceData } from '@/lib/types';
 import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
 import { seedLocalCacheFromNFTs, invalidateListingPrices } from '@/lib/utils/nftCache';
 import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
@@ -565,7 +566,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         }
       }
 
-      // Fetch rarity floors + comparable sales + collection floor in parallel, then inject into NFTs
+      // Fetch rarity floors + comparable sales + collection floor + market reference in parallel, then inject into NFTs
       const rarityPromise = fetch('/api/opensea/rarity-floors')
         .then(r => r.ok ? r.json() : null)
         .catch(() => null) as Promise<RarityFloorsData | null>;
@@ -576,17 +577,20 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         .then(r => r.ok ? r.json() : null)
         .then(d => d?.floorPrice as number | null ?? null)
         .catch(() => null) as Promise<number | null>;
+      const marketRefPromise = fetch('/api/market/reference-prices')
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null) as Promise<MarketReferencePriceData | null>;
 
-      Promise.all([rarityPromise, comparablePromise, floorPromise]).then(([rarityData, comparableData, collectionFloor]) => {
+      Promise.all([rarityPromise, comparablePromise, floorPromise, marketRefPromise]).then(([rarityData, comparableData, collectionFloor, marketRef]) => {
         // Stale response guard — a newer wallet switch has started
         if (walletRequestIdRef.current !== thisRequestId) return;
-        if (!rarityData && !comparableData && !collectionFloor) return;
+        if (!rarityData && !comparableData && !collectionFloor && !marketRef) return;
 
         const addrKey = address.toLowerCase();
         setWalletMap(prev => {
           const wd = prev[addrKey];
           if (!wd) return prev;
-          const enrichedNfts = applyValuationTables(wd.avalanche.nfts, rarityData, comparableData, collectionFloor);
+          const enrichedNfts = applyValuationTables(wd.avalanche.nfts, rarityData, comparableData, collectionFloor, marketRef);
           if (enrichedNfts === wd.avalanche.nfts) return prev; // No changes
           return { ...prev, [addrKey]: { ...wd, avalanche: { ...wd.avalanche, nfts: enrichedNfts } } };
         });
@@ -595,6 +599,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           if (rarityData?.floors) console.log('[Valuation] Rarity-tier floors:', rarityData.floors);
           if (comparableData?.items) console.log(`[Valuation] Comparable sales: ${Object.keys(comparableData.items).length} items`);
           if (collectionFloor) console.log(`[Valuation] Collection floor: ${collectionFloor} GUN`);
+          if (marketRef?.cached) console.log(`[Valuation] Market reference: ${Object.keys(marketRef.byItemName).length} items`);
         }
       });
 

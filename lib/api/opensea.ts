@@ -159,8 +159,21 @@ const RESOLVE_CONCURRENCY = 10;
 const RESOLVE_TIMEOUT_MS = 8000;
 const RESOLVE_BATCH_DELAY_MS = 50;
 
+// Module-level name cache — token names are immutable after mint
+interface NameCacheEntry {
+  name: string;
+  imageUrl: string | null;
+  quality: string | null;
+  cachedAt: number;
+}
+
+const nameCache = new Map<string, NameCacheEntry>();
+const NAME_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const NAME_CACHE_MAX_ENTRIES = 500;
+
 /**
  * Batch-resolve token IDs to names + images via GunzScan (Blockscout) API.
+ * Checks module-level name cache first, only fetches uncached tokens.
  * Runs up to RESOLVE_CONCURRENCY requests in parallel with a small delay
  * between batches to avoid rate limiting.
  */
@@ -172,11 +185,35 @@ async function resolveTokenMetadata(
   if (tokenIds.length === 0) return result;
 
   const contract = contractAddress.toLowerCase();
+  const now = Date.now();
+  const uncachedTokenIds: string[] = [];
+
+  // Check name cache for previously resolved tokens
+  for (const tokenId of tokenIds) {
+    const cacheKey = `${contract}:${tokenId}`;
+    const cached = nameCache.get(cacheKey);
+    if (cached && (now - cached.cachedAt) < NAME_CACHE_TTL_MS) {
+      result.set(tokenId, { name: cached.name, imageUrl: cached.imageUrl, quality: cached.quality });
+    } else {
+      uncachedTokenIds.push(tokenId);
+    }
+  }
+
+  if (uncachedTokenIds.length === 0) {
+    console.log(`[GunzScan] All ${tokenIds.length} tokens resolved from name cache`);
+    return result;
+  }
+
+  const cacheHits = tokenIds.length - uncachedTokenIds.length;
+  if (cacheHits > 0) {
+    console.log(`[GunzScan] Name cache: ${cacheHits} hit, ${uncachedTokenIds.length} miss`);
+  }
+
   const startTime = Date.now();
 
-  // Process in batches of RESOLVE_CONCURRENCY
-  for (let i = 0; i < tokenIds.length; i += RESOLVE_CONCURRENCY) {
-    const batch = tokenIds.slice(i, i + RESOLVE_CONCURRENCY);
+  // Process uncached tokens in batches of RESOLVE_CONCURRENCY
+  for (let i = 0; i < uncachedTokenIds.length; i += RESOLVE_CONCURRENCY) {
+    const batch = uncachedTokenIds.slice(i, i + RESOLVE_CONCURRENCY);
 
     const settled = await Promise.allSettled(
       batch.map(async (tokenId) => {
@@ -214,22 +251,38 @@ async function resolveTokenMetadata(
 
     for (const entry of settled) {
       if (entry.status === 'fulfilled' && entry.value) {
-        result.set(entry.value.tokenId, {
-          name: entry.value.name,
-          imageUrl: entry.value.imageUrl,
-          quality: entry.value.quality,
-        });
+        const { tokenId, name, imageUrl, quality } = entry.value;
+        result.set(tokenId, { name, imageUrl, quality });
+
+        // Store in name cache
+        const cacheKey = `${contract}:${tokenId}`;
+        nameCache.set(cacheKey, { name, imageUrl, quality, cachedAt: Date.now() });
       }
     }
 
     // Small delay between batches to avoid rate limiting
-    if (i + RESOLVE_CONCURRENCY < tokenIds.length) {
+    if (i + RESOLVE_CONCURRENCY < uncachedTokenIds.length) {
       await new Promise((r) => setTimeout(r, RESOLVE_BATCH_DELAY_MS));
     }
   }
 
+  // Cleanup old entries if cache is over limit
+  if (nameCache.size > NAME_CACHE_MAX_ENTRIES) {
+    const cutoff = Date.now() - NAME_CACHE_TTL_MS;
+    for (const [key, entry] of nameCache.entries()) {
+      if (entry.cachedAt < cutoff) nameCache.delete(key);
+    }
+    // If still over, remove oldest
+    if (nameCache.size > NAME_CACHE_MAX_ENTRIES) {
+      const sorted = [...nameCache.entries()].sort((a, b) => a[1].cachedAt - b[1].cachedAt);
+      for (const [key] of sorted.slice(0, sorted.length - NAME_CACHE_MAX_ENTRIES)) {
+        nameCache.delete(key);
+      }
+    }
+  }
+
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`[GunzScan] Resolved ${result.size}/${tokenIds.length} token names in ${elapsed}s`);
+  console.log(`[GunzScan] Resolved ${result.size}/${tokenIds.length} token names (${uncachedTokenIds.length} fetched) in ${elapsed}s`);
   return result;
 }
 
@@ -313,6 +366,84 @@ function setCachedTraits(cacheKey: string, traits: Record<string, string> | null
     for (const [key, value] of traitCache.entries()) {
       if (now - value.cachedAt > TRAIT_CACHE_TTL_MS) {
         traitCache.delete(key);
+      }
+    }
+  }
+}
+
+// =============================================================================
+// Shared Collection Sales Cache
+// =============================================================================
+// Multiple consumers (market listings, rarity floors, comparable sales) call
+// getCollectionSaleEvents independently. This module-level cache prevents
+// redundant OpenSea API calls within the same serverless invocation.
+
+interface SalesCacheEntry {
+  sales: CollectionSaleEvent[];
+  fetchedAt: number;
+  afterDateMs: number | null; // null = no date filter
+}
+
+const salesCache = new Map<string, SalesCacheEntry>();
+const SALES_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function getSalesCacheKey(slug: string, afterDateMs: number | null): string {
+  return `${slug}::${afterDateMs ?? 'all'}`;
+}
+
+/**
+ * Find a usable cached sales result. A larger cached set can serve a smaller request
+ * (e.g., cached 200 unfiltered → serves 50 unfiltered). Date-filtered requests
+ * check if the unfiltered cache has enough entries after the requested date.
+ */
+function findUsableSalesCache(
+  slug: string,
+  afterDateMs: number | null,
+  minCount: number
+): CollectionSaleEvent[] | null {
+  const now = Date.now();
+
+  // Try exact key match
+  const exactKey = getSalesCacheKey(slug, afterDateMs);
+  const exact = salesCache.get(exactKey);
+  if (exact && (now - exact.fetchedAt) < SALES_CACHE_TTL_MS && exact.sales.length >= minCount) {
+    return exact.sales.slice(0, minCount);
+  }
+
+  // For unfiltered requests: any unfiltered cache with enough entries works
+  if (afterDateMs === null) {
+    const allKey = getSalesCacheKey(slug, null);
+    const cached = salesCache.get(allKey);
+    if (cached && (now - cached.fetchedAt) < SALES_CACHE_TTL_MS && cached.sales.length >= minCount) {
+      return cached.sales.slice(0, minCount);
+    }
+  }
+
+  // For date-filtered requests: check if unfiltered cache covers enough recent data
+  if (afterDateMs !== null) {
+    const allKey = getSalesCacheKey(slug, null);
+    const allCached = salesCache.get(allKey);
+    if (allCached && (now - allCached.fetchedAt) < SALES_CACHE_TTL_MS) {
+      const filtered = allCached.sales.filter(s => s.eventTimestamp.getTime() >= afterDateMs);
+      if (filtered.length >= minCount) {
+        return filtered.slice(0, minCount);
+      }
+    }
+  }
+
+  return null;
+}
+
+function storeSalesCache(slug: string, afterDateMs: number | null, sales: CollectionSaleEvent[]): void {
+  const key = getSalesCacheKey(slug, afterDateMs);
+  salesCache.set(key, { sales, fetchedAt: Date.now(), afterDateMs });
+
+  // Cleanup expired entries
+  if (salesCache.size > 10) {
+    const now = Date.now();
+    for (const [k, entry] of salesCache.entries()) {
+      if (now - entry.fetchedAt > SALES_CACHE_TTL_MS) {
+        salesCache.delete(k);
       }
     }
   }
@@ -689,6 +820,17 @@ export class OpenSeaService {
     afterDate?: Date,
     limit: number = 50
   ): Promise<CollectionSaleEvent[]> {
+    const afterDateMs = afterDate ? afterDate.getTime() : null;
+
+    // Check shared sales cache first
+    const cached = findUsableSalesCache(collectionSlug, afterDateMs, limit);
+    if (cached) {
+      if (DEBUG) {
+        console.log(`[getCollectionSaleEvents] Cache HIT: ${cached.length} sales (requested ${limit})`);
+      }
+      return cached;
+    }
+
     try {
       const headers = this.apiKey ? { 'X-API-KEY': this.apiKey } : {};
 
@@ -734,6 +876,9 @@ export class OpenSeaService {
           fetched++;
         }
       } while (cursor && fetched < limit);
+
+      // Store in shared sales cache
+      storeSalesCache(collectionSlug, afterDateMs, allEvents);
 
       return allEvents;
     } catch (error) {

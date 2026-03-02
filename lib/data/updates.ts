@@ -15,9 +15,20 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.9',
+    version: 'v0.5.0',
     date: 'Mar 2, 2026',
     tag: 'current',
+    title: 'The market page stopped hoarding data',
+    items: [
+      'The market page used to take 4\u20118 seconds on a cold load because it fetched things one at a time like a polite queue at the post office. Now it fetches in parallel. Noticeably faster.',
+      'If you visit the market page before your portfolio, your NFTs now get instant floor prices from market data instead of looking up each one individually. Think of it as the market page leaving notes for your portfolio page. They\u2019re finally talking to each other.',
+      'Token names are cached for 24 hours. Your second market load skips hundreds of name lookups entirely because \u2014 turns out \u2014 NFT names don\u2019t change after they\u2019re minted. Revolutionary insight.',
+      'NFT detail now shows all available reference prices in an expandable list. Best estimate gets the spotlight, everything else lives behind a "show more" toggle. Because one number is a fact, three numbers is context.',
+    ],
+  },
+  {
+    version: 'v0.4.9',
+    date: 'Mar 2, 2026',
     title: 'Plumbing',
     items: [
       'Backend fixes and internal tooling. Nothing you\u2019d notice. That\u2019s the point.',

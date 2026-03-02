@@ -1,4 +1,5 @@
 import { OpenSeaService } from '@/lib/api/opensea';
+import { setReferencePriceCache, type MarketReferencePrice } from '@/lib/api/marketCache';
 import type { MarketListingsResponse, MarketItemGroup } from '@/lib/types';
 
 // In-memory server cache (same pattern as /api/opensea/rarity-floors)
@@ -21,13 +22,14 @@ export async function GET(): Promise<Response> {
   try {
     const opensea = new OpenSeaService();
 
-    // Fetch detailed listings (individual per-token data preserved)
-    const rawItems = await opensea.getActiveListingsDetailed('off-the-grid');
-
-    // Fetch 7-day sales to enrich with sale context
+    // Fetch listings + 7-day sales in parallel (they're independent)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentSales = await opensea.getCollectionSaleEvents('off-the-grid', sevenDaysAgo, 200);
+
+    const [rawItems, recentSales] = await Promise.all([
+      opensea.getActiveListingsDetailed('off-the-grid'),
+      opensea.getCollectionSaleEvents('off-the-grid', sevenDaysAgo, 200),
+    ]);
 
     // Build sales-by-name map
     const salesByName = new Map<string, { count: number; totalPrice: number }>();
@@ -65,6 +67,20 @@ export async function GET(): Promise<Response> {
       uniqueItemCount: items.length,
       lastUpdated: new Date().toISOString(),
     };
+
+    // Populate shared reference price cache for portfolio valuations
+    const byItemName: Record<string, MarketReferencePrice> = {};
+    for (const item of items) {
+      if (item.itemName && !item.itemName.startsWith('Token #')) {
+        byItemName[item.itemName] = {
+          floorGun: item.floorPriceGun,
+          avgSaleGun7d: item.avgSalePriceGun,
+          listingCount: item.listingCount,
+          recentSales: item.recentSales,
+        };
+      }
+    }
+    setReferencePriceCache({ byItemName, updatedAt: new Date().toISOString() });
 
     // Update server cache
     cache = data;
