@@ -86,7 +86,14 @@ export interface PortfolioAttestationInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "attest",
-    values: [BigNumberish, BytesLike, BigNumberish, BigNumberish, string]
+    values: [
+      AddressLike,
+      BigNumberish,
+      BytesLike,
+      BigNumberish,
+      BigNumberish,
+      string
+    ]
   ): string;
   encodeFunctionData(functionFragment: "attestFee", values?: undefined): string;
   encodeFunctionData(
@@ -315,6 +322,7 @@ export interface PortfolioAttestation extends BaseContract {
 
   attest: TypedContractMethod<
     [
+      wallet: AddressLike,
       blockNumber: BigNumberish,
       merkleRoot: BytesLike,
       totalValueGun: BigNumberish,
@@ -397,6 +405,7 @@ export interface PortfolioAttestation extends BaseContract {
     nameOrSignature: "attest"
   ): TypedContractMethod<
     [
+      wallet: AddressLike,
       blockNumber: BigNumberish,
       merkleRoot: BytesLike,
       totalValueGun: BigNumberish,

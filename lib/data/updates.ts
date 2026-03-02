@@ -15,9 +15,18 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.4.7',
+    version: 'v0.4.8',
     date: 'Mar 1, 2026',
     tag: 'current',
+    title: 'Your MetaMask is not your gaming wallet',
+    items: [
+      'You can now attest any wallet you\u2019re tracking \u2014 not just the one paying for gas. Connect MetaMask, pick your in\u2011game wallet, hit attest. The on\u2011chain record shows the right address. Before this, it showed whoever signed the transaction, which was\u2026 not the point.',
+      'Also fixed a bug where switching to Avalanche mid\u2011attestation could cause the transaction to fail because the block number came from a different RPC than the one actually sending the tx. The kind of bug that only shows up in production.',
+    ],
+  },
+  {
+    version: 'v0.4.7',
+    date: 'Mar 1, 2026',
     title: 'Nothing is free, especially on\u2011chain',
     items: [
       'Attestations now cost 0.01\u00a0AVAX. Somebody has to pay for the block space. Your wallet shows the fee before you sign \u2014 no surprises, no hidden charges.',

@@ -21,9 +21,22 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.4.7',
+    version: 'v0.4.8',
     date: 'Mar 1, 2026',
     tag: 'current',
+    items: [
+      'PortfolioAttestation.sol v3 \u2014 attest() now takes explicit `address wallet` as first parameter instead of using msg.sender; enables delegation (wallet\u00a0A pays, wallet\u00a0B gets the attestation); require(wallet\u00a0!=\u00a0address(0)) guard',
+      'UUPS proxy upgraded on C\u2011Chain: implementation 0x80A6C9661Fb0fEd1cCEBf568bCb709D548B98358; proxy address unchanged (0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16)',
+      'Frontend ABI + submitAttestation() updated to pass wallet param; usePortfolioAttestation hook passes tracked walletAddress (in\u2011game wallet) as attestation target',
+      'Attestation flow reordered: chain switch \u2192 get signer \u2192 fetch blockNumber from signer\u2019s provider (fixes RPC mismatch causing estimateGas failures)',
+      'Contract ownership transferred to Ledger wallet (0x8ABF\u2026488C); hardhat\u2011ledger plugin + upgrade script configured for future UUPS upgrades',
+      'Implementation contract verified on Snowtrace via Routescan API',
+      'Test suite expanded to 29 tests: delegation (alice pays for bob), multi\u2011payer, zero\u2011address rejection',
+    ],
+  },
+  {
+    version: 'v0.4.7',
+    date: 'Mar 1, 2026',
     items: [
       'PortfolioAttestation.sol v2 \u2014 configurable attestFee (0.01\u00a0AVAX default), owner/withdraw/transferOwnership/setFee; attest() now payable with require(msg.value\u00a0>=\u00a0attestFee); totalFeesCollected counter; FeeUpdated + OwnerTransferred events',
       'Contract redeployed to Avalanche C\u2011Chain: 0xf8f5aa3D940009987F02AD92e44A5434Bab748bf',

@@ -41,6 +41,7 @@ describe("PortfolioAttestation", function () {
       const blockNumber = await ethers.provider.getBlockNumber();
 
       const tx = await contract.connect(alice).attest(
+        alice.address,
         blockNumber,
         tree.root,
         totalValueGun,
@@ -61,7 +62,7 @@ describe("PortfolioAttestation", function () {
       const { contract, alice, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
       const blockNumber = await ethers.provider.getBlockNumber();
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
 
       const att = await contract.getAttestation(alice.address, 0);
       expect(att.blockNumber).to.equal(blockNumber);
@@ -76,8 +77,8 @@ describe("PortfolioAttestation", function () {
       const { contract, alice, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
       const blockNumber = await ethers.provider.getBlockNumber();
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 5, "ipfs://QmSecondAttestation", { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 5, "ipfs://QmSecondAttestation", { value: ATTEST_FEE });
 
       expect(await contract.getAttestationCount(alice.address)).to.equal(2);
       expect(await contract.totalAttestations()).to.equal(2);
@@ -90,8 +91,8 @@ describe("PortfolioAttestation", function () {
       const { contract, alice, bob, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
       const blockNumber = await ethers.provider.getBlockNumber();
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
-      await contract.connect(bob).attest(blockNumber, tree.root, totalValueGun, 1, "ipfs://QmBobAttestation", { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(bob).attest(bob.address, blockNumber, tree.root, totalValueGun, 1, "ipfs://QmBobAttestation", { value: ATTEST_FEE });
 
       expect(await contract.getAttestationCount(alice.address)).to.equal(1);
       expect(await contract.getAttestationCount(bob.address)).to.equal(1);
@@ -103,11 +104,11 @@ describe("PortfolioAttestation", function () {
       const blockNumber = await ethers.provider.getBlockNumber();
 
       await expect(
-        contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: 0 })
+        contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: 0 })
       ).to.be.revertedWith("Insufficient fee");
 
       await expect(
-        contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE - 1n })
+        contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE - 1n })
       ).to.be.revertedWith("Insufficient fee");
     });
 
@@ -116,7 +117,7 @@ describe("PortfolioAttestation", function () {
       const blockNumber = await ethers.provider.getBlockNumber();
       const overpay = ATTEST_FEE * 2n;
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: overpay });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: overpay });
       expect(await contract.totalAttestations()).to.equal(1);
       expect(await contract.totalFeesCollected()).to.equal(overpay);
     });
@@ -125,8 +126,8 @@ describe("PortfolioAttestation", function () {
       const { contract, alice, bob, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
       const blockNumber = await ethers.provider.getBlockNumber();
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
-      await contract.connect(bob).attest(blockNumber, tree.root, totalValueGun, 1, "ipfs://QmBob", { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(bob).attest(bob.address, blockNumber, tree.root, totalValueGun, 1, "ipfs://QmBob", { value: ATTEST_FEE });
 
       expect(await contract.totalFeesCollected()).to.equal(ATTEST_FEE * 2n);
     });
@@ -136,7 +137,7 @@ describe("PortfolioAttestation", function () {
       const futureBlock = (await ethers.provider.getBlockNumber()) + 1000;
 
       await expect(
-        contract.connect(alice).attest(futureBlock, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE })
+        contract.connect(alice).attest(alice.address, futureBlock, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE })
       ).to.be.revertedWith("Future block");
     });
 
@@ -145,7 +146,7 @@ describe("PortfolioAttestation", function () {
       const blockNumber = await ethers.provider.getBlockNumber();
 
       await expect(
-        contract.connect(alice).attest(blockNumber, ethers.ZeroHash, totalValueGun, 3, metadataURI, { value: ATTEST_FEE })
+        contract.connect(alice).attest(alice.address, blockNumber, ethers.ZeroHash, totalValueGun, 3, metadataURI, { value: ATTEST_FEE })
       ).to.be.revertedWith("Empty merkle root");
     });
 
@@ -154,8 +155,60 @@ describe("PortfolioAttestation", function () {
       const blockNumber = await ethers.provider.getBlockNumber();
 
       await expect(
-        contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, "", { value: ATTEST_FEE })
+        contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, "", { value: ATTEST_FEE })
       ).to.be.revertedWith("Empty metadata URI");
+    });
+
+    it("should reject zero wallet address", async function () {
+      const { contract, alice, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
+      const blockNumber = await ethers.provider.getBlockNumber();
+
+      await expect(
+        contract.connect(alice).attest(ethers.ZeroAddress, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE })
+      ).to.be.revertedWith("Zero wallet");
+    });
+  });
+
+  describe("Delegation", function () {
+    it("should allow attesting on behalf of another wallet", async function () {
+      const { contract, alice, bob, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
+      const blockNumber = await ethers.provider.getBlockNumber();
+
+      // Alice pays, but attests for Bob's wallet
+      const tx = await contract.connect(alice).attest(
+        bob.address,
+        blockNumber,
+        tree.root,
+        totalValueGun,
+        3,
+        metadataURI,
+        { value: ATTEST_FEE }
+      );
+
+      // Event should show Bob as the attested wallet
+      await expect(tx)
+        .to.emit(contract, "PortfolioAttested")
+        .withArgs(bob.address, 0, tree.root, totalValueGun, 3, blockNumber, metadataURI);
+
+      // Attestation is stored under Bob, not Alice
+      expect(await contract.getAttestationCount(bob.address)).to.equal(1);
+      expect(await contract.getAttestationCount(alice.address)).to.equal(0);
+      expect(await contract.totalAttestations()).to.equal(1);
+
+      const att = await contract.getAttestation(bob.address, 0);
+      expect(att.merkleRoot).to.equal(tree.root);
+    });
+
+    it("should allow multiple payers to attest for the same wallet", async function () {
+      const { contract, alice, bob, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
+      const blockNumber = await ethers.provider.getBlockNumber();
+
+      // Both alice and bob attest for the same target wallet (alice.address)
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(bob).attest(alice.address, blockNumber, tree.root, totalValueGun, 5, "ipfs://QmBobPays", { value: ATTEST_FEE });
+
+      expect(await contract.getAttestationCount(alice.address)).to.equal(2);
+      expect(await contract.totalAttestations()).to.equal(2);
     });
   });
 
@@ -193,7 +246,7 @@ describe("PortfolioAttestation", function () {
       const blockNumber = await ethers.provider.getBlockNumber();
 
       // Generate some fees
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
 
       const balanceBefore = await ethers.provider.getBalance(owner.address);
       const tx = await contract.connect(owner).withdraw();
@@ -266,7 +319,7 @@ describe("PortfolioAttestation", function () {
       const { contract, alice, holdings, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
       const blockNumber = await ethers.provider.getBlockNumber();
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
 
       // Get proof for the first holding
       const proof = tree.getProof(0);
@@ -279,7 +332,7 @@ describe("PortfolioAttestation", function () {
       const { contract, alice, holdings, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
       const blockNumber = await ethers.provider.getBlockNumber();
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
 
       for (let i = 0; i < holdings.length; i++) {
         const proof = tree.getProof(i);
@@ -292,7 +345,7 @@ describe("PortfolioAttestation", function () {
       const { contract, alice, tree, totalValueGun, metadataURI } = await loadFixture(deployFixture);
       const blockNumber = await ethers.provider.getBlockNumber();
 
-      await contract.connect(alice).attest(blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
+      await contract.connect(alice).attest(alice.address, blockNumber, tree.root, totalValueGun, 3, metadataURI, { value: ATTEST_FEE });
 
       // Fabricate a fake leaf
       const fakeLeaf = ethers.keccak256(ethers.toUtf8Bytes("fake-holding"));

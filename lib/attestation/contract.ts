@@ -13,7 +13,7 @@ export const AVALANCHE_CHAIN_ID_HEX = '0xA86A';
 
 // ABI — only the functions we call (keeps bundle small)
 export const ATTESTATION_ABI = [
-  'function attest(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, string metadataURI) external payable returns (uint256)',
+  'function attest(address wallet, uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, string metadataURI) external payable returns (uint256)',
   'function attestFee() external view returns (uint256)',
   'function getAttestationCount(address wallet) external view returns (uint256)',
   'function getAttestation(address wallet, uint256 index) external view returns (tuple(uint256 blockNumber, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, uint48 timestamp, string metadataURI))',
@@ -53,6 +53,7 @@ function getWriteContract(signer: Signer) {
 export async function submitAttestation(
   signer: Signer,
   params: {
+    wallet: string; // The wallet whose portfolio is being attested
     blockNumber: number;
     merkleRoot: string;
     totalValueGun: string; // 18-decimal wei string
@@ -66,6 +67,7 @@ export async function submitAttestation(
   const fee: bigint = await contract.attestFee();
 
   const tx = await contract.attest(
+    params.wallet,
     params.blockNumber,
     params.merkleRoot,
     params.totalValueGun,

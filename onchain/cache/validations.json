@@ -297,6 +297,499 @@
       "contracts/PortfolioAttestation.sol:PortfolioAttestation": {
         "src": "contracts\\PortfolioAttestation.sol:12",
         "version": {
+          "withMetadata": "129c6af28bdc56158057ec2175de7e0094124f4d9c7413638fa1008dfb6d4714",
+          "withoutMetadata": "c84d74722eacc8860ca7645067ae2bf45a06b9c7c03b460c7e3bea78a4ed4671",
+          "linkedWithoutMetadata": "c84d74722eacc8860ca7645067ae2bf45a06b9c7c03b460c7e3bea78a4ed4671"
+        },
+        "inherit": [
+          "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol:UUPSUpgradeable",
+          "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable",
+          "@openzeppelin/contracts/proxy/utils/Initializable.sol:Initializable"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol:MerkleProof"
+        ],
+        "methods": [
+          "()",
+          "initialize(uint256)",
+          "attest(address,uint256,bytes32,uint256,uint16,string)",
+          "getAttestationCount(address)",
+          "getAttestation(address,uint256)",
+          "getLatestAttestation(address)",
+          "verifyHolding(address,uint256,bytes32,bytes32[])",
+          "setFee(uint256)",
+          "withdraw()",
+          "transferOwnership(address)"
+        ],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [
+            {
+              "label": "owner",
+              "offset": 0,
+              "slot": "0",
+              "type": "t_address",
+              "contract": "PortfolioAttestation",
+              "src": "contracts\\PortfolioAttestation.sol:22"
+            },
+            {
+              "label": "attestFee",
+              "offset": 0,
+              "slot": "1",
+              "type": "t_uint256",
+              "contract": "PortfolioAttestation",
+              "src": "contracts\\PortfolioAttestation.sol:23"
+            },
+            {
+              "label": "_attestations",
+              "offset": 0,
+              "slot": "2",
+              "type": "t_mapping(t_address,t_array(t_struct(Attestation)2607_storage)dyn_storage)",
+              "contract": "PortfolioAttestation",
+              "src": "contracts\\PortfolioAttestation.sol:26"
+            },
+            {
+              "label": "totalAttestations",
+              "offset": 0,
+              "slot": "3",
+              "type": "t_uint256",
+              "contract": "PortfolioAttestation",
+              "src": "contracts\\PortfolioAttestation.sol:29"
+            },
+            {
+              "label": "totalFeesCollected",
+              "offset": 0,
+              "slot": "4",
+              "type": "t_uint256",
+              "contract": "PortfolioAttestation",
+              "src": "contracts\\PortfolioAttestation.sol:32"
+            }
+          ],
+          "types": {
+            "t_bool": {
+              "label": "bool",
+              "numberOfBytes": "1"
+            },
+            "t_struct(InitializableStorage)130_storage": {
+              "label": "struct Initializable.InitializableStorage",
+              "members": [
+                {
+                  "label": "_initialized",
+                  "type": "t_uint64",
+                  "offset": 0,
+                  "slot": "0"
+                },
+                {
+                  "label": "_initializing",
+                  "type": "t_bool",
+                  "offset": 8,
+                  "slot": "0"
+                }
+              ],
+              "numberOfBytes": "32"
+            },
+            "t_uint64": {
+              "label": "uint64",
+              "numberOfBytes": "8"
+            },
+            "t_address": {
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "t_array(t_struct(Attestation)2607_storage)dyn_storage": {
+              "label": "struct PortfolioAttestation.Attestation[]",
+              "numberOfBytes": "32"
+            },
+            "t_bytes32": {
+              "label": "bytes32",
+              "numberOfBytes": "32"
+            },
+            "t_mapping(t_address,t_array(t_struct(Attestation)2607_storage)dyn_storage)": {
+              "label": "mapping(address => struct PortfolioAttestation.Attestation[])",
+              "numberOfBytes": "32"
+            },
+            "t_string_storage": {
+              "label": "string",
+              "numberOfBytes": "32"
+            },
+            "t_struct(Attestation)2607_storage": {
+              "label": "struct PortfolioAttestation.Attestation",
+              "members": [
+                {
+                  "label": "blockNumber",
+                  "type": "t_uint256",
+                  "offset": 0,
+                  "slot": "0"
+                },
+                {
+                  "label": "merkleRoot",
+                  "type": "t_bytes32",
+                  "offset": 0,
+                  "slot": "1"
+                },
+                {
+                  "label": "totalValueGun",
+                  "type": "t_uint256",
+                  "offset": 0,
+                  "slot": "2"
+                },
+                {
+                  "label": "itemCount",
+                  "type": "t_uint16",
+                  "offset": 0,
+                  "slot": "3"
+                },
+                {
+                  "label": "timestamp",
+                  "type": "t_uint48",
+                  "offset": 2,
+                  "slot": "3"
+                },
+                {
+                  "label": "metadataURI",
+                  "type": "t_string_storage",
+                  "offset": 0,
+                  "slot": "4"
+                }
+              ],
+              "numberOfBytes": "160"
+            },
+            "t_uint16": {
+              "label": "uint16",
+              "numberOfBytes": "2"
+            },
+            "t_uint256": {
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "t_uint48": {
+              "label": "uint48",
+              "numberOfBytes": "6"
+            }
+          },
+          "layoutVersion": "1.2",
+          "flat": true,
+          "namespaces": {
+            "erc7201:openzeppelin.storage.Initializable": [
+              {
+                "contract": "Initializable",
+                "label": "_initialized",
+                "type": "t_uint64",
+                "src": "@openzeppelin\\contracts\\proxy\\utils\\Initializable.sol:69",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "contract": "Initializable",
+                "label": "_initializing",
+                "type": "t_bool",
+                "src": "@openzeppelin\\contracts\\proxy\\utils\\Initializable.sol:73",
+                "offset": 8,
+                "slot": "0"
+              }
+            ]
+          }
+        },
+        "solcVersion": "0.8.28"
+      }
+    },
+    {
+      "@openzeppelin/contracts/interfaces/IERC1967.sol:IERC1967": {
+        "src": "@openzeppelin\\contracts\\interfaces\\IERC1967.sol:9",
+        "inherit": [],
+        "libraries": [],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable": {
+        "src": "@openzeppelin\\contracts\\interfaces\\draft-IERC1822.sol:10",
+        "inherit": [],
+        "libraries": [],
+        "methods": [
+          "proxiableUUID()"
+        ],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol:ERC1967Utils": {
+        "src": "@openzeppelin\\contracts\\proxy\\ERC1967\\ERC1967Utils.sol:15",
+        "version": {
+          "withMetadata": "ec713d6c832a212f3ad75f45f7bf4c1702a0f5020141aefc6d58b5d30d25cba1",
+          "withoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84",
+          "linkedWithoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84"
+        },
+        "inherit": [],
+        "libraries": [
+          "@openzeppelin/contracts/utils/StorageSlot.sol:StorageSlot",
+          "@openzeppelin/contracts/utils/Address.sol:Address"
+        ],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/proxy/beacon/IBeacon.sol:IBeacon": {
+        "src": "@openzeppelin\\contracts\\proxy\\beacon\\IBeacon.sol:9",
+        "inherit": [],
+        "libraries": [],
+        "methods": [
+          "implementation()"
+        ],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/proxy/utils/Initializable.sol:Initializable": {
+        "src": "@openzeppelin\\contracts\\proxy\\utils\\Initializable.sol:56",
+        "inherit": [],
+        "libraries": [],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {
+            "t_bool": {
+              "label": "bool",
+              "numberOfBytes": "1"
+            },
+            "t_struct(InitializableStorage)130_storage": {
+              "label": "struct Initializable.InitializableStorage",
+              "members": [
+                {
+                  "label": "_initialized",
+                  "type": "t_uint64",
+                  "offset": 0,
+                  "slot": "0"
+                },
+                {
+                  "label": "_initializing",
+                  "type": "t_bool",
+                  "offset": 8,
+                  "slot": "0"
+                }
+              ],
+              "numberOfBytes": "32"
+            },
+            "t_uint64": {
+              "label": "uint64",
+              "numberOfBytes": "8"
+            }
+          },
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {
+            "erc7201:openzeppelin.storage.Initializable": [
+              {
+                "contract": "Initializable",
+                "label": "_initialized",
+                "type": "t_uint64",
+                "src": "@openzeppelin\\contracts\\proxy\\utils\\Initializable.sol:69",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "contract": "Initializable",
+                "label": "_initializing",
+                "type": "t_bool",
+                "src": "@openzeppelin\\contracts\\proxy\\utils\\Initializable.sol:73",
+                "offset": 8,
+                "slot": "0"
+              }
+            ]
+          }
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol:UUPSUpgradeable": {
+        "src": "@openzeppelin\\contracts\\proxy\\utils\\UUPSUpgradeable.sol:21",
+        "inherit": [
+          "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol:ERC1967Utils"
+        ],
+        "methods": [
+          "proxiableUUID()",
+          "upgradeToAndCall(address,bytes)"
+        ],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/utils/Address.sol:Address": {
+        "src": "@openzeppelin\\contracts\\utils\\Address.sol:12",
+        "version": {
+          "withMetadata": "b1f0a7a2bacc780faaf21b34da1831a9e3b1273f576664fd7ee94cd8ca9a3c78",
+          "withoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84",
+          "linkedWithoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84"
+        },
+        "inherit": [],
+        "libraries": [
+          "@openzeppelin/contracts/utils/LowLevelCall.sol:LowLevelCall",
+          "@openzeppelin/contracts/utils/Errors.sol:Errors"
+        ],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/utils/Errors.sol:Errors": {
+        "src": "@openzeppelin\\contracts\\utils\\Errors.sol:14",
+        "version": {
+          "withMetadata": "b6859a797293e491e8feb077ae2373ab515890d71f27efb4918da273b4516543",
+          "withoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84",
+          "linkedWithoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84"
+        },
+        "inherit": [],
+        "libraries": [],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/utils/LowLevelCall.sol:LowLevelCall": {
+        "src": "@openzeppelin\\contracts\\utils\\LowLevelCall.sol:12",
+        "version": {
+          "withMetadata": "9016b649854e112056833f6024d35e14c7d461d943c0129ca7ab8b69f579b1e5",
+          "withoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84",
+          "linkedWithoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84"
+        },
+        "inherit": [],
+        "libraries": [],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/utils/StorageSlot.sol:StorageSlot": {
+        "src": "@openzeppelin\\contracts\\utils\\StorageSlot.sol:34",
+        "version": {
+          "withMetadata": "3fce430b0ee90cf4ec5c1a0a3c10d62b98ea20637e53da8cfc5d22391a1b2242",
+          "withoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84",
+          "linkedWithoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84"
+        },
+        "inherit": [],
+        "libraries": [],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/utils/cryptography/Hashes.sol:Hashes": {
+        "src": "@openzeppelin\\contracts\\utils\\cryptography\\Hashes.sol:11",
+        "version": {
+          "withMetadata": "3417c37e81bf933b03cb71e052e4bd539c6ecb4c8c29fa34e970c31170136b43",
+          "withoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84",
+          "linkedWithoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84"
+        },
+        "inherit": [],
+        "libraries": [],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol:MerkleProof": {
+        "src": "@openzeppelin\\contracts\\utils\\cryptography\\MerkleProof.sol:31",
+        "version": {
+          "withMetadata": "3df61df52a3b4d071b6c50b2cfbcb0103b5f7e3f0b3c7a188f65af1d6838383a",
+          "withoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84",
+          "linkedWithoutMetadata": "7d0b86f2a3a59632b81bdfef84dcf6a4bd953ba90926be93775a83e7690dda84"
+        },
+        "inherit": [],
+        "libraries": [
+          "@openzeppelin/contracts/utils/cryptography/Hashes.sol:Hashes"
+        ],
+        "methods": [],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
+      "contracts/PortfolioAttestation.sol:PortfolioAttestation": {
+        "src": "contracts\\PortfolioAttestation.sol:12",
+        "version": {
           "withMetadata": "7c64dc67621b4328fe59e2f30cb47d4295a4d83d8b87f4de7641eed125093fd1",
           "withoutMetadata": "2bb65bf933f49a04cff27ac49a330134830f3c7b8b8226f71ba439349a47400e",
           "linkedWithoutMetadata": "2bb65bf933f49a04cff27ac49a330134830f3c7b8b8226f71ba439349a47400e"

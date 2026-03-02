@@ -1,6 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
+import "@nomicfoundation/hardhat-ledger";
 
 const DEPLOYER_KEY = process.env.DEPLOYER_PRIVATE_KEY || "0x" + "0".repeat(64);
 
@@ -35,6 +36,9 @@ const config: HardhatUserConfig = {
       url: "https://avalanche-c-chain-rpc.publicnode.com",
       chainId: 43114,
       accounts: [DEPLOYER_KEY],
+      ledgerAccounts: [
+        "0x8ABF795f22931DFb0D086693343F5f80571b488C", // Contract owner (Ledger)
+      ],
     },
   },
   etherscan: {
