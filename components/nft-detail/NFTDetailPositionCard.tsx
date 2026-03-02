@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { NFT } from '@/lib/types';
 import type { MarketInputs, DataQualityLevel } from '@/lib/nft/types';
 import type { AcquisitionData, ResolvedAcquisition } from '@/lib/hooks/useNFTAcquisitionPipeline';
@@ -128,6 +129,9 @@ export function NFTDetailPositionCard({
       default: return <span className="text-caption">•</span>;
     }
   };
+
+  // ── Waterfall dropdown toggle ──
+  const [waterfallExpanded, setWaterfallExpanded] = useState(false);
 
   const getTooltipText = () => {
     if (positionLabel.state === 'NO_COST_BASIS') {
@@ -304,11 +308,31 @@ export function NFTDetailPositionCard({
                 : exitTierLabel === 'SIMILAR' ? 'Similar Scarcity'
                 : 'Estimate';
 
+              // Build all available waterfall tiers for the dropdown
+              const waterfallTiers: Array<{ label: string; gun: number; isBest: boolean }> = [];
+              if (nft.currentLowestListing && nft.currentLowestListing > 0) {
+                waterfallTiers.push({ label: 'Current Listing', gun: nft.currentLowestListing, isBest: false });
+              }
+              if (nft.comparableSalesMedian && nft.comparableSalesMedian > 0) {
+                waterfallTiers.push({ label: 'Comparable Sales', gun: nft.comparableSalesMedian, isBest: false });
+              }
+              if (nft.rarityFloor && nft.rarityFloor > 0) {
+                waterfallTiers.push({ label: 'Rarity Floor', gun: nft.rarityFloor, isBest: false });
+              }
+              if (nft.floorPrice && nft.floorPrice > 0) {
+                waterfallTiers.push({ label: 'Collection Floor', gun: nft.floorPrice, isBest: false });
+              }
+              // Mark the winning tier
+              const bestTier = waterfallTiers.find(t => t.label === tierDisplayName);
+              if (bestTier) bestTier.isBest = true;
+              // Other tiers = everything except the best
+              const otherTiers = waterfallTiers.filter(t => !t.isBest);
+
               return (
                 <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5 opacity-80" style={{ borderLeftColor: 'var(--gs-purple)' }}>
                   <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-purple)]/70 mb-3 block">Reference Estimate</span>
 
-                  {/* Value row */}
+                  {/* Best estimate (primary) */}
                   <div className="flex items-baseline justify-between mb-2">
                     <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/30 shrink-0 w-[120px]">{tierDisplayName}</span>
                     <span className="font-display text-[14px] font-semibold text-white/70 tabular-nums text-right">
@@ -323,6 +347,41 @@ export function NFTDetailPositionCard({
                       ) : null}
                     </span>
                   </div>
+
+                  {/* Waterfall dropdown — other available tiers */}
+                  {otherTiers.length > 0 && (
+                    <div className="mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setWaterfallExpanded(prev => !prev)}
+                        className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[1px] text-[var(--gs-purple)]/60 hover:text-[var(--gs-purple)] transition-colors"
+                      >
+                        <span className={`inline-block transition-transform duration-200 ${waterfallExpanded ? 'rotate-90' : ''}`}>&#9656;</span>
+                        {otherTiers.length} other reference{otherTiers.length > 1 ? 's' : ''}
+                      </button>
+
+                      {waterfallExpanded && (
+                        <div className="mt-2 space-y-1.5 pl-3 border-l border-white/[0.06]">
+                          {otherTiers.map(tier => (
+                            <div key={tier.label} className="flex items-baseline justify-between">
+                              <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/20 shrink-0 w-[120px]">{tier.label}</span>
+                              <span className="font-display text-[12px] text-white/40 tabular-nums text-right">
+                                ~{Math.round(tier.gun).toLocaleString()} GUN
+                                {currentGunPrice ? (
+                                  <>
+                                    <span className="text-white/15 mx-0.5">&rarr;</span>
+                                    <span className="text-white/25">
+                                      ${(tier.gun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  </>
+                                ) : null}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Warning */}
                   <div className="border-t border-white/[0.04] pt-2.5 mt-2.5">
@@ -475,6 +534,59 @@ export function NFTDetailPositionCard({
                         </span>
                       )}
                     </div>
+
+                    {/* Waterfall dropdown — other available reference tiers */}
+                    {(() => {
+                      const tiers: Array<{ label: string; gun: number }> = [];
+                      if (nft.currentLowestListing && nft.currentLowestListing > 0) {
+                        tiers.push({ label: 'Current Listing', gun: nft.currentLowestListing });
+                      }
+                      if (nft.comparableSalesMedian && nft.comparableSalesMedian > 0) {
+                        tiers.push({ label: 'Comparable Sales', gun: nft.comparableSalesMedian });
+                      }
+                      if (nft.rarityFloor && nft.rarityFloor > 0) {
+                        tiers.push({ label: 'Rarity Floor', gun: nft.rarityFloor });
+                      }
+                      if (nft.floorPrice && nft.floorPrice > 0) {
+                        tiers.push({ label: 'Collection Floor', gun: nft.floorPrice });
+                      }
+                      // Exclude the tier already shown as the primary estimate
+                      const others = tiers.filter(t => Math.round(t.gun) !== Math.round(exitGun!));
+                      if (others.length === 0) return null;
+
+                      return (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setWaterfallExpanded(prev => !prev)}
+                            className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[1px] text-[var(--gs-purple)]/60 hover:text-[var(--gs-purple)] transition-colors"
+                          >
+                            <span className={`inline-block transition-transform duration-200 ${waterfallExpanded ? 'rotate-90' : ''}`}>&#9656;</span>
+                            {others.length} other reference{others.length > 1 ? 's' : ''}
+                          </button>
+                          {waterfallExpanded && (
+                            <div className="mt-2 space-y-1.5 pl-3 border-l border-white/[0.06]">
+                              {others.map(tier => (
+                                <div key={tier.label} className="flex items-baseline justify-between">
+                                  <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/25 shrink-0 w-[120px]">{tier.label}</span>
+                                  <span className="font-display text-[12px] text-white/40 tabular-nums text-right">
+                                    ~{Math.round(tier.gun).toLocaleString()} GUN
+                                    {currentGunPrice ? (
+                                      <>
+                                        <span className="text-white/15 mx-0.5">&rarr;</span>
+                                        <span className="text-white/25">
+                                          ${(tier.gun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      </>
+                                    ) : null}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Subtext */}
                     {hasTrackB && (

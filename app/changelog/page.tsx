@@ -21,9 +21,24 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.4.9',
+    version: 'v0.5.0',
     date: 'Mar 2, 2026',
     tag: 'current',
+    items: [
+      '/api/market/listings \u2014 parallelized getActiveListingsDetailed + getCollectionSaleEvents via Promise.all; previously sequential',
+      'Module\u2011level collection sales cache in OpenSeaService.getCollectionSaleEvents \u2014 keyed by slug::afterDateMs, 30\u2011min TTL; findUsableSalesCache() cross\u2011key reuse (unfiltered 200\u2011entry cache serves 50\u2011entry unfiltered requests)',
+      'Module\u2011level GunzScan name cache in resolveTokenMetadata \u2014 keyed by contract:tokenId, 24h TTL, 500\u2011entry max; batch fetch only uncached tokens; logs hit/miss ratio',
+      'New lib/api/marketCache.ts \u2014 MarketReferencePrice / MarketReferencePriceCache interfaces; module\u2011level singleton with 5\u2011min TTL; populated by /api/market/listings, consumed by /api/market/reference\u2011prices',
+      'New /api/market/reference\u2011prices route \u2014 lightweight GET returning per\u2011item\u2011name floor prices from shared cache; no OpenSea calls; s\u2011maxage=300, stale\u2011while\u2011revalidate=60; returns empty if market data not cached',
+      'MarketReferencePriceData type added to lib/types.ts',
+      'applyValuationTables() \u2014 new optional 5th param marketReference?: MarketReferencePriceData; fills currentLowestListing from market bulk data only when per\u2011NFT enrichment hasn\u2019t provided one (nft.currentLowestListing === undefined)',
+      'PortfolioClient.tsx \u2014 4th parallel fetch for /api/market/reference\u2011prices alongside rarity/comparable/floor; passed to applyValuationTables()',
+      'NFTDetailPositionCard \u2014 expandable waterfall tier list in both Reference\u00a0Estimate and Market\u00a0Reality sections; builds waterfallTiers from currentLowestListing/comparableSalesMedian/rarityFloor/floorPrice; best tier marked, others behind toggle',
+    ],
+  },
+  {
+    version: 'v0.4.9',
+    date: 'Mar 2, 2026',
     items: [
       '/api/attestation/status \u2014 now returns contractAvaxBalance (contract\u2019s AVAX balance from collected fees) and attestFee (current fee in AVAX); batched via Promise.all with existing totalAttestations query',
       'ATTESTATION_ABI extended with owner() view and withdraw() \u2014 new exports: withdrawFees(signer) calls contract.withdraw() and waits for receipt; getContractOwner(provider) reads on\u2011chain owner address',

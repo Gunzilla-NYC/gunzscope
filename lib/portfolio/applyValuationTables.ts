@@ -10,7 +10,7 @@
  *   exact item > same item > same skin > same weapon > collection floor
  */
 
-import { NFT } from '@/lib/types';
+import { NFT, MarketReferencePriceData } from '@/lib/types';
 import { parseItemName } from '@/lib/nft/parseItemName';
 import { getMarketExitValuation } from '@/lib/portfolio/valuationService';
 import type { WaterfallData } from '@/lib/api/opensea';
@@ -27,6 +27,7 @@ export interface ComparableSalesData {
 
 /**
  * Enrich NFTs with valuation table data (comparable sales median + rarity-tier floor + Track B).
+ * Optionally injects market reference floor prices from the /market page's bulk listing data.
  * Returns a new array — does NOT mutate the input.
  */
 export function applyValuationTables(
@@ -34,12 +35,14 @@ export function applyValuationTables(
   rarityFloors: RarityFloorsData | null,
   comparableSales: ComparableSalesData | null,
   collectionFloorGun?: number | null,
+  marketReference?: MarketReferencePriceData | null,
 ): NFT[] {
-  if (!rarityFloors && !comparableSales && !collectionFloorGun) return nfts;
+  if (!rarityFloors && !comparableSales && !collectionFloorGun && !marketReference) return nfts;
 
   const floors = rarityFloors?.floors;
   const items = comparableSales?.items;
   const waterfall = comparableSales?.waterfall;
+  const refPrices = marketReference?.byItemName;
 
   return nfts.map(nft => {
     let comparableSalesMedian: number | undefined;
@@ -68,6 +71,16 @@ export function applyValuationTables(
     // Collection floor — universal fallback for all items
     const floorPrice = (collectionFloorGun && collectionFloorGun > 0) ? collectionFloorGun : undefined;
 
+    // Market reference floor — from market page bulk listing data
+    // Only fills currentLowestListing when per-NFT enrichment hasn't provided one yet
+    let currentLowestListing: number | undefined;
+    if (nft.currentLowestListing === undefined && refPrices && name) {
+      const ref = refPrices[name];
+      if (ref && ref.floorGun > 0) {
+        currentLowestListing = ref.floorGun;
+      }
+    }
+
     // Track B — Market Exit waterfall valuation
     let marketExitGun: number | undefined;
     let marketExitTier: 1 | 2 | 3 | 4 | 5 | 6 | undefined;
@@ -93,13 +106,15 @@ export function applyValuationTables(
     // Only spread if we have new data
     const hasExistingUpdates = comparableSalesMedian !== undefined || rarityFloor !== undefined || floorPrice !== undefined;
     const hasTrackB = marketExitGun !== undefined;
-    if (!hasExistingUpdates && !hasTrackB) return nft;
+    const hasListingUpdate = currentLowestListing !== undefined;
+    if (!hasExistingUpdates && !hasTrackB && !hasListingUpdate) return nft;
 
     return {
       ...nft,
       ...(comparableSalesMedian !== undefined && { comparableSalesMedian }),
       ...(rarityFloor !== undefined && { rarityFloor }),
       ...(floorPrice !== undefined && !nft.floorPrice && { floorPrice }),
+      ...(currentLowestListing !== undefined && { currentLowestListing }),
       ...(marketExitGun !== undefined && { marketExitGun }),
       ...(marketExitTier !== undefined && { marketExitTier }),
       ...(marketExitTierLabel !== undefined && { marketExitTierLabel }),
