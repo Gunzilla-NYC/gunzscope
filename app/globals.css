@@ -881,6 +881,13 @@ body {
   color: var(--gs-black);
 }
 
+/* Tame selection inside inputs so paste doesn't flash a solid green block */
+input::selection,
+textarea::selection {
+  background: rgba(166, 247, 0, 0.3);
+  color: inherit;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    CTA Button Press Feedback
    ══════════════════════════════════════════════════════════════════════════ */

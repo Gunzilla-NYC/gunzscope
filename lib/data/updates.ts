@@ -15,9 +15,20 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.5.1',
+    version: 'v0.5.2',
     date: 'Mar 2, 2026',
     tag: 'current',
+    title: 'Attestations got a face',
+    items: [
+      'Clicking "View" on an attestation used to dump 1,600 lines of raw JSON in your browser. Now it shows a proper page \u2014 wallet, value, item count, merkle root, the whole thing rendered like it belongs in the app. Because it does.',
+      'The login modal was see-through enough that you could read the page behind it instead of the modal itself. Bumped the opacity. You can still tell it\u2019s a modal. You can also read it now.',
+      'Text inputs no longer flash solid green when you paste something. Our selection color was set to "lime, full blast." Now it\u2019s a subtle tint.',
+      'Public pages (/explore, attestation viewer) now have their own lightweight nav with Home + Onchain ID links instead of showing an empty navbar. Small thing, big difference when you\u2019re not logged in.',
+    ],
+  },
+  {
+    version: 'v0.5.1',
+    date: 'Mar 2, 2026',
     title: 'Less clutter, more signal',
     items: [
       'Leaderboard, Scarcity, and Market now live under an "Experiments" dropdown instead of cluttering the nav bar. They\u2019re still experimental. The dropdown makes that clear without pretending otherwise.',

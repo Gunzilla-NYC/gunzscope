@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import Navbar from '@/components/Navbar';
+import PublicNav from '@/components/PublicNav';
 import Footer from '@/components/Footer';
 import { useExplorer, type AttestationEvent } from '@/lib/hooks/useExplorer';
 
@@ -43,8 +43,22 @@ function isAutonomysURI(uri: string): boolean {
     uri.includes('/api/attestation/metadata/');
 }
 
+function extractCid(uri: string): string | null {
+  // /api/attestation/metadata/{cid}
+  const apiMatch = uri.match(/\/api\/attestation\/metadata\/([^/?#]+)/);
+  if (apiMatch) return apiMatch[1];
+  // https://gateway.autonomys.xyz/file/{cid}
+  const gwMatch = uri.match(/gateway\.autonomys\.xyz\/file\/([^/?#]+)/);
+  if (gwMatch) return gwMatch[1];
+  return null;
+}
+
 function getMetadataLink(uri: string): { label: string; href: string | null; isAutonomys: boolean } {
   if (isAutonomysURI(uri)) {
+    const cid = extractCid(uri);
+    if (cid) {
+      return { label: 'View', href: `/explore/attestation/${cid}`, isAutonomys: true };
+    }
     return { label: 'View', href: uri, isAutonomys: true };
   }
   if (uri.startsWith('data:')) {
@@ -129,7 +143,7 @@ function ExploreContent() {
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
-      <Navbar />
+      <PublicNav activeHref="/explore" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}

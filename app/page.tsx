@@ -15,6 +15,7 @@ import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
 import { detectChain } from '@/lib/utils/detectChain';
 import { useKonamiCode } from '@/hooks/useKonamiCode';
 import KonamiOverlay from '@/components/KonamiOverlay';
+import { GlitchLink } from '@/components/navbar/GlitchLink';
 
 // Shared animation easings
 const revealEase = [0.16, 1, 0.3, 1] as const;
@@ -516,13 +517,8 @@ export default function HomePage() {
           <VersionBadge />
         </div>
 
-        <div className="hidden md:flex items-center gap-6">
-          <Link
-            href="/explore"
-            className="font-mono text-data tracking-wider uppercase text-[var(--gs-purple)] hover:text-[var(--gs-purple-bright)] transition-colors"
-          >
-            Onchain ID
-          </Link>
+        <div className="hidden md:flex items-center gap-5">
+          <GlitchLink href="/explore" label="Onchain ID" isActive={false} />
           {user && (
             <Link
               href="/portfolio"

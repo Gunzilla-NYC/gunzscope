@@ -1,10 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { isAdminWallet } from '@/lib/auth/dynamicAuth';
-import Navbar from '@/components/Navbar';
+import Link from 'next/link';
+import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
 import BuildVelocityChart from '@/components/charts/BuildVelocityChart';
 
@@ -128,9 +125,7 @@ function DocBadge() {
 function PhaseNode({ phase, index }: { phase: Phase; index: number }) {
   return (
     <div className="relative grid grid-cols-[40px_1fr] md:grid-cols-[60px_1fr] gap-4 md:gap-6">
-      {/* Timeline spine */}
       <div className="flex flex-col items-center">
-        {/* Node dot */}
         <div
           className={`w-3 h-3 shrink-0 border-2 ${
             phase.active
@@ -139,7 +134,6 @@ function PhaseNode({ phase, index }: { phase: Phase; index: number }) {
           }`}
           style={{ clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
         />
-        {/* Vertical line (hidden on last) */}
         {index < PHASES.length - 1 && (
           <div
             className={`w-px flex-1 mt-2 ${
@@ -151,11 +145,7 @@ function PhaseNode({ phase, index }: { phase: Phase; index: number }) {
         )}
       </div>
 
-      {/* Phase card */}
-      <div
-        className={`pb-10 md:pb-14 ${index === PHASES.length - 1 ? 'pb-0 md:pb-0' : ''}`}
-      >
-        {/* Phase label */}
+      <div className={`pb-10 md:pb-14 ${index === PHASES.length - 1 ? 'pb-0 md:pb-0' : ''}`}>
         <div
           className={`font-mono text-[9px] tracking-[2px] uppercase mb-1.5 ${
             phase.active ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-gray-2)]'
@@ -163,8 +153,6 @@ function PhaseNode({ phase, index }: { phase: Phase; index: number }) {
         >
           {phase.label}
         </div>
-
-        {/* Phase title */}
         <h3
           className={`font-display font-bold text-lg md:text-xl uppercase tracking-wide mb-4 ${
             phase.active ? 'text-[var(--gs-white)]' : 'text-[var(--gs-gray-4)]'
@@ -172,8 +160,6 @@ function PhaseNode({ phase, index }: { phase: Phase; index: number }) {
         >
           {phase.title}
         </h3>
-
-        {/* Items as pill tags */}
         <div className="flex flex-wrap gap-1.5">
           {phase.items.map((item, i) => (
             <span
@@ -227,30 +213,31 @@ function ScopeBar() {
 }
 
 // ---------------------------------------------------------------------------
-// Main page
+// Main page — public version (no admin gate)
 // ---------------------------------------------------------------------------
 
-export default function StrategyPage() {
-  const router = useRouter();
-  const { primaryWallet, sdkHasLoaded } = useDynamicContext();
-  const isAdmin = isAdminWallet(primaryWallet?.address);
-
-  useEffect(() => {
-    if (sdkHasLoaded && !isAdmin) router.replace('/');
-  }, [sdkHasLoaded, isAdmin, router]);
-
-  if (!sdkHasLoaded || !isAdmin) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center bg-[var(--gs-black)]">
-        <div className="w-5 h-5 border-2 border-[var(--gs-lime)]/30 border-t-[var(--gs-lime)] rounded-full animate-spin" />
-      </div>
-    );
-  }
-
+export default function BuildGamesRoadmap() {
   return (
     <div className="min-h-dvh flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)]">
       <div className="grid-bg" />
-      <Navbar />
+
+      {/* Minimal nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="max-w-[900px] mx-auto px-5 md:px-10 h-14 flex items-center justify-between">
+          <Link href="/build-games" className="flex items-center gap-3">
+            <div className="relative w-[9rem] sm:w-[10rem] overflow-hidden">
+              <Logo size="md" variant="full" glitchOnHover />
+            </div>
+          </Link>
+          <Link
+            href="/build-games"
+            className="font-mono text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors"
+          >
+            &larr; Overview
+          </Link>
+        </div>
+      </nav>
+      <div className="h-14" />
 
       <main className="flex-1 max-w-[900px] mx-auto px-5 md:px-10 py-16 w-full relative z-[1]">
 
@@ -294,18 +281,17 @@ export default function StrategyPage() {
           {PHASES.map((phase, i) => (
             <PhaseNode key={phase.id} phase={phase} index={i} />
           ))}
-
           <ScopeBar />
         </section>
 
         {/* Document footer */}
         <div className="pt-10 border-t border-white/[0.06] flex flex-col sm:flex-row justify-between font-mono text-[10px] text-[var(--gs-gray-2)] tracking-[1px]">
           <span>GUNZscope &middot; Build Games 2026 &middot; Strategic Roadmap</span>
-          <span className="mt-2 sm:mt-0">Classified // Internal Use</span>
+          <span className="mt-2 sm:mt-0">gunzscope.xyz</span>
         </div>
 
       </main>
-      <Footer />
+      <Footer variant="minimal" />
     </div>
   );
 }
