@@ -128,6 +128,8 @@ async function main() {
     { slug: 'yankee-doodle',     name: 'Yankee Doodle Damage',           shortName: 'Yankee Doodle',       category: 'content_pack', date: null, description: null },
     { slug: 'le-bobo',           name: "Content Pack: Le' Bobo",         shortName: "Le' Bobo",            category: 'content_pack', date: null, description: null },
     { slug: 'joey-pulse',        name: 'Content Pack: Joey Pulse',       shortName: 'Joey Pulse',          category: 'content_pack', date: null, description: null },
+    { slug: 'legacy',            name: 'Legacy Collection',              shortName: 'Legacy',              category: 'content_pack', date: null, description: 'Base game legacy weapon variants' },
+    { slug: 'retro',             name: 'Retro Collection',               shortName: 'Retro',               category: 'content_pack', date: null, description: 'Base game retro weapon variants' },
     { slug: 'unmapped',          name: 'Unmapped',                       shortName: 'Unknown',             category: 'content_pack', date: null, description: 'Bucket for items not yet mapped to a release' },
   ];
 
@@ -454,18 +456,18 @@ async function main() {
     ['Kelowna El Diablo', 'nuestros'],
     // Unmapped sidearms — sort later
     ['Tap9', 'unmapped'],
-    ['Tap9 Retro', 'unmapped'],
-    ['Tap9 Legacy', 'unmapped'],
+    ['Tap9 Retro', 'retro'],
+    ['Tap9 Legacy', 'legacy'],
     ['Tap9 Pacifist', 'unmapped'],
     ['Tap 9 Feedkiller', 'unmapped'],
     ['Type 227', 'unmapped'],
-    ['Type 227 Retro', 'unmapped'],
-    ['Type 227 Legacy', 'unmapped'],
+    ['Type 227 Retro', 'retro'],
+    ['Type 227 Legacy', 'legacy'],
     ['Type 227 Impact Junkie', 'unmapped'],
     ['Type 227 Flatliner', 'unmapped'],
     ['Kelowna', 'unmapped'],
-    ['Kelowna Retro', 'unmapped'],
-    ['Kelowna Legacy', 'unmapped'],
+    ['Kelowna Retro', 'retro'],
+    ['Kelowna Legacy', 'legacy'],
     ['Kelowna Tagger', 'unmapped'],
     // ── Marksman Rifles (Proton / Ichnya) ──────────────────
     // Neotokyo
@@ -474,14 +476,14 @@ async function main() {
     ['Ichnya Covfefe', 'save-democracy'],
     // Unmapped marksman rifles — sort later
     ['Proton', 'unmapped'],
-    ['Proton Retro', 'unmapped'],
-    ['Proton Legacy', 'unmapped'],
+    ['Proton Retro', 'retro'],
+    ['Proton Legacy', 'legacy'],
     ['Proton OpenSea', 'unmapped'],
     ['Proton Feedkiller', 'unmapped'],
     ['Proton Drifter', 'unmapped'],
     ['Ichnya', 'unmapped'],
-    ['Ichnya Retro', 'unmapped'],
-    ['Ichnya Legacy', 'unmapped'],
+    ['Ichnya Retro', 'retro'],
+    ['Ichnya Legacy', 'legacy'],
     // ── Sniper Rifles (Kestrel / Osprey / Pierser) ─────────
     // Zero Chill BP
     ['Osprey Zero Chill', 'zero-chill-bp'],
@@ -490,13 +492,13 @@ async function main() {
     // Templar BP (Kestrel Templar already in DB)
     // Unmapped sniper rifles — sort later
     ['Kestrel', 'unmapped'],
-    ['Kestrel Retro', 'unmapped'],
-    ['Kestrel Legacy', 'unmapped'],
+    ['Kestrel Retro', 'retro'],
+    ['Kestrel Legacy', 'legacy'],
     ['Kestrel Feedkiller', 'unmapped'],
-    ['Kestrel Punisher', 'unmapped'],
+    ['Kestrel Punisher', 'anti-cheat-bp'],
     ['Osprey', 'unmapped'],
-    ['Osprey Retro', 'unmapped'],
-    ['Osprey Legacy', 'unmapped'],
+    ['Osprey Retro', 'retro'],
+    ['Osprey Legacy', 'legacy'],
     ['Pierser', 'unmapped'],
     ['Pierser Mouse', 'unmapped'],
     // ── Headwear ─────────────────────────────────────────
@@ -609,16 +611,16 @@ async function main() {
     // ── LMGs (Hawk / Boomslang) + ARs (Partisan) ──────────────
     // Hawk
     ['Hawk', 'unmapped'],
-    ['Hawk Retro', 'unmapped'],
-    ['Hawk Legacy', 'unmapped'],
+    ['Hawk Retro', 'retro'],
+    ['Hawk Legacy', 'legacy'],
     ['Hawk Feedkiller', 'unmapped'],
     ['Hawk Cleanup Crew', 'unmapped'],
     // Hawk Anarchist already in Anarchist BP above
     // Hawk Blue Blood already in Hexmas above
     // Boomslang
     ['Boomslang', 'unmapped'],
-    ['Boomslang Retro', 'unmapped'],
-    ['Boomslang Legacy', 'unmapped'],
+    ['Boomslang Retro', 'retro'],
+    ['Boomslang Legacy', 'legacy'],
     ['Boomslang Second Amender', 'save-democracy'],
     ['Boomslang Player Zero', 'player-zero'],
     // Partisan
@@ -627,14 +629,14 @@ async function main() {
     // ── SMGs (AZV 100 / Tacoma) ─────────────────────────────
     // AZV 100
     ['AZV 100', 'unmapped'],
-    ['AZV 100 Retro', 'unmapped'],
-    ['AZV 100 Legacy', 'unmapped'],
+    ['AZV 100 Retro', 'retro'],
+    ['AZV 100 Legacy', 'legacy'],
     ['AZV 100 Doomed Zero', 'unmapped'],
     ['AZV 100 Pilot', 'hopper-pilot-bp'],
     // Tacoma
     ['Tacoma', 'unmapped'],
-    ['Tacoma Retro', 'unmapped'],
-    ['Tacoma Legacy', 'unmapped'],
+    ['Tacoma Retro', 'retro'],
+    ['Tacoma Legacy', 'legacy'],
     ['Tacoma Avax Gen 04', 'unmapped'],
     ['Tacoma Pioneer', 'pioneers'],
     ['Tacoma Westcol', 'westcol'],
@@ -643,8 +645,8 @@ async function main() {
     // ── Shotguns (Flenser / Influencer / Squall) ──────────────
     // Flenser
     ['Flenser', 'unmapped'],
-    ['Flenser Retro', 'unmapped'],
-    ['Flenser Legacy', 'unmapped'],
+    ['Flenser Retro', 'retro'],
+    ['Flenser Legacy', 'legacy'],
     ['Flenser Chemtech', 'chemtech-bp'],
     // Flenser Mad Biker already in Mad Biker BP above
     // Influencer
@@ -652,8 +654,8 @@ async function main() {
     ['Influencer TBI Blitzbringer', 'the-comeback'],
     // Squall
     ['Squall', 'unmapped'],
-    ['Squall Retro', 'unmapped'],
-    ['Squall Legacy', 'unmapped'],
+    ['Squall Retro', 'retro'],
+    ['Squall Legacy', 'legacy'],
     ['Squall LayerZero', 'unmapped'],
     ['Squall Combat DJ', 'combat-dj'],
     ['Squall Honksplatter', 'unmapped'],
@@ -806,6 +808,9 @@ async function main() {
     { type: 'contains', pattern: 'sleigh queen',         releaseSlug: 'mrs-crackhead-santa', priority: 21 },
     { type: 'contains', pattern: 'ms santa slay',        releaseSlug: 'mrs-crackhead-santa', priority: 22 },
     { type: 'contains', pattern: 'nutkrakka',            releaseSlug: 'mrs-crackhead-santa', priority: 23 },
+    { type: 'contains', pattern: 'legacy',               releaseSlug: 'legacy',              priority: 5 },
+    { type: 'contains', pattern: 'retro',                releaseSlug: 'retro',               priority: 4 },
+    { type: 'contains', pattern: 'punisher',             releaseSlug: 'anti-cheat-bp',       priority: 6 },
   ];
 
   for (const rule of matchRules) {
