@@ -521,10 +521,10 @@ export default function KonamiOverlay({
 
   // Input border color based on validation
   const borderClass = !value.trim()
-    ? 'border-white/[0.08]'
+    ? 'border-white/[0.15] focus-within:border-white/[0.3]'
     : isValid
-      ? 'border-[var(--gs-lime)]/40 focus-within:border-[var(--gs-lime)]/60'
-      : 'border-red-500/40';
+      ? 'border-[var(--gs-lime)]/50 focus-within:border-[var(--gs-lime)]/70'
+      : 'border-red-500/50';
 
   // Allow backdrop dismiss only during input phase
   const canDismiss = phase === 'input' || phase === 'handle';
@@ -623,7 +623,7 @@ export default function KonamiOverlay({
                     Drop your address or email to claim access
                   </div>
                   <div className="flex gap-2">
-                    <div className={`relative flex-1 border bg-black/60 transition-colors clip-corner-sm ${borderClass}`}>
+                    <div className={`relative flex-1 border-2 bg-black/85 transition-colors clip-corner-sm ${borderClass}`}>
                       <input
                         ref={inputRef}
                         type="text"
@@ -631,8 +631,8 @@ export default function KonamiOverlay({
                         onChange={(e) => setValue(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
                         placeholder="0x... / Solana address / email"
-                        className="w-full bg-transparent px-3 py-2.5 font-mono text-sm text-white/90
-                          placeholder:text-white/20 outline-none"
+                        className="w-full bg-transparent px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] tracking-wider
+                          placeholder:text-white/20 outline-none caret-[var(--gs-lime)]"
                         spellCheck={false}
                         autoComplete="off"
                       />

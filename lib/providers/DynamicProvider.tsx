@@ -121,7 +121,7 @@ const cssOverrides = `
      ════════════════════════════════════════════════ */
 
   .modal-card {
-    background: rgba(22, 22, 22, 0.5) !important;
+    background: rgba(22, 22, 22, 0.88) !important;
     border: 1px solid rgba(255, 255, 255, 0.06) !important;
     border-radius: 0 !important;
     clip-path: polygon(

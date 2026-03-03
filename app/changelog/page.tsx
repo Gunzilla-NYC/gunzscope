@@ -21,9 +21,25 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.5.1',
+    version: 'v0.5.2',
     date: 'Mar 2, 2026',
     tag: 'current',
+    items: [
+      '/build\u2011games landing page \u2014 hero, stats bar (live from /api/stats/site), BuildVelocityChart, multi\u2011chain architecture diagram, 9\u2011card feature grid, on\u2011chain proof section (live attestation count), valuation waterfall, dashboard preview, roadmap CTA; layout matches homepage patterns (max\u2011w\u20117xl, section\u2011number, section\u2011line)',
+      '/build\u2011games/roadmap \u2014 public fork of /strategy with admin gate removed; DocBadge, BuildVelocityChart, 6 phases, ScopeBar, vision banner; minimal nav with Logo + back link',
+      'PublicNav component \u2014 reusable nav for public pages (no Dynamic Labs dependency); Logo, VersionBadge, GlitchLink items, Login CTA, mobile hamburger, scroll backdrop blur; matches Navbar layout exactly',
+      '/explore now uses PublicNav instead of Navbar \u2014 anonymous visitors see Home + Onchain ID links instead of empty bar',
+      '/explore/attestation/[cid] viewer page \u2014 renders attestation metadata as branded UI instead of raw JSON; summary cards (wallet, value, items, block), merkle root with copy, holdings table (first 100 + expand), Autonomys DSN badge; getMetadataLink() extracts CID and links to viewer',
+      'Strategy page \u2014 added BuildVelocityChart section above vision banner',
+      'Homepage \u2014 Onchain ID link now uses GlitchLink (bracket + scramble effect on hover)',
+      'KonamiOverlay bug fixes \u2014 input bg\u2011black/60 \u2192 bg\u2011black/85 (bottom transparency fix); border\u20111 \u2192 border\u20112 with higher opacity (0.15 empty, 0.50 valid); input text\u2011white/90 \u2192 text\u2011[var(\u2011\u2011gs\u2011white)] + tracking\u2011wider + caret\u2011lime; focus\u2011within state on empty input',
+      'globals.css \u2014 input::selection override: rgba(166,247,0,0.3) instead of solid lime; fixes green flash on paste',
+      'DynamicProvider \u2014 .modal\u2011card bg rgba(22,22,22,0.5) \u2192 rgba(22,22,22,0.88); auth modal readability fix',
+    ],
+  },
+  {
+    version: 'v0.5.1',
+    date: 'Mar 2, 2026',
     items: [
       'Nav restructure \u2014 Leaderboard, Scarcity, Market grouped under \u201cExperiments\u201d dropdown; new ExperimentsDropdown component with GlitchLink\u2011style trigger (useGlitchScramble, brackets, chevron), close\u2011on\u2011outside/Escape/route\u2011change',
       '\u201cExplore\u201d renamed to \u201cOnchain ID\u201d across navbar (desktop GlitchLink + mobile menu) and home page',
