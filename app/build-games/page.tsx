@@ -155,7 +155,7 @@ export default function BuildGamesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           <div className="flex items-center gap-4 shrink-0">
             <Link href="/build-games" className="flex items-center group">
-              <div className="relative w-[9rem] sm:w-[12.5rem] overflow-hidden">
+              <div className="relative w-[9rem] sm:w-[14rem] overflow-hidden">
                 <Logo size="md" variant="full" glitchOnHover />
               </div>
             </Link>

@@ -16,8 +16,9 @@ import {
   TOTAL_ITEMS,
   DAYS_ACTIVE,
   AVG_PER_DAY,
+  DATE_RANGE,
   type VelocityDatum,
-} from './buildVelocityData';
+} from '@/lib/data/buildVelocity';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -381,7 +382,7 @@ export default function BuildVelocityChart() {
   return (
     <div>
       <p className="font-mono text-[9px] tracking-[2px] uppercase text-[var(--gs-gray-2)] mb-3">
-        BUILD VELOCITY // JAN 19 &mdash; MAR 2, 2026
+        BUILD VELOCITY // {DATE_RANGE}
       </p>
       <div
         className="bg-[var(--gs-dark-2)]/50 border border-white/[0.06] p-5 md:p-7"
