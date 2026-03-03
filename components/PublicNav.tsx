@@ -41,7 +41,7 @@ export default function PublicNav({ activeHref }: PublicNavProps) {
             {/* Logo */}
             <div className="flex items-center gap-4 shrink-0">
               <Link href="/" className="flex items-center group">
-                <div className="relative w-[9rem] sm:w-[12.5rem] overflow-hidden">
+                <div className="relative w-[9rem] sm:w-[14rem] overflow-hidden">
                   <Logo size="md" variant="full" glitchOnHover />
                 </div>
               </Link>
