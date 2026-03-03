@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -44,11 +44,16 @@ next-env.d.ts
 /lib/generated/prisma
 prisma/dev.db
 prisma/dev.db-journal
+dev.db
+dev.db-journal
 
-# Claude Code local settings (machine-specific permissions)
-.claude/settings.local.json
+# Claude Code (skills, agents, settings — local workflow only)
+.claude/
 
-# AI tool config folders (skills are in .claude/skills/ only)
+# Project instructions (contains internal architecture details)
+CLAUDE.md
+
+# AI tool config folders
 .agent/
 .agents/
 .cline/
