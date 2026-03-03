@@ -15,9 +15,17 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.5.2a',
+    date: 'Mar 3, 2026',
+    tag: 'current',
+    title: 'New license, same scope',
+    items: [
+      'Switched from Apache 2.0 to Business Source License 1.1. You can still read, fork, and tinker for personal or non\u2011commercial use. Commercial use needs a conversation first. On March 3, 2029, the whole thing flips to AGPLv3 automatically.',
+    ],
+  },
+  {
     version: 'v0.5.2',
     date: 'Mar 2, 2026',
-    tag: 'current',
     title: 'Attestations got a face',
     items: [
       'Clicking "View" on an attestation used to dump 1,600 lines of raw JSON in your browser. Now it shows a proper page \u2014 wallet, value, item count, merkle root, the whole thing rendered like it belongs in the app. Because it does.',

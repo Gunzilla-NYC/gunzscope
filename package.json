@@ -2,6 +2,7 @@
   "name": "gunzscope",
   "version": "1.0.0",
   "private": true,
+  "license": "BUSL-1.1",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
