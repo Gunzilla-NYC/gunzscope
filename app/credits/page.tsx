@@ -16,6 +16,7 @@ interface Contributor {
 }
 
 const contributors: Contributor[] = [
+  { name: 'Digital Panoply', role: 'UI/UX Feedback & Security Testing', xHandle: 'DigitalPanoply' },
   { name: 'meatport', role: 'Feedback & Testing', xHandle: 'meatportgg' },
 ];
 
