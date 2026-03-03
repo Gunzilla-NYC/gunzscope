@@ -109,7 +109,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
               {showNavLinks && (
                 <>
                   <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
-                  <GlitchLink href="/explore" label="Onchain ID" isActive={pathname === '/explore'} />
+                  <GlitchLink href="/explore" label="Onchain Explorer" isActive={pathname === '/explore'} />
                   {hasWallet && (
                     <ExperimentsDropdown pathname={pathname} leaderboardHref={leaderboardHref} />
                   )}
@@ -210,7 +210,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                         : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
                     }`}
                   >
-                    Onchain ID
+                    Onchain Explorer
                   </Link>
                   {hasWallet && (
                     <>

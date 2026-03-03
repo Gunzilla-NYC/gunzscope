@@ -631,8 +631,8 @@ export default function KonamiOverlay({
                         onChange={(e) => setValue(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
                         placeholder="0x... / Solana address / email"
-                        className="w-full bg-transparent px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] tracking-wider
-                          placeholder:text-white/20 outline-none caret-[var(--gs-lime)]"
+                        className={`w-full bg-transparent px-3 py-2.5 font-mono text-sm text-[var(--gs-white)] tracking-wider
+                          placeholder:text-white/20 outline-none caret-[var(--gs-lime)] ${value.trim() && inputType ? 'pr-24' : ''}`}
                         spellCheck={false}
                         autoComplete="off"
                       />

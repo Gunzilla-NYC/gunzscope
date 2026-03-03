@@ -518,7 +518,7 @@ export default function HomePage() {
         </div>
 
         <div className="hidden md:flex items-center gap-5">
-          <GlitchLink href="/explore" label="Onchain ID" isActive={false} />
+          <GlitchLink href="/explore" label="Onchain Explorer" isActive={false} />
           {user && (
             <Link
               href="/portfolio"
