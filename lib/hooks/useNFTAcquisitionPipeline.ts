@@ -556,21 +556,11 @@ export function useNFTAcquisitionPipeline(
 
     // Skip if fetch in progress for same token (prevent race conditions)
     if (fetchInProgress) {
-      if (debugMode) {
-        console.debug('[NFTDetailModal] Skipping fetch - already in progress for token:', tokenKey);
-      }
       return;
     }
 
     // For same token: only refresh if stale (unless noCache mode forces refresh)
     if (isSameToken && !isStale && !noCacheMode && itemPurchaseData[tokenId]) {
-      if (debugMode) {
-        console.debug('[NFTDetailModal] Skipping background refresh - data is fresh:', {
-          tokenKey,
-          timeSinceLastFetchMs: timeSinceLastFetch,
-          staleThresholdMs: STALE_THRESHOLD_MS,
-        });
-      }
       // Update debug to show we're using cached data without refresh
       updateDebugData({
         cacheHit: true,
@@ -580,11 +570,6 @@ export function useNFTAcquisitionPipeline(
         backgroundRefreshAttempted: false,
       });
       return;
-    }
-
-    // In noCache mode, log that we're bypassing caches
-    if (noCacheMode && debugMode) {
-      console.debug('[NFTDetailModal] noCache mode enabled - bypassing all cache reads');
     }
 
     // NOTE: We intentionally skip NFT prop data - it's unreliable and may contain stale values.
@@ -603,14 +588,6 @@ export function useNFTAcquisitionPipeline(
     // In noCache mode, skip component state to force fresh fetch
     // BUT: Even with cache hit, we run ONE background refresh if data is stale
     if (itemPurchaseData[tokenId] && !noCacheMode) {
-      if (debugMode) {
-        console.debug('[NFTDetailModal] Component state exists for token (will background refresh if stale):', {
-          tokenId,
-          tokenKey,
-          priceSource: itemPurchaseData[tokenId].priceSource,
-          isStale,
-        });
-      }
       // Mark that we have cached data rendered
       cacheRenderedFirst = true;
       updateDebugData({
@@ -627,16 +604,6 @@ export function useNFTAcquisitionPipeline(
         cachedValue.purchaseDate !== undefined ||
         cachedValue.isFreeTransfer === true;
       const cachedPriceSource: PriceSource = hasTransferData ? 'localStorage' : 'none';
-
-      if (debugMode) {
-        console.debug('[NFTDetailModal] localStorage cache HIT (will background refresh):', {
-          tokenId,
-          tokenKey,
-          cacheKey: cacheResult.cacheKey,
-          value: cachedValue,
-          priceSource: cachedPriceSource,
-        });
-      }
 
       // Restore data from cache IMMEDIATELY for fast UI
       const cachedData = cachedValue;
@@ -698,15 +665,6 @@ export function useNFTAcquisitionPipeline(
           ...prev,
           [tokenId]: resolvedFromCache,
         }));
-        if (debugMode) {
-          console.debug('[NFTDetailModal] Resolved acquisition from cache (immediate):', {
-            tokenId,
-            score: resolvedFromCache.qualityScore,
-            source: resolvedFromCache.source,
-            acquisitionType: resolvedFromCache.acquisitionType,
-            costGun: resolvedFromCache.costGun,
-          });
-        }
       }
 
       cacheRenderedFirst = true;
@@ -719,15 +677,6 @@ export function useNFTAcquisitionPipeline(
       // NOTE: We do NOT return early - we continue to background refresh
     } else {
       // Cache miss (or noCache mode) - need to fetch fresh data
-      if (debugMode) {
-        console.debug('[NFTDetailModal] localStorage cache MISS:', {
-          tokenId,
-          tokenKey,
-          cacheKey: cacheResult.cacheKey,
-          reason: cacheResult.reason,
-          noCacheMode,
-        });
-      }
 
       // Update debug data to reflect cache bypass in noCache mode
       if (noCacheMode) {
@@ -787,13 +736,6 @@ export function useNFTAcquisitionPipeline(
         });
       }
 
-      if (debugMode) {
-        console.debug('[NFTDetailModal] Fetching fresh data for token:', {
-          tokenId,
-          tokenKey,
-        });
-      }
-
       try {
         const avalancheService = new AvalancheService();
         const openSeaService = new OpenSeaService();
@@ -810,29 +752,16 @@ export function useNFTAcquisitionPipeline(
 
         // HARDENING: Check for abort signal first (silent exit on abort)
         if (abortController.signal.aborted) {
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Fetch aborted for token:', tokenId);
-          }
           return;
         }
 
         // Async safety: check if still mounted and token hasn't changed
         if (!isMountedRef.current || activeItem?.tokenId !== tokenId) {
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Aborting state update - unmounted or token changed:', {
-              isMounted: isMountedRef.current,
-              startedTokenId: tokenId,
-              currentTokenId: activeItem?.tokenId,
-            });
-          }
           return;
         }
 
         // HARDENING: FIFO eviction for holdingAcquisitionRaw map
         const holdingKeysToEvict = holdingAcqKeyTrackerRef.current.track(tokenId);
-        if (holdingKeysToEvict.length > 0 && debugMode) {
-          console.debug('[NFTDetailModal] FIFO evicting holding acquisition keys:', holdingKeysToEvict);
-        }
 
         // Store raw acquisition result for debug panel (per-token, prevents cross-token leakage)
         setHoldingAcquisitionRawByTokenId(prev => {
@@ -844,13 +773,6 @@ export function useNFTAcquisitionPipeline(
 
         // HARDENING: Update acquisition status to success
         setHoldingAcqStatusByTokenId(prev => ({ ...prev, [tokenId]: 'success' }));
-
-        if (debugMode) {
-          console.debug('[NFTDetailModal] Acquisition result:', {
-            tokenId,
-            acquisition,
-          });
-        }
 
         // Extract acquisition-derived fields
         const hasAcquisitionData = acquisition !== null && acquisition.owned;
@@ -915,9 +837,6 @@ export function useNFTAcquisitionPipeline(
 
             // HARDENING: Check for abort signal (silent exit on abort)
             if (abortController.signal.aborted) {
-              if (debugMode) {
-                console.debug('[NFTDetailModal] Listings fetch aborted for token:', tokenId);
-              }
               return;
             }
 
@@ -928,17 +847,6 @@ export function useNFTAcquisitionPipeline(
               : lowest ?? highest;
 
             marketplaceMatchCount = (lowest !== undefined ? 1 : 0) + (highest !== undefined ? 1 : 0);
-
-            if (debugMode) {
-              console.debug('[NFTDetailModal] Marketplace listings:', {
-                tokenId,
-                lowest,
-                highest,
-                average,
-                matchCount: marketplaceMatchCount,
-                error: listings.error,
-              });
-            }
 
             // HARDENING: Check abort signal before state updates
             if (abortController.signal.aborted) {
@@ -958,9 +866,6 @@ export function useNFTAcquisitionPipeline(
 
             // HARDENING: FIFO eviction for listings map
             const listingsKeysToEvict = listingsKeyTrackerRef.current.track(tokenId);
-            if (listingsKeysToEvict.length > 0 && debugMode) {
-              console.debug('[NFTDetailModal] FIFO evicting listings keys:', listingsKeysToEvict);
-            }
 
             // Per-token listings data (prevents cross-token leakage)
             setListingsByTokenId(prev => {
@@ -975,9 +880,6 @@ export function useNFTAcquisitionPipeline(
           } catch (openSeaError) {
             // HARDENING: Silent exit on AbortError
             if (isAbortError(openSeaError)) {
-              if (debugMode) {
-                console.debug('[NFTDetailModal] Listings fetch aborted (AbortError) for token:', tokenId);
-              }
               return;
             }
 
@@ -1071,13 +973,6 @@ export function useNFTAcquisitionPipeline(
                 marketplaceTestConnection: testResult,
               });
 
-              if (debugMode) {
-                console.debug('[NFTDetailModal] Marketplace not configured:', {
-                  endpointInfo,
-                  testResult,
-                });
-              }
-
               // Skip all marketplace retrieval - we'll show "Marketplace data unavailable" in UI
             } else {
               // =========================================================
@@ -1136,14 +1031,6 @@ export function useNFTAcquisitionPipeline(
                 };
               }
 
-              if (debugMode) {
-                console.debug('[NFTDetailModal] Parallel fetch results:', {
-                  tokenPurchases: { tokenKey, count: tokenPurchasesCount },
-                  viewerWallet: { wallet: viewerWalletLower, count: walletPurchasesCount_viewerWallet, timeRange: walletPurchasesTimeRange_viewerWallet },
-                  currentOwner: { wallet: currentOwnerLower, count: walletPurchasesCount_currentOwner, timeRange: walletPurchasesTimeRange_currentOwner },
-                });
-              }
-
             // =========================================================
             // MERGE AND DEDUPE all purchases
             // Filter wallet purchases to only those matching this tokenKey
@@ -1186,18 +1073,6 @@ export function useNFTAcquisitionPipeline(
 
             marketplaceCandidatesCount = dedupedPurchases.length;
 
-            if (debugMode) {
-              console.debug('[NFTDetailModal] Merged marketplace candidates:', {
-                tokenKey,
-                tokenPurchasesCount,
-                viewerWalletMatchingTokenCount: viewerWalletMatchingToken.length,
-                currentOwnerMatchingTokenCount: currentOwnerMatchingToken.length,
-                totalBeforeDedupe: allPurchases.length,
-                afterDedupe: dedupedPurchases.length,
-                acquiredAt: acquiredAt.toISOString(),
-              });
-            }
-
             if (dedupedPurchases.length > 0) {
               // Calculate candidate time range for debug
               const sortedByDate = [...dedupedPurchases].sort(
@@ -1227,21 +1102,6 @@ export function useNFTAcquisitionPipeline(
                 const timeDiff = Math.abs(new Date(p.purchaseDateIso).getTime() - acquiredAt.getTime());
                 return timeDiff <= TIME_WINDOW_MS;
               });
-
-              if (debugMode) {
-                console.debug('[NFTDetailModal] Candidates in time window:', {
-                  windowMinutes: MATCH_WINDOW_MINUTES,
-                  acquiredAt: acquiredAt.toISOString(),
-                  candidatesInWindow: candidatesInWindow.length,
-                  candidates: candidatesInWindow.map(c => ({
-                    purchaseId: c.purchaseId,
-                    purchaseDate: c.purchaseDateIso,
-                    timeDiffMs: Math.abs(new Date(c.purchaseDateIso).getTime() - acquiredAt.getTime()),
-                    buyer: c.buyerAddress,
-                    priceGun: c.priceGun,
-                  })),
-                });
-              }
 
               if (candidatesInWindow.length === 1) {
                 // Single candidate - use it
@@ -1295,15 +1155,6 @@ export function useNFTAcquisitionPipeline(
                 }
               }
 
-              if (debugMode) {
-                console.debug('[NFTDetailModal] Marketplace match found:', {
-                  tokenKey,
-                  matchMethod: marketplaceMatchMethod,
-                  matchedPurchase,
-                  purchasePriceGun,
-                  purchasePriceUsd,
-                });
-              }
             }
             } // end else (marketplace configured)
           } catch (marketplaceError) {
@@ -1374,14 +1225,6 @@ export function useNFTAcquisitionPipeline(
                       openSeaSaleDate = matchingSale.eventTimestamp
                         ? new Date(matchingSale.eventTimestamp) : undefined;
 
-                      if (debugMode) {
-                        console.debug('[NFTDetailModal] OpenSea sale fallback matched:', {
-                          venue: acquisitionVenue,
-                          matchAddress,
-                          priceGun: effectivePrice,
-                          saleDate: openSeaSaleDate?.toISOString(),
-                        });
-                      }
                     }
                   }
                 }
@@ -1458,15 +1301,6 @@ export function useNFTAcquisitionPipeline(
             }
           }
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Decode (in-game) acquisition:', {
-              costGunFromChain,
-              venue: acquisitionVenue,
-              txHash: acquisitionTxHash,
-              decodeCostGun: finalDecodeCostGun,
-              decodeCostUsd: finalDecodeCostUsd,
-            });
-          }
         } else if (acquisitionVenue === 'opensea') {
           // B) OPENSEA PURCHASE: Marketplace purchase with RPC cost, or OpenSea sales API fallback
           derivedPriceSource = 'onchain';
@@ -1500,16 +1334,6 @@ export function useNFTAcquisitionPipeline(
             }
           }
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] OpenSea purchase:', {
-              costGunFromChain,
-              openSeaSalePriceGun,
-              venue: acquisitionVenue,
-              txHash: acquisitionTxHash,
-              purchasePriceGun: finalPurchasePriceGun,
-              purchasePriceUsd: finalPurchasePriceUsd,
-            });
-          }
         } else if (acquisitionVenue === 'in_game_marketplace') {
           // C) IN-GAME MARKETPLACE PURCHASE: Marketplace purchase with RPC cost
           derivedPriceSource = 'onchain';
@@ -1536,15 +1360,6 @@ export function useNFTAcquisitionPipeline(
             }
           }
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] In-game marketplace purchase:', {
-              costGunFromChain,
-              venue: acquisitionVenue,
-              txHash: acquisitionTxHash,
-              purchasePriceGun: finalPurchasePriceGun,
-              purchasePriceUsd: finalPurchasePriceUsd,
-            });
-          }
         } else if (acquisitionVenue === 'otg_marketplace') {
           // D) OTG MARKETPLACE PURCHASE: Legacy marketplace with RPC cost
           derivedPriceSource = 'onchain';
@@ -1571,15 +1386,6 @@ export function useNFTAcquisitionPipeline(
             }
           }
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] OTG Marketplace purchase:', {
-              costGunFromChain,
-              venue: acquisitionVenue,
-              txHash: acquisitionTxHash,
-              purchasePriceGun: finalPurchasePriceGun,
-              purchasePriceUsd: finalPurchasePriceUsd,
-            });
-          }
         } else if (acquisitionVenue === 'transfer') {
           // E) TRANSFER: Check if we found original purchase price via OpenSea
           finalAcquisitionType = 'TRANSFER';
@@ -1672,17 +1478,6 @@ export function useNFTAcquisitionPipeline(
             finalIsFreeTransfer = true;
           }
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Transfer acquisition:', {
-              venue: acquisitionVenue,
-              txHash: acquisitionTxHash,
-              fromAddress,
-              openSeaSalePriceGun,
-              senderCostGun: acquisition?.senderCostGun,
-              finalPurchasePriceGun,
-              finalIsFreeTransfer,
-            });
-          }
         } else if (hasMarketplaceServiceMatch) {
           // F1) Legacy: Marketplace service match - use marketplace data
           derivedPriceSource = 'onchain';
@@ -1695,13 +1490,6 @@ export function useNFTAcquisitionPipeline(
           finalMarketplaceTxHash = marketplaceTxHash;
           finalIsFreeTransfer = false;
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Legacy marketplace service match:', {
-              purchasePriceGun,
-              purchasePriceUsd,
-              marketplaceTxHash,
-            });
-          }
         } else if (hasTransferData) {
           // F2) Fallback: Has transfer data but unknown venue
           derivedPriceSource = 'transfers';
@@ -1714,13 +1502,6 @@ export function useNFTAcquisitionPipeline(
           finalMarketplaceTxHash = undefined;
           finalIsFreeTransfer = acquisitionType === 'TRANSFER';
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Unknown venue with transfer data:', {
-              venue: acquisitionVenue,
-              acquisitionType,
-              fromAddress,
-            });
-          }
         } else {
           // F3) No acquisition data
           derivedPriceSource = 'none';
@@ -1733,9 +1514,6 @@ export function useNFTAcquisitionPipeline(
           finalMarketplaceTxHash = undefined;
           finalIsFreeTransfer = true;
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] No acquisition data');
-          }
         }
 
         // Universal fallback: if we have a GUN cost but no USD value,
@@ -1791,21 +1569,6 @@ export function useNFTAcquisitionPipeline(
           transferType: finalTransferType,
         };
 
-        if (debugMode) {
-          console.debug('[NFTDetailModal] Fresh acquisition object built:', {
-            tokenId,
-            tokenKey,
-            hasTransferData,
-            acquisitionVenue,
-            finalAcquisitionType,
-            hasMarketplaceServiceMatch,
-            marketplaceCandidatesCount,
-            marketplaceMatchMethod,
-            freshAcquisition,
-            isBackgroundRefresh,
-          });
-        }
-
         // =====================================================================
         // RESOLVED ACQUISITION: Build candidates and select best (no downgrades)
         // =====================================================================
@@ -1847,34 +1610,11 @@ export function useNFTAcquisitionPipeline(
           candidateFromTransfer,
         ]);
 
-        if (debugMode) {
-          console.debug('[NFTDetailModal] Resolved acquisition candidates:', {
-            tokenId,
-            candidateFromHolding: candidateFromHolding ? scoreAcquisitionCandidate(candidateFromHolding) : null,
-            candidateFromFresh: scoreAcquisitionCandidate(candidateFromFresh),
-            candidateFromCache: candidateFromCache ? scoreAcquisitionCandidate(candidateFromCache) : null,
-            candidateFromTransfer: candidateFromTransfer ? scoreAcquisitionCandidate(candidateFromTransfer) : null,
-            selectedScore: newResolved.qualityScore,
-            selectedSource: newResolved.source,
-          });
-        }
-
         // Merge with existing resolved acquisition (prevent downgrades)
         // Read from REF (not closure) to get the latest state including cache render
         const existingResolved = resolvedAcquisitionsRef.current[tokenId] ?? null;
         const { result: finalResolved, wasUpdated: resolvedWasUpdated, reason: mergeReason } =
           mergeAcquisitionIfBetter(existingResolved, newResolved);
-
-        if (debugMode) {
-          console.debug('[NFTDetailModal] Resolved acquisition merge:', {
-            tokenId,
-            existingScore: existingResolved?.qualityScore ?? 'none',
-            newScore: newResolved.qualityScore,
-            wasUpdated: resolvedWasUpdated,
-            mergeReason,
-            finalScore: finalResolved.qualityScore,
-          });
-        }
 
         // Update debug with final price source and marketplace match info
         // Include comprehensive refresh diagnostics for debugging
@@ -1927,46 +1667,20 @@ export function useNFTAcquisitionPipeline(
             isOfferFill: freshAcquisition.isOfferFill,
           });
 
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Cached to localStorage:', {
-              tokenKey,
-              cacheKey: fullCacheKey,
-              isBackgroundRefresh,
-            });
-          }
-        } else if (debugMode && isBackgroundRefresh) {
-          console.debug('[NFTDetailModal] Background refresh prevented downgrade:', {
-            tokenId,
-            tokenKey,
-            reason: mergeReason,
-          });
         }
       } catch (error) {
         // HARDENING: Silent exit on AbortError (user switched tokens or modal closed)
         if (isAbortError(error)) {
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Main fetch aborted (AbortError) for token:', tokenId);
-          }
           return;
         }
 
         // HARDENING: Check abort signal in catch block
         if (abortController.signal.aborted) {
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Skipping error state update - fetch was aborted:', tokenId);
-          }
           return;
         }
 
         // HARDENING: Async safety - skip state update if unmounted or token changed
         if (!isMountedRef.current || activeItem?.tokenId !== tokenId) {
-          if (debugMode) {
-            console.debug('[NFTDetailModal] Skipping error state update - unmounted or token changed:', {
-              isMounted: isMountedRef.current,
-              startedTokenId: tokenId,
-              currentTokenId: activeItem?.tokenId,
-            });
-          }
           return;
         }
 

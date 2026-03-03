@@ -660,5 +660,5 @@ if (isDev && !isTest) {
     }
   });
 
-  console.debug('[DEV] NFT detail helpers invariants checked');
+
 }

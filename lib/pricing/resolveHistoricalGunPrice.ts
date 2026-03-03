@@ -168,7 +168,6 @@ export async function resolveHistoricalGunPrice(
   // 1. Local cache — return immediately if confidence is not 'estimated'
   const cached = tryCache(date);
   if (cached && cached.confidence !== 'estimated') {
-    console.debug(`[Waterfall] ${dateStr}: $${cached.rate.toFixed(4)} via cache (${cached.confidence})`);
     return cached;
   }
   // If we have an estimated cache hit, keep as fallback but try to upgrade
@@ -179,7 +178,6 @@ export async function resolveHistoricalGunPrice(
   if (sc && sc.confidence !== 'estimated') {
     // Write through to localStorage for future instant hits
     setCachedHistoricalGunPrice(date, sc.rate, sc.source as HistoricalPriceSource, sc.confidence);
-    console.debug(`[Waterfall] ${dateStr}: $${sc.rate.toFixed(4)} via server-cache (${sc.confidence})`);
     return sc;
   }
 
@@ -188,7 +186,6 @@ export async function resolveHistoricalGunPrice(
   if (cg) {
     setCachedHistoricalGunPrice(date, cg.rate, 'coingecko', 'daily');
     writeServerCachedPrice(date, cg.rate, 'coingecko', 'daily');
-    console.debug(`[Waterfall] ${dateStr}: $${cg.rate.toFixed(4)} via coingecko (daily)`);
     return cg;
   }
 
@@ -197,13 +194,11 @@ export async function resolveHistoricalGunPrice(
   if (dl) {
     setCachedHistoricalGunPrice(date, dl.rate, 'defillama', 'daily');
     writeServerCachedPrice(date, dl.rate, 'defillama', 'daily');
-    console.debug(`[Waterfall] ${dateStr}: $${dl.rate.toFixed(4)} via defillama (daily)`);
     return dl;
   }
 
   // 5. Return estimated fallback if we had one from cache
   if (estimatedFallback) {
-    console.debug(`[Waterfall] ${dateStr}: $${estimatedFallback.rate.toFixed(4)} via cache (estimated, kept)`);
     return estimatedFallback;
   }
 
@@ -211,11 +206,9 @@ export async function resolveHistoricalGunPrice(
   const nearest = tryNearestCached(date);
   if (nearest) {
     setCachedHistoricalGunPrice(date, nearest.rate, 'estimated', 'estimated');
-    console.debug(`[Waterfall] ${dateStr}: $${nearest.rate.toFixed(4)} via nearest-cache (estimated)`);
     return nearest;
   }
 
   // All sources failed
-  console.debug(`[Waterfall] ${dateStr}: no price resolved`);
   return null;
 }

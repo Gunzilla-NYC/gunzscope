@@ -794,9 +794,6 @@ export class AvalancheService {
                   if (traits) {
                     traits['Serial Number'] = canonicalMint;
                   }
-                  if (DEBUG_ACQUISITION) {
-                    console.log(`[Canonical Override] Token ${tokenId}: Serial Number 0 → ${canonicalMint}`);
-                  }
                 }
               }
             } catch {
@@ -1046,10 +1043,6 @@ export class AvalancheService {
     const firstBlock = events[0].blockNumber;
     const lastBlock = events[events.length - 1].blockNumber;
 
-    if (DEBUG_ACQUISITION) {
-      console.log(`[getTransferEventsViaGunzScan] Found ${events.length} transfers for tokenId=${tokenId} (blocks ${firstBlock}-${lastBlock})`);
-    }
-
     return {
       events,
       currentOwner,
@@ -1120,13 +1113,7 @@ export class AvalancheService {
       topics: [topic0, null, null, topic3], // [signature, from (any), to (any), tokenId]
     };
 
-    console.log(`[getTransferEvents] RPC fallback for tokenId=${tokenId}`);
-    console.log(`[getTransferEvents] Chain: ${chainId}, Block range: ${fromBlock} to ${currentBlock} (${currentBlock - fromBlock} blocks)`);
-    console.log(`[getTransferEvents] Filter topics:`, { topic0, topic3 });
-
     const { logs, chunksQueried, blockRanges } = await this.queryLogsInChunks(filter, fromBlock, currentBlock);
-
-    console.log(`[getTransferEvents] Found ${logs.length} transfer events via RPC`);
 
     // Parse logs into structured events
     const events = logs.map((log) => ({
@@ -1188,11 +1175,6 @@ export class AvalancheService {
       // Use new robust getTransferEvents method
       const { events, currentOwner, debugInfo } = await this.getTransferEvents(contractAddress, tokenId);
 
-      if (DEBUG_ACQUISITION) {
-        console.log(`[getNFTTransferHistory] tokenId=${tokenId}, wallet=${walletAddress}`);
-        console.log(`[getNFTTransferHistory] Found ${events.length} total transfer events, currentOwner=${currentOwner}`);
-      }
-
       if (events.length === 0) {
         return {
           purchasePriceGun: 0,
@@ -1207,10 +1189,6 @@ export class AvalancheService {
       // Find transfers where this wallet received the token
       const walletLower = walletAddress.toLowerCase();
       const incomingTransfers = events.filter((e) => e.to === walletLower);
-
-      if (DEBUG_ACQUISITION) {
-        console.log(`[getNFTTransferHistory] Incoming transfers to wallet: ${incomingTransfers.length}`);
-      }
 
       if (incomingTransfers.length === 0) {
         // Wallet doesn't own this token based on transfer history
@@ -1233,16 +1211,6 @@ export class AvalancheService {
       const txReceipt = await this.provider.getTransactionReceipt(firstIncoming.transactionHash);
       const transaction = await this.provider.getTransaction(firstIncoming.transactionHash);
 
-      if (DEBUG_ACQUISITION) {
-        console.log('[getNFTTransferHistory] First incoming transfer:', {
-          hash: firstIncoming.transactionHash,
-          from: firstIncoming.from,
-          to: firstIncoming.to,
-          blockNumber: firstIncoming.blockNumber,
-          isFromZeroAddress,
-        });
-      }
-
       // Look for GUN token transfers in the transaction receipt
       let purchasePriceGun: number | undefined;
 
@@ -1263,22 +1231,12 @@ export class AvalancheService {
               // Assume 18 decimals for GUN token
               const amount = parseFloat(ethers.formatUnits(value, 18));
 
-              if (DEBUG_ACQUISITION) {
-                console.log(`[getNFTTransferHistory] Found outgoing ERC-20 transfer: ${amount} tokens from ${log.address}`);
-              }
-
               // If this is from the GUN token contract, use this as purchase price
               if (gunTokenAddress && log.address.toLowerCase() === gunTokenAddress) {
                 purchasePriceGun = amount;
-                if (DEBUG_ACQUISITION) {
-                  console.log(`[getNFTTransferHistory] GUN token purchase detected: ${purchasePriceGun} GUN`);
-                }
               } else if (purchasePriceGun === undefined) {
                 // Use first outgoing token transfer as purchase price if we don't have GUN specifically
                 purchasePriceGun = amount;
-                if (DEBUG_ACQUISITION) {
-                  console.log(`[getNFTTransferHistory] Token purchase detected from ${log.address}: ${amount} tokens`);
-                }
               }
             }
           }
@@ -1289,9 +1247,6 @@ export class AvalancheService {
       // On GunzChain, native token is GUN
       if (purchasePriceGun === undefined && transaction && transaction.value > BigInt(0)) {
         purchasePriceGun = parseFloat(ethers.formatEther(transaction.value));
-        if (DEBUG_ACQUISITION) {
-          console.log(`[getNFTTransferHistory] Native GUN payment detected: ${purchasePriceGun} GUN`);
-        }
       }
 
       // Determine if this was a free transfer (no payment detected)
@@ -1457,16 +1412,8 @@ export class AvalancheService {
       // Get all transfer events for this token
       const { events, currentOwner } = await this.getTransferEvents(contractAddress, tokenId);
 
-      if (DEBUG_ACQUISITION) {
-        console.log(`[getNFTHoldingAcquisition] tokenId=${tokenId}, wallet=${walletLower}`);
-        console.log(`[getNFTHoldingAcquisition] currentOwner=${currentOwner}, events=${events.length}`);
-      }
-
       // Verify wallet is current owner (skip when tracing a sender's acquisition)
       if (normalizeAddr(currentOwner) !== walletLower && !options?.skipOwnershipCheck) {
-        if (DEBUG_ACQUISITION) {
-          console.log(`[getNFTHoldingAcquisition] Wallet is not current owner`);
-        }
         return {
           owned: false,
           acquiredAtIso: null,
@@ -1480,9 +1427,6 @@ export class AvalancheService {
       const incomingTransfers = events.filter((e) => normalizeAddr(e.to) === walletLower);
 
       if (incomingTransfers.length === 0) {
-        if (DEBUG_ACQUISITION) {
-          console.log(`[getNFTHoldingAcquisition] No incoming transfers found`);
-        }
         return {
           owned: true,
           acquiredAtIso: null,
@@ -1495,15 +1439,6 @@ export class AvalancheService {
       // Get the MOST RECENT inbound transfer (current holding acquisition)
       const acquisitionEvent = incomingTransfers[incomingTransfers.length - 1];
       const isMint = acquisitionEvent.from === '0x0000000000000000000000000000000000000000';
-
-      if (DEBUG_ACQUISITION) {
-        console.log(`[getNFTHoldingAcquisition] Acquisition event:`, {
-          txHash: acquisitionEvent.transactionHash,
-          from: acquisitionEvent.from,
-          block: acquisitionEvent.blockNumber,
-          isMint,
-        });
-      }
 
       // Fetch transaction and block details
       const [tx, receipt, block] = await Promise.all([
@@ -1522,17 +1457,6 @@ export class AvalancheService {
       // Classify venue (pass receipt for OrderFulfilled and in-game trade detection)
       const { venue, matchedRule, hasOrderFulfilled, hasInGameTrade, inGameTradeLog } = this.classifyVenue(txTo, selector, acquisitionEvent.from, receipt);
 
-      if (DEBUG_ACQUISITION) {
-        console.log(`[getNFTHoldingAcquisition] Venue classification:`, {
-          txTo,
-          selector,
-          venue,
-          matchedRule,
-          hasOrderFulfilled,
-          hasInGameTrade,
-        });
-      }
-
       // Compute cost in GUN
       let costGun = 0;
       let inGameTradePriceWei: string | undefined;
@@ -1549,9 +1473,6 @@ export class AvalancheService {
           inGameTradePriceWei = priceWei.toString();
           costGun = parseFloat(ethers.formatUnits(priceWei, 18));
 
-          if (DEBUG_ACQUISITION) {
-            console.log(`[getNFTHoldingAcquisition] In-game marketplace price: ${costGun} GUN (${inGameTradePriceWei} wei)`);
-          }
         } catch (parseError) {
           console.warn('[getNFTHoldingAcquisition] Failed to parse in-game trade price:', parseError);
         }
@@ -1561,19 +1482,11 @@ export class AvalancheService {
       // but the decode fee is still carried in tx.value
       else if ((venue === 'decode' || venue === 'decoder') && tx && tx.value > BigInt(0)) {
         costGun = parseFloat(ethers.formatEther(tx.value));
-
-        if (DEBUG_ACQUISITION) {
-          console.log(`[getNFTHoldingAcquisition] Decode fee (tx.value): ${costGun} GUN`);
-        }
       }
       // Priority 3: ERC-20 GUN token transfers
       else if (!gunIsNative && receipt && gunTokenAddress) {
         // ERC-20 GUN: compute net outflow from receipt logs
         costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
-
-        if (DEBUG_ACQUISITION) {
-          console.log(`[getNFTHoldingAcquisition] ERC-20 GUN outflow: ${costGun}`);
-        }
       }
       // Priority 4: Native GUN (tx.value) — wallet-initiated transactions
       else if (gunIsNative && tx) {
@@ -1588,26 +1501,14 @@ export class AvalancheService {
         if (isOfferLikely && receipt) {
           costGun = extractCostFromOrderFulfilled(receipt, walletAddress, gunTokenAddress, contractAddress, tokenId);
 
-          if (DEBUG_ACQUISITION && costGun > 0) {
-            console.log(`[getNFTHoldingAcquisition] OrderFulfilled (offer, token-matched): ${costGun}`);
-          }
-
           // Fallback: try without token matching (in case consideration doesn't include the NFT directly)
           if (costGun === 0) {
             costGun = extractCostFromOrderFulfilled(receipt, walletAddress, gunTokenAddress);
-
-            if (DEBUG_ACQUISITION && costGun > 0) {
-              console.log(`[getNFTHoldingAcquisition] OrderFulfilled (offer, unmatched): ${costGun}`);
-            }
           }
 
           // Last resort for offers: net wGUN outflow (only accurate for single-item txs)
           if (costGun === 0 && gunTokenAddress) {
             costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
-
-            if (DEBUG_ACQUISITION && costGun > 0) {
-              console.log(`[getNFTHoldingAcquisition] wGUN net outflow (offer fallback): ${costGun}`);
-            }
           }
         }
         // 4b: Regular purchase — wallet initiated the tx.
@@ -1618,28 +1519,16 @@ export class AvalancheService {
           // First: OrderFulfilled with token matching (per-order accurate for batch buys)
           if (receipt) {
             costGun = extractCostFromOrderFulfilled(receipt, walletAddress, gunTokenAddress, contractAddress, tokenId);
-
-            if (DEBUG_ACQUISITION && costGun > 0) {
-              console.log(`[getNFTHoldingAcquisition] OrderFulfilled (regular, token-matched): ${costGun}`);
-            }
           }
 
           // Fallback: tx.value (correct for single-item txs or non-Seaport purchases)
           if (costGun === 0 && txFrom === walletLower && tx.value > BigInt(0)) {
             costGun = parseFloat(ethers.formatEther(tx.value));
-
-            if (DEBUG_ACQUISITION) {
-              console.log(`[getNFTHoldingAcquisition] Native GUN payment: ${costGun}`);
-            }
           }
 
           // Fallback: try wGUN (ERC-20) if native GUN didn't yield a cost
           if (costGun === 0 && receipt && gunTokenAddress) {
             costGun = computeNetGunOutflowFromReceipt(receipt, walletAddress, gunTokenAddress);
-
-            if (DEBUG_ACQUISITION && costGun > 0) {
-              console.log(`[getNFTHoldingAcquisition] wGUN fallback payment: ${costGun}`);
-            }
           }
         }
       }
@@ -1684,10 +1573,6 @@ export class AvalancheService {
           if (senderIncoming.length > 0) {
             // Most recent incoming transfer to the sender = their acquisition
             const senderAcqEvent = senderIncoming[senderIncoming.length - 1];
-
-            if (DEBUG_ACQUISITION) {
-              console.log(`[getNFTHoldingAcquisition] Tracing sender ${senderLower} acquisition: tx=${senderAcqEvent.transactionHash}`);
-            }
 
             try {
               const [sTx, sReceipt, sBlock] = await Promise.all([
@@ -1763,9 +1648,6 @@ export class AvalancheService {
                 senderTxFeeGun = parseFloat(ethers.formatEther(sReceipt.gasUsed * sReceipt.gasPrice));
               }
 
-              if (DEBUG_ACQUISITION) {
-                console.log(`[getNFTHoldingAcquisition] Sender cost: ${senderCostGun ?? 0} GUN, venue: ${senderVenue}, date: ${senderAcquiredAtIso}, fee: ${senderTxFeeGun ?? 0} GUN`);
-              }
             } catch (senderError) {
               // Always log sender extraction failures — these are the most common cause
               // of "0 GUN" for transferred NFTs and are otherwise invisible
