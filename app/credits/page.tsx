@@ -18,7 +18,7 @@ interface Contributor {
 
 const contributors: Contributor[] = [
   { name: 'Digital Panoply', role: 'UI/UX Feedback & Security Testing', xHandle: 'DigitalPanoply' },
-  { name: 'FAT.Toe', role: 'Feedback & Testing' },
+  { name: 'FAT.Toe', role: 'Feedback & Testing', xHandle: 'TropicalMystery' },
   { name: 'hajiiiii', role: 'Feedback & Testing', xHandle: 'Haji_NFT' },
   { name: 'meatport', role: 'Feedback & Testing', xHandle: 'meatportgg' },
   { name: '(DOGZ)Parzival9918', role: 'Feedback & Testing', link: 'https://www.twitch.tv/parzival9918' },
