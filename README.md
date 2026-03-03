@@ -230,7 +230,7 @@ Technical documentation is in the [docs/](docs/) directory:
 - [NFT Pipeline](docs/NFT_PIPELINE.md) — pricing, acquisition, P&L calculation
 - [Wallet Classification](docs/WALLET_CLASSIFICATION.md) — in-game vs external detection
 - [Network Detection](docs/NETWORK_DETECTION.md) — chain detection implementation
-- [Setup Guide](docs/SETUP_GUIDE.md) — initial development setup
+
 
 ## License
 
