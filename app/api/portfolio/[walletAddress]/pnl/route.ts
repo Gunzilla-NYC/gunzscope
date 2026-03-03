@@ -76,8 +76,6 @@ export async function GET(
       startIndex += pageSize;
     }
 
-    console.log(`[API] Calculating P&L for ${allNfts.length} NFTs in wallet ${walletAddress}`);
-
     // Calculate portfolio P&L
     const result = await calculatePortfolioPnL(allNfts, NFT_CONTRACT, walletAddress);
 

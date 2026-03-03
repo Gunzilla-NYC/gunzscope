@@ -200,13 +200,7 @@ async function resolveTokenMetadata(
   }
 
   if (uncachedTokenIds.length === 0) {
-    console.log(`[GunzScan] All ${tokenIds.length} tokens resolved from name cache`);
     return result;
-  }
-
-  const cacheHits = tokenIds.length - uncachedTokenIds.length;
-  if (cacheHits > 0) {
-    console.log(`[GunzScan] Name cache: ${cacheHits} hit, ${uncachedTokenIds.length} miss`);
   }
 
   const startTime = Date.now();
@@ -281,8 +275,6 @@ async function resolveTokenMetadata(
     }
   }
 
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`[GunzScan] Resolved ${result.size}/${tokenIds.length} token names (${uncachedTokenIds.length} fetched) in ${elapsed}s`);
   return result;
 }
 
@@ -317,12 +309,6 @@ function setCachedFailure(tokenKey: string, error: string): void {
     }
   }
 }
-
-// =============================================================================
-// Debug Mode
-// =============================================================================
-
-const DEBUG = process.env.NODE_ENV === 'development';
 
 // =============================================================================
 // Trait Cache for NFT Metadata Enrichment
@@ -694,7 +680,6 @@ export class OpenSeaService {
       );
 
       const events = response.data?.asset_events || [];
-      console.log(`Found ${events.length} sale events for token ${tokenId}`);
 
       if (events.length === 0) {
         return null;
@@ -706,11 +691,8 @@ export class OpenSeaService {
       );
 
       if (!userPurchase) {
-        console.log('No sale event found for this wallet address');
         return null;
       }
-
-      console.log('Found purchase event:', userPurchase);
 
       // Extract price information
       const payment = userPurchase.payment;
@@ -727,8 +709,6 @@ export class OpenSeaService {
         : new Date(rawTs).getTime();
       const date = new Date(isNaN(tsMs) ? Date.now() : tsMs);
       const currency = payment.symbol || 'AVAX';
-
-      console.log(`Last sale: ${price} ${currency} on ${date.toISOString()}`);
 
       return { price, date, currency };
     } catch (error) {
@@ -825,9 +805,6 @@ export class OpenSeaService {
     // Check shared sales cache first
     const cached = findUsableSalesCache(collectionSlug, afterDateMs, limit);
     if (cached) {
-      if (DEBUG) {
-        console.log(`[getCollectionSaleEvents] Cache HIT: ${cached.length} sales (requested ${limit})`);
-      }
       return cached;
     }
 
@@ -864,11 +841,6 @@ export class OpenSeaService {
 
         const events = response.data?.asset_events || [];
         cursor = response.data?.next || null;
-
-        // Log first raw event for debugging
-        if (DEBUG && events.length > 0 && allEvents.length === 0) {
-          console.log('[getCollectionSaleEvents] Raw event sample:', JSON.stringify(events[0], null, 2));
-        }
 
         for (const event of events) {
           if (fetched >= limit) break;
@@ -944,9 +916,6 @@ export class OpenSeaService {
       const recentSales = await this.getCollectionSaleEvents(collectionSlug, undefined, 50);
 
       if (recentSales.length === 0) {
-        if (DEBUG) {
-          console.log(`[getRarityFloorPrice] No recent sales found for ${collectionSlug}`);
-        }
         return { floorPriceGUN: null, listingsCount: 0 };
       }
 
@@ -995,10 +964,6 @@ export class OpenSeaService {
         if (saleRarity?.toLowerCase() === rarityLower) {
           matchingPrices.push(effectivePrice);
         }
-      }
-
-      if (DEBUG) {
-        console.log(`[getRarityFloorPrice] Found ${matchingPrices.length} sales matching rarity "${rarity}"`);
       }
 
       if (matchingPrices.length === 0) {
@@ -1080,9 +1045,6 @@ export class OpenSeaService {
         salesCount[rarity] = prices.length;
       }
 
-      if (DEBUG) {
-        console.log('[getRarityFloorTable] Floors:', floors, 'Sales:', salesCount);
-      }
     } catch (error) {
       console.warn('Error building rarity floor table:', error);
     }
@@ -1219,9 +1181,6 @@ export class OpenSeaService {
         waterfall.byWeapon[key] = buildWaterfallEntry(sales);
       }
 
-      if (DEBUG) {
-        console.log(`[getComparableSalesTable] Built table with ${Object.keys(items).length} items, waterfall: ${Object.keys(waterfall.byTokenId).length} tokens, ${Object.keys(waterfall.byName).length} names, ${Object.keys(waterfall.bySkin).length} skins, ${Object.keys(waterfall.byWeapon).length} weapons from ${recentSales.length} sales`);
-      }
     } catch (error) {
       console.warn('Error building comparable sales table:', error);
     }
@@ -1255,10 +1214,6 @@ export class OpenSeaService {
         afterDate,
         limit * 10 // Fetch 10x to ensure enough after filtering
       );
-
-      if (DEBUG) {
-        console.log(`[getComparableSales] Fetched ${events.length} events for ${nftName} (${rarity})`);
-      }
 
       // Normalize for comparison
       const nameLower = nftName.toLowerCase().trim();
@@ -1316,10 +1271,6 @@ export class OpenSeaService {
           }
         }
 
-        if (DEBUG && !eventRarity) {
-          console.log(`[getComparableSales] No rarity found for token ${event.tokenId}`);
-        }
-
         const eventRarityLower = eventRarity?.toLowerCase().trim() || '';
         const eventNameLower = (event.nftName || '').toLowerCase().trim();
 
@@ -1348,10 +1299,6 @@ export class OpenSeaService {
         }
       }
 
-      if (DEBUG) {
-        console.log(`[getComparableSales] Found ${exactMatches.length} exact matches, ${rarityOnlyMatches.length} rarity-only matches`);
-      }
-
       // Use exact matches if available, otherwise fallback to rarity-only
       let results = exactMatches.length > 0 ? exactMatches : rarityOnlyMatches;
 
@@ -1360,10 +1307,6 @@ export class OpenSeaService {
 
       // Limit results
       results = results.slice(0, limit);
-
-      if (DEBUG) {
-        console.log(`[getComparableSales] Returning ${results.length} comparable sales`);
-      }
 
       return results;
     } catch (error) {
@@ -1667,16 +1610,6 @@ export class OpenSeaService {
     const symbol = (payment.symbol || '').toUpperCase();
     const tokenAddress = (payment.token_address || '').toLowerCase();
 
-    if (DEBUG) {
-      console.log('[parseSaleEvent] Payment:', {
-        symbol,
-        quantity,
-        decimals,
-        token_address: tokenAddress,
-        priceRaw,
-      });
-    }
-
     // GunzChain: accept GUN, WGUN, or native token payment as GUN price
     // Native token has zero address: 0x0000000000000000000000000000000000000000
     // OpenSea may use different symbols for the same token
@@ -1712,16 +1645,6 @@ export class OpenSeaService {
   private parseCollectionSaleEvent(event: any): CollectionSaleEvent {
     const baseEvent = this.parseSaleEvent(event);
     const nft = event.nft || {};
-
-    if (DEBUG) {
-      console.log('[parseCollectionSaleEvent] NFT data:', {
-        identifier: nft.identifier,
-        name: nft.name,
-        contract: nft.contract,
-        hasTraits: !!nft.traits,
-        traitCount: nft.traits?.length ?? 0,
-      });
-    }
 
     // Parse traits into a Record<string, string>
     // Note: This will almost always be null because OpenSea v2 events don't include traits
@@ -1765,9 +1688,6 @@ export class OpenSeaService {
     // Check cache first
     const cached = getCachedTraits(cacheKey);
     if (cached !== undefined) {
-      if (DEBUG) {
-        console.log(`[fetchNFTTraits] Cache hit for ${identifier}: ${cached ? 'has traits' : 'no traits'}`);
-      }
       return cached;
     }
 
@@ -1786,10 +1706,6 @@ export class OpenSeaService {
           if (t.trait_type && t.value !== undefined) {
             traitMap[t.trait_type] = String(t.value);
           }
-        }
-
-        if (DEBUG) {
-          console.log(`[fetchNFTTraits] Fetched ${Object.keys(traitMap).length} traits for ${identifier}`);
         }
 
         setCachedTraits(cacheKey, traitMap);

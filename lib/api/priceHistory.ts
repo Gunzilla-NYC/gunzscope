@@ -120,7 +120,7 @@ async function respectRateLimit(): Promise<void> {
 
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL_MS) {
     const waitTime = MIN_REQUEST_INTERVAL_MS - timeSinceLastRequest;
-    if (DEBUG) console.log(`[priceHistory] Rate limiting: waiting ${waitTime}ms`);
+
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
 
@@ -159,7 +159,7 @@ async function fetchWithRetry(
       // Handle rate limiting
       if (response.status === 429) {
         const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
-        if (DEBUG) console.log(`[priceHistory] Rate limited, backing off ${backoff}ms`);
+
         await new Promise((resolve) => setTimeout(resolve, backoff));
         continue;
       }
@@ -240,7 +240,7 @@ export async function getGunPriceAtTime(timestamp: Date): Promise<PriceResult> {
   // Check cache first
   const cached = getCachedPrice(dateKey);
   if (cached) {
-    if (DEBUG) console.log(`[priceHistory] Cache hit for ${dateKey}`);
+
     return cached;
   }
 
@@ -267,7 +267,7 @@ export async function getGunPriceAtTime(timestamp: Date): Promise<PriceResult> {
     }
 
     // For historical dates, use /history endpoint (free tier compatible)
-    if (DEBUG) console.log(`[priceHistory] Fetching history for ${dateKey}`);
+
 
     const historyUrl = `${COINGECKO_BASE}/coins/${GUN_TOKEN_ID}/history?date=${formatDateForApi(timestamp)}&localization=false`;
     const historyResponse = await fetchWithRetry(historyUrl);
@@ -288,7 +288,7 @@ export async function getGunPriceAtTime(timestamp: Date): Promise<PriceResult> {
 
     // Fallback: try market_chart/range for interpolation (requires API key)
     if (process.env.COINGECKO_API_KEY) {
-      if (DEBUG) console.log(`[priceHistory] Trying market_chart for ${dateKey}`);
+
 
       const startOfDay = new Date(timestamp);
       startOfDay.setHours(0, 0, 0, 0);
@@ -321,12 +321,12 @@ export async function getGunPriceAtTime(timestamp: Date): Promise<PriceResult> {
         }
       } catch {
         // market_chart failed, continue to return estimated
-        if (DEBUG) console.log(`[priceHistory] market_chart failed for ${dateKey}`);
+
       }
     }
 
     // No data available - return estimated price of 0
-    if (DEBUG) console.log(`[priceHistory] No price data available for ${dateKey}`);
+
 
     const result: PriceResult = {
       priceUSD: 0,
@@ -365,14 +365,14 @@ export async function getCurrentGunPrice(): Promise<number | null> {
   // Check cache
   const cached = getCachedPrice(cacheKey);
   if (cached) {
-    if (DEBUG) console.log('[priceHistory] Cache hit for current price');
+
     return cached.priceUSD;
   }
 
   try {
     const url = `${COINGECKO_BASE}/simple/price?ids=${GUN_TOKEN_ID}&vs_currencies=usd`;
 
-    if (DEBUG) console.log('[priceHistory] Fetching current price');
+
 
     const response = await fetchWithRetry(url);
     const data = await response.json();
@@ -423,11 +423,7 @@ export async function getGunPricesForTimestamps(
     byDate.set(dateKey, existing);
   }
 
-  if (DEBUG) {
-    console.log(
-      `[priceHistory] Batch fetching ${timestamps.length} timestamps across ${byDate.size} unique dates`
-    );
-  }
+
 
   // Process each unique date
   for (const [dateKey, dateTimestamps] of Array.from(byDate.entries())) {
@@ -470,7 +466,7 @@ export async function getGunPricesForTimestamps(
  */
 export function clearPriceCache(): void {
   priceCache.clear();
-  if (DEBUG) console.log('[priceHistory] Cache cleared');
+
 }
 
 /**
@@ -501,9 +497,7 @@ export async function prefetchPriceRange(
     current.setDate(current.getDate() + 1);
   }
 
-  if (DEBUG) {
-    console.log(`[priceHistory] Prefetching ${dates.length} days of price data`);
-  }
+
 
   await getGunPricesForTimestamps(dates);
 }

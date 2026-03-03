@@ -595,12 +595,6 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
           return { ...prev, [addrKey]: { ...wd, avalanche: { ...wd.avalanche, nfts: enrichedNfts } } };
         });
 
-        if (process.env.NODE_ENV === 'development') {
-          if (rarityData?.floors) console.log('[Valuation] Rarity-tier floors:', rarityData.floors);
-          if (comparableData?.items) console.log(`[Valuation] Comparable sales: ${Object.keys(comparableData.items).length} items`);
-          if (collectionFloor) console.log(`[Valuation] Collection floor: ${collectionFloor} GUN`);
-          if (marketRef?.cached) console.log(`[Valuation] Market reference: ${Object.keys(marketRef.byItemName).length} items`);
-        }
       });
 
     } catch (err) {

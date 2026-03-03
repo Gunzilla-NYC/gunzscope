@@ -14,18 +14,6 @@ import {
 import { OpenSeaService } from '@/lib/api/opensea';
 
 // =============================================================================
-// Debug Mode
-// =============================================================================
-
-const DEBUG = process.env.NODE_ENV === 'development';
-
-function debugLog(...args: unknown[]): void {
-  if (DEBUG) {
-    console.log('[pnlService]', ...args);
-  }
-}
-
-// =============================================================================
 // Exported Types
 // =============================================================================
 
@@ -202,7 +190,7 @@ async function getMarketValuation(
     );
 
     if (listings.lowest !== null && listings.lowest > 0) {
-      debugLog(`Token ${tokenId} has active listing at ${listings.lowest} GUN`);
+
       return {
         estimatedValueGUN: listings.lowest,
         source: 'listing',
@@ -222,7 +210,7 @@ async function getMarketValuation(
       if (rarityFloor.floorPriceGUN !== null) {
         floorPriceGUN = rarityFloor.floorPriceGUN;
         usedRarityFloor = true;
-        debugLog(`Token ${tokenId} has rarity floor (${rarity}): ${floorPriceGUN} GUN`);
+
       }
     }
 
@@ -257,10 +245,6 @@ async function getMarketValuation(
           floorPriceGUN !== null
         );
 
-        debugLog(
-          `Token ${tokenId} has ${comparables.length} comparable sales, avg=${avgPrice.toFixed(2)} GUN`
-        );
-
         return {
           estimatedValueGUN: avgPrice,
           source: 'comparable_sales',
@@ -274,7 +258,7 @@ async function getMarketValuation(
     // 4. Fall back to floor price (rarity-specific or collection-wide)
     if (floorPriceGUN !== null) {
       const source = usedRarityFloor ? 'rarity_floor' : 'floor_price';
-      debugLog(`Token ${tokenId} using ${source}: ${floorPriceGUN} GUN`);
+
       return {
         estimatedValueGUN: floorPriceGUN,
         source,
@@ -285,7 +269,7 @@ async function getMarketValuation(
     }
 
     // 5. No valuation data available
-    debugLog(`Token ${tokenId} has no valuation data`);
+
     return {
       estimatedValueGUN: null,
       source: 'none',
@@ -384,7 +368,7 @@ export async function calculateNFTPnL(
       ? new Date(acquisition.acquiredAtIso)
       : null;
 
-    debugLog(`Token ${tokenId}: venue=${acquisition.venue}, costGun=${acquisition.costGun}`);
+
 
     // 2. Get historical GUN price at acquisition time
     let gunPriceAtAcquisition = 0;
@@ -426,11 +410,11 @@ export async function calculateNFTPnL(
       if (acquisition.venue === 'system_mint') {
         // System-initiated mint (mintForUser) - decode fee was paid off-chain in game's internal system
         warnings.push('System mint — decode fee paid off-chain (not available from blockchain data)');
-        debugLog(`Token ${tokenId}: system_mint venue, cost paid off-chain`);
+
       } else if (acquisition.venue === 'decode' || acquisition.venue === 'decoder') {
         // User-initiated decode with no on-chain cost - likely a free decode or reward
         warnings.push('Decode cost not found on-chain — may be a free decode or reward');
-        debugLog(`Token ${tokenId}: decode venue but costGun=0, may be free decode`);
+
       } else if (acquisition.venue === 'transfer' || acquisition.isMint) {
         warnings.push(
           `NFT was ${acquisition.isMint ? 'minted' : 'transferred'} - no purchase cost`
@@ -518,8 +502,6 @@ export async function calculatePortfolioPnL(
   // 1. Get current GUN price ONCE upfront
   const currentGunPrice = (await getCurrentGunPrice()) ?? 0;
 
-  debugLog(`Calculating P&L for ${nfts.length} NFTs, current GUN price: $${currentGunPrice}`);
-
   // 2. Pre-fetch acquisition dates and batch historical prices
   const avalancheService = new AvalancheService();
   const acquisitionDates: Date[] = [];
@@ -558,8 +540,6 @@ export async function calculatePortfolioPnL(
 
   // Batch fetch historical prices
   const historicalPrices = await getGunPricesForTimestamps(acquisitionDates);
-
-  debugLog(`Fetched ${historicalPrices.size} historical prices`);
 
   // 3. Calculate P&L for each NFT
   const results = await Promise.allSettled(

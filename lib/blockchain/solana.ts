@@ -25,7 +25,6 @@ export class SolanaService {
 
       // Validate Solana address format before attempting to create PublicKey
       if (!walletAddress || walletAddress.startsWith('0x')) {
-        console.log('Invalid Solana address format (appears to be EVM address)');
         return null;
       }
 
@@ -71,7 +70,6 @@ export class SolanaService {
     try {
       // Validate Solana address format
       if (!walletAddress || walletAddress.startsWith('0x')) {
-        console.log('Invalid Solana address format for NFT query');
         return [];
       }
 
