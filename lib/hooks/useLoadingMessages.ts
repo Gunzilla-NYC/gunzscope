@@ -19,18 +19,18 @@ export function useLoadingMessages() {
   const LOADING_MESSAGES = useMemo(() => {
     if (is10pmWindow) return [TEN_PM_MESSAGE];
     const pool = [
-      'Dodging legendary buzzkilla with ease',
-      'Counting your digital weapons\u2026',
+      'Dodging legendary buzzkilla with ease...',
+      'Well, at least your portfolio is beating the bots...',
       'Shaking down the blockchain for answers',
       'Appraising your arsenal\u2026',
       'Floor prices don\u2019t check themselves',
       'Procrastinating by checking Discord for drama...',
-      'Scanning 13M blocks. Yeah, all of them.',
-      'Loading NFTs faster than you loot crates',
+      'Scanning 15M blocks. Yeah, all of them.',
+      'Loading NFTs faster than you decode hexes...',
       'Flying around legless... IYKYK',
       'Doing math so you don\u2019t have to',
       'Raiding the RPC for your data\u2026',
-      'Try to get the hug emote to work...',
+      'Trying to get the hug emote to work...',
     ];
     return pool.sort(() => Math.random() - 0.5);
   }, [is10pmWindow]);
