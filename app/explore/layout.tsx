@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'On\u2011Chain Explorer',
+  title: 'Onchain Explorer',
   description: 'Browse portfolio attestations on Avalanche C-Chain. Verified on-chain, stored permanently on Autonomys.',
   alternates: { canonical: '/explore' },
 };
