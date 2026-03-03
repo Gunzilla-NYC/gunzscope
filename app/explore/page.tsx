@@ -151,7 +151,7 @@ function ExploreContent() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase mb-2">
-                On&#8209;Chain Explorer
+                Onchain Explorer
               </h1>
               <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
                 Portfolio attestations on Avalanche C&#8209;Chain &mdash; verified on&#8209;chain, stored on Autonomys

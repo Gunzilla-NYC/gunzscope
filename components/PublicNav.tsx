@@ -12,7 +12,7 @@ interface PublicNavProps {
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
-  { href: '/explore', label: 'Onchain ID' },
+  { href: '/explore', label: 'Onchain Explorer' },
 ];
 
 export default function PublicNav({ activeHref }: PublicNavProps) {
