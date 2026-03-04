@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
       '@visx/tooltip',
       '@visx/zoom',
       'ethers',
+      'motion/react',
       'posthog-js',
     ],
   },
