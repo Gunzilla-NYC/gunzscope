@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { deriveCardData } from './utils';
 import type { NFTGalleryProps } from './types';
-import { useNFTGalleryFilters } from './useNFTGalleryFilters';
 import { useItemOrigins } from '@/lib/contexts/ItemOriginsContext';
+import { GalleryFilterProvider, useGalleryFilters } from './GalleryFilterContext';
 import { NFTGalleryControls } from './NFTGalleryControls';
 import { NFTGalleryPagination } from './NFTGalleryPagination';
 import { NFTGalleryGridCard } from './NFTGalleryGridCard';
@@ -20,29 +20,6 @@ const NFTDetailModal = dynamic(() => import('../NFTDetailModal'), {
 });
 
 export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset, marketMap, portfolioViewMode, currentGunPrice }: NFTGalleryProps) {
-  const { getItemOrigin } = useItemOrigins();
-  const {
-    searchQuery, setSearchQuery,
-    sortBy, setSortBy,
-    selectedItemClass, setSelectedItemClass,
-    selectedOrigin, setSelectedOrigin,
-    activeRarities, toggleRarity, clearRarities,
-    viewMode, setViewMode,
-    selectedNFT, selectedTokenKeyString, isModalOpen,
-    handleNFTClick, handleCloseModal,
-    itemClasses, originCounts, rarityCounts, filteredAndSortedNFTs,
-    clearFilters, hasActiveFilters,
-  } = useNFTGalleryFilters(nfts, marketMap, currentGunPrice);
-
-  // Pre-compute card data for all visible NFTs — stable references for React.memo
-  const cardDataMap = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof deriveCardData>>();
-    for (const nft of filteredAndSortedNFTs) {
-      map.set(`${nft.chain}-${nft.tokenId}`, deriveCardData(nft, marketMap, currentGunPrice, getItemOrigin));
-    }
-    return map;
-  }, [filteredAndSortedNFTs, marketMap, currentGunPrice, getItemOrigin]);
-
   if (nfts.length === 0) {
     return (
       <div className="text-center py-24">
@@ -79,28 +56,46 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
   }
 
   return (
-    <div className="bg-[var(--gs-dark-3)] p-6 border border-white/[0.06] clip-corner">
-      {/* Sticky Controls Bar */}
-      <NFTGalleryControls
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-        selectedItemClass={selectedItemClass}
-        setSelectedItemClass={setSelectedItemClass}
-        selectedOrigin={selectedOrigin}
-        setSelectedOrigin={setSelectedOrigin}
-        activeRarities={activeRarities}
-        toggleRarity={toggleRarity}
-        clearRarities={clearRarities}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
+    <GalleryFilterProvider nfts={nfts} marketMap={marketMap} currentGunPrice={currentGunPrice}>
+      <NFTGalleryInner
         nfts={nfts}
-        itemClasses={itemClasses}
-        originCounts={originCounts}
-        rarityCounts={rarityCounts}
-        hasActiveFilters={hasActiveFilters}
-        clearFilters={clearFilters}
+        walletAddress={walletAddress}
+        paginationInfo={paginationInfo}
+        onLoadMore={onLoadMore}
+        isEnriching={isEnriching}
+        stickyOffset={stickyOffset}
+        marketMap={marketMap}
+        portfolioViewMode={portfolioViewMode}
+        currentGunPrice={currentGunPrice}
+      />
+    </GalleryFilterProvider>
+  );
+}
+
+function NFTGalleryInner({ nfts, walletAddress, paginationInfo, onLoadMore, isEnriching, stickyOffset, marketMap, portfolioViewMode, currentGunPrice }: Omit<NFTGalleryProps, 'chain'> & { isEnriching: boolean }) {
+  const { getItemOrigin } = useItemOrigins();
+  const {
+    viewMode,
+    selectedNFT, selectedTokenKeyString, isModalOpen,
+    handleNFTClick, handleCloseModal,
+    filteredAndSortedNFTs,
+    clearFilters,
+  } = useGalleryFilters();
+
+  // Pre-compute card data for all visible NFTs — stable references for React.memo
+  const cardDataMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof deriveCardData>>();
+    for (const nft of filteredAndSortedNFTs) {
+      map.set(`${nft.chain}-${nft.tokenId}`, deriveCardData(nft, marketMap, currentGunPrice, getItemOrigin));
+    }
+    return map;
+  }, [filteredAndSortedNFTs, marketMap, currentGunPrice, getItemOrigin]);
+
+  return (
+    <div className="bg-[var(--gs-dark-3)] p-6 border border-white/[0.06] clip-corner">
+      {/* Sticky Controls Bar — reads from GalleryFilterContext */}
+      <NFTGalleryControls
+        nfts={nfts}
         stickyOffset={stickyOffset}
       />
 

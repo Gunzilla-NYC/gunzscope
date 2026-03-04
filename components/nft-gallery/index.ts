@@ -4,4 +4,4 @@ export { NFTGalleryGridCard } from './NFTGalleryGridCard';
 export { NFTGalleryListRow } from './NFTGalleryListRow';
 export { NFTGalleryPagination } from './NFTGalleryPagination';
 export { useNFTGalleryFilters } from './useNFTGalleryFilters';
-export type { NFTGalleryProps, NFTGalleryControlsProps, NFTGalleryGridCardProps, NFTGalleryListRowProps, NFTGalleryPaginationProps } from './types';
+export type { NFTGalleryProps, NFTGalleryGridCardProps, NFTGalleryListRowProps, NFTGalleryPaginationProps } from './types';

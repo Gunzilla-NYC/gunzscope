@@ -5,7 +5,7 @@
  */
 
 import type { NFT, NFTPaginationInfo } from '@/lib/types';
-import type { SortOption, ViewMode, Rarity, NFTCardData, MarketItemData } from './utils';
+import type { NFTCardData, MarketItemData } from './utils';
 
 /** Props for the top-level NFTGallery component */
 export interface NFTGalleryProps {
@@ -24,30 +24,6 @@ export interface NFTGalleryProps {
   portfolioViewMode?: 'simple' | 'detailed';
   /** Current GUN/USD price — used for USD-based P&L fallback when no item market data exists */
   currentGunPrice?: number;
-}
-
-/** Props for NFTGalleryControls (sticky controls bar) */
-export interface NFTGalleryControlsProps {
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  sortBy: SortOption;
-  setSortBy: (s: SortOption) => void;
-  selectedItemClass: string;
-  setSelectedItemClass: (c: string) => void;
-  selectedOrigin: string;
-  setSelectedOrigin: (o: string) => void;
-  activeRarities: Set<Rarity>;
-  toggleRarity: (r: Rarity) => void;
-  clearRarities: () => void;
-  viewMode: ViewMode;
-  setViewMode: (v: ViewMode) => void;
-  nfts: NFT[];
-  itemClasses: string[];
-  originCounts: Map<string, number>;
-  rarityCounts: Record<string, number>;
-  hasActiveFilters: boolean;
-  clearFilters: () => void;
-  stickyOffset?: number;
 }
 
 /** Props for NFTGalleryGridCard */
