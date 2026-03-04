@@ -24,7 +24,7 @@ async function fetchGet<T = any>(
       if (v !== undefined) headers[k] = v;
     }
   }
-  const res = await fetch(fullUrl, { headers });
+  const res = await fetch(fullUrl, { headers, signal: AbortSignal.timeout(10000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   return { data };
