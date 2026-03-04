@@ -53,11 +53,10 @@ export async function GET(
       rarity
     );
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-      timestamp,
-    });
+    return NextResponse.json(
+      { success: true, data: result, timestamp },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' } },
+    );
   } catch (error) {
     console.error('[API] Error calculating NFT P&L:', error);
     return NextResponse.json(

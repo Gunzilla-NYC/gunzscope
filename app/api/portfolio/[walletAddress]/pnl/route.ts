@@ -79,11 +79,10 @@ export async function GET(
     // Calculate portfolio P&L
     const result = await calculatePortfolioPnL(allNfts, NFT_CONTRACT, walletAddress);
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-      timestamp,
-    });
+    return NextResponse.json(
+      { success: true, data: result, timestamp },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' } },
+    );
   } catch (error) {
     console.error('[API] Error calculating portfolio P&L:', error);
     return NextResponse.json(
