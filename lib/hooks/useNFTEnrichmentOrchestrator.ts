@@ -38,19 +38,27 @@ async function fetchGunPricesForDates(dates: Date[]): Promise<Map<string, Histor
     if (!uniqueDates.has(key)) uniqueDates.set(key, d);
   }
 
-  // Fetch sequentially with small delay to avoid CoinGecko rate limits.
-  // Each date is server-cached 24h, so after first fetch subsequent calls are instant.
+  // Fetch in parallel batches — server caches each date for 24h,
+  // so after first cold fetch subsequent calls are instant.
   const entries = Array.from(uniqueDates.entries());
-  for (const [key, date] of entries) {
-    try {
-      const res = await fetch(`/api/price/history?coin=gunz&date=${date.toISOString()}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data?.price && data.price > 0) {
-        map.set(key, { price: data.price, estimated: !!data.estimated });
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+    const batch = entries.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async ([key, date]) => {
+        const res = await fetch(`/api/price/history?coin=gunz&date=${date.toISOString()}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data?.price && data.price > 0) {
+          return { key, price: data.price, estimated: !!data.estimated } as const;
+        }
+        return null;
+      })
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        map.set(result.value.key, { price: result.value.price, estimated: result.value.estimated });
       }
-    } catch {
-      // Non-blocking — continue with next date
     }
   }
   return map;
