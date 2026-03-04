@@ -21,16 +21,9 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.5.2a',
-    date: 'Mar 3, 2026',
-    tag: 'current',
-    items: [
-      'License changed from Apache 2.0 to BSL 1.1 \u2014 non\u2011commercial/personal production use permitted; converts to AGPLv3 on 2029\u201103\u201103; package.json license field set to BUSL\u20111.1',
-    ],
-  },
-  {
     version: 'v0.5.2',
     date: 'Mar 2, 2026',
+    tag: 'current',
     items: [
       '/build\u2011games landing page \u2014 hero, stats bar (live from /api/stats/site), BuildVelocityChart, multi\u2011chain architecture diagram, 9\u2011card feature grid, on\u2011chain proof section (live attestation count), valuation waterfall, dashboard preview, roadmap CTA; layout matches homepage patterns (max\u2011w\u20117xl, section\u2011number, section\u2011line)',
       '/build\u2011games/roadmap \u2014 public fork of /strategy with admin gate removed; DocBadge, BuildVelocityChart, 6 phases, ScopeBar, vision banner; minimal nav with Logo + back link',
