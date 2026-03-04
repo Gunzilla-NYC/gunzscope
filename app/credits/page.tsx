@@ -81,6 +81,7 @@ async function getIdeaContributors(): Promise<IdeaContributor[]> {
 }
 
 export const dynamic = 'force-dynamic';
+// TODO: Optimization item 18 skipped — DB not available at build time for ISR prerender
 
 export default async function CreditsPage() {
   const ideaContributors = await getIdeaContributors();
