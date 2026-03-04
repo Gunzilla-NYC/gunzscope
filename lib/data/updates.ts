@@ -15,9 +15,20 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.5.3',
+    date: 'Mar 4, 2026',
+    tag: 'current',
+    title: 'Under the hood, everything got faster',
+    items: [
+      'We ran a 40-item performance audit and parallelized every serial bottleneck we could find. API routes that used to fetch data one thing at a time now fetch in parallel. The leaderboard, price lookups, cron jobs, and on-chain RPC calls all got the same treatment. If it was waiting in line, it\u2019s not anymore.',
+      'Six API routes now have Cache-Control headers, which means your browser and Vercel\u2019s CDN will serve cached responses instead of hitting the server every time. Price data refreshes every 30 seconds. NFT P&L data hangs around for a minute. This matters more than it sounds.',
+      'The GUN price hook was rewritten to use SWR \u2014 automatic deduplication, background refresh, stale-while-revalidate. If three components ask for the price at the same time, one fetch happens. The other two get the cached result instantly.',
+      'Four of the largest files in the codebase were decomposed into focused modules. AdminPanel went from 1,342 lines to 155. The brand page went from 1,682 to 195. The portfolio page now lazy-loads five heavy components so the initial render is just the shell and your data.',
+    ],
+  },
+  {
     version: 'v0.5.2',
     date: 'Mar 2, 2026',
-    tag: 'current',
     title: 'Attestations got a face',
     items: [
       'Clicking "View" on an attestation used to dump 1,600 lines of raw JSON in your browser. Now it shows a proper page \u2014 wallet, value, item count, merkle root, the whole thing rendered like it belongs in the app. Because it does.',
