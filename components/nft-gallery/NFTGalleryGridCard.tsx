@@ -23,7 +23,7 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
 
   const isGrouped = !!(nft.quantity && nft.quantity > 1);
   // Cross-check mintData for rarity diversity (fallback if groupedRarities incomplete)
-  const mintRarities = isGrouped ? new Set(mintData.map(m => m.rarity).filter(r => r !== 'Unknown')) : null;
+  const mintRarities = isGrouped ? new Set(mintData.reduce<string[]>((acc, m) => { if (m.rarity !== 'Unknown') acc.push(m.rarity); return acc; }, [])) : null;
   const hasMixedRarity = isMixedRarity || (mintRarities !== null && mintRarities.size > 1);
   // Grouped accent: rarity color when all same quality, yellow for mixed
   const groupAccent = hasMixedRarity ? '#22d3ee' : rarityColor;
