@@ -76,7 +76,9 @@ interface NFTDetailModalProps {
 
 
 
-export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, allNfts = [] }: NFTDetailModalProps) {
+const EMPTY_NFTS: NFT[] = [];
+
+export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, allNfts = EMPTY_NFTS }: NFTDetailModalProps) {
   const { getItemOrigin } = useItemOrigins();
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   // GUN price hook - fetches current GUN/USD rate when modal opens
