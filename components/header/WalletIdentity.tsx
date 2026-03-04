@@ -221,32 +221,29 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
           {copyButton}
           <div className="flex-1" />
 
-          {/* Watch + Portfolio actions (only for authenticated users viewing foreign wallets) */}
-          {isAuthenticated && onAddToWatchlist && (
-            <button
-              onClick={() => address && onAddToWatchlist(address)}
-              disabled={isInWatchlist || isAddingWatchlist}
-              className={`font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 border transition-colors cursor-pointer disabled:cursor-default flex items-center gap-1 ${
-                isInWatchlist
-                  ? 'text-[var(--gs-lime)] border-[var(--gs-lime)]/40'
-                  : isAddingWatchlist
-                    ? 'text-[var(--gs-gray-3)] border-[var(--gs-gray-1)]'
-                    : 'text-[var(--gs-gray-3)] border-white/[0.06] hover:border-[var(--gs-lime)]/40 hover:text-[var(--gs-lime)]'
-              }`}
-            >
-              {isAddingWatchlist ? (
-                <span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />
-              ) : isInWatchlist ? '\u2713 Watching' : '+ Watch'}
-            </button>
-          )}
-          {isAuthenticated && onAddToPortfolio && (
-            isAtPortfolioLimit && !isInPortfolio ? (
+          {/* Watch + Portfolio actions — viewing mode guarantees isAuthenticated */}
+          <button
+            onClick={() => onAddToWatchlist(address)}
+            disabled={isInWatchlist || isAddingWatchlist}
+            className={`font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 border transition-colors cursor-pointer disabled:cursor-default flex items-center gap-1 ${
+              isInWatchlist
+                ? 'text-[var(--gs-lime)] border-[var(--gs-lime)]/40'
+                : isAddingWatchlist
+                  ? 'text-[var(--gs-gray-3)] border-[var(--gs-gray-1)]'
+                  : 'text-[var(--gs-gray-3)] border-white/[0.06] hover:border-[var(--gs-lime)]/40 hover:text-[var(--gs-lime)]'
+            }`}
+          >
+            {isAddingWatchlist ? (
+              <span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />
+            ) : isInWatchlist ? '\u2713 Watching' : '+ Watch'}
+          </button>
+          {isAtPortfolioLimit && !isInPortfolio ? (
               <span className="font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 text-[var(--gs-gray-2)]">
                 5/5
               </span>
             ) : (
               <button
-                onClick={() => address && onAddToPortfolio(address)}
+                onClick={() => onAddToPortfolio(address)}
                 disabled={isInPortfolio || isAddingPortfolio}
                 className={`font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 border transition-colors cursor-pointer disabled:cursor-default flex items-center gap-1 ${
                   isInPortfolio
@@ -261,7 +258,7 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
                 ) : isInPortfolio ? '\u2713 Portfolio' : '+ Portfolio'}
               </button>
             )
-          )}
+          }
 
           {primaryWalletAddress ? (
             <button
