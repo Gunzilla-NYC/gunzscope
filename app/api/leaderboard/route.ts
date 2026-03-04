@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getGunPriceUsd } from '@/lib/server/gunPrice';
 
 /**
  * GET /api/leaderboard
@@ -17,16 +18,7 @@ export async function GET() {
         where: { timestamp: { gte: thirtyDaysAgo } },
         orderBy: { timestamp: 'desc' },
       }),
-      fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/price/gun`,
-        { next: { revalidate: 60 } }
-      ).then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          return (data.gunTokenPrice ?? 0) as number;
-        }
-        return 0;
-      }).catch(() => 0),
+      getGunPriceUsd(),
     ]);
 
     // Deduplicate to latest per wallet in JS
