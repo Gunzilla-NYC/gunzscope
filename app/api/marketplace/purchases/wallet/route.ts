@@ -69,13 +69,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Return upstream data with proxy metadata
-    return NextResponse.json({
-      ...data,
-      _proxy: {
-        used: true,
-        timestamp: new Date().toISOString(),
+    return NextResponse.json(
+      {
+        ...data,
+        _proxy: {
+          used: true,
+          timestamp: new Date().toISOString(),
+        },
       },
-    });
+      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[API] Marketplace wallet purchases error:', message);
