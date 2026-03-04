@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { CoinGeckoService } from '@/lib/api/coingecko';
+import useSWR from 'swr';
 
 // =============================================================================
 // Types
@@ -14,40 +13,41 @@ export interface UseGunPriceResult {
 }
 
 // =============================================================================
+// Fetcher
+// =============================================================================
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+};
+
+// =============================================================================
 // Hook Implementation
 // =============================================================================
 
 /**
  * Hook for fetching the current GUN/USD price.
- * Fetches when `enabled` transitions to true and caches the result.
+ * Uses SWR for automatic deduplication, caching, and revalidation.
+ * Fetches when `enabled` is true.
  */
 export function useGunPrice(enabled: boolean): UseGunPriceResult {
-  const [gunPrice, setGunPrice] = useState<number | null>(null);
-  const [timestamp, setTimestamp] = useState<Date | null>(null);
-  const [source, setSource] = useState<string | null>(null);
-  const serviceRef = useRef<CoinGeckoService | null>(null);
+  const { data } = useSWR(
+    enabled ? '/api/price/gun' : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000, // 60s dedup window
+    }
+  );
 
-  useEffect(() => {
-    if (!enabled) return;
-
-    const fetchPrice = async () => {
-      try {
-        if (!serviceRef.current) {
-          serviceRef.current = new CoinGeckoService();
-        }
-        const priceData = await serviceRef.current.getGunTokenPrice();
-        if (priceData?.gunTokenPrice) {
-          setGunPrice(priceData.gunTokenPrice);
-          setTimestamp(priceData.timestamp ?? null);
-          setSource(priceData.source ?? null);
-        }
-      } catch (error) {
-        console.error('Error fetching GUN price:', error);
-      }
+  if (data?.gunTokenPrice) {
+    return {
+      gunPrice: data.gunTokenPrice,
+      timestamp: data.timestamp ? new Date(data.timestamp) : null,
+      source: data.source ?? null,
     };
+  }
 
-    fetchPrice();
-  }, [enabled]);
-
-  return { gunPrice, timestamp, source };
+  return { gunPrice: null, timestamp: null, source: null };
 }
