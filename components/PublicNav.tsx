@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import Link from 'next/link';
 import Logo from './Logo';
 import { GlitchLink } from './navbar/GlitchLink';
@@ -21,7 +21,7 @@ export default function PublicNav({ activeHref }: PublicNavProps) {
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+      startTransition(() => setIsScrolled(window.scrollY > 10));
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
