@@ -46,7 +46,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
         // Network error — fail closed
         handleLogOut();
       });
-  }, [primaryWallet?.address, user, handleLogOut]);
+  }, [primaryWallet?.address, user?.userId, handleLogOut]);
 
   const activeAddress = searchParams.get('address');
   const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/scarcity' || pathname === '/market' || pathname === '/account' || pathname === '/feature-requests' || pathname === '/explore';
