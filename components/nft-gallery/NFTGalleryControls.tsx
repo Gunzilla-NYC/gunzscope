@@ -8,7 +8,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import {
   type SortOption,
   getItemClass, getItemClassDisplayName,
@@ -21,7 +21,7 @@ interface NFTGalleryControlsProps {
   stickyOffset?: number;
 }
 
-export function NFTGalleryControls({ nfts, stickyOffset }: NFTGalleryControlsProps) {
+export const NFTGalleryControls = memo(function NFTGalleryControls({ nfts, stickyOffset }: NFTGalleryControlsProps) {
   const {
     searchQuery, setSearchQuery,
     sortBy, setSortBy,
@@ -347,4 +347,4 @@ export function NFTGalleryControls({ nfts, stickyOffset }: NFTGalleryControlsPro
       </div>
     </div>
   );
-}
+});

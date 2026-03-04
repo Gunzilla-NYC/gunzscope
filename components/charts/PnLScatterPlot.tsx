@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
 import { Circle, Line } from '@visx/shape';
 import { scaleSqrt, scaleLog } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
@@ -72,7 +72,7 @@ function snapToNice125(value: number): number {
 /*  ScatterChartZoomed — inner component (receives zoom state)        */
 /* ------------------------------------------------------------------ */
 
-function ScatterChartZoomed({
+const ScatterChartZoomed = memo(function ScatterChartZoomed({
   data, width, height,
   onLockedDatumChange, onZoomChange,
   seenIdsRef,
@@ -597,7 +597,7 @@ function ScatterChartZoomed({
       </svg>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  PnLScatterPlot — outer component                                  */
