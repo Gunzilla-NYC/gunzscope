@@ -71,14 +71,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (coin) {
-      return NextResponse.json({
-        gunTokenPrice: coin.current_price,
-        change24h: coin.price_change_percentage_24h,
-        sparkline7d: coin.sparkline_in_7d?.price ?? [],
-        sparkline14d,
-        source: 'CoinGecko',
-        timestamp: new Date().toISOString(),
-      });
+      return NextResponse.json(
+        {
+          gunTokenPrice: coin.current_price,
+          change24h: coin.price_change_percentage_24h,
+          sparkline7d: coin.sparkline_in_7d?.price ?? [],
+          sparkline14d,
+          source: 'CoinGecko',
+          timestamp: new Date().toISOString(),
+        },
+        { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' } },
+      );
     }
 
     return NextResponse.json({ error: 'Price not found' }, { status: 404 });
