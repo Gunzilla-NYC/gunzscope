@@ -7,54 +7,28 @@ import {
   usePortfolioWallet,
   usePortfolioResult,
   usePortfolioNFTs,
+  usePortfolioIdentity,
 } from '@/lib/contexts/PortfolioContext';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
-import { PortfolioAddress } from '@/lib/hooks/useUserProfile';
 
 /**
  * PortfolioHeader - Wallet identity bar + portfolio history snapshot tracking.
- * Uses PortfolioContext for data access.
+ * Uses PortfolioContext for all data and actions (no props needed).
  *
  * Hides entirely when WalletIdentity would render in "hidden" mode
  * (own wallet, no portfolio addresses, authenticated).
  */
-interface PortfolioHeaderProps {
-  portfolioAddresses?: PortfolioAddress[];
-  activeWalletAddress?: string | null;
-  allWalletAddresses?: string[];
-  primaryWalletAddress?: string | null;
-  isAuthenticated?: boolean;
-  onSwitchWallet?: (address: string) => void;
-  onBackToOwnWallet?: () => void;
-  isInWatchlist?: boolean;
-  isInPortfolio?: boolean;
-  isAtPortfolioLimit?: boolean;
-  isAddingWatchlist?: boolean;
-  isAddingPortfolio?: boolean;
-  onAddToWatchlist?: (address: string) => Promise<boolean>;
-  onAddToPortfolio?: (address: string) => Promise<boolean>;
-}
-
-export default function PortfolioHeader({
-  portfolioAddresses = [],
-  activeWalletAddress,
-  allWalletAddresses = [],
-  primaryWalletAddress,
-  isAuthenticated = false,
-  onSwitchWallet,
-  onBackToOwnWallet,
-  isInWatchlist,
-  isInPortfolio,
-  isAtPortfolioLimit,
-  isAddingWatchlist,
-  isAddingPortfolio,
-  onAddToWatchlist,
-  onAddToPortfolio,
-}: PortfolioHeaderProps = {}) {
+export default function PortfolioHeader() {
   // Get data from context
   const { walletData } = usePortfolioWallet();
   const portfolioResult = usePortfolioResult();
   const { allNfts, isEnriching, enrichmentProgress } = usePortfolioNFTs();
+  const {
+    portfolioAddresses,
+    allWalletAddresses,
+    primaryWalletAddress,
+    isAuthenticated,
+  } = usePortfolioIdentity();
 
   // Total value and NFT count for history tracking.
   // Prefer market value (listing > floor > cost) when available, fall back to cost basis.
@@ -106,22 +80,7 @@ export default function PortfolioHeader({
         style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
       >
         <div className="absolute top-0 left-0 right-0 h-[2px] gradient-accent-line opacity-40" aria-hidden="true" />
-        <WalletIdentity
-          portfolioAddresses={portfolioAddresses}
-          activeWalletAddress={activeWalletAddress}
-          allWalletAddresses={allWalletAddresses}
-          primaryWalletAddress={primaryWalletAddress}
-          isAuthenticated={isAuthenticated}
-          onSwitchWallet={onSwitchWallet}
-          onBackToOwnWallet={onBackToOwnWallet}
-          isInWatchlist={isInWatchlist}
-          isInPortfolio={isInPortfolio}
-          isAtPortfolioLimit={isAtPortfolioLimit}
-          isAddingWatchlist={isAddingWatchlist}
-          isAddingPortfolio={isAddingPortfolio}
-          onAddToWatchlist={onAddToWatchlist}
-          onAddToPortfolio={onAddToPortfolio}
-        />
+        <WalletIdentity />
       </div>
       {/* Panel slot: drop-down panels portal into this div */}
       <div ref={panelSlotRef} />

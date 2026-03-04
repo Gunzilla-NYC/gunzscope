@@ -8,8 +8,8 @@ import {
   usePortfolioResult,
   usePortfolioGunPrice,
   usePortfolioNFTs,
+  usePortfolioIdentity,
 } from '@/lib/contexts/PortfolioContext';
-import { PortfolioAddress } from '@/lib/hooks/useUserProfile';
 import { useNftPnL } from '@/components/portfolio-summary/hooks/useNftPnL';
 import { ShareDropdown } from '@/components/portfolio-summary/ShareDropdown';
 import DropPanel from '@/components/ui/DropPanel';
@@ -18,20 +18,6 @@ import { useReferral } from '@/lib/hooks/useReferral';
 
 interface WalletIdentityProps {
   className?: string;
-  portfolioAddresses?: PortfolioAddress[];
-  activeWalletAddress?: string | null;
-  allWalletAddresses?: string[];
-  primaryWalletAddress?: string | null;
-  isAuthenticated?: boolean;
-  onSwitchWallet?: (address: string) => void;
-  onBackToOwnWallet?: () => void;
-  isInWatchlist?: boolean;
-  isInPortfolio?: boolean;
-  isAtPortfolioLimit?: boolean;
-  isAddingWatchlist?: boolean;
-  isAddingPortfolio?: boolean;
-  onAddToWatchlist?: (address: string) => Promise<boolean>;
-  onAddToPortfolio?: (address: string) => Promise<boolean>;
 }
 
 function truncateAddr(addr: string): string {
@@ -40,6 +26,7 @@ function truncateAddr(addr: string): string {
 
 /**
  * WalletIdentity - Context-aware wallet bar with switcher.
+ * All data and actions consumed from PortfolioContext.
  *
  * Modes:
  *   Hidden   — own wallet, no portfolio addresses (navbar + status bar sufficient)
@@ -47,23 +34,23 @@ function truncateAddr(addr: string): string {
  *   Viewing  — foreign searched wallet (shows "Back to My Wallet")
  *   Simple   — unauthenticated search (address + copy + status only)
  */
-export default function WalletIdentity({
-  className = '',
-  portfolioAddresses = [],
-  activeWalletAddress,
-  allWalletAddresses = [],
-  primaryWalletAddress,
-  isAuthenticated = false,
-  onSwitchWallet,
-  onBackToOwnWallet,
-  isInWatchlist,
-  isInPortfolio,
-  isAtPortfolioLimit,
-  isAddingWatchlist,
-  isAddingPortfolio,
-  onAddToWatchlist,
-  onAddToPortfolio,
-}: WalletIdentityProps) {
+export default function WalletIdentity({ className = '' }: WalletIdentityProps = {}) {
+  const {
+    portfolioAddresses,
+    activeWalletAddress,
+    allWalletAddresses,
+    primaryWalletAddress,
+    isAuthenticated,
+    isInWatchlist,
+    isInPortfolio,
+    isAtPortfolioLimit,
+    isAddingWatchlist,
+    isAddingPortfolio,
+    onSwitchWallet,
+    onBackToOwnWallet,
+    onAddToWatchlist,
+    onAddToPortfolio,
+  } = usePortfolioIdentity();
   const [copied, setCopied] = useState(false);
   const detailsBtnRef = useRef<HTMLButtonElement>(null);
   const switcherBtnRef = useRef<HTMLButtonElement>(null);
@@ -205,7 +192,7 @@ export default function WalletIdentity({
 
   const handleSwitch = (addr: string) => {
     closeSwitcher();
-    onSwitchWallet?.(addr);
+    onSwitchWallet(addr);
   };
 
   // --- Copy button (shared) ---
@@ -278,7 +265,7 @@ export default function WalletIdentity({
 
           {primaryWalletAddress ? (
             <button
-              onClick={() => onBackToOwnWallet?.()}
+              onClick={() => onBackToOwnWallet()}
               className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--gs-purple)] hover:text-[var(--gs-lime)] transition-colors cursor-pointer"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
