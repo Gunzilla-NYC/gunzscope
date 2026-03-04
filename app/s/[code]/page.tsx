@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -6,13 +7,16 @@ import prisma from '@/lib/db';
 import { extractPortfolioSummary } from '@/lib/utils/portfolioSummary';
 import ShareRedirect from './ShareRedirect';
 
+// Per-request deduplication: generateMetadata + page component share the same query
+const getCachedShareLink = cache((code: string) => getShareLinkByCode(code));
+
 interface PageProps {
   params: Promise<{ code: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { code } = await params;
-  const link = await getShareLinkByCode(code);
+  const link = await getCachedShareLink(code);
 
   if (!link) {
     return { title: 'Not Found | GUNZscope' };
@@ -64,7 +68,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function SharePage({ params }: PageProps) {
   const { code } = await params;
-  const link = await getShareLinkByCode(code);
+  const link = await getCachedShareLink(code);
 
   if (!link) notFound();
 

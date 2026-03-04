@@ -1,7 +1,12 @@
+import { cache } from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getReferrerBySlug, getReferrerByPreviousSlug } from '@/lib/services/referralService';
 import ReferralRedirect from './ReferralRedirect';
+
+// Per-request deduplication: generateMetadata + page component share the same queries
+const getCachedReferrer = cache((slug: string) => getReferrerBySlug(slug));
+const getCachedPreviousReferrer = cache((slug: string) => getReferrerByPreviousSlug(slug));
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -10,11 +15,11 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const normalizedSlug = slug.toLowerCase();
-  let referrer = await getReferrerBySlug(normalizedSlug);
+  let referrer = await getCachedReferrer(normalizedSlug);
 
   // Check previous slug for 30-day redirect (metadata still resolves for crawlers)
   if (!referrer) {
-    referrer = await getReferrerByPreviousSlug(normalizedSlug);
+    referrer = await getCachedPreviousReferrer(normalizedSlug);
   }
 
   const title = referrer
@@ -33,14 +38,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ReferralPage({ params }: PageProps) {
   const { slug } = await params;
   const normalizedSlug = slug.toLowerCase();
-  const referrer = await getReferrerBySlug(normalizedSlug);
+  const referrer = await getCachedReferrer(normalizedSlug);
 
   if (referrer) {
     return <ReferralRedirect slug={normalizedSlug} />;
   }
 
   // Check if this is a previous slug — 301 redirect to the current one
-  const oldRef = await getReferrerByPreviousSlug(normalizedSlug);
+  const oldRef = await getCachedPreviousReferrer(normalizedSlug);
   if (oldRef) {
     redirect(`/r/${oldRef.slug}`);
   }
