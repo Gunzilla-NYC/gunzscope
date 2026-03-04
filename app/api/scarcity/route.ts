@@ -1,20 +1,32 @@
 import { OpenSeaService } from '@/lib/api/opensea';
 import type { ScarcityPageData } from '@/lib/types';
 
+// In-memory cache — prevents redundant OpenSea calls on CDN revalidation
+const CACHE_TTL_MS = 5 * 60_000; // 5 minutes (matches s-maxage)
+let cached: { data: ScarcityPageData; expiresAt: number } | null = null;
+
 export async function GET(): Promise<Response> {
   try {
+    // Return cached data if fresh
+    if (cached && Date.now() < cached.expiresAt) {
+      return Response.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+        },
+      });
+    }
+
     const opensea = new OpenSeaService();
 
-    // Fetch trait stats and active listings in parallel
-    const [traitStats, listings] = await Promise.all([
-      opensea.getCollectionTraits('off-the-grid'),
-      opensea.getActiveListingsByItem('off-the-grid'),
-    ]);
-
-    // Also fetch recent sales to enrich listings with 7d sale counts
+    // Fetch trait stats, active listings, and recent sales in parallel
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentSales = await opensea.getCollectionSaleEvents('off-the-grid', sevenDaysAgo, 200);
+
+    const [traitStats, listings, recentSales] = await Promise.all([
+      opensea.getCollectionTraits('off-the-grid'),
+      opensea.getActiveListingsByItem('off-the-grid'),
+      opensea.getCollectionSaleEvents('off-the-grid', sevenDaysAgo, 200),
+    ]);
 
     // Build sales-by-name map
     const salesByName = new Map<string, { count: number; totalPrice: number }>();
@@ -65,6 +77,9 @@ export async function GET(): Promise<Response> {
       lastUpdated: new Date().toISOString(),
     };
 
+    // Update in-memory cache
+    cached = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+
     return Response.json(data, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
@@ -72,6 +87,14 @@ export async function GET(): Promise<Response> {
     });
   } catch (error) {
     console.error('[API:scarcity] Error:', error);
+    // Return stale cache on error
+    if (cached) {
+      return Response.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+        },
+      });
+    }
     return Response.json({ error: 'Internal error' }, { status: 500 });
   }
 }
