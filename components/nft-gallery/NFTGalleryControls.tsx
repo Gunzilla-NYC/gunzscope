@@ -11,22 +11,27 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   type SortOption,
-  getRarityColorByName,
   getItemClass, getItemClassDisplayName,
 } from './utils';
-import type { NFTGalleryControlsProps } from './types';
+import type { NFT } from '@/lib/types';
+import { useGalleryFilters } from './GalleryFilterContext';
 
-export function NFTGalleryControls({
-  searchQuery, setSearchQuery,
-  sortBy, setSortBy,
-  selectedItemClass, setSelectedItemClass,
-  selectedOrigin, setSelectedOrigin,
-  activeRarities, toggleRarity, clearRarities,
-  viewMode, setViewMode,
-  nfts, itemClasses, originCounts, rarityCounts,
-  hasActiveFilters, clearFilters,
-  stickyOffset,
-}: NFTGalleryControlsProps) {
+interface NFTGalleryControlsProps {
+  nfts: NFT[];
+  stickyOffset?: number;
+}
+
+export function NFTGalleryControls({ nfts, stickyOffset }: NFTGalleryControlsProps) {
+  const {
+    searchQuery, setSearchQuery,
+    sortBy, setSortBy,
+    selectedItemClass, setSelectedItemClass,
+    selectedOrigin, setSelectedOrigin,
+    activeRarities, toggleRarity, clearRarities,
+    viewMode, setViewMode,
+    itemClasses, originCounts, rarityCounts,
+    hasActiveFilters, clearFilters,
+  } = useGalleryFilters();
   // Sticky detection — internal to this component
   const [isSticky, setIsSticky] = useState(false);
   const controlsRef = useRef<HTMLDivElement>(null);
