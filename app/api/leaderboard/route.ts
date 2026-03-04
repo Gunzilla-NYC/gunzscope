@@ -11,12 +11,26 @@ export async function GET() {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Get all recent snapshots, deduplicate to latest per wallet in JS
+    // Fetch snapshots and GUN price in parallel (independent operations)
+    const [allSnapshots, priceResult] = await Promise.all([
+      prisma.portfolioSnapshot.findMany({
+        where: { timestamp: { gte: thirtyDaysAgo } },
+        orderBy: { timestamp: 'desc' },
+      }),
+      fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/price/gun`,
+        { next: { revalidate: 60 } }
+      ).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          return (data.gunTokenPrice ?? 0) as number;
+        }
+        return 0;
+      }).catch(() => 0),
+    ]);
+
+    // Deduplicate to latest per wallet in JS
     // (Prisma `distinct` has compatibility issues with SQLite driver adapter)
-    const allSnapshots = await prisma.portfolioSnapshot.findMany({
-      where: { timestamp: { gte: thirtyDaysAgo } },
-      orderBy: { timestamp: 'desc' },
-    });
     const seenAddresses = new Set<string>();
     const snapshots = allSnapshots.filter((s) => {
       if (seenAddresses.has(s.address)) return false;
@@ -24,20 +38,7 @@ export async function GET() {
       return true;
     });
 
-    // Fetch current GUN price
-    let gunPriceUsd = 0;
-    try {
-      const priceRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/price/gun`,
-        { next: { revalidate: 60 } }
-      );
-      if (priceRes.ok) {
-        const priceData = await priceRes.json();
-        gunPriceUsd = priceData.gunTokenPrice ?? 0;
-      }
-    } catch {
-      // fallback below
-    }
+    let gunPriceUsd = priceResult;
 
     // Fallback to snapshot average if price unavailable
     if (gunPriceUsd === 0) {
