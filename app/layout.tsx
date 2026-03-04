@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import dynamic from "next/dynamic";
 import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import AnalyticsDeferred from "@/components/AnalyticsDeferred";
 import { DynamicProvider } from "@/lib/providers/DynamicProvider";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import { ItemOriginsProvider } from "@/lib/contexts/ItemOriginsContext";
@@ -132,8 +131,7 @@ export default function RootLayout({
         </DynamicProvider>
         </ItemOriginsProvider>
         </PostHogProvider>
-        <Analytics />
-        <SpeedInsights />
+        <AnalyticsDeferred />
       </body>
     </html>
   );
