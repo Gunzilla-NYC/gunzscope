@@ -794,6 +794,21 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     isLoading: loading,
     isInitializing: isPortfolioInitializing,
     error,
+    // Wallet identity state + actions (eliminates 14-prop drilling)
+    portfolioAddresses,
+    activeWalletAddress,
+    allWalletAddresses: allWalletAddresses,
+    primaryWalletAddress: primaryWallet?.address ?? null,
+    isAuthenticated,
+    isInWatchlist,
+    isInPortfolio: addressInPortfolio,
+    isAtPortfolioLimit,
+    isAddingWatchlist,
+    isAddingPortfolio,
+    onSwitchWallet: handleWalletSwitch,
+    onBackToOwnWallet: handleBackToOwnWallet,
+    onAddToWatchlist: handleAddToWatchlist,
+    onAddToPortfolio: handleAddToPortfolio,
   }), [
     activeWalletData,
     gunPrice,
@@ -805,6 +820,20 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     loading,
     isPortfolioInitializing,
     error,
+    portfolioAddresses,
+    activeWalletAddress,
+    allWalletAddresses,
+    primaryWallet?.address,
+    isAuthenticated,
+    isInWatchlist,
+    addressInPortfolio,
+    isAtPortfolioLimit,
+    isAddingWatchlist,
+    isAddingPortfolio,
+    handleWalletSwitch,
+    handleBackToOwnWallet,
+    handleAddToWatchlist,
+    handleAddToPortfolio,
   ]);
 
   return (
@@ -987,23 +1016,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
             </div>
           )}
 
-          {/* Portfolio Header - uses PortfolioContext */}
-          <PortfolioHeader
-            portfolioAddresses={portfolioAddresses}
-            activeWalletAddress={activeWalletAddress}
-            allWalletAddresses={allWalletAddresses}
-            primaryWalletAddress={primaryWallet?.address ?? null}
-            isAuthenticated={isAuthenticated}
-            onSwitchWallet={handleWalletSwitch}
-            onBackToOwnWallet={handleBackToOwnWallet}
-            isInWatchlist={isInWatchlist}
-            isInPortfolio={addressInPortfolio}
-            isAtPortfolioLimit={isAtPortfolioLimit}
-            isAddingWatchlist={isAddingWatchlist}
-            isAddingPortfolio={isAddingPortfolio}
-            onAddToWatchlist={handleAddToWatchlist}
-            onAddToPortfolio={handleAddToPortfolio}
-          />
+          {/* Portfolio Header - reads from PortfolioContext */}
+          <PortfolioHeader />
 
           {/* Empty wallet state — 0 GUN, 0 NFTs, not still loading */}
           {allNfts.length === 0 && portfolioResult && portfolioResult.totalUsd === 0 && !enrichingNFTs && !loading && !isPortfolioInitializing ? (

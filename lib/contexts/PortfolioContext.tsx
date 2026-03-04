@@ -4,13 +4,14 @@ import { createContext, useContext, ReactNode } from 'react';
 import { WalletData, NFT, EnrichmentProgress } from '@/lib/types';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import { NetworkInfo } from '@/lib/utils/networkDetector';
+import type { PortfolioAddress } from '@/lib/hooks/useUserProfile';
 
 // =============================================================================
 // Context Types
 // =============================================================================
 
 /**
- * Read-only portfolio state provided by PortfolioContext.
+ * Portfolio state + actions provided by PortfolioContext.
  * Components consume this via selective hooks to minimize re-renders.
  */
 export interface PortfolioContextValue {
@@ -42,11 +43,32 @@ export interface PortfolioContextValue {
   isLoading: boolean;
   isInitializing: boolean;
   error: string | null;
+
+  // Wallet identity state (previously prop-drilled)
+  portfolioAddresses: PortfolioAddress[];
+  activeWalletAddress: string | null;
+  allWalletAddresses: string[];
+  primaryWalletAddress: string | null;
+  isAuthenticated: boolean;
+  isInWatchlist: boolean;
+  isInPortfolio: boolean;
+  isAtPortfolioLimit: boolean;
+  isAddingWatchlist: boolean;
+  isAddingPortfolio: boolean;
+
+  // Wallet identity actions (previously prop-drilled)
+  onSwitchWallet: (address: string) => void;
+  onBackToOwnWallet: () => void;
+  onAddToWatchlist: (address: string) => Promise<boolean>;
+  onAddToPortfolio: (address: string) => Promise<boolean>;
 }
 
 // =============================================================================
 // Default Value
 // =============================================================================
+
+const noop = () => {};
+const noopAsync = async () => false;
 
 const defaultValue: PortfolioContextValue = {
   walletData: null,
@@ -62,6 +84,20 @@ const defaultValue: PortfolioContextValue = {
   isLoading: false,
   isInitializing: true,
   error: null,
+  portfolioAddresses: [],
+  activeWalletAddress: null,
+  allWalletAddresses: [],
+  primaryWalletAddress: null,
+  isAuthenticated: false,
+  isInWatchlist: false,
+  isInPortfolio: false,
+  isAtPortfolioLimit: false,
+  isAddingWatchlist: false,
+  isAddingPortfolio: false,
+  onSwitchWallet: noop,
+  onBackToOwnWallet: noop,
+  onAddToWatchlist: noopAsync,
+  onAddToPortfolio: noopAsync,
 };
 
 // =============================================================================
@@ -159,6 +195,30 @@ export function usePortfolioConnectedWallets() {
 export function usePortfolioLoading() {
   const { isLoading, isInitializing, error } = usePortfolioContext();
   return { isLoading, isInitializing, error };
+}
+
+/**
+ * Access wallet identity state and actions.
+ * Used by PortfolioHeader and WalletIdentity instead of prop drilling.
+ */
+export function usePortfolioIdentity() {
+  const ctx = usePortfolioContext();
+  return {
+    portfolioAddresses: ctx.portfolioAddresses,
+    activeWalletAddress: ctx.activeWalletAddress,
+    allWalletAddresses: ctx.allWalletAddresses,
+    primaryWalletAddress: ctx.primaryWalletAddress,
+    isAuthenticated: ctx.isAuthenticated,
+    isInWatchlist: ctx.isInWatchlist,
+    isInPortfolio: ctx.isInPortfolio,
+    isAtPortfolioLimit: ctx.isAtPortfolioLimit,
+    isAddingWatchlist: ctx.isAddingWatchlist,
+    isAddingPortfolio: ctx.isAddingPortfolio,
+    onSwitchWallet: ctx.onSwitchWallet,
+    onBackToOwnWallet: ctx.onBackToOwnWallet,
+    onAddToWatchlist: ctx.onAddToWatchlist,
+    onAddToPortfolio: ctx.onAddToPortfolio,
+  };
 }
 
 // =============================================================================

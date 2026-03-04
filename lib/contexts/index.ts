@@ -11,6 +11,7 @@ export {
   usePortfolioResult,
   usePortfolioNFTs,
   usePortfolioLoading,
+  usePortfolioIdentity,
   type PortfolioContextValue,
 } from './PortfolioContext';
 
