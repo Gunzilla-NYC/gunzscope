@@ -1093,10 +1093,11 @@ export class AvalancheService {
     }
 
     // Slow fallback: RPC block scanning (scans 13M+ blocks in 100k chunks)
-    const currentBlock = await this.provider.getBlockNumber();
-
-    // Get chain ID for deployment block lookup
-    const network = await this.provider.getNetwork();
+    // Fetch block number and network in parallel (independent operations)
+    const [currentBlock, network] = await Promise.all([
+      this.provider.getBlockNumber(),
+      this.provider.getNetwork(),
+    ]);
     const chainId = Number(network.chainId);
 
     // Use optimized start block based on contract deployment
@@ -1206,10 +1207,12 @@ export class AvalancheService {
       const firstIncoming = incomingTransfers[0];
       const isFromZeroAddress = firstIncoming.from === '0x0000000000000000000000000000000000000000';
 
-      // Fetch block and transaction details
-      const block = await this.provider.getBlock(firstIncoming.blockNumber);
-      const txReceipt = await this.provider.getTransactionReceipt(firstIncoming.transactionHash);
-      const transaction = await this.provider.getTransaction(firstIncoming.transactionHash);
+      // Fetch block and transaction details in parallel (independent operations)
+      const [block, txReceipt, transaction] = await Promise.all([
+        this.provider.getBlock(firstIncoming.blockNumber),
+        this.provider.getTransactionReceipt(firstIncoming.transactionHash),
+        this.provider.getTransaction(firstIncoming.transactionHash),
+      ]);
 
       // Look for GUN token transfers in the transaction receipt
       let purchasePriceGun: number | undefined;
