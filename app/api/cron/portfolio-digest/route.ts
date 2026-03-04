@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
 import { verifyCronAuth, cronUnauthorizedResponse } from '@/lib/cron/auth';
 import { getUsersWithAlert, logAlert } from '@/lib/services/alertPreferenceService';
 import { CoinGeckoService } from '@/lib/api/coingecko';
@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     ]);
     const currentGunPrice = priceData?.gunTokenPrice ?? 0;
     let sent = 0;
+    const pendingLogs: Array<{ userId: string; subject: string; meta: Record<string, unknown> }> = [];
 
     for (const sub of subscribers) {
       // Get user's wallets
@@ -87,9 +88,17 @@ export async function GET(request: NextRequest) {
       const emailSent = await sendEmail({ to: sub.email, subject, html });
 
       if (emailSent) {
-        await logAlert(sub.userId, 'portfolio_digest', subject, { totalUsd: currentTotalUsd, changeUsd });
+        pendingLogs.push({ userId: sub.userId, subject, meta: { totalUsd: currentTotalUsd, changeUsd } });
         sent++;
       }
+    }
+
+    // Flush alert logs after the response (non-blocking)
+    if (pendingLogs.length > 0) {
+      after(() =>
+        Promise.all(pendingLogs.map(l => logAlert(l.userId, 'portfolio_digest', l.subject, l.meta)))
+          .catch(e => console.error('[Cron:portfolio-digest] logAlert error:', e))
+      );
     }
 
     return Response.json({ success: true, gunPrice: currentGunPrice, alertsSent: sent });

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
 import { verifyCronAuth, cronUnauthorizedResponse } from '@/lib/cron/auth';
 import { getUsersWithAlert, logAlert, wasAlertSentRecently } from '@/lib/services/alertPreferenceService';
 import { OpenSeaService } from '@/lib/api/opensea';
@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
 
     const currentFloorGun = floorResult.floorPriceGUN;
     let sent = 0;
+    const pendingLogs: Array<{ userId: string; subject: string; meta: Record<string, unknown> }> = [];
 
     for (const sub of subscribers) {
       const thresholdPct = (sub.config as { threshold?: number }).threshold ?? 20;
@@ -71,9 +72,17 @@ export async function GET(request: NextRequest) {
       const emailSent = await sendEmail({ to: sub.email, subject, html });
 
       if (emailSent) {
-        await logAlert(sub.userId, 'floor_drop', subject, { dedupKey, currentFloorGun, count: droppedNfts.length });
+        pendingLogs.push({ userId: sub.userId, subject, meta: { dedupKey, currentFloorGun, count: droppedNfts.length } });
         sent++;
       }
+    }
+
+    // Flush alert logs after the response (non-blocking)
+    if (pendingLogs.length > 0) {
+      after(() =>
+        Promise.all(pendingLogs.map(l => logAlert(l.userId, 'floor_drop', l.subject, l.meta)))
+          .catch(e => console.error('[Cron:floor-drop] logAlert error:', e))
+      );
     }
 
     return Response.json({ success: true, floorPrice: currentFloorGun, alertsSent: sent });
