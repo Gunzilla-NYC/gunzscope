@@ -79,10 +79,10 @@ export function WalletDropdown({
       setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
     };
     update();
-    window.addEventListener('scroll', update, true);
+    window.addEventListener('scroll', update, { capture: true, passive: true });
     window.addEventListener('resize', update);
     return () => {
-      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('scroll', update, { capture: true });
       window.removeEventListener('resize', update);
     };
   }, [isOpen]);
