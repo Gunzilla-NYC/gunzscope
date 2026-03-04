@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(
       `${COINGECKO_API_BASE}/coins/${encodeURIComponent(coin)}/history?date=${dateString}&localization=false`,
-      { headers, cache: 'no-store' }, // TEMPORARY: bypass stale server cache after CoinGecko data correction — revert to next: { revalidate: 86400 } once confirmed
+      { headers, next: { revalidate: 86400 } },
     );
 
     if (!res.ok) {
