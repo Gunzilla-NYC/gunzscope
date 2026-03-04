@@ -11,10 +11,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const coingecko = new CoinGeckoService();
-    const priceData = await coingecko.getGunTokenPrice();
-    const currentGunPrice = priceData?.gunTokenPrice ?? 0;
 
-    const subscribers = await getUsersWithAlert('portfolio_digest');
+    // Fetch price and subscribers in parallel (independent operations)
+    const [priceData, subscribers] = await Promise.all([
+      coingecko.getGunTokenPrice(),
+      getUsersWithAlert('portfolio_digest'),
+    ]);
+    const currentGunPrice = priceData?.gunTokenPrice ?? 0;
     let sent = 0;
 
     for (const sub of subscribers) {
@@ -35,30 +38,30 @@ export async function GET(request: NextRequest) {
       let prevTotalGunBalance = 0;
       let totalNftCount = 0;
 
-      for (const wallet of wallets) {
-        const addr = wallet.address.toLowerCase();
+      // Fetch latest + prev snapshots for all wallets in parallel
+      const snapshotResults = await Promise.all(
+        wallets.map(async (wallet) => {
+          const addr = wallet.address.toLowerCase();
+          const [latest, prev] = await Promise.all([
+            prisma.portfolioSnapshot.findFirst({
+              where: { address: addr },
+              orderBy: { timestamp: 'desc' },
+            }),
+            prisma.portfolioSnapshot.findFirst({
+              where: { address: addr, timestamp: { lte: oneWeekAgo } },
+              orderBy: { timestamp: 'desc' },
+            }),
+          ]);
+          return { latest, prev };
+        })
+      );
 
-        // Latest snapshot
-        const latest = await prisma.portfolioSnapshot.findFirst({
-          where: { address: addr },
-          orderBy: { timestamp: 'desc' },
-        });
-
+      for (const { latest, prev } of snapshotResults) {
         if (latest) {
           totalNftValueGun += latest.nftValueGun;
           totalGunBalance += latest.gunBalance;
           totalNftCount += latest.nftCount;
         }
-
-        // Previous snapshot (closest to one week ago)
-        const prev = await prisma.portfolioSnapshot.findFirst({
-          where: {
-            address: addr,
-            timestamp: { lte: oneWeekAgo },
-          },
-          orderBy: { timestamp: 'desc' },
-        });
-
         if (prev) {
           prevTotalNftValueGun += prev.nftValueGun;
           prevTotalGunBalance += prev.gunBalance;
