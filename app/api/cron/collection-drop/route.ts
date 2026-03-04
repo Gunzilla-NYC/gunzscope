@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
 import { verifyCronAuth, cronUnauthorizedResponse } from '@/lib/cron/auth';
 import { getUsersWithAlert, logAlert, getCachedValue, setCachedValue } from '@/lib/services/alertPreferenceService';
 import { sendEmail } from '@/lib/email/resend';
@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
     // Notify subscribers
     const subscribers = await getUsersWithAlert('collection_drop');
     let sent = 0;
+    const pendingLogs: Array<{ userId: string; subject: string; meta: Record<string, unknown> }> = [];
 
     for (const collection of newCollections) {
       for (const sub of subscribers) {
@@ -74,10 +75,18 @@ export async function GET(request: NextRequest) {
         const emailSent = await sendEmail({ to: sub.email, subject, html });
 
         if (emailSent) {
-          await logAlert(sub.userId, 'collection_drop', subject, { slug: collection.collection });
+          pendingLogs.push({ userId: sub.userId, subject, meta: { slug: collection.collection } });
           sent++;
         }
       }
+    }
+
+    // Flush alert logs after the response (non-blocking)
+    if (pendingLogs.length > 0) {
+      after(() =>
+        Promise.all(pendingLogs.map(l => logAlert(l.userId, 'collection_drop', l.subject, l.meta)))
+          .catch(e => console.error('[Cron:collection-drop] logAlert error:', e))
+      );
     }
 
     return Response.json({ success: true, newCollections: newCollections.length, alertsSent: sent });
