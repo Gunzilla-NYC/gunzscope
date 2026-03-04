@@ -33,10 +33,10 @@ function ValidationMessage({ status, message }: { status: string; message?: stri
   if (status === 'checking') {
     return (
       <span className="flex items-center gap-1.5 font-mono text-[10px] text-[var(--gs-gray-3)]">
-        <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <span className="animate-spin inline-block w-2.5 h-2.5"><svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="2" strokeOpacity="0.2" />
           <path d="M14.5 8a6.5 6.5 0 0 0-6.5-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
+        </svg></span>
         Checking&hellip;
       </span>
     );
