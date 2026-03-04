@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
 import { Circle, Line } from '@visx/shape';
 import { scaleLog, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
@@ -134,7 +134,7 @@ function snapToNice125(value: number): number {
 /*  TimelineChartZoomed — inner component (receives zoom state)       */
 /* ------------------------------------------------------------------ */
 
-function TimelineChartZoomed({
+const TimelineChartZoomed = memo(function TimelineChartZoomed({
   data, width, height, margin,
   seenIdsRef, onLockedDatumChange, onZoomChange,
   transformMatrix, isDragging,
@@ -503,7 +503,7 @@ function TimelineChartZoomed({
       </svg>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  AcquisitionTimeline — outer component                             */
