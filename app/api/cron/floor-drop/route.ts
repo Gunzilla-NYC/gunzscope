@@ -11,14 +11,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const opensea = new OpenSeaService();
-    const floorResult = await opensea.getCollectionFloorPrice('off-the-grid');
+
+    // Fetch floor price and subscribers in parallel (independent operations)
+    const [floorResult, subscribers] = await Promise.all([
+      opensea.getCollectionFloorPrice('off-the-grid'),
+      getUsersWithAlert('floor_drop'),
+    ]);
 
     if (!floorResult.floorPriceGUN) {
       return Response.json({ success: false, error: 'Failed to fetch floor price' });
     }
 
     const currentFloorGun = floorResult.floorPriceGUN;
-    const subscribers = await getUsersWithAlert('floor_drop');
     let sent = 0;
 
     for (const sub of subscribers) {
