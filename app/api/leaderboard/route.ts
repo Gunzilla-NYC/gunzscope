@@ -12,23 +12,15 @@ export async function GET() {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Fetch snapshots and GUN price in parallel (independent operations)
-    const [allSnapshots, priceResult] = await Promise.all([
+    // Fetch latest snapshot per wallet (DB-level dedup) and GUN price in parallel
+    const [snapshots, priceResult] = await Promise.all([
       prisma.portfolioSnapshot.findMany({
         where: { timestamp: { gte: thirtyDaysAgo } },
         orderBy: { timestamp: 'desc' },
+        distinct: ['address'],
       }),
       getGunPriceUsd(),
     ]);
-
-    // Deduplicate to latest per wallet in JS
-    // (Prisma `distinct` has compatibility issues with SQLite driver adapter)
-    const seenAddresses = new Set<string>();
-    const snapshots = allSnapshots.filter((s) => {
-      if (seenAddresses.has(s.address)) return false;
-      seenAddresses.add(s.address);
-      return true;
-    });
 
     let gunPriceUsd = priceResult;
 
@@ -89,7 +81,6 @@ export async function GET() {
     );
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: 'Failed to fetch leaderboard' },
       { status: 500 }
