@@ -25,8 +25,16 @@ const AccountPanel = dynamic(() => import('@/components/AccountPanel'), { ssr: f
 import { calcPortfolio, PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import { PortfolioProvider, PortfolioContextValue } from '@/lib/contexts/PortfolioContext';
 import { SlidePanelProvider, SlidePanelLayout } from '@/lib/contexts/SlidePanelContext';
-import PortfolioSummaryBar from '@/components/PortfolioSummaryBar';
-import Footer from '@/components/Footer';
+const PortfolioSummaryBar = dynamic(() => import('@/components/PortfolioSummaryBar'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3">
+      <div className="h-24 bg-white/[0.02] animate-pulse rounded" />
+      <div className="h-48 bg-white/[0.02] animate-pulse rounded" />
+    </div>
+  ),
+});
+const Footer = dynamic(() => import('@/components/Footer'));
 import ScrollToTopButton from '@/components/ui/ScrollToTopButton';
 import Link from 'next/link';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
