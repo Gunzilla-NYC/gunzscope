@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { toOpenSeaChain } from '@/lib/utils/openseaChain';
+import { isTransientStatus, resolveCacheControl, jsonWithCache } from '../cacheHelpers';
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
@@ -9,9 +10,7 @@ interface OpenSeaOrdersResponse {
   highest: number | null;
   asOfIso: string;
   error?: string;
-  /** Upstream HTTP status code (always present for client-side caching decisions) */
   upstreamStatus: number;
-  /** True if upstream error is transient (429/5xx) and should NOT be cached by client */
   transient: boolean;
   _debug?: {
     hasApiKey: boolean;
@@ -22,102 +21,17 @@ interface OpenSeaOrdersResponse {
 }
 
 /**
- * Determine if an HTTP status code represents a transient error.
- * Transient errors (429, 5xx) should NOT be cached - they may recover.
- * @pure - Can be unit tested
- */
-export function isTransientStatus(status: number): boolean {
-  return status === 429 || status >= 500;
-}
-
-/**
- * Determine if an HTTP status code should trigger failure caching.
- * Only hard failures (401, 403, 404) should be cached.
- * @pure - Can be unit tested
- */
-export function shouldCacheFailureStatus(status: number): boolean {
-  return status === 401 || status === 403 || status === 404;
-}
-
-/**
  * Safe conversion from wei (bigint) to decimal number.
  * Avoids Number(BigInt) overflow for very large values by using string manipulation.
  */
 function formatUnitsToNumber(value: bigint, decimals: number = 18): number {
   const valueStr = value.toString();
-
-  // Handle zero
   if (valueStr === '0') return 0;
-
-  // Pad with leading zeros if needed
   const paddedValue = valueStr.padStart(decimals + 1, '0');
   const integerPart = paddedValue.slice(0, -decimals) || '0';
   const fractionalPart = paddedValue.slice(-decimals);
-
-  // Construct decimal string and parse
   const decimalStr = `${integerPart}.${fractionalPart}`;
   return parseFloat(decimalStr);
-}
-
-// Cache-Control header values
-const CACHE_NO_STORE = 'no-store';
-const CACHE_SUCCESS = 'public, s-maxage=300, stale-while-revalidate=60';
-const CACHE_HARD_FAILURE = 'public, s-maxage=600, stale-while-revalidate=60';
-
-/**
- * Resolve the appropriate Cache-Control header based on request context.
- *
- * Priority:
- * 1. debug=true → always no-store (bypass CDN for fresh data)
- * 2. transient=true → no-store (don't cache 429/5xx)
- * 3. hard failure (401/403/404) → cache for 10 min
- * 4. success (2xx) → cache for 5 min
- * 5. fallback → no-store
- */
-function resolveCacheControl(opts: {
-  debug: boolean;
-  transient: boolean;
-  upstreamStatus: number;
-  ok: boolean;
-}): string {
-  const { debug, transient, upstreamStatus, ok } = opts;
-
-  // debug=1 always bypasses CDN caching
-  if (debug === true) {
-    return CACHE_NO_STORE;
-  }
-
-  // Transient errors (429, 5xx) should not be cached
-  if (transient === true) {
-    return CACHE_NO_STORE;
-  }
-
-  // Hard failures (401, 403, 404) can be cached longer
-  if (shouldCacheFailureStatus(upstreamStatus)) {
-    return CACHE_HARD_FAILURE;
-  }
-
-  // Success responses (2xx)
-  if (ok === true) {
-    return CACHE_SUCCESS;
-  }
-
-  // Fallback: don't cache
-  return CACHE_NO_STORE;
-}
-
-/**
- * Create a NextResponse with uniform Cache-Control header handling.
- * Ensures every response path has an explicit Cache-Control header set.
- */
-function jsonWithCache(
-  body: OpenSeaOrdersResponse,
-  cacheControl: string,
-  status?: number
-): NextResponse {
-  const res = NextResponse.json(body, status ? { status } : undefined);
-  res.headers.set('Cache-Control', cacheControl);
-  return res;
 }
 
 export async function GET(request: NextRequest) {

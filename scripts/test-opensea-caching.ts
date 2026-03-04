@@ -18,7 +18,7 @@
 import {
   isTransientStatus as routeIsTransient,
   shouldCacheFailureStatus as routeShouldCache,
-} from '../app/api/opensea/orders/route';
+} from '../app/api/opensea/cacheHelpers';
 
 import {
   isTransientStatus as serviceIsTransient,

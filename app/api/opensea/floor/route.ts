@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { toOpenSeaChain } from '@/lib/utils/openseaChain';
+import { isTransientStatus, resolveCacheControl, jsonWithCache } from '../cacheHelpers';
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
@@ -11,35 +12,7 @@ interface FloorPriceResponse {
   transient: boolean;
 }
 
-function isTransientStatus(status: number): boolean {
-  return status === 429 || status >= 500;
-}
-
 const CACHE_NO_STORE = 'no-store';
-const CACHE_SUCCESS = 'public, s-maxage=300, stale-while-revalidate=60';
-const CACHE_HARD_FAILURE = 'public, s-maxage=600, stale-while-revalidate=60';
-
-function resolveCacheControl(opts: {
-  transient: boolean;
-  upstreamStatus: number;
-  ok: boolean;
-}): string {
-  const { transient, upstreamStatus, ok } = opts;
-  if (transient) return CACHE_NO_STORE;
-  if (upstreamStatus === 401 || upstreamStatus === 403 || upstreamStatus === 404) return CACHE_HARD_FAILURE;
-  if (ok) return CACHE_SUCCESS;
-  return CACHE_NO_STORE;
-}
-
-function jsonWithCache(
-  body: FloorPriceResponse,
-  cacheControl: string,
-  status?: number
-): NextResponse {
-  const res = NextResponse.json(body, status ? { status } : undefined);
-  res.headers.set('Cache-Control', cacheControl);
-  return res;
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
