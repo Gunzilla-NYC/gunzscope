@@ -21,9 +21,9 @@ export default function Footer({ variant = 'full' }: FooterProps) {
     <footer className="relative z-10 border-t border-white/[0.06]">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center sm:justify-between gap-3 sm:gap-6">
         {/* Copyright + links */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-0 font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-0 font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] text-center sm:text-left">
           <span>&copy; {new Date().getFullYear()} GUNZscope</span>
-          <div className="flex items-center gap-2 sm:gap-0">
+          <div className="flex items-center justify-center flex-wrap gap-2 sm:gap-0 sm:flex-nowrap">
             <span className="hidden sm:inline text-[var(--gs-gray-2)] mx-2">&middot;</span>
             <Link href="/terms" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors">Terms</Link>
             <span className="text-[var(--gs-gray-2)] mx-1 sm:mx-2">&middot;</span>
@@ -46,7 +46,7 @@ export default function Footer({ variant = 'full' }: FooterProps) {
         </div>
 
         {/* Credit */}
-        <p className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)]">
+        <p className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] text-center sm:text-right">
           Built with <span className="text-[var(--gs-lime)]">&hearts;</span> by CRYPTOHAKI for the Gunzilla community.
         </p>
       </div>

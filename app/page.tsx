@@ -158,6 +158,9 @@ export default function HomePage() {
   const [gunPrice, setGunPrice] = useState<number | null>(null);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
 
+  // Mobile menu state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   // Access gate state
   const [walletAddress, setWalletAddress] = useState('');
   const [walletChain, setWalletChain] = useState<'gunzchain' | 'solana' | null>(null);
@@ -528,7 +531,42 @@ export default function HomePage() {
             </Link>
           )}
         </div>
+
+        {/* Mobile hamburger button */}
+        <button
+          type="button"
+          className="flex md:hidden flex-col gap-[5px] bg-transparent border-none p-2 cursor-pointer"
+          onClick={() => setMobileMenuOpen((prev) => !prev)}
+          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileMenuOpen}
+        >
+          <span className={`block w-[22px] h-[2px] bg-[var(--gs-lime)] transition-all duration-300 origin-center ${mobileMenuOpen ? 'translate-y-[7px] rotate-45' : ''}`} />
+          <span className={`block w-[22px] h-[2px] bg-[var(--gs-lime)] transition-all duration-300 ${mobileMenuOpen ? 'opacity-0' : ''}`} />
+          <span className={`block w-[22px] h-[2px] bg-[var(--gs-lime)] transition-all duration-300 origin-center ${mobileMenuOpen ? '-translate-y-[7px] -rotate-45' : ''}`} />
+        </button>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden fixed top-16 left-0 right-0 z-50 flex flex-col items-start gap-5 px-4 py-6 bg-[rgba(10,10,10,0.97)] backdrop-blur-lg border-b border-white/[0.06]">
+            <Link
+              href="/explore"
+              className="font-mono text-sm tracking-[1.5px] uppercase text-[var(--gs-gray-4)] hover:text-[var(--gs-lime)] transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Onchain Explorer
+            </Link>
+            {user && (
+              <Link
+                href="/portfolio"
+                className="font-mono text-sm tracking-[1.5px] uppercase text-[var(--gs-lime)] hover:text-[var(--gs-lime-hover)] transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Go to Portfolio &rarr;
+              </Link>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
@@ -669,7 +707,7 @@ export default function HomePage() {
           <div className="section-line" />
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.04] border border-white/[0.06]">
+        <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-4 scrollbar-hidden md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-[1px] md:bg-white/[0.04] md:border md:border-white/[0.06] md:overflow-visible md:snap-none md:pb-0">
           {features.map((feature, index) => (
             <motion.div
               key={index}
@@ -677,7 +715,7 @@ export default function HomePage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '0px 0px -50px 0px' }}
               transition={{ duration: 0.5, delay: index * 0.1, ease: revealEase }}
-              className="relative p-10 bg-[var(--gs-dark-1)] hover:bg-[var(--gs-dark-2)] group overflow-hidden"
+              className="relative p-10 bg-[var(--gs-dark-1)] hover:bg-[var(--gs-dark-2)] group overflow-hidden snap-start flex-none w-[80vw] max-w-[320px] border border-white/[0.06] md:w-auto md:max-w-none md:flex-auto md:snap-align-none md:border-0"
             >
               <div className="w-10 h-10 border border-[var(--gs-gray-1)] flex items-center justify-center text-[var(--gs-gray-3)] mb-6 group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm">
                 <FeatureIcon name={feature.icon} />
@@ -687,6 +725,7 @@ export default function HomePage() {
             </motion.div>
           ))}
         </div>
+        <div className="md:hidden font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] text-center mt-2">&larr; swipe &rarr;</div>
         </div>
       </section>
 
@@ -789,11 +828,11 @@ export default function HomePage() {
             </div>
 
             {/* NFT Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-4 scrollbar-hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 sm:overflow-visible sm:snap-none sm:pb-0">
               {mockNFTs.map((nft, index) => (
                 <div
                   key={index}
-                  className="bg-[var(--gs-dark-3)] border border-white/[0.06] p-4 transition-all hover:border-[var(--gs-lime)]/30 hover:-translate-y-0.5 group"
+                  className="bg-[var(--gs-dark-3)] border border-white/[0.06] p-4 transition-all hover:border-[var(--gs-lime)]/30 hover:-translate-y-0.5 group snap-start flex-none w-[72vw] max-w-[260px] sm:w-auto sm:max-w-none sm:flex-auto sm:snap-align-none"
                 >
                   <div className="w-full aspect-square bg-[var(--gs-dark-4)] mb-3 relative flex items-center justify-center opacity-70 group-hover:opacity-90 transition-opacity overflow-hidden">
                     <span
