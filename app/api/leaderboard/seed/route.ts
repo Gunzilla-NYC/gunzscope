@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ethers } from 'ethers';
+import { getGunPriceUsd } from '@/lib/server/gunPrice';
 
 const GUNZSCAN_API = 'https://gunzscan.io/api/v2';
 const OTG_GAME_ITEM_CONTRACT = '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271';
@@ -43,19 +44,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ seeded: 0, message: 'No holders found' });
     }
 
-    // 2. Fetch current GUN price
-    let gunPriceUsd = 0;
-    try {
-      const priceRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/price/gun`
-      );
-      if (priceRes.ok) {
-        const priceData = await priceRes.json();
-        gunPriceUsd = priceData.gunTokenPrice ?? 0;
-      }
-    } catch {
-      // proceed without price
-    }
+    // 2. Fetch current GUN price (direct call, no self-fetch)
+    const gunPriceUsd = await getGunPriceUsd();
 
     // 3. For each holder, fetch GUN balance and create snapshot
     const provider = new ethers.JsonRpcProvider(GUNZCHAIN_RPC);

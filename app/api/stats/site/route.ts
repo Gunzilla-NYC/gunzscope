@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getGunPriceUsd } from '@/lib/server/gunPrice';
 
 /**
  * GET /api/stats/site
@@ -37,26 +38,10 @@ export async function GET() {
     const totalNftValueGun = snapshots.reduce((sum, s) => sum + s.nftValueGun, 0);
     const totalGunBalance = snapshots.reduce((sum, s) => sum + s.gunBalance, 0);
 
-    // Get current GUN price (try fetching, fallback to average from snapshots)
-    let currentGunPrice = 0;
-    try {
-      const priceRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/price/gun`,
-        { next: { revalidate: 60 } }
-      );
-      if (priceRes.ok) {
-        const priceData = await priceRes.json();
-        currentGunPrice = priceData.gunTokenPrice ?? 0;
-      }
-    } catch {
-      // Use average from snapshots as fallback
-      const validSnapshots = snapshots.filter((s) => s.gunPriceUsd > 0);
-      if (validSnapshots.length > 0) {
-        currentGunPrice = validSnapshots.reduce((sum, s) => sum + s.gunPriceUsd, 0) / validSnapshots.length;
-      }
-    }
+    // Get current GUN price (direct call, no self-fetch)
+    let currentGunPrice = await getGunPriceUsd();
 
-    // If fetch succeeded but returned 0, also try fallback
+    // Fallback to snapshot average if price unavailable
     if (currentGunPrice === 0) {
       const validSnapshots = snapshots.filter((s) => s.gunPriceUsd > 0);
       if (validSnapshots.length > 0) {
