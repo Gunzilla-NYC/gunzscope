@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { toOpenSeaChain } from '@/lib/utils/openseaChain';
+import { isTransientStatus, resolveCacheControl, jsonWithCache } from '../cacheHelpers';
 
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
@@ -31,42 +32,6 @@ interface OpenSeaSalesResponse {
   };
 }
 
-function isTransientStatus(status: number): boolean {
-  return status === 429 || status >= 500;
-}
-
-function shouldCacheFailureStatus(status: number): boolean {
-  return status === 401 || status === 403 || status === 404;
-}
-
-const CACHE_NO_STORE = 'no-store';
-const CACHE_SUCCESS = 'public, s-maxage=300, stale-while-revalidate=60';
-const CACHE_HARD_FAILURE = 'public, s-maxage=600, stale-while-revalidate=60';
-
-function resolveCacheControl(opts: {
-  debug: boolean;
-  transient: boolean;
-  upstreamStatus: number;
-  ok: boolean;
-}): string {
-  const { debug, transient, upstreamStatus, ok } = opts;
-
-  if (debug) return CACHE_NO_STORE;
-  if (transient) return CACHE_NO_STORE;
-  if (shouldCacheFailureStatus(upstreamStatus)) return CACHE_HARD_FAILURE;
-  if (ok) return CACHE_SUCCESS;
-  return CACHE_NO_STORE;
-}
-
-function jsonWithCache(
-  body: OpenSeaSalesResponse,
-  cacheControl: string,
-  status?: number
-): NextResponse {
-  const res = NextResponse.json(body, status ? { status } : undefined);
-  res.headers.set('Cache-Control', cacheControl);
-  return res;
-}
 
 /**
  * Parse a raw OpenSea event into a SaleEventResponse.
