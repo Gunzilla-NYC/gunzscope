@@ -3,6 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAuthToken } from '@dynamic-labs/sdk-react-core';
 import { toast } from 'sonner';
+import { validateSlugLocally, type SlugValidation } from '@/lib/utils/slug';
+
+// Re-export for consumers that imported from here
+export { timeAgo } from '@/lib/utils/timeAgo';
+export type { SlugValidation } from '@/lib/utils/slug';
 
 // =============================================================================
 // Types
@@ -37,13 +42,6 @@ export interface RecentReferral {
   walletPrefix: string;
   status: string;
   convertedAt: string;
-}
-
-type SlugStatus = 'idle' | 'checking' | 'available' | 'taken' | 'reserved' | 'invalid';
-
-export interface SlugValidation {
-  status: SlugStatus;
-  message?: string;
 }
 
 export interface UseShareReferralReturn {
@@ -81,8 +79,6 @@ export interface UseShareReferralReturn {
 // Constants
 // =============================================================================
 
-const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{1,18}[a-z0-9]$/;
-const CONSECUTIVE_HYPHENS = /--/;
 const DEBOUNCE_MS = 400;
 
 const EMPTY_STATS: UnifiedStats = {
@@ -102,22 +98,6 @@ const EMPTY_SLOTS: ShareSlot[] = [
 // =============================================================================
 // Helpers
 // =============================================================================
-
-export function timeAgo(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
-function validateSlugLocally(slug: string): SlugValidation | null {
-  if (slug.length < 3) return { status: 'invalid', message: '3\u201320 chars, lowercase + hyphens' };
-  if (slug.length > 20) return { status: 'invalid', message: 'Max 20 characters' };
-  if (CONSECUTIVE_HYPHENS.test(slug)) return { status: 'invalid', message: 'No consecutive hyphens' };
-  if (!SLUG_REGEX.test(slug)) return { status: 'invalid', message: '3\u201320 chars, lowercase + hyphens' };
-  return null; // Pass — needs API check
-}
 
 function buildShareUrl(slot: ShareSlot): string {
   return `https://gunzscope.xyz/s/${slot.code}`;
