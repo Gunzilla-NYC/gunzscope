@@ -313,7 +313,10 @@ export function useNFTEnrichmentOrchestrator(
         ).catch(() => null),
       ]);
 
-      // Marketplace price lookup
+      // Marketplace price lookup — intentionally cascading fallbacks:
+      // token-based → wallet-based → OpenSea → transfer chain.
+      // Each step only fires if previous didn't find a price.
+      // TODO: Optimization item 7 skipped — cascade is deliberate, not parallelizable
       let marketplacePriceGun: number | undefined;
       let marketplacePurchaseDate: Date | undefined;
 
