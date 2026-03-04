@@ -370,10 +370,10 @@ export function ShareDropdown({
                 {/* Avalanche icon / spinner */}
                 <div className="w-5 h-5 shrink-0 flex items-center justify-center">
                   {isAttesting ? (
-                    <svg className="w-4 h-4 text-[var(--gs-purple)] animate-spin" fill="none" viewBox="0 0 24 24">
+                    <span className="animate-spin inline-block w-4 h-4"><svg className="w-4 h-4 text-[var(--gs-purple)]" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
+                    </svg></span>
                   ) : attestStatus === 'success' ? (
                     <svg className="w-5 h-5 text-[var(--gs-lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
