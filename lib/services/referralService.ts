@@ -1,13 +1,7 @@
 import prisma from '../db';
 import { isWhitelisted } from './whitelistService';
 import { incrementReferralAndCheckPromotion } from './waitlistService';
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{1,18}[a-z0-9]$/;
-const CONSECUTIVE_HYPHENS = /--/;
+import { SLUG_REGEX, CONSECUTIVE_HYPHENS } from '@/lib/utils/slug';
 
 const RESERVED_SLUGS = new Set([
   'app', 'api', 'admin', 'portfolio', 'demo', 'wallet', 'ref', 'referral',
