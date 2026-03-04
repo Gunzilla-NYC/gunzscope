@@ -21,7 +21,7 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
   } = cardData;
 
   const isGrouped = !!(nft.quantity && nft.quantity > 1);
-  const mintRarities = isGrouped ? new Set(mintData.map(m => m.rarity).filter(r => r !== 'Unknown')) : null;
+  const mintRarities = isGrouped ? new Set(mintData.reduce<string[]>((acc, m) => { if (m.rarity !== 'Unknown') acc.push(m.rarity); return acc; }, [])) : null;
   const hasMixedRarity = isMixedRarity || (mintRarities !== null && mintRarities.size > 1);
   const groupAccent = hasMixedRarity ? '#22d3ee' : rarityColor;
 
