@@ -15,8 +15,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const currentBlock = await provider.getBlockNumber();
-    const subscribers = await getUsersWithAlert('whale_tracker');
+    // Fetch block number and subscribers in parallel (independent operations)
+    const [currentBlock, subscribers] = await Promise.all([
+      provider.getBlockNumber(),
+      getUsersWithAlert('whale_tracker'),
+    ]);
     let sent = 0;
 
     for (const sub of subscribers) {
@@ -41,21 +44,21 @@ export async function GET(request: NextRequest) {
           // Check for transfers involving this address
           const addressPadded = ethers.zeroPadValue(tracked.address.toLowerCase(), 32);
 
-          // Transfers FROM this address
-          const sentLogs = await provider.getLogs({
-            address: NFT_CONTRACT,
-            topics: [TRANSFER_TOPIC, addressPadded],
-            fromBlock,
-            toBlock: currentBlock,
-          });
-
-          // Transfers TO this address
-          const receivedLogs = await provider.getLogs({
-            address: NFT_CONTRACT,
-            topics: [TRANSFER_TOPIC, null, addressPadded],
-            fromBlock,
-            toBlock: currentBlock,
-          });
+          // Fetch sent and received transfer logs in parallel
+          const [sentLogs, receivedLogs] = await Promise.all([
+            provider.getLogs({
+              address: NFT_CONTRACT,
+              topics: [TRANSFER_TOPIC, addressPadded],
+              fromBlock,
+              toBlock: currentBlock,
+            }),
+            provider.getLogs({
+              address: NFT_CONTRACT,
+              topics: [TRANSFER_TOPIC, null, addressPadded],
+              fromBlock,
+              toBlock: currentBlock,
+            }),
+          ]);
 
           for (const log of sentLogs) {
             const tokenId = BigInt(log.topics[3]).toString();
