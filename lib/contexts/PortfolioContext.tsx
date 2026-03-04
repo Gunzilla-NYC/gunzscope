@@ -12,7 +12,11 @@ import type { PortfolioAddress } from '@/lib/hooks/useUserProfile';
 
 /**
  * Portfolio state + actions provided by PortfolioContext.
- * Components consume this via selective hooks to minimize re-renders.
+ *
+ * Design: flat internally, structured externally via selective hooks.
+ * No consumer accesses this type directly — they use usePortfolioWallet(),
+ * usePortfolioIdentity(), etc., which provide focused, grouped access.
+ * This avoids nesting in the provider while giving consumers clean APIs.
  */
 export interface PortfolioContextValue {
   // Wallet data
