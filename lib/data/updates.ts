@@ -15,15 +15,33 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.7.0',
+    version: 'v0.7.1',
     date: 'Mar 5, 2026',
     tag: 'current',
+    title: 'The wall is real now',
+    items: [
+      'The Early Access gate used to be a polite suggestion. A non-whitelisted wallet could connect, get a profile row created, browse around, and generally act like they owned the place. The server would shrug and let it happen. Now every authenticated route checks the whitelist before doing anything \u2014 API routes via JWT, page routes via session cookie. The bouncer finally showed up to work.',
+      'Removing someone from the whitelist used to hard-delete the row. Gone. No record it ever existed. Re-adding them created a duplicate. Banning someone quietly erased the evidence they\u2019d been there at all \u2014 which is either a privacy feature or an oversight, depending on how generous you\u2019re feeling. Now removals are soft deletes. The history stays, the audit trail stays, and the data model stops gaslighting you.',
+      'Four ghost profiles that snuck in before the gate existed have been cleaned up. One real user who got caught in the sweep was whitelisted properly, because we\u2019re thorough like that.',
+    ],
+  },
+  {
+    version: 'v0.7.0',
+    date: 'Mar 5, 2026',
     title: 'Your NFTs now know they\u2019re special',
     items: [
       'You can now favorite NFTs directly from the gallery. A heart icon appears on hover \u2014 click it, and the item shows up in your Favorites tab in Account. It\u2019s basically a bookmark, but for JPEGs you paid real money for.',
       'Pinned favorites float to the top of your gallery. Found that one skin you keep scrolling past 200 items to find? Pin it. It\u2019ll be waiting at the top next time. Pins persist across sessions because we\u2019re not animals.',
       'The new Wishlist tab lets you track NFTs you don\u2019t own yet. Add any item from any collection, and we\u2019ll keep an eye on its price. Think of it as window shopping with a spreadsheet.',
       'Your account panel got a cleanup pass. Display names that were showing as "Anonymous" now fall back to your wallet address, which is at least more honest. Duplicate accounts from reconnecting the same wallet got merged quietly in the background.',
+    ],
+  },
+  {
+    version: 'v0.6.x',
+    date: 'Mar 5, 2026',
+    title: 'The versions you didn\u2019t see',
+    items: [
+      'A few releases shipped without changelog entries \u2014 fixes and infrastructure work that wasn\u2019t worth interrupting you for. v0.6.x covered the auth hardening: the Early Access gate moved from client-side checks to server-side enforcement, the whitelist got a proper database migration with soft deletes and a full audit trail, and the referral flow got a sanity pass. Nothing you\u2019d notice if it was working. You\u2019d only notice if it wasn\u2019t.',
     ],
   },
   {
