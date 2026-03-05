@@ -21,7 +21,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
   const { user, primaryWallet, setShowAuthFlow, handleLogOut } = useDynamicContext();
 
   // Global auto-login: create profile as soon as wallet connects on ANY page
-  useAutoLogin(!!user);
+  useAutoLogin(!!user, primaryWallet?.address, handleLogOut);
 
   // Validate wallet against whitelist when a new wallet is linked (e.g., email user connects wallet)
   const validatedWalletRef = useRef<string | null>(null);
