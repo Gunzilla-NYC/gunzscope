@@ -15,7 +15,7 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v1.1.0',
+    version: 'v0.7.0',
     date: 'Mar 5, 2026',
     tag: 'current',
     title: 'Your NFTs now know they\u2019re special',
