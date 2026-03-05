@@ -419,7 +419,12 @@ export default function KonamiOverlay({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: value.trim(), handle }),
       });
-      if (!res.ok) { setHandleError('Failed to register'); setSubmitting(false); return; }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setHandleError(body?.trialExpired ? 'Trial already used \u2014 earn referrals for permanent access' : 'Failed to register');
+        setSubmitting(false);
+        return;
+      }
       setPhase('confirmed');
       const t = setTimeout(() => { onDismiss(); onProceed(); }, 2500);
       timerRef.current.push(t);
