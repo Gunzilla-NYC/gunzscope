@@ -23,7 +23,7 @@ export const LISTING_STALE_MS = 4 * 60 * 60 * 1000;
 // Cache Configuration
 // =============================================================================
 const CACHE_NAMESPACE = 'zillascope';
-const DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+const DEFAULT_TTL_SECONDS = 72 * 60 * 60; // 72 hours — must match ENRICHMENT_STALE_MS in PortfolioClient.tsx
 
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';

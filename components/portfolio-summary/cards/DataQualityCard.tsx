@@ -52,6 +52,8 @@ export const DataQualityCard = memo(function DataQualityCard({
   const withDatesPct = nftCount > 0 ? Math.round((resolvedCount / nftCount) * 100) : 0;
   const withCostPct = nftCount > 0 ? Math.round((nftPnL.nftsWithCost / nftCount) * 100) : 0;
 
+  const isStale = cachedAt != null && (Date.now() - cachedAt.getTime()) > 24 * 60 * 60 * 1000;
+
   const holdingsLabels = ['Holdings', 'Distribution', 'Data Quality'] as const;
 
   return (
@@ -64,6 +66,13 @@ export const DataQualityCard = memo(function DataQualityCard({
           {holdingsLabels[holdingsView]}
         </p>
         <DotIndicator count={3} activeIndex={holdingsView} />
+        {/* Pulsing live dot when scanning */}
+        {isScanning && holdingsView === 2 && (
+          <span
+            className="text-[var(--gs-lime)] text-[8px] leading-none"
+            style={{ animation: 'confidence-blink 2s ease-in-out infinite' }}
+          >&#9679;</span>
+        )}
         {/* State A: Enriching — spinner + counter */}
         {(isScanning || isRefreshing) && holdingsView === 2 && (
           <span className="flex items-center gap-1 ml-auto">
@@ -76,13 +85,17 @@ export const DataQualityCard = memo(function DataQualityCard({
             </span>
           </span>
         )}
-        {/* State B: Complete — checkmark + sync timestamp + refresh button */}
+        {/* State B: Complete — checkmark/stale dot + sync timestamp + refresh button */}
         {!isScanning && !isRefreshing && holdingsView === 2 && nftCount > 0 && enrichedPct > 0 && (
           <span className="flex items-center gap-1.5 ml-auto" onClick={e => e.stopPropagation()}>
-            <svg className="w-2.5 h-2.5 text-[var(--gs-lime)]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span className="font-mono text-micro text-[var(--gs-gray-3)] tabular-nums">
+            {isStale ? (
+              <span className="text-[#FFAA00] text-[8px] leading-none">&#9679;</span>
+            ) : (
+              <svg className="w-2.5 h-2.5 text-[var(--gs-lime)]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+            <span className={`font-mono text-micro tabular-nums ${isStale ? 'text-[#FFAA00]' : 'text-[var(--gs-gray-3)]'}`}>
               {cachedAt ? `Synced ${formatRelativeTime(cachedAt)}` : 'Enriched'}
             </span>
             {onRefresh && (
@@ -229,9 +242,22 @@ export const DataQualityCard = memo(function DataQualityCard({
               holdingsView === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
-            <ProgressBar label="With dates" value={withDatesPct} color="var(--gs-lime)" />
-            <ProgressBar label="With cost" value={withCostPct} color="var(--gs-purple)" />
-            <ProgressBar label="Enriched" value={enrichedPct} color="rgba(255,255,255,0.3)" />
+            <ProgressBar
+              label="With dates" value={withDatesPct} color="var(--gs-lime)"
+              shimmer={isScanning}
+              valueLabel={isScanning ? `${resolvedCount}/${nftCount}` : undefined}
+            />
+            <ProgressBar
+              label="With cost" value={withCostPct} color="var(--gs-purple)"
+              shimmer={isScanning}
+              valueLabel={isScanning ? `${nftPnL.nftsWithCost}/${nftCount}` : undefined}
+            />
+            <ProgressBar
+              label="Enriched" value={enrichedPct} color="rgba(255,255,255,0.3)"
+              shimmer={isScanning}
+              scanning={isActiveEnrichment && !isScanning}
+              valueLabel={isScanning ? `${enrichedCount}/${nftCount}` : undefined}
+            />
           </div>
         </div>
       )}
