@@ -52,6 +52,7 @@ export default function WalletButton({
   // Handle disconnect
   const handleDisconnect = async () => {
     setIsDropdownOpen(false);
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     await handleLogOut();
     onWalletDisconnect?.();
   };

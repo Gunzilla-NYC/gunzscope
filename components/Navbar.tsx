@@ -62,6 +62,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
 
   const handleDisconnect = useCallback(async () => {
     setMobileMenuOpen(false);
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     await handleLogOut();
   }, [handleLogOut]);
 
