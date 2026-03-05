@@ -10,7 +10,7 @@ interface AccountPanelProps {
   onAddressSelect?: (address: string) => void;
 }
 
-type TabId = 'tracked' | 'favorites' | 'settings';
+type TabId = 'tracked' | 'favorites' | 'wishlist' | 'settings';
 
 export default function AccountPanel({
   isOpen,
@@ -76,9 +76,13 @@ export default function AccountPanel({
     onClose();
   };
 
+  const wishlistItems = profile?.favorites.filter((f) => f.type === 'wishlist') ?? [];
+  const favoriteItems = profile?.favorites.filter((f) => f.type !== 'wishlist') ?? [];
+
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'tracked', label: 'Tracked', count: profile?.trackedAddresses.length },
-    { id: 'favorites', label: 'Favorites', count: profile?.favorites.length },
+    { id: 'favorites', label: 'Favorites', count: favoriteItems.length },
+    { id: 'wishlist', label: 'Wishlist', count: wishlistItems.length },
     { id: 'settings', label: 'Settings' },
   ];
 
@@ -249,7 +253,7 @@ export default function AccountPanel({
                   {/* Favorites Tab */}
                   {activeTab === 'favorites' && (
                     <div className="p-4">
-                      {profile?.favorites.length === 0 ? (
+                      {favoriteItems.length === 0 ? (
                         <div className="text-center py-8">
                           <p className="text-sm text-gray-500">No favorites yet</p>
                           <p className="text-xs text-gray-600 mt-1">
@@ -258,7 +262,7 @@ export default function AccountPanel({
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {profile?.favorites.map((favorite) => (
+                          {favoriteItems.map((favorite) => (
                             <div
                               key={favorite.id}
                               className="p-3 bg-white/5 rounded-lg flex items-center justify-between group hover:bg-white/10 transition"
@@ -295,6 +299,60 @@ export default function AccountPanel({
                               </div>
                               <button
                                 onClick={() => handleRemoveFavorite(favorite)}
+                                className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition opacity-0 group-hover:opacity-100"
+                                title="Remove"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Wishlist Tab */}
+                  {activeTab === 'wishlist' && (
+                    <div className="p-4">
+                      {wishlistItems.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-sm text-gray-500">No wishlist items yet</p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            Add items from the Item Database to track their prices
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {wishlistItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="p-3 bg-white/5 rounded-lg flex items-center justify-between group hover:bg-white/10 transition"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-[var(--gs-warning)]/10 flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-[var(--gs-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-white">
+                                    {(item.metadata as { name?: string })?.name || item.refId}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    {item.lastKnownValue != null && (
+                                      <span>{item.lastKnownValue.toFixed(1)} GUN</span>
+                                    )}
+                                    {item.lastValueAt && (
+                                      <span>&middot; Updated {new Date(item.lastValueAt).toLocaleDateString()}</span>
+                                    )}
+                                    {!item.lastKnownValue && <span>No price data</span>}
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleRemoveFavorite(item)}
                                 className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition opacity-0 group-hover:opacity-100"
                                 title="Remove"
                               >

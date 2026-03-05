@@ -1,6 +1,7 @@
 /**
  * Favorites API Routes
  *
+ * GET  /api/favorites - List all favorites, split by type
  * POST /api/favorites - Add a favorite item
  * Body: { type: string, refId: string, metadata?: object }
  *
@@ -9,14 +10,30 @@
 
 import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
-import { getProfileByDynamicId, addFavorite } from '@/lib/services/userService';
+import { getProfileByDynamicId, addFavorite, listFavorites } from '@/lib/services/userService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
 
-const VALID_FAVORITE_TYPES = ['weapon', 'nft', 'attachment', 'skin', 'collection'] as const;
+const VALID_FAVORITE_TYPES = ['weapon', 'nft', 'attachment', 'skin', 'collection', 'wishlist'] as const;
 type FavoriteType = typeof VALID_FAVORITE_TYPES[number];
 
 function isValidFavoriteType(type: unknown): type is FavoriteType {
   return typeof type === 'string' && VALID_FAVORITE_TYPES.includes(type as FavoriteType);
+}
+
+export async function GET(request: NextRequest) {
+  const authResult = await authenticateRequest(request);
+  if (!authResult.success) return unauthorizedResponse(authResult);
+
+  try {
+    const profile = await getProfileByDynamicId(authResult.user.userId);
+    if (!profile) return jsonError('Profile not found', 404);
+
+    const favorites = await listFavorites(profile.id);
+    return jsonSuccess(favorites);
+  } catch (error) {
+    console.error('Error listing favorites:', error);
+    return jsonError('Failed to list favorites');
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -52,11 +69,16 @@ export async function POST(request: NextRequest) {
       return jsonError('Profile not found. Please call GET /api/me first.', 404);
     }
 
-    // Add favorite
+    // Add favorite (with optional wishlist fields)
     const favorite = await addFavorite(profile.id, {
       type,
       refId: refId.trim(),
       metadata: metadata as Record<string, unknown>,
+      ...(type === 'wishlist' && {
+        externalContract: body.externalContract,
+        externalTokenId: body.externalTokenId,
+        externalChain: body.externalChain,
+      }),
     });
 
     return jsonSuccess({ favorite });

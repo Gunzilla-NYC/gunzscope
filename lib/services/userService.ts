@@ -60,9 +60,12 @@ export interface AddTrackedAddressInput {
 }
 
 export interface AddFavoriteInput {
-  type: 'weapon' | 'nft' | 'attachment' | 'skin' | 'collection';
+  type: 'weapon' | 'nft' | 'attachment' | 'skin' | 'collection' | 'wishlist';
   refId: string;
   metadata?: Record<string, unknown>;
+  externalContract?: string;
+  externalTokenId?: string;
+  externalChain?: string;
 }
 
 export interface AddPortfolioAddressInput {
@@ -477,7 +480,7 @@ export async function getPortfolioAddressCount(profileId: string): Promise<numbe
 export async function addFavorite(
   profileId: string,
   input: AddFavoriteInput
-): Promise<{ id: string; type: string; refId: string; metadata: unknown }> {
+): Promise<{ id: string; type: string; refId: string; metadata: unknown; pinned: boolean }> {
   const favorite = await prisma.favoriteItem.upsert({
     where: {
       userProfileId_type_refId: {
@@ -488,12 +491,18 @@ export async function addFavorite(
     },
     update: {
       metadata: input.metadata ? JSON.stringify(input.metadata) : null,
+      ...(input.externalContract !== undefined && { externalContract: input.externalContract }),
+      ...(input.externalTokenId !== undefined && { externalTokenId: input.externalTokenId }),
+      ...(input.externalChain !== undefined && { externalChain: input.externalChain }),
     },
     create: {
       userProfileId: profileId,
       type: input.type,
       refId: input.refId,
       metadata: input.metadata ? JSON.stringify(input.metadata) : null,
+      externalContract: input.externalContract ?? null,
+      externalTokenId: input.externalTokenId ?? null,
+      externalChain: input.externalChain ?? null,
     },
   });
 
@@ -502,6 +511,7 @@ export async function addFavorite(
     type: favorite.type,
     refId: favorite.refId,
     metadata: favorite.metadata ? JSON.parse(favorite.metadata) : null,
+    pinned: favorite.pinned,
   };
 }
 
@@ -516,6 +526,27 @@ export async function removeFavorite(profileId: string, favoriteId: string): Pro
     },
   });
   return result.count > 0;
+}
+
+/**
+ * Toggle the pinned state of a favorite item
+ */
+export async function toggleFavoritePin(
+  profileId: string,
+  favoriteId: string,
+): Promise<{ id: string; pinned: boolean } | null> {
+  const item = await prisma.favoriteItem.findFirst({
+    where: { id: favoriteId, userProfileId: profileId },
+    select: { id: true, pinned: true },
+  });
+  if (!item) return null;
+
+  const updated = await prisma.favoriteItem.update({
+    where: { id: favoriteId },
+    data: { pinned: !item.pinned },
+    select: { id: true, pinned: true },
+  });
+  return updated;
 }
 
 /**
@@ -534,6 +565,32 @@ export async function isFavorited(
     },
   });
   return count > 0;
+}
+
+/**
+ * List all favorites for a user, split by type
+ */
+export async function listFavorites(profileId: string) {
+  const items = await prisma.favoriteItem.findMany({
+    where: { userProfileId: profileId },
+    orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+  });
+
+  const favorites = items
+    .filter((f) => f.type !== 'wishlist')
+    .map((f) => ({
+      ...f,
+      metadata: f.metadata ? JSON.parse(f.metadata) : null,
+    }));
+
+  const wishlist = items
+    .filter((f) => f.type === 'wishlist')
+    .map((f) => ({
+      ...f,
+      metadata: f.metadata ? JSON.parse(f.metadata) : null,
+    }));
+
+  return { favorites, wishlist };
 }
 
 // =============================================================================
@@ -595,4 +652,68 @@ export async function replaceSettings(
       settings: JSON.stringify(settings),
     },
   });
+}
+
+// =============================================================================
+// Admin: List Users
+// =============================================================================
+
+export interface AdminUserEntry {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  createdAt: Date;
+  wallets: { address: string; chain: string; isPrimary: boolean }[];
+  _count: {
+    shareLinks: number;
+    featureRequests: number;
+    trackedAddresses: number;
+    favorites: number;
+  };
+}
+
+export async function listUsers(
+  page = 1,
+  limit = 50,
+  search?: string,
+): Promise<{ users: AdminUserEntry[]; total: number }> {
+  const where = search
+    ? {
+        OR: [
+          { displayName: { contains: search, mode: 'insensitive' as const } },
+          { email: { contains: search, mode: 'insensitive' as const } },
+          { wallets: { some: { address: { contains: search.toLowerCase(), mode: 'insensitive' as const } } } },
+        ],
+      }
+    : {};
+
+  const [users, total] = await Promise.all([
+    prisma.userProfile.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        createdAt: true,
+        wallets: {
+          select: { address: true, chain: true, isPrimary: true },
+          orderBy: { isPrimary: 'desc' },
+        },
+        _count: {
+          select: {
+            shareLinks: true,
+            featureRequests: true,
+            trackedAddresses: true,
+            favorites: true,
+          },
+        },
+      },
+    }),
+    prisma.userProfile.count({ where }),
+  ]);
+
+  return { users, total };
 }

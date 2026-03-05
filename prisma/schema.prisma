@@ -86,16 +86,23 @@ model PortfolioAddress {
 }
 
 // =============================================================================
-// Favorite Item - Bookmarked weapons, NFTs, skins, etc.
+// Favorite Item - Bookmarked weapons, NFTs, skins, etc. + wishlist tracking
 // =============================================================================
 model FavoriteItem {
-  id            String      @id @default(cuid())
-  userProfileId String
-  type          String      // "weapon" | "nft" | "attachment" | "skin" | "collection"
-  refId         String      // Reference ID (contract:tokenId, weapon name, etc.)
-  metadata      String?     // JSON blob for extra data (name, image URL, etc.)
-  createdAt     DateTime    @default(now())
-  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  id               String    @id @default(cuid())
+  userProfileId    String
+  type             String    // "weapon" | "nft" | "attachment" | "skin" | "collection" | "wishlist"
+  refId            String    // Reference ID (contract:tokenId, weapon name, etc.)
+  metadata         String?   // JSON blob for extra data (name, image URL, etc.)
+  pinned           Boolean   @default(false)
+  // Wishlist-only fields — track unowned items
+  externalContract String?   // Contract address of wishlisted NFT
+  externalTokenId  String?   // Token ID of wishlisted NFT
+  externalChain    String?   // Chain (e.g. "avalanche")
+  lastKnownValue   Float?    // Last known price in GUN
+  lastValueAt      DateTime? // When lastKnownValue was refreshed
+  createdAt        DateTime  @default(now())
+  userProfile      UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 
   @@unique([userProfileId, type, refId]) // Can't favorite same item twice
   @@index([type])

@@ -1245,6 +1245,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               isEnriching={enrichingNFTs}
               stickyOffset={64} // 64px navbar height
               currentGunPrice={gunPrice}
+              isOwnPortfolio={connectedWallets.includes(activeWalletData.address.toLowerCase())}
             />
           </div>
           )}

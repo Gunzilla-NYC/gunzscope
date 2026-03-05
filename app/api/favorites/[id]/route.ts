@@ -1,6 +1,7 @@
 /**
  * Favorite by ID API Routes
  *
+ * PATCH  /api/favorites/:id - Toggle pinned state
  * DELETE /api/favorites/:id - Remove a favorite item
  *
  * Requires: Bearer token from Dynamic auth
@@ -8,11 +9,32 @@
 
 import { NextRequest } from 'next/server';
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth/dynamicAuth';
-import { getProfileByDynamicId, removeFavorite } from '@/lib/services/userService';
+import { getProfileByDynamicId, removeFavorite, toggleFavoritePin } from '@/lib/services/userService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const authResult = await authenticateRequest(request);
+  if (!authResult.success) return unauthorizedResponse(authResult);
+
+  try {
+    const { id } = await params;
+    if (!id) return jsonError('Missing ID parameter', 400);
+
+    const profile = await getProfileByDynamicId(authResult.user.userId);
+    if (!profile) return jsonError('Profile not found', 404);
+
+    const updated = await toggleFavoritePin(profile.id, id);
+    if (!updated) return jsonError('Favorite not found', 404);
+
+    return jsonSuccess(updated);
+  } catch (error) {
+    console.error('Error toggling pin:', error);
+    return jsonError('Failed to toggle pin');
+  }
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {

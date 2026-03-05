@@ -335,6 +335,7 @@ export async function getUnifiedStats(address: string): Promise<UnifiedStats> {
 export interface LeaderboardEntry {
   userProfileId: string;
   displayName: string | null;
+  primaryWallet: string | null;
   totalViews: number;
   shareCount: number;
 }
@@ -363,13 +364,19 @@ export async function getShareLeaderboard(limit = 20): Promise<{
   const userIds = results.map(r => r.userProfileId).filter(Boolean) as string[];
   const profiles = await prisma.userProfile.findMany({
     where: { id: { in: userIds } },
-    select: { id: true, displayName: true },
+    select: {
+      id: true,
+      displayName: true,
+      wallets: { select: { address: true, isPrimary: true }, orderBy: { isPrimary: 'desc' }, take: 1 },
+    },
   });
   const nameMap = new Map(profiles.map(p => [p.id, p.displayName]));
+  const walletMap = new Map(profiles.map(p => [p.id, p.wallets[0]?.address ?? null]));
 
   const enriched = results.map(r => ({
     userProfileId: r.userProfileId!,
     displayName: nameMap.get(r.userProfileId!) ?? null,
+    primaryWallet: walletMap.get(r.userProfileId!) ?? null,
     totalViews: r._sum.viewCount ?? 0,
     shareCount: r._count,
   }));

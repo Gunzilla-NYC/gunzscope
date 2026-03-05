@@ -24,6 +24,8 @@ export interface NFTGalleryProps {
   portfolioViewMode?: 'simple' | 'detailed';
   /** Current GUN/USD price — used for USD-based P&L fallback when no item market data exists */
   currentGunPrice?: number;
+  /** Whether the viewer is the wallet owner — enables favorite button on cards */
+  isOwnPortfolio?: boolean;
 }
 
 /** Props for NFTGalleryGridCard */
@@ -34,6 +36,8 @@ export interface NFTGalleryGridCardProps {
   onClick: (nft: NFT) => void;
   /** Portfolio view mode — shows cost basis, venue badge, enrichment indicator when 'detailed' */
   portfolioViewMode?: 'simple' | 'detailed';
+  /** Whether the viewer is the wallet owner — enables favorite button */
+  isOwnPortfolio?: boolean;
 }
 
 /** Props for NFTGalleryListRow */

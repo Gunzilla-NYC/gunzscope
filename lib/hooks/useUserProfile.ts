@@ -39,9 +39,15 @@ export interface PortfolioAddress {
 
 export interface FavoriteItem {
   id: string;
-  type: 'weapon' | 'nft' | 'attachment' | 'skin' | 'collection';
+  type: 'weapon' | 'nft' | 'attachment' | 'skin' | 'collection' | 'wishlist';
   refId: string;
   metadata: Record<string, unknown> | null;
+  pinned: boolean;
+  externalContract?: string | null;
+  externalTokenId?: string | null;
+  externalChain?: string | null;
+  lastKnownValue?: number | null;
+  lastValueAt?: string | null;
   createdAt: string;
 }
 
@@ -97,6 +103,7 @@ interface UseUserProfileReturn {
   ) => Promise<FavoriteItem | null>;
   removeFavorite: (id: string) => Promise<boolean>;
   isFavorited: (type: FavoriteItem['type'], refId: string) => boolean;
+  togglePin: (favoriteId: string) => Promise<boolean>;
 
   // Wallets
   setPrimaryWallet: (address: string) => Promise<boolean>;
@@ -467,6 +474,33 @@ export function useUserProfile(): UseUserProfileReturn {
     [profile]
   );
 
+  // Toggle pin on a favorite
+  const togglePin = useCallback(async (favoriteId: string): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth<{ id: string; pinned: boolean }>(
+      `/api/favorites/${favoriteId}`,
+      { method: 'PATCH' },
+      token
+    );
+
+    if (result.success && result.data) {
+      const { id, pinned } = result.data;
+      setProfile((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          favorites: prev.favorites.map((f) =>
+            f.id === id ? { ...f, pinned } : f
+          ),
+        };
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
   // Set primary wallet
   const setPrimaryWallet = useCallback(async (address: string): Promise<boolean> => {
     const token = getAuthToken();
@@ -544,6 +578,7 @@ export function useUserProfile(): UseUserProfileReturn {
     addFavorite,
     removeFavorite,
     isFavorited,
+    togglePin,
     updateSettings,
     getAuthHeaders,
   };
