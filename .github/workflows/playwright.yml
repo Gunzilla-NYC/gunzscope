@@ -40,6 +40,11 @@ jobs:
           fi
           echo "✅ All required secrets present"
 
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
