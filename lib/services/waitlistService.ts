@@ -281,6 +281,7 @@ export async function promoteFromWaitlist(
       },
       update: {
         expiresAt: null, // Convert trial to permanent
+        isActive: true,  // Survives prior admin soft-delete
         label: `waitlist:${by}`,
         addedBy: by,
       },
