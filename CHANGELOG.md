@@ -1,4 +1,4 @@
-## [1.1.0] — 2026-03-05
+## [0.7.0] — 2026-03-05
 
 ### Added
 - Portfolio Pins: FavoriteButton wired onto NFT grid cards (bottom-right image overlay, own portfolio only), PinButton toggle, pinned NFTs sort to top via useNFTGalleryFilters

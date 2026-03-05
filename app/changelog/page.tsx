@@ -21,7 +21,7 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v1.1.0',
+    version: 'v0.7.0',
     date: 'Mar 5, 2026',
     tag: 'current',
     items: [
