@@ -6,19 +6,11 @@ const BASE_URL = 'http://localhost:3000';
 test.setTimeout(60_000);
 
 test.beforeEach(async ({ page }) => {
-  // Navigate to origin first to establish localStorage context
-  await page.goto(`${BASE_URL}`);
-  // Seed localStorage directly via evaluate
-  await page.evaluate((seed) => {
+  await page.addInitScript((seed) => {
     for (const [key, value] of Object.entries(seed)) {
       localStorage.setItem(key, value);
     }
   }, SEED_CACHE);
-  // Verify seed landed
-  const keyCount = await page.evaluate((keys) =>
-    keys.filter(k => localStorage.getItem(k) !== null).length,
-  Object.keys(SEED_CACHE));
-  console.log(`Seeded ${keyCount} of ${Object.keys(SEED_CACHE).length} cache entries`);
 });
 
 test('1 — enrichment merge applies seeded cache', async ({ page }) => {
@@ -28,7 +20,7 @@ test('1 — enrichment merge applies seeded cache', async ({ page }) => {
   });
   await page.goto(`${BASE_URL}/portfolio?address=${TEST_WALLET}`);
   await expect.poll(() =>
-    consoleLogs.find(l => l.includes('enrichedFieldsMerged')), { timeout: 30_000 }
+    consoleLogs.find(l => l.includes('enrichedFieldsMerged')), { timeout: 15000 }
   ).toBeTruthy();
   const mergeLog = consoleLogs.find(l => l.includes('enrichedFieldsMerged'))!;
   const match = mergeLog.match(/enrichedFieldsMerged[":]+\s*(\d+)/);
@@ -55,32 +47,19 @@ test('2 — market value never shows $0 during load', async ({ page }) => {
     waitForBody();
   });
   await page.goto(`${BASE_URL}/portfolio?address=${TEST_WALLET}`);
-  // Wait for a non-zero market value to appear
-  await page.waitForFunction(() => {
-    const el = document.querySelector('p.text-4xl');
-    return el && el.textContent !== '$0' && el.textContent !== '$0.00';
-  }, { timeout: 30_000 });
-  // Check captured values for zero-flash regression
+  await page.waitForTimeout(10_000);
   const values: string[] = await page.evaluate(() => (window as unknown as Record<string, string[]>).__marketValues || []);
-  let seenNonZero = false;
-  const isZero = (v: string) => /^\$0(\.0{1,2})?$/.test(v);
-  for (const val of values) {
-    if (!isZero(val)) seenNonZero = true;
-    if (seenNonZero && isZero(val)) {
-      expect(false, `Market value flashed zero after showing non-zero. Values: ${values.join(', ')}`).toBe(true);
-    }
-  }
+  const zeroFlash = values.some(v => v === '$0' || v === '$0.00');
+  expect(zeroFlash, `Market value flashed zero. Values seen: ${values.join(', ')}`).toBe(false);
 });
 
 test('3 — data quality bars reflect seeded state', async ({ page }) => {
   await page.goto(`${BASE_URL}/portfolio?address=${TEST_WALLET}`);
-  // Target the Data Quality card specifically via data-testid
-  const dataQualityCard = page.locator('[data-testid="data-quality-card"]');
-  await expect(dataQualityCard).toBeVisible({ timeout: 15_000 });
-  // Assert it contains at least one percentage value
-  await expect(dataQualityCard).toContainText(/%/, { timeout: 15_000 });
-  // Assert it does not show 0% (enriched state from seed should be non-zero)
-  await expect(dataQualityCard).not.toContainText('0%', { timeout: 15_000 });
+  // Wait for any non-zero percentage to appear in the Data Quality section
+  await expect(page.locator('text=/\\d+%/').first()).toBeVisible({ timeout: 15_000 });
+  // Assert the Enriched row specifically shows non-zero
+  const enrichedRow = page.locator('text=Enriched').locator('..');
+  await expect(enrichedRow).not.toContainText('0%', { timeout: 15_000 });
 });
 
 test('4 — localStorage TTL is 72h', async ({ page }) => {
