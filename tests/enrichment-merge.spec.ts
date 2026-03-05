@@ -78,7 +78,7 @@ test('enrichment fields merge on load', async ({ page }) => {
     let count = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key?.startsWith('zillascope:nft:detail:')) count++;
+      if (key?.startsWith('gunzscope:nft:detail:')) count++;
     }
     return count;
   });
@@ -285,7 +285,7 @@ test('enrichment cache TTL is 72h, not 24h', async ({ browser }) => {
 
   // Inspect localStorage cache entries
   const ttlInfo = await page.evaluate(() => {
-    const prefix = 'zillascope:nft:detail:';
+    const prefix = 'gunzscope:nft:detail:';
     const entries: { key: string; cachedAt: number; expiresAt: number; ttlHours: number }[] = [];
 
     for (let i = 0; i < localStorage.length; i++) {

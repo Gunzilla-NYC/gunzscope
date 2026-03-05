@@ -19,7 +19,7 @@ export function UXTestingTools() {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key?.startsWith('zillascope:')) keysToRemove.push(key);
+          if (key?.startsWith('gunzscope:')) keysToRemove.push(key);
         }
         keysToRemove.forEach(k => localStorage.removeItem(k));
       },
@@ -43,7 +43,7 @@ export function UXTestingTools() {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key?.startsWith('zillascope:')) keysToRemove.push(key);
+          if (key?.startsWith('gunzscope:')) keysToRemove.push(key);
         }
         keysToRemove.forEach(k => localStorage.removeItem(k));
       },
