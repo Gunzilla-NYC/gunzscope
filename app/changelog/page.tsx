@@ -21,9 +21,25 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.5.3',
+    version: 'v0.5.4',
     date: 'Mar 4, 2026',
     tag: 'current',
+    items: [
+      'PortfolioSparkline component \u2014 new chart in ValueHeader showing % change from cost basis over time; dual\u2011clip split\u2011gradient fill (profit above zero, loss below), zero baseline dashed line, pulsing endpoint dot, edge\u2011aware hover tooltip as absolute div sibling',
+      'PortfolioSparkline colors \u2014 profit fill #A6F700 (brand lime), loss fill #B44AFF (soft orchid / \u2011\u2011gs\u2011rarity\u2011epic); endpoint glyph + drop\u2011shadow glow match; tooltip % text uses same palette',
+      'ValueHeader 7d badge loss state \u2014 switched from var(\u2011\u2011gs\u2011loss) red to #B44AFF orchid (bg/border/text)',
+      'PnLScatterPlot refinements \u2014 floor cluster annotation (horizontal dashed line for dots < 5 GUN), simplified legend (4 items), zone label opacity 0.18 + fontSize 11, break\u2011even label rotation via atan2, break\u2011even dot treatment (white stroke within 5%)',
+      'PnLScatterPlot + AcquisitionTimeline margins normalized to { top: 16, right: 24, bottom: 32, left: 40 } in embedded mode',
+      'AcquisitionTimeline \u2014 removed vertical grid lines; lollipop stems converted to gradient opacity (5 linearGradient defs per venue, stemGradient() helper)',
+      'AcquisitionTimeline stem gradient fix \u2014 gradientUnits="userSpaceOnUse" with explicit pixel y1/y2 coordinates; default objectBoundingBox caused zero\u2011width line degenerate bounding box',
+      'AcquisitionTimeline horizontal crosshair \u2014 dashed line from hovered dot to Y\u2011axis on proximity lock',
+      'AcquisitionTimeline tooltip \u2014 added acquisition date (MMM DD, YYYY) and current USD value fields',
+      'AcquisitionTimeline stem bottom stopOpacity reduced from 0.25 to 0.10',
+    ],
+  },
+  {
+    version: 'v0.5.3',
+    date: 'Mar 4, 2026',
     items: [
       '40\u2011item performance audit across 5 phases \u2014 parallelization, caching, architecture, DRY, decomposition',
       'Parallelized 6 critical paths: fetchGunPricesForDates (5\u2011concurrent batches), /api/leaderboard (Promise.all DB+price), floor\u2011drop/portfolio\u2011digest/whale\u2011tracker crons, avalanche.ts RPC calls',

@@ -15,9 +15,20 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.5.3',
+    version: 'v0.5.4',
     date: 'Mar 4, 2026',
     tag: 'current',
+    title: 'We made it to Round 2. The charts got prettier to celebrate.',
+    items: [
+      'Your portfolio header now has a sparkline that shows how far above or below your cost basis you are over time. Green when you\u2019re winning, orchid purple when you\u2019re not. A dashed line at zero marks where you broke even \u2014 think of it as the emotional support line.',
+      'The lollipop chart (yes, that\u2019s really what it\u2019s called) got gradient stems that fade from transparent at the bottom to full color where they meet the dot. Each acquisition venue gets its own color. Hover over a dot and a crosshair line now draws from it back to the Y\u2011axis, so you can actually read the cost without squinting.',
+      'The Cost vs Value scatter plot learned some new tricks. Dots near break\u2011even get a white outline so you can spot them. The break\u2011even line label now rotates to follow the diagonal instead of sitting there horizontally like it doesn\u2019t know what angle means. And there\u2019s a dashed horizontal line marking the floor cluster \u2014 all those items trading for pocket change.',
+      'Loss colors across the portfolio got a rebrand. Red is out, orchid purple is in. Turns out staring at red numbers all day was bad for morale. Purple feels more like "unrealized potential" and less like "the building is on fire."',
+    ],
+  },
+  {
+    version: 'v0.5.3',
+    date: 'Mar 4, 2026',
     title: 'Under the hood, everything got faster',
     items: [
       'We ran a 40-item performance audit and parallelized every serial bottleneck we could find. API routes that used to fetch data one thing at a time now fetch in parallel. The leaderboard, price lookups, cron jobs, and on-chain RPC calls all got the same treatment. If it was waiting in line, it\u2019s not anymore.',

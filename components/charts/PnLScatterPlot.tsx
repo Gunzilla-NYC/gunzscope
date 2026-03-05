@@ -49,7 +49,7 @@ interface ScatterDatum {
   noMarketData?: boolean;
 }
 
-const MARGIN = { top: 40, right: 20, bottom: 38, left: 58 };
+const MARGIN = { top: 16, right: 24, bottom: 32, left: 40 };
 const CHART_HEIGHT = 270;
 
 /** Snap a value to the nearest 1-2-5 sequence number (matches AcquisitionTimeline). */
@@ -330,6 +330,14 @@ const ScatterChartZoomed = memo(function ScatterChartZoomed({
 
   const breakEvenMax = Math.max(zoomedMaxX, zoomedMaxY);
 
+  /* --- Floor cluster annotation (dots with near-zero market value) --- */
+
+  const floorClusterGun = useMemo(() => {
+    const floorDots = data.filter(d => d.floor < 5);
+    if (floorDots.length === 0) return null;
+    return floorDots.reduce((sum, d) => sum + d.floor, 0) / floorDots.length;
+  }, [data]);
+
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
   return (
@@ -370,19 +378,19 @@ const ScatterChartZoomed = memo(function ScatterChartZoomed({
             fill="url(#zone-loss-glow)"
           />
 
-          {/* Zone labels — fixed viewport position */}
+          {/* Zone labels — background texture, not foreground */}
           <text
             x={innerWidth * 0.06} y={innerHeight * 0.18}
-            fill={chartTheme.colors.profit} fillOpacity={0.20}
-            fontSize={9} fontFamily={chartTheme.fonts.mono}
+            fill={chartTheme.colors.profit} fillOpacity={0.18}
+            fontSize={11} fontFamily={chartTheme.fonts.mono}
             textAnchor="start" letterSpacing="0.15em"
           >
             PROFIT
           </text>
           <text
             x={innerWidth * 0.72} y={innerHeight * 0.88}
-            fill={chartTheme.colors.loss} fillOpacity={0.20}
-            fontSize={9} fontFamily={chartTheme.fonts.mono}
+            fill={chartTheme.colors.loss} fillOpacity={0.18}
+            fontSize={11} fontFamily={chartTheme.fonts.mono}
             textAnchor="start" letterSpacing="0.15em"
           >
             LOSS
@@ -405,18 +413,59 @@ const ScatterChartZoomed = memo(function ScatterChartZoomed({
               strokeWidth={1}
               strokeDasharray="8 5"
             />
-            <text
-              x={xScale(breakEvenMax * 0.45)}
-              y={yScale(breakEvenMax * 0.45) - 6}
-              fill="rgba(255,255,255,0.18)"
-              fontSize={8}
-              fontFamily={chartTheme.fonts.mono}
-              textAnchor="middle"
-              letterSpacing="0.15em"
-              transform={`rotate(-${Math.atan(innerHeight / innerWidth) * (180 / Math.PI)}, ${xScale(breakEvenMax * 0.45)}, ${yScale(breakEvenMax * 0.45) - 6})`}
-            >
-              BREAK EVEN
-            </text>
+            {(() => {
+              const bx1 = xScale(domainMin);
+              const by1 = yScale(domainMin);
+              const bx2 = xScale(breakEvenMax);
+              const by2 = yScale(breakEvenMax);
+              const midX = (bx1 + bx2) / 2;
+              const midY = (by1 + by2) / 2;
+              const labelY = midY - 6;
+              const angle = Math.atan2(by2 - by1, bx2 - bx1) * (180 / Math.PI);
+              return (
+                <text
+                  x={midX}
+                  y={labelY}
+                  fill="rgba(255,255,255,0.18)"
+                  fontSize={8}
+                  fontFamily={chartTheme.fonts.mono}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  letterSpacing="0.15em"
+                  transform={`rotate(${angle}, ${midX}, ${labelY})`}
+                >
+                  BREAK EVEN
+                </text>
+              );
+            })()}
+
+            {/* Floor cluster annotation — dots with near-zero market value */}
+            {floorClusterGun !== null && (() => {
+              const floorY = yScale(Math.max(domainMin, floorClusterGun));
+              return (
+                <>
+                  <line
+                    x1={0} y1={floorY} x2={innerWidth} y2={floorY}
+                    stroke="#555555"
+                    strokeWidth={1}
+                    strokeOpacity={0.3}
+                    strokeDasharray="2 4"
+                  />
+                  <text
+                    x={innerWidth - 4}
+                    y={floorY - 5}
+                    fill="#888888"
+                    fillOpacity={0.5}
+                    fontSize={9}
+                    fontFamily={chartTheme.fonts.mono}
+                    textAnchor="end"
+                    letterSpacing="0.08em"
+                  >
+                    NO MARKET DATA
+                  </text>
+                </>
+              );
+            })()}
 
             {/* Data dots */}
             {data.map((d) => {
@@ -427,6 +476,8 @@ const ScatterChartZoomed = memo(function ScatterChartZoomed({
               const r = sizeScale(d.quantity);
               const isNew = newIds.has(d.id);
               const staggerDelay = randomDelayMap.get(d.id) ?? 0;
+
+              const isNearBreakEven = d.cost > 0 && Math.abs(d.floor - d.cost) / d.cost < 0.05;
 
               // GUN Δ dots: hollow green/red outline, fixed size, one per individual NFT
               if (d.noMarketData) {
@@ -459,13 +510,13 @@ const ScatterChartZoomed = memo(function ScatterChartZoomed({
                       pointerEvents="none"
                       style={{ transition: 'r 250ms ease, fill-opacity 250ms ease' }}
                     />
-                    {/* Hollow circle — stroke only */}
+                    {/* Hollow circle — stroke only; white stroke if near break-even */}
                     <Circle
                       cx={cx} cy={cy}
                       r={isLocked ? hr + 2 : hr}
                       fill="none"
-                      stroke={dotColor}
-                      strokeWidth={isLocked ? 2 : 1.5}
+                      stroke={isLocked ? dotColor : isNearBreakEven ? '#F0F0F0' : dotColor}
+                      strokeWidth={isLocked ? 2 : isNearBreakEven ? 1.5 : 1.5}
                       strokeOpacity={isLocked ? 0.95 : 0.6}
                       filter={isLocked ? 'url(#scatter-glow)' : undefined}
                       pointerEvents="none"
@@ -518,8 +569,8 @@ const ScatterChartZoomed = memo(function ScatterChartZoomed({
                     r={isLocked ? r + 2 : r}
                     fill={color}
                     fillOpacity={isLocked ? 0.95 : 0.7}
-                    stroke={isLocked ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.12)'}
-                    strokeWidth={isLocked ? 1.5 : 0.5}
+                    stroke={isLocked ? 'rgba(255,255,255,0.5)' : isNearBreakEven ? '#F0F0F0' : 'rgba(255,255,255,0.12)'}
+                    strokeWidth={isLocked ? 1.5 : isNearBreakEven ? 1.5 : 0.5}
                     filter={isLocked ? 'url(#scatter-glow)' : undefined}
                     pointerEvents="none"
                     data-dot=""
@@ -753,37 +804,21 @@ export default function PnLScatterPlot({ nfts, gunPrice, embedded, zoomRef, onZo
           </ParentSize>
 
           {/* Legend + locked item data */}
-          <div className="flex items-center gap-2.5 mt-2 h-[28px]">
-            {/* Market-based group */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.profit, boxShadow: `0 0 4px ${chartTheme.colors.profit}40` }} />
-                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Profit</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.loss, boxShadow: `0 0 4px ${chartTheme.colors.loss}40` }} />
-                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Loss</span>
-              </div>
-              <span className="font-mono text-[8px] uppercase tracking-widest text-[var(--gs-gray-2)]">market</span>
+          <div className="flex items-center gap-3 mt-2 h-[28px]">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.profit }} />
+              <span className="font-mono text-[10px] text-[#888888]">Above break&#8209;even</span>
             </div>
-            {/* Divider */}
-            <div className="w-px h-3 bg-white/10" />
-            {/* GUN Δ group */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ border: `1.5px solid ${chartTheme.colors.profit}`, boxShadow: `0 0 4px ${chartTheme.colors.profit}40` }} />
-                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Profit</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ border: `1.5px solid ${chartTheme.colors.loss}`, boxShadow: `0 0 4px ${chartTheme.colors.loss}40` }} />
-                <span className="font-mono text-micro text-[var(--gs-gray-3)]">Loss</span>
-              </div>
-              <span className="font-mono text-[8px] uppercase tracking-widest text-[var(--gs-gray-2)]">gun&nbsp;&#916;</span>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: chartTheme.colors.loss }} />
+              <span className="font-mono text-[10px] text-[#888888]">Below break&#8209;even</span>
             </div>
-            {/* Size hint */}
-            <div className="w-px h-3 bg-white/10" />
-            <span className="font-mono text-micro text-[var(--gs-gray-2)]">
-              Size&nbsp;=&nbsp;qty
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ border: `1.5px solid ${chartTheme.colors.profit}` }} />
+              <span className="font-mono text-[10px] text-[#888888]">Cost (GUN)</span>
+            </div>
+            <span className="font-mono text-[10px] text-[#888888]">
+              &middot;&nbsp;Size&nbsp;=&nbsp;quantity
             </span>
 
             {lockedDatum && (() => {

@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
-import { Circle, Line } from '@visx/shape';
+import { Line } from '@visx/shape';
 import { scaleLog, scaleTime } from '@visx/scale';
 import { AxisBottom } from '@visx/axis';
-import { GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { Zoom } from '@visx/zoom';
@@ -13,8 +12,7 @@ import type { TransformMatrix } from '@visx/zoom/lib/types';
 import { NFT } from '@/lib/types';
 import { chartTheme } from './theme';
 import { useProximityLock, LockPoint } from './useProximityLock';
-import { RARITY_COLORS } from '@/components/nft-gallery/utils';
-import { formatGun, HUD_KEYFRAMES, GlowFilterDef, HudLockOverlay } from './utils';
+import { formatGun } from './utils';
 import {
   type ChartZoomHandle,
   type ZoomScaleMethod,
@@ -44,11 +42,13 @@ interface TimelineDatum {
   venue: string;
   quantity: number;
   quality: string;
+  currentValueUsd: number; // Market exit value in USD (for radius scaling)
+  pnlPct: number | null;  // P&L percentage vs purchase price (null if no market data)
 }
 
 const MARGIN = { top: 14, right: 16, bottom: 32, left: 16 };
 /** Embedded mode uses the same dimensions as PnLScatterPlot for seamless crossfade. */
-const MARGIN_EMBEDDED = { top: 40, right: 20, bottom: 38, left: 58 };
+const MARGIN_EMBEDDED = { top: 16, right: 24, bottom: 32, left: 40 };
 const CHART_HEIGHT = 240;
 const CHART_HEIGHT_EMBEDDED = 270;
 
@@ -75,6 +75,22 @@ function venueLabel(venue: string): string {
     case 'in_game_marketplace': case 'otg_marketplace': return 'Marketplace';
     case 'transfer': return 'Transfer';
     default: return venue.replace(/_/g, ' ');
+  }
+}
+
+/** Deterministic ±3px horizontal jitter seeded by array index */
+function jitterX(index: number): number {
+  return ((index * 2654435761) >>> 0) % 7 - 3;
+}
+
+/** Map venue key to stem gradient URL */
+function stemGradient(venue: string): string {
+  switch (venue) {
+    case 'decode': case 'mint': case 'system_mint': return 'url(#stemGrad-lime)';
+    case 'opensea': return 'url(#stemGrad-opensea)';
+    case 'in_game_marketplace': case 'otg_marketplace': return 'url(#stemGrad-marketplace)';
+    case 'transfer': return 'url(#stemGrad-transfer)';
+    default: return 'url(#stemGrad-unknown)';
   }
 }
 
@@ -136,7 +152,7 @@ function snapToNice125(value: number): number {
 
 const TimelineChartZoomed = memo(function TimelineChartZoomed({
   data, width, height, margin,
-  seenIdsRef, onLockedDatumChange, onZoomChange,
+  seenIdsRef, onZoomChange,
   transformMatrix, isDragging,
   dragStart, dragMove, dragEnd,
 }: {
@@ -145,7 +161,6 @@ const TimelineChartZoomed = memo(function TimelineChartZoomed({
   height: number;
   margin: { top: number; right: number; bottom: number; left: number };
   seenIdsRef: React.RefObject<Set<string>>;
-  onLockedDatumChange?: (datum: TimelineDatum | null) => void;
   onZoomChange?: (scale: number) => void;
   transformMatrix: TransformMatrix;
   isDragging: boolean;
@@ -215,34 +230,15 @@ const TimelineChartZoomed = memo(function TimelineChartZoomed({
     onZoomChange?.(scaleX);
   }, [scaleX, onZoomChange]);
 
-  /* --- Stem gradient defs --- */
-
-  const uniqueColors = useMemo(() => {
-    const colors = new Set<string>();
-    for (const d of data) colors.add(venueColor(d.venue));
-    return Array.from(colors);
-  }, [data]);
-
-  const stemGradientDefs = useMemo(
-    () =>
-      uniqueColors.map(color => (
-        <linearGradient
-          key={color}
-          id={`stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`}
-          x1="0" y1="1" x2="0" y2="0"
-        >
-          <stop offset="0%" stopColor={color} stopOpacity={0} />
-          <stop offset="100%" stopColor={color} stopOpacity={0.5} />
-        </linearGradient>
-      )),
-    [uniqueColors],
-  );
-
   /* --- Proximity lock --- */
 
   const lockPoints: LockPoint[] = useMemo(
-    () => data.map(d => ({ id: d.id, x: xScale(d.date), y: yScale(d.costGun) })),
-    [data, xScale, yScale],
+    () => data.map((d, i) => ({
+      id: d.id,
+      x: xScale(d.date) + jitterX(i),
+      y: Math.min(yScale(d.costGun), innerHeight - 4),
+    })),
+    [data, xScale, yScale, innerHeight],
   );
 
   const {
@@ -289,10 +285,6 @@ const TimelineChartZoomed = memo(function TimelineChartZoomed({
     () => lockedId ? data.find(d => d.id === lockedId) ?? null : null,
     [lockedId, data],
   );
-
-  useEffect(() => {
-    onLockedDatumChange?.(lockedDatum);
-  }, [lockedDatum, onLockedDatumChange]);
 
   /* --- Combined mouse handlers (drag + proximity) --- */
 
@@ -348,31 +340,43 @@ const TimelineChartZoomed = memo(function TimelineChartZoomed({
         style={{ cursor }}
       >
         <defs>
-          <style>{HUD_KEYFRAMES}{`
+          <style>{`
             @keyframes star-appear {
               0%   { opacity: 0; transform: scale(0); }
               65%  { opacity: 1; transform: scale(1.12); }
               100% { opacity: 1; transform: scale(1); }
             }
           `}</style>
-          <GlowFilterDef id="timeline-glow" />
-          {stemGradientDefs}
           <clipPath id="timeline-data-clip">
             <rect x={0} y={0} width={innerWidth} height={innerHeight} />
           </clipPath>
+          {/* Stem gradients — userSpaceOnUse so they work on zero-width <line> elements */}
+          {/* y1 = baseline (bottom, full margin offset), y2 = top of chart area */}
+          <linearGradient id="stemGrad-lime" gradientUnits="userSpaceOnUse" x1="0" y1={margin.top + innerHeight} x2="0" y2={margin.top}>
+            <stop offset="0%" stopColor={chartTheme.colors.lime} stopOpacity={0.10} />
+            <stop offset="100%" stopColor={chartTheme.colors.lime} stopOpacity={1} />
+          </linearGradient>
+          <linearGradient id="stemGrad-opensea" gradientUnits="userSpaceOnUse" x1="0" y1={margin.top + innerHeight} x2="0" y2={margin.top}>
+            <stop offset="0%" stopColor="#6D5BFF" stopOpacity={0.10} />
+            <stop offset="100%" stopColor="#6D5BFF" stopOpacity={1} />
+          </linearGradient>
+          <linearGradient id="stemGrad-marketplace" gradientUnits="userSpaceOnUse" x1="0" y1={margin.top + innerHeight} x2="0" y2={margin.top}>
+            <stop offset="0%" stopColor="#FF9F43" stopOpacity={0.10} />
+            <stop offset="100%" stopColor="#FF9F43" stopOpacity={1} />
+          </linearGradient>
+          <linearGradient id="stemGrad-transfer" gradientUnits="userSpaceOnUse" x1="0" y1={margin.top + innerHeight} x2="0" y2={margin.top}>
+            <stop offset="0%" stopColor="#4CC9F0" stopOpacity={0.10} />
+            <stop offset="100%" stopColor="#4CC9F0" stopOpacity={1} />
+          </linearGradient>
+          <linearGradient id="stemGrad-unknown" gradientUnits="userSpaceOnUse" x1="0" y1={margin.top + innerHeight} x2="0" y2={margin.top}>
+            <stop offset="0%" stopColor="white" stopOpacity={0.06} />
+            <stop offset="100%" stopColor="white" stopOpacity={0.10} />
+          </linearGradient>
         </defs>
 
         <Group left={margin.left} top={margin.top}>
-          {/* Clipped data area — grid, baseline, dots, HUD overlay */}
+          {/* Clipped data area — baseline, dots, HUD overlay */}
           <g clipPath="url(#timeline-data-clip)">
-            {/* Grid */}
-            <GridColumns
-              scale={xScale}
-              height={innerHeight}
-              numTicks={Math.min(rangeDays < 3 ? 3 : 5, Math.floor(innerWidth / 80))}
-              stroke={chartTheme.colors.gridStrong}
-            />
-
             {/* Baseline */}
             <Line
               from={{ x: 0, y: innerHeight }}
@@ -381,15 +385,17 @@ const TimelineChartZoomed = memo(function TimelineChartZoomed({
               strokeWidth={1}
             />
 
-            {/* Data points */}
-            {data.map((d) => {
-              const cx = xScale(d.date);
-              const cy = yScale(d.costGun);
+            {/* Data points — lollipop chart */}
+            {data.map((d, i) => {
+              const cx = xScale(d.date) + jitterX(i);
+              const rawCy = yScale(d.costGun);
+              // Min stem height 4px even if dot sits near baseline
+              const cy = Math.min(rawCy, innerHeight - 4);
               const isLocked = lockedId === d.id;
               const color = venueColor(d.venue);
-              const gradientId = `stem-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
               const isNew = newIds.has(d.id);
               const staggerDelay = randomDelayMap.get(d.id) ?? 0;
+              const isLoss = d.pnlPct !== null && d.pnlPct < 0;
 
               return (
                 <g
@@ -399,46 +405,93 @@ const TimelineChartZoomed = memo(function TimelineChartZoomed({
                     transformOrigin: `${cx}px ${cy}px`,
                   } : undefined}
                 >
+                  {/* Stem — 1px gradient from baseline to dot */}
                   <line
                     x1={cx} y1={innerHeight} x2={cx} y2={cy}
-                    stroke={`url(#${gradientId})`}
-                    strokeWidth={isLocked ? 2 : 1.5}
+                    stroke={stemGradient(d.venue)}
+                    strokeWidth={1}
+                    strokeOpacity={isLocked ? 1 : 0.5}
                     pointerEvents="none"
-                    style={{ transition: 'stroke-width 200ms ease' }}
+                    style={{ transition: 'all 0.15s ease' }}
                   />
+                  {/* Dot — uniform r=5, scales to r=7 on hover */}
                   <circle
                     cx={cx} cy={cy}
-                    r={isLocked ? 12 : 7}
+                    r={isLocked ? 7 : 5}
                     fill={color}
-                    fillOpacity={isLocked ? 0.15 : 0.06}
+                    fillOpacity={isLocked ? 1 : 0.85}
+                    stroke={isLoss ? chartTheme.colors.loss : 'none'}
+                    strokeWidth={isLoss ? 1.5 : 0}
                     pointerEvents="none"
-                    style={{ transition: 'r 250ms ease, fill-opacity 250ms ease' }}
-                  />
-                  <Circle
-                    cx={cx} cy={cy}
-                    r={isLocked ? 5.5 : 4}
-                    fill={color}
-                    fillOpacity={isLocked ? 1 : 0.8}
-                    stroke={isLocked ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.12)'}
-                    strokeWidth={isLocked ? 1.5 : 0.5}
-                    filter={isLocked ? 'url(#timeline-glow)' : undefined}
-                    pointerEvents="none"
-                    data-dot=""
-                    style={{ transition: 'r 250ms ease, fill-opacity 250ms ease, stroke 250ms ease, stroke-width 250ms ease' }}
+                    style={{ transition: 'all 0.15s ease' }}
                   />
                 </g>
               );
             })}
 
-            {/* HUD lock-on overlay */}
-            {lockedId && lockedPoint && lockedDatum && (
-              <HudLockOverlay
-                point={lockedPoint}
-                color={venueColor(lockedDatum.venue)}
-                scanRadius={20}
-                lockRadius={14}
-                yExtent={innerHeight}
+            {/* Horizontal crosshair — from dot to Y-axis */}
+            {lockedId && lockedPoint && (
+              <line
+                x1={0} y1={lockedPoint.y}
+                x2={lockedPoint.x} y2={lockedPoint.y}
+                stroke="#888888"
+                strokeWidth={1}
+                strokeOpacity={0.4}
+                strokeDasharray="3 4"
+                pointerEvents="none"
               />
+            )}
+
+            {/* Hover tooltip */}
+            {lockedId && lockedPoint && lockedDatum && (
+              <foreignObject
+                x={0} y={0} width={innerWidth} height={innerHeight}
+                style={{ overflow: 'visible', pointerEvents: 'none' }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${lockedPoint.x}px`,
+                    top: `${Math.max(0, lockedPoint.y - 96)}px`,
+                    transform: `translateX(${lockedPoint.x > innerWidth - 140 ? '-100%' : lockedPoint.x < 140 ? '0%' : '-50%'})`,
+                    fontFamily: '"JetBrains Mono", monospace',
+                    fontSize: '10px',
+                    color: 'rgba(255,255,255,0.8)',
+                    whiteSpace: 'nowrap',
+                    background: 'var(--gs-dark-3, #1C1C1C)',
+                    padding: '6px 10px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    fontVariantNumeric: 'tabular-nums',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                  }}
+                >
+                  <span style={{ fontWeight: 700, fontSize: 11, color: 'white', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {lockedDatum.name}
+                  </span>
+                  <span style={{ color: venueColor(lockedDatum.venue), fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                    {venueLabel(lockedDatum.venue)}
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {formatGun(lockedDatum.costGun)} GUN
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {lockedDatum.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    ${lockedDatum.currentValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  {lockedDatum.pnlPct !== null && (
+                    <span style={{
+                      color: lockedDatum.pnlPct >= 0 ? chartTheme.colors.profit : chartTheme.colors.loss,
+                      fontWeight: 600,
+                    }}>
+                      {lockedDatum.pnlPct >= 0 ? '+' : ''}{lockedDatum.pnlPct.toFixed(1)}% P&amp;L
+                    </span>
+                  )}
+                </div>
+              </foreignObject>
             )}
           </g>
 
@@ -511,24 +564,33 @@ const TimelineChartZoomed = memo(function TimelineChartZoomed({
 
 export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomRef, onZoomChange }: AcquisitionTimelineProps) {
   const [expanded, setExpanded] = useState(false);
-  const [lockedDatum, setLockedDatum] = useState<TimelineDatum | null>(null);
 
   const chartMargin = embedded ? MARGIN_EMBEDDED : MARGIN;
 
   const timelineData = useMemo<TimelineDatum[]>(() => {
     return nfts
       .filter(nft => nft.purchasePriceGun != null && nft.purchasePriceGun > 0 && nft.purchaseDate)
-      .map(nft => ({
-        id: nft.tokenId,
-        name: nft.name,
-        date: new Date(nft.purchaseDate!),
-        costGun: nft.purchasePriceGun!,
-        venue: nft.acquisitionVenue ?? 'unknown',
-        quantity: nft.quantity ?? 1,
-        quality: nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '',
-      }))
+      .map(nft => {
+        const costGun = nft.purchasePriceGun!;
+        const exitGun = nft.marketExitGun;
+        const usdVal = exitGun != null && gunPrice ? exitGun * gunPrice : (costGun * (gunPrice ?? 0));
+        const pnlPct = exitGun != null && costGun > 0
+          ? ((exitGun - costGun) / costGun) * 100
+          : null;
+        return {
+          id: nft.tokenId,
+          name: nft.name,
+          date: new Date(nft.purchaseDate!),
+          costGun,
+          venue: nft.acquisitionVenue ?? 'unknown',
+          quantity: nft.quantity ?? 1,
+          quality: nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || '',
+          currentValueUsd: usdVal,
+          pnlPct,
+        };
+      })
       .sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [nfts]);
+  }, [nfts, gunPrice]);
 
   const venueCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -615,7 +677,7 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomRef,
                       height={chartHeight}
                       margin={chartMargin}
                       seenIdsRef={seenIdsRef}
-                      onLockedDatumChange={setLockedDatum}
+
                       onZoomChange={onZoomChange}
                       transformMatrix={zoom.transformMatrix}
                       isDragging={zoom.isDragging}
@@ -655,63 +717,6 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomRef,
             );
           })}
 
-          {lockedDatum && (() => {
-            const venueCol = venueColor(lockedDatum.venue);
-            const qualityCol = RARITY_COLORS[lockedDatum.quality] || '#888888';
-            return (
-              <div
-                className="ml-auto flex items-center gap-2.5 font-mono"
-                style={{
-                  fontSize: 11,
-                  background: 'rgba(255,255,255,0.03)',
-                  borderWidth: '1px 1px 1px 2px',
-                  borderStyle: 'solid',
-                  borderColor: `rgba(255,255,255,0.06) rgba(255,255,255,0.06) rgba(255,255,255,0.06) ${qualityCol}`,
-                  padding: '4px 10px',
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    maxWidth: 200,
-                    fontWeight: 700,
-                    fontSize: 12,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    color: 'white',
-                  }}
-                >
-                  {lockedDatum.name}
-                  {lockedDatum.quantity > 1 && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: 10 }}> &times;{lockedDatum.quantity}</span>}
-                </span>
-                <span style={{ display: 'inline-block', minWidth: 72, color: 'white', fontWeight: 600 }}>
-                  {formatGun(lockedDatum.costGun)} GUN
-                </span>
-                {gunPrice && gunPrice > 0 && (
-                  <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
-                    ${(lockedDatum.costGun * gunPrice).toFixed(2)}
-                  </span>
-                )}
-                <span
-                  style={{
-                    color: venueCol,
-                    fontSize: 9,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    fontWeight: 600,
-                    padding: '1px 5px',
-                    background: `${venueCol}15`,
-                  }}
-                >
-                  {venueLabel(lockedDatum.venue)}
-                </span>
-                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
-                  {lockedDatum.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
-                </span>
-              </div>
-            );
-          })()}
         </div>
       )}
     </div>

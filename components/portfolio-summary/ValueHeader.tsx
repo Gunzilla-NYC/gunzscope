@@ -1,11 +1,13 @@
 'use client';
 
+import { useMemo, useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { PortfolioCalcResult } from '@/lib/portfolio/calcPortfolio';
 import ConfidenceIndicator from '@/components/ui/ConfidenceIndicator';
 import { clipHex } from '@/lib/utils/styles';
+import type { SparklineDataPoint } from '@/components/charts/PortfolioSparkline';
 
-const BackdropChart = dynamic(() => import('@/components/charts/BackdropChart'), { ssr: false });
+const PortfolioSparkline = dynamic(() => import('@/components/charts/PortfolioSparkline'), { ssr: false });
 import { ChangeDisplay } from './types';
 
 interface ValueHeaderProps {
@@ -37,6 +39,52 @@ export function ValueHeader({
 }: ValueHeaderProps) {
   const hasSparkline = sparklineValues.length >= 2 && !isInitializing;
 
+  // Convert parallel arrays → SparklineDataPoint[] for PortfolioSparkline
+  const sparklineData: SparklineDataPoint[] = useMemo(() => {
+    if (sparklineValues.length < 2) return [];
+    const now = Date.now();
+    const spanMs = Math.max(sparklineSpanDays, 1) * 24 * 60 * 60 * 1000;
+    const len = sparklineValues.length;
+    return sparklineValues.map((value, i) => ({
+      timestamp: now - spanMs + (i / (len - 1)) * spanMs,
+      marketValue: value,
+      costBasis: costBasisValues?.[i] ?? value,
+    }));
+  }, [sparklineValues, costBasisValues, sparklineSpanDays]);
+
+  // ── Cost basis change notification ─────────────────────────────
+
+  const [showCbCallout, setShowCbCallout] = useState(false);
+  const preCbRef = useRef<number | null>(null);
+  const cbFiredRef = useRef(false);
+
+  // Capture the first non-zero costBasisTotal as the pre-enrichment baseline
+  useEffect(() => {
+    if (preCbRef.current === null && costBasisTotal != null && costBasisTotal > 0 && isEnriching) {
+      preCbRef.current = costBasisTotal;
+    }
+  }, [costBasisTotal, isEnriching]);
+
+  // When enrichment completes, compare to baseline
+  useEffect(() => {
+    if (cbFiredRef.current) return;
+    if (isEnriching || isInitializing) return;
+    const pre = preCbRef.current;
+    if (pre == null || pre <= 0 || costBasisTotal == null || costBasisTotal <= 0) return;
+    const diff = Math.abs(costBasisTotal - pre) / pre;
+    if (diff > 0.05) {
+      setShowCbCallout(true);
+      cbFiredRef.current = true;
+    }
+  }, [isEnriching, isInitializing, costBasisTotal]);
+
+  // Auto-dismiss after 8 seconds
+  useEffect(() => {
+    if (!showCbCallout) return;
+    const timer = setTimeout(() => setShowCbCallout(false), 8000);
+    return () => clearTimeout(timer);
+  }, [showCbCallout]);
+
   // 7d performance badge state
   const show7dBadge = walletAddress && !change7d.isCalculating && !isInitializing;
   const is7dUp = changePercent7d.text.startsWith('+') || (!changePercent7d.text.startsWith('-') && changePercent7d.text !== '0.0%');
@@ -51,13 +99,10 @@ export function ValueHeader({
           aria-hidden="true"
           style={{ maskImage: 'linear-gradient(to left, black 0%, black 70%, transparent 85%)', WebkitMaskImage: 'linear-gradient(to left, black 0%, black 70%, transparent 85%)' }}
         >
-          <BackdropChart
-            values={sparklineValues}
-            overlayValues={gunSparklineValues}
-            showOverlay={showGunOverlay}
-            costBasisValues={costBasisValues}
-            spanDays={sparklineSpanDays}
+          <PortfolioSparkline
+            data={sparklineData}
             height={140}
+            showTooltip
           />
         </div>
       )}
@@ -104,7 +149,7 @@ export function ValueHeader({
                     is7dUp
                       ? 'bg-[var(--gs-profit)]/8 border-[var(--gs-profit)]/20 text-[var(--gs-profit)]'
                       : is7dDown
-                      ? 'bg-[var(--gs-loss)]/8 border-[var(--gs-loss)]/20 text-[var(--gs-loss)]'
+                      ? 'bg-[#B44AFF]/8 border-[#B44AFF]/20 text-[#B44AFF]'
                       : 'bg-white/5 border-white/10 text-[var(--gs-gray-4)]'
                   }`}
                   style={{ clipPath: clipHex(4) }}
@@ -122,6 +167,27 @@ export function ValueHeader({
                   <span className="font-mono font-semibold">
                     <span className="opacity-50 mr-0.5">7d</span>{changePercent7d.text}
                   </span>
+                </div>
+              )}
+              {/* Cost basis change notification */}
+              {showCbCallout && (
+                <div
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 mt-1.5 border text-[11px] bg-[#FFAA00]/8 border-[#FFAA00]/20 text-[#FFAA00] pointer-events-auto"
+                  style={{ clipPath: clipHex(4) }}
+                >
+                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2.5a1 1 0 011 1v3a1 1 0 01-2 0v-3a1 1 0 011-1zm0 7a.75.75 0 100-1.5.75.75 0 000 1.5z" />
+                  </svg>
+                  <span className="font-mono">Cost basis updated after enrichment &mdash; P&amp;L recalculated</span>
+                  <button
+                    className="ml-1 opacity-60 hover:opacity-100 transition-opacity"
+                    onClick={() => setShowCbCallout(false)}
+                    aria-label="Dismiss"
+                  >
+                    <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                      <path d="M2 2l8 8M10 2l-8 8" />
+                    </svg>
+                  </button>
                 </div>
               )}
             </>
