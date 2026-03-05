@@ -111,10 +111,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                   <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
                   <GlitchLink href="/explore" label="Onchain Explorer" isActive={pathname === '/explore'} />
                   {hasWallet && (
-                    <>
-                      <ExperimentsDropdown pathname={pathname} leaderboardHref={leaderboardHref} />
-                      <GlitchLink href="/feature-requests" label="Requests" isActive={pathname === '/feature-requests'} />
-                    </>
+                    <ExperimentsDropdown pathname={pathname} leaderboardHref={leaderboardHref} />
                   )}
                 </>
               )}

@@ -4,6 +4,7 @@ import {
   bulkAddToWhitelist,
   removeFromWhitelist,
   listWhitelist,
+  listRemovedWhitelist,
 } from '@/lib/services/whitelistService';
 import { revokeWaitlistPromotion } from '@/lib/services/waitlistService';
 import { banAddress, unbanAddress, resetAddress, listBans } from '@/lib/services/banService';
@@ -36,8 +37,15 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get('page') ?? '1', 10);
   const limit = parseInt(searchParams.get('limit') ?? '50', 10);
 
-  if (searchParams.get('view') === 'banned') {
+  const view = searchParams.get('view');
+
+  if (view === 'banned') {
     const result = await listBans(page, limit);
+    return NextResponse.json(result);
+  }
+
+  if (view === 'removed') {
+    const result = await listRemovedWhitelist(page, limit);
     return NextResponse.json(result);
   }
 
