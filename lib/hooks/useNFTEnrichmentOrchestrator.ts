@@ -711,6 +711,15 @@ export function useNFTEnrichmentOrchestrator(
       });
 
       if (gen !== generationRef.current) return;
+
+      const cacheHits = nftsWithCache.filter(n => n.purchasePriceGun != null).length;
+      console.log('[Enrichment] Cache application phase', {
+        totalNfts: nfts.length,
+        cacheHits,
+        cacheMisses: nfts.length - cacheHits,
+        walletAddress,
+      });
+
       updateCallback(nftsWithCache);
       setEnrichedNFTs(nftsWithCache);
 

@@ -1,0 +1,90 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Enrichment Regression Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify required secrets
+        run: |
+          missing=()
+          [ -z "${{ secrets.OPENSEA_API_KEY }}" ] && missing+=("OPENSEA_API_KEY")
+          [ -z "${{ secrets.COINGECKO_API_KEY }}" ] && missing+=("COINGECKO_API_KEY")
+          [ -z "${{ secrets.DYNAMIC_ENVIRONMENT_ID }}" ] && missing+=("DYNAMIC_ENVIRONMENT_ID")
+          [ -z "${{ secrets.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID }}" ] && missing+=("NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID")
+          [ -z "${{ secrets.DATABASE_URL }}" ] && missing+=("DATABASE_URL")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "❌ Missing secrets: ${missing[*]}"
+            echo "Add these in: GitHub repo → Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "✅ All required secrets present"
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Start dev server
+        run: npm run dev &
+        env:
+          # Public RPC endpoints (non-sensitive defaults from .env.example)
+          AVALANCHE_RPC_URL: https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc
+          SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
+          # Contract addresses (public, not secrets)
+          NEXT_PUBLIC_GUN_TOKEN_AVALANCHE: '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB'
+          GUN_TOKEN_AVALANCHE: '0x26deBD39D5eD069770406FCa10A0E4f8d2c743eB'
+          GUN_TOKEN_SOLANA: 3jUf2RTyXp867piSB2dt8uUcNiLDW58asjGtXkRAkBbe
+          NFT_COLLECTION_AVALANCHE: '0x9ED98e159BE43a8d42b64053831FCAE5e4d7d271'
+          OTG_DECODER_CONTRACT: '0x1c695462A43103116C2d806f1895a17D270B270A'
+          OTG_MARKETPLACE_CONTRACT: '0x4c9B291874fB5363E3a46cD3BF4a352ffA26A124'
+          # Secrets — add these in GitHub repo Settings → Secrets → Actions
+          OPENSEA_API_KEY: ${{ secrets.OPENSEA_API_KEY }}
+          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
+          DYNAMIC_ENVIRONMENT_ID: ${{ secrets.DYNAMIC_ENVIRONMENT_ID }}
+          NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: ${{ secrets.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Wait for dev server
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 | grep -q "200"; then
+              echo "Dev server is ready"
+              exit 0
+            fi
+            echo "Waiting for dev server... ($i/30)"
+            sleep 2
+          done
+          echo "Dev server failed to start"
+          exit 1
+
+      - name: Run Playwright tests
+        run: npx playwright test --reporter=github
+        env:
+          CI: true
+
+      - name: Upload trace on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trace
+          path: test-results/
+          retention-days: 7

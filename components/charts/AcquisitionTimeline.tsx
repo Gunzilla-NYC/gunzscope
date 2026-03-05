@@ -592,6 +592,30 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomRef,
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [nfts, gunPrice]);
 
+  // Diagnostic: log excluded NFTs and compute coverage
+  const excludedCount = useMemo(() => {
+    const excluded = nfts.filter(nft => {
+      const hasDate = !!nft.purchaseDate;
+      const hasCost = nft.purchasePriceGun != null && nft.purchasePriceGun > 0;
+      return !(hasDate && hasCost);
+    });
+    if (excluded.length > 0) {
+      console.log(
+        `[AcquisitionTimeline] ${excluded.length} NFT(s) excluded:`,
+        excluded.map(nft => ({
+          id: nft.tokenId,
+          name: nft.name,
+          reason: !nft.purchaseDate
+            ? 'missing purchaseDate'
+            : nft.purchasePriceGun == null
+            ? 'null purchasePriceGun'
+            : 'purchasePriceGun <= 0',
+        })),
+      );
+    }
+    return excluded.length;
+  }, [nfts]);
+
   const venueCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const d of timelineData) {
@@ -716,7 +740,11 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomRef,
               </div>
             );
           })}
-
+          {excludedCount > 0 && (
+            <span className="font-mono text-[9px] text-[#888888] ml-auto tabular-nums">
+              Showing {timelineData.length} of {nfts.length} NFTs &middot; {excludedCount} missing dates
+            </span>
+          )}
         </div>
       )}
     </div>

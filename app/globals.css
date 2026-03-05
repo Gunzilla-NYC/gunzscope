@@ -662,6 +662,16 @@ body {
   border-radius: 2px;
 }
 
+/* Enrichment scan — bright highlight sweeping left-to-right over progress bar */
+@keyframes enrichment-scan {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 /* Loading bar animation for portfolio calculating state */
 @keyframes loading-bar {
   0% {

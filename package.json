@@ -1,6 +1,6 @@
 {
   "name": "gunzscope",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "license": "BUSL-1.1",
   "scripts": {
@@ -9,7 +9,11 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:enrichment": "playwright test tests/enrichment-merge.spec.ts",
+    "test:enrichment:headed": "playwright test tests/enrichment-merge.spec.ts --headed",
+    "test:enrichment:trace": "playwright test tests/enrichment-merge.spec.ts --trace on",
+    "test:ci": "playwright test --reporter=github"
   },
   "dependencies": {
     "@autonomys/auto-drive": "^1.6.9",

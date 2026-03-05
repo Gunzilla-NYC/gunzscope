@@ -14,7 +14,7 @@ const NFTGallery = dynamic(() => import('@/components/NFTGallery'), {
     </div>
   ),
 });
-import { WalletData, NFTPaginationInfo } from '@/lib/types';
+import { WalletData, NFTPaginationInfo, NFT } from '@/lib/types';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import type { NetworkInfo } from '@/lib/utils/networkDetector';
 import { mergeIntoGroups } from '@/lib/utils/nftGrouping';
@@ -53,7 +53,7 @@ import { useReferralTracking } from '@/lib/hooks/useReferralTracking';
 import { applyValuationTables, RarityFloorsData, ComparableSalesData } from '@/lib/portfolio/applyValuationTables';
 import type { MarketReferencePriceData } from '@/lib/types';
 import { usePortfolioCache } from '@/lib/hooks/usePortfolioCache';
-import { seedLocalCacheFromNFTs, invalidateListingPrices } from '@/lib/utils/nftCache';
+import { seedLocalCacheFromNFTs, invalidateListingPrices, getCachedNFT } from '@/lib/utils/nftCache';
 import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
 import { useChartMilestoneGating } from '@/lib/hooks/useChartMilestoneGating';
 import { usePortfolioSnapshot } from '@/lib/hooks/usePortfolioSnapshot';
@@ -91,6 +91,73 @@ export default function PortfolioClient() {
       <PortfolioContent />
     </Suspense>
   );
+}
+
+// =============================================================================
+// Enrichment Cache Merge
+// =============================================================================
+
+/** Enrichment fields to merge from localStorage cache onto fresh NFTs.
+ *  Only these keys are carried over — fresh data wins for everything else. */
+const ENRICHMENT_FIELDS = [
+  'purchasePriceGun',
+  'purchasePriceUsd',
+  'purchasePriceUsdEstimated',
+  'purchaseDate',
+  'transferredFrom',
+  'isFreeTransfer',
+  'transferType',
+  'acquisitionVenue',
+  'acquisitionTxHash',
+  'currentLowestListing',
+  'currentHighestListing',
+] as const;
+
+/** Stale threshold for enrichment merge — entries older than 72h are dropped.
+ *  Must match DEFAULT_TTL_SECONDS in nftCache.ts */
+const ENRICHMENT_STALE_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * Merge localStorage-cached enrichment fields into freshly fetched NFTs.
+ * Prevents the "flash of zeros" between live fetch and enrichment re-hydration.
+ */
+function mergeEnrichmentFromCache(
+  nfts: NFT[],
+  walletAddress: string,
+): { merged: NFT[]; mergedCount: number } {
+  let mergedCount = 0;
+
+  const merged = nfts.map(nft => {
+    const primaryTokenId = nft.tokenIds?.[0] || nft.tokenId;
+    const cached = getCachedNFT(walletAddress, primaryTokenId);
+    if (!cached) return nft;
+
+    // Only apply if cache entry has a timestamp and is < 72h old
+    if (!cached.cachedAtIso) return nft;
+    const age = Date.now() - new Date(cached.cachedAtIso).getTime();
+    if (age > ENRICHMENT_STALE_MS) return nft;
+
+    // Surgically copy only enrichment fields
+    const patch: Record<string, unknown> = {};
+    for (const field of ENRICHMENT_FIELDS) {
+      const value = cached[field as keyof typeof cached];
+      if (value !== undefined) {
+        if (field === 'purchaseDate' && typeof value === 'string') {
+          patch[field] = new Date(value);
+        } else {
+          patch[field] = value;
+        }
+      }
+    }
+
+    if (Object.keys(patch).length > 0) {
+      mergedCount++;
+      return { ...nft, ...patch };
+    }
+    return nft;
+  });
+
+  return { merged, mergedCount };
 }
 
 // Hardcoded — we always target GunzChain mainnet
@@ -398,6 +465,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   }, [nftPagination.hasMore, nftPagination.isLoadingMore, activeWalletData, handleLoadMoreNFTs]);
 
   const handleWalletSubmit = async (address: string, _chain: 'avalanche' | 'solana') => {
+    console.log('[PortfolioClient] handleWalletSubmit', {
+      walletAddress: address,
+      cachedStateFound: loadedFromCache,
+      isAuthenticated,
+      fetchingFresh: true,
+    });
+
     // Increment request ID — any in-flight fetch from a previous call becomes stale
     const thisRequestId = ++walletRequestIdRef.current;
 
@@ -437,6 +511,12 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         // Seed localStorage from server-cached enriched NFTs so the
         // enrichment orchestrator skips RPC re-scans for already-enriched items
         seedLocalCacheFromNFTs(address, cached.walletData.avalanche.nfts);
+
+        console.log('[PortfolioClient] Cache hydrated from server', {
+          nftCount: sanitizedNfts.length,
+          enrichedCount: sanitizedNfts.filter(n => n.purchasePriceGun != null).length,
+          savedAt: cached.savedAt ?? 'unknown',
+        });
 
         // Continue to live fetch below — don't return
       }
@@ -489,11 +569,28 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         throw new Error('Failed to fetch any wallet data');
       }
 
-      // Store each wallet separately in walletMap
+      // Store each wallet separately in walletMap, merging cached enrichment
+      // fields to prevent the "flash of zeros" between live fetch and enrichment.
       const newMap: Record<string, WalletData> = {};
+      let totalMerged = 0;
       for (const r of successfulResults) {
-        newMap[r.walletData.address.toLowerCase()] = r.walletData;
+        const addrKey = r.walletData.address.toLowerCase();
+        const { merged, mergedCount } = mergeEnrichmentFromCache(
+          r.walletData.avalanche.nfts,
+          addrKey,
+        );
+        totalMerged += mergedCount;
+        newMap[addrKey] = {
+          ...r.walletData,
+          avalanche: { ...r.walletData.avalanche, nfts: merged },
+        };
       }
+      console.log('[PortfolioClient] Live fetch complete — walletMap set with enrichment merge', {
+        walletAddress: address,
+        freshNftCount: newMap[address.toLowerCase()]?.avalanche?.nfts?.length ?? 0,
+        enrichedFieldsMerged: totalMerged,
+        enrichedFieldsLost: 0,
+      });
       setWalletMap(newMap);
       setActiveWalletAddress(address);
 
