@@ -1,4 +1,4 @@
-name: Tweet on Update
+name: Draft Tweet Thread
 
 on:
   push:
@@ -16,13 +16,35 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Compose tweet preview
+      - name: Draft tweet thread
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           TWEET_JSON=$(node scripts/compose-tweet.mjs)
-          TWEET_TEXT=$(echo "$TWEET_JSON" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).text))")
-          echo "### Tweet Preview" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "$TWEET_TEXT" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          VERSION=$(echo "$TWEET_JSON" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).version))")
+          TITLE=$(echo "$TWEET_JSON" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).title))")
+
+          echo "### Tweet Thread Draft — ${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$TITLE" ]; then
+            echo "_${TITLE}_" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**To post this tweet:** Go to Actions → **Post Tweet** → Run workflow" >> "$GITHUB_STEP_SUMMARY"
+
+          # Parse and display each tweet in the thread
+          echo "$TWEET_JSON" | node -e "
+            const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+            const thread = d.thread || [d.text];
+            thread.forEach((t, i) => {
+              console.log('**Tweet ' + (i+1) + '/' + thread.length + '** (' + t.length + '/280 chars)');
+              console.log('');
+              console.log('> ' + t.replace(/\n/g, '\n> '));
+              console.log('');
+            });
+          " >> "$GITHUB_STEP_SUMMARY"
+
+          echo "---" >> "$GITHUB_STEP_SUMMARY"
+          echo "**To post:** Actions → **Post Tweet Thread** → Run workflow" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠ No ANTHROPIC_API_KEY — using fallback formatting. Add the secret for Claude-drafted threads." >> "$GITHUB_STEP_SUMMARY"
+          fi

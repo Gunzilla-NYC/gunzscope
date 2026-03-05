@@ -1,7 +1,7 @@
 /**
- * Post Tweet via Twitter API v2
+ * Post Tweet Thread via Twitter API v2
  *
- * Uses OAuth 1.0a User Context to post a tweet.
+ * Uses OAuth 1.0a User Context to post a thread (reply chain).
  * No external dependencies — uses Node.js built-in crypto.
  *
  * Required env vars:
@@ -10,9 +10,13 @@
  *   TWITTER_ACCESS_TOKEN     — Access Token
  *   TWITTER_ACCESS_SECRET    — Access Token Secret
  *
+ * Input (stdin): JSON with either:
+ *   { thread: ["tweet1", "tweet2", ...] }   — threaded reply chain
+ *   { text: "single tweet" }                — legacy single tweet
+ *
  * Usage:
- *   echo '{"text":"Hello world"}' | node scripts/post-tweet.mjs
- *   node scripts/post-tweet.mjs --dry-run < tweet.json
+ *   echo '{"thread":["1/ hello","2/ world"]}' | node scripts/post-tweet.mjs
+ *   node scripts/post-tweet.mjs --dry-run < thread.json
  */
 
 import { createHmac, randomBytes } from 'crypto';
@@ -37,7 +41,6 @@ function buildOAuthHeader({ method, url, consumerKey, consumerSecret, token, tok
     oauth_version: '1.0',
   };
 
-  // Build signature base string
   const paramString = Object.keys(oauthParams)
     .sort()
     .map(k => `${percentEncode(k)}=${percentEncode(oauthParams[k])}`)
@@ -61,27 +64,78 @@ function buildOAuthHeader({ method, url, consumerKey, consumerSecret, token, tok
   return header;
 }
 
+// ── Post a single tweet (optionally as a reply) ─────────────────────
+
+async function postTweet(text, replyToId = null) {
+  const { TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET } = process.env;
+
+  const authHeader = buildOAuthHeader({
+    method: 'POST',
+    url: TWITTER_API_URL,
+    consumerKey: TWITTER_API_KEY,
+    consumerSecret: TWITTER_API_SECRET,
+    token: TWITTER_ACCESS_TOKEN,
+    tokenSecret: TWITTER_ACCESS_SECRET,
+  });
+
+  const body = { text };
+  if (replyToId) {
+    body.reply = { in_reply_to_tweet_id: replyToId };
+  }
+
+  const response = await fetch(TWITTER_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Twitter API error (${response.status}): ${JSON.stringify(data)}`);
+  }
+
+  return data;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
 const isDryRun = process.argv.includes('--dry-run');
 
-// Read tweet JSON from stdin
+// Read JSON from stdin
 const chunks = [];
 for await (const chunk of process.stdin) chunks.push(chunk);
 const input = JSON.parse(Buffer.concat(chunks).toString());
 
-if (!input.text) {
+// Normalize to thread array
+const thread = input.thread || [input.text];
+
+if (!thread.length || !thread[0]) {
   console.error('Error: No tweet text provided');
   process.exit(1);
 }
 
-console.error(`Tweet (${input.text.length}/280 chars):`);
-console.error(input.text);
+// Validate all tweets
+for (let i = 0; i < thread.length; i++) {
+  if (thread[i].length > 280) {
+    console.error(`Error: Tweet ${i + 1} exceeds 280 chars (${thread[i].length})`);
+    process.exit(1);
+  }
+}
+
+// Preview
+console.error(`Thread (${thread.length} tweets):`);
+thread.forEach((t, i) => {
+  console.error(`  [${i + 1}/${thread.length}] (${t.length}/280) ${t.slice(0, 80)}${t.length > 80 ? '...' : ''}`);
+});
 console.error('---');
 
 if (isDryRun) {
-  console.error('[DRY RUN] Would post the above tweet.');
-  console.log(JSON.stringify({ dry_run: true, text: input.text }));
+  console.error('[DRY RUN] Would post the above thread.');
+  console.log(JSON.stringify({ dry_run: true, thread }));
   process.exit(0);
 }
 
@@ -94,31 +148,21 @@ if (!TWITTER_API_KEY || !TWITTER_API_SECRET || !TWITTER_ACCESS_TOKEN || !TWITTER
   process.exit(1);
 }
 
-const authHeader = buildOAuthHeader({
-  method: 'POST',
-  url: TWITTER_API_URL,
-  consumerKey: TWITTER_API_KEY,
-  consumerSecret: TWITTER_API_SECRET,
-  token: TWITTER_ACCESS_TOKEN,
-  tokenSecret: TWITTER_ACCESS_SECRET,
-});
+// Post thread as reply chain
+const posted = [];
+let lastId = null;
 
-const response = await fetch(TWITTER_API_URL, {
-  method: 'POST',
-  headers: {
-    'Authorization': authHeader,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({ text: input.text }),
-});
+for (let i = 0; i < thread.length; i++) {
+  const result = await postTweet(thread[i], lastId);
+  lastId = result.data?.id;
+  posted.push({ index: i + 1, id: lastId, text: thread[i] });
+  console.error(`  Posted ${i + 1}/${thread.length} (ID: ${lastId})`);
 
-const body = await response.json();
-
-if (!response.ok) {
-  console.error(`Twitter API error (${response.status}):`);
-  console.error(JSON.stringify(body, null, 2));
-  process.exit(1);
+  // Small delay between tweets to avoid rate limits
+  if (i < thread.length - 1) {
+    await new Promise(r => setTimeout(r, 1000));
+  }
 }
 
-console.error(`Tweet posted! ID: ${body.data?.id}`);
-console.log(JSON.stringify(body));
+console.error(`Thread posted! First tweet ID: ${posted[0].id}`);
+console.log(JSON.stringify({ thread: posted }));

@@ -1,16 +1,17 @@
 /**
- * Compose Tweet from Latest Update
+ * Compose Tweet Thread from Latest Update
  *
  * Reads lib/data/updates.ts, extracts the latest entry (tag: 'current'),
- * and outputs a tweet-ready string to stdout.
+ * and generates a tweet thread.
  *
- * Features:
- * - Unicode bold for key terms (Off The Grid, GUNZscope vX.X.X)
- * - Relevant ecosystem account tags
- * - Auto-formats from updates.ts data
+ * If ANTHROPIC_API_KEY is set, uses Claude to draft a punchy thread
+ * matching GUNZscope's voice (dry sarcasm, no emoji, no corporate speak).
+ * Otherwise, falls back to a simple chunked format.
  *
  * Usage: node scripts/compose-tweet.mjs
- * Output: JSON { text: "...", version: "...", title: "..." }
+ * Output: JSON { thread: ["tweet1", "tweet2", ...], version, title }
+ *
+ * Legacy compat: also outputs { text } with the full thread joined by \n---\n
  */
 
 import { readFileSync } from 'fs';
@@ -20,73 +21,6 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const updatesPath = resolve(__dirname, '../lib/data/updates.ts');
 const source = readFileSync(updatesPath, 'utf-8');
-
-// ── Unicode Bold Mapping ─────────────────────────────────────────
-// Twitter doesn't support markdown — use Mathematical Bold Unicode
-const BOLD_MAP = {};
-'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.split('').forEach((c, i) => {
-  if (i < 26) BOLD_MAP[c] = String.fromCodePoint(0x1D400 + i);           // A-Z
-  else if (i < 52) BOLD_MAP[c] = String.fromCodePoint(0x1D41A + (i - 26)); // a-z
-  else BOLD_MAP[c] = String.fromCodePoint(0x1D7CE + (i - 52));            // 0-9
-});
-BOLD_MAP[' '] = ' ';
-BOLD_MAP['.'] = '.';
-BOLD_MAP['-'] = '-';
-BOLD_MAP['\u2011'] = '\u2011'; // non-breaking hyphen
-
-function toBold(str) {
-  return str.split('').map(c => BOLD_MAP[c] || c).join('');
-}
-
-// Terms to auto-bold in tweet text
-const BOLD_TERMS = [
-  'Off The Grid',
-  'Off\u2011The\u2011Grid',
-  'GUNZscope',
-  'Avalanche',
-  'GunzChain',
-  'C-Chain',
-  'C\u2011Chain',
-  'on-chain',
-  'on\u2011chain',
-];
-
-function applyBold(text, version) {
-  let result = text;
-  // Bold the version string (e.g., "GUNZscope v0.4.4")
-  const versionPattern = `GUNZscope ${version}`;
-  if (result.includes(versionPattern)) {
-    result = result.replace(versionPattern, toBold(versionPattern));
-  } else {
-    // Bold version alone if combined form not found
-    result = result.replace(version, toBold(version));
-    // Bold GUNZscope separately
-    result = result.replace(/GUNZscope/g, toBold('GUNZscope'));
-  }
-  // Bold key terms (longest first to avoid partial matches)
-  for (const term of BOLD_TERMS.sort((a, b) => b.length - a.length)) {
-    // Skip if already bolded (contains bold chars)
-    result = result.split(term).join(toBold(term));
-  }
-  return result;
-}
-
-// ── Ecosystem Accounts ───────────────────────────────────────────
-// Tagged contextually based on tweet content
-const ACCOUNT_TAGS = [
-  { handle: '@playoffthegrid', keywords: ['Off The Grid', 'OTG', 'game'] },
-  { handle: '@GunzillaGames', keywords: ['Off The Grid', 'OTG', 'game', 'NFT'] },
-  { handle: '@GUNbyGUNZ', keywords: ['GUN', 'token', 'price', 'market'] },
-  { handle: '@AvalancheFDN', keywords: ['Avalanche', 'C-Chain', 'on-chain', 'attestation'] },
-  { handle: '@solanagaming', keywords: ['Solana', 'multi-chain'] },
-];
-
-function getRelevantTags(text) {
-  const lower = text.toLowerCase();
-  return ACCOUNT_TAGS
-    .filter(t => t.keywords.some(kw => lower.includes(kw.toLowerCase())))
-    .map(t => t.handle);
-}
 
 // ── Parse updates.ts ─────────────────────────────────────────────
 const entryRegex = /\{\s*version:\s*'([^']+)',\s*date:\s*'([^']+)',\s*(?:tag:\s*'([^']*)',\s*)?(?:title:\s*'([^']*)',\s*)?items:\s*\[([\s\S]*?)\],?\s*\}/g;
@@ -119,48 +53,110 @@ if (!latestEntry) {
   process.exit(1);
 }
 
-// ── Compose Tweet ────────────────────────────────────────────────
-const { version, title, items } = latestEntry;
-const site = 'https://gunzscope.xyz';
+// ── Claude API Thread Generation ────────────────────────────────
+async function generateThreadWithClaude(entry) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
 
-let tweet = '';
+  const prompt = `You are the social media voice for GUNZscope, a multi-chain portfolio tracker for the Off The Grid gaming ecosystem.
 
-if (title) {
-  tweet += `${title}\n\n`;
+Voice rules:
+- Dry sarcasm, deadpan humor. Self-deprecating about bugs.
+- Direct second-person ("your", "you"), never "users can now"
+- No emoji. No exclamation marks (except sarcastic). No corporate speak.
+- Short punchy sentences. Sentence fragments OK.
+- Plain English — no jargon like "middleware", "JWT", "soft delete"
+- Reference @playoffthegrid or @GunzillaGames naturally when relevant
+- End the thread with a link to https://gunzscope.xyz
+
+Here is the latest update entry:
+
+Version: ${entry.version}
+Title: ${entry.title || '(no title)'}
+Date: ${entry.date}
+
+Items:
+${entry.items.map((item, i) => `${i + 1}. ${item}`).join('\n')}
+
+Write a Twitter/X thread of 4-5 tweets. Each tweet must be under 280 characters. Number them like "1/" at the start. The first tweet should hook — lead with the title or a punchy one-liner, not the version number. The last tweet should include the URL and optionally tag relevant accounts.
+
+Return ONLY the tweets, one per line, separated by blank lines. No markdown, no labels, no explanations.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`Claude API error (${res.status}): ${err}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text;
+    if (!text) return null;
+
+    // Parse tweets — split by blank lines, filter empty
+    const tweets = text
+      .split(/\n\s*\n/)
+      .map(t => t.trim())
+      .filter(t => t.length > 0 && t.length <= 280);
+
+    if (tweets.length < 2) return null;
+    return tweets;
+  } catch (err) {
+    console.error(`Claude API call failed: ${err.message}`);
+    return null;
+  }
 }
 
-tweet += `${toBold(`GUNZscope ${version}`)} \u2014 `;
+// ── Fallback: Simple Chunked Thread ─────────────────────────────
+function generateFallbackThread(entry) {
+  const { version, title, items } = entry;
+  const site = 'https://gunzscope.xyz';
+  const tweets = [];
 
-// Add first item's first sentence as the description
-if (items.length > 0) {
-  const firstSentence = items[0].split(/(?<=[.!?])\s/)[0];
-  const trimmed = firstSentence.length > 140
-    ? firstSentence.slice(0, 137) + '...'
-    : firstSentence;
-  tweet += trimmed;
+  // Tweet 1: hook
+  const hook = title
+    ? `1/ ${version} \u2014 ${title}`
+    : `1/ ${version} is live.`;
+  tweets.push(hook);
+
+  // Middle tweets: one per item, truncated to 280
+  items.forEach((item, i) => {
+    const prefix = `${i + 2}/ `;
+    const firstSentence = item.split(/(?<=[.!?])\s/)[0];
+    const maxLen = 280 - prefix.length;
+    const body = firstSentence.length > maxLen
+      ? firstSentence.slice(0, maxLen - 3) + '...'
+      : firstSentence;
+    tweets.push(`${prefix}${body}`);
+  });
+
+  // Final tweet: CTA
+  tweets.push(`${tweets.length + 1}/ ${site}`);
+
+  return tweets;
 }
 
-// Add relevant account tags
-const allText = `${title || ''} ${items.join(' ')}`;
-const tags = getRelevantTags(allText);
-if (tags.length > 0) {
-  tweet += `\n\n${tags.join(' ')}`;
-}
+// ── Main ────────────────────────────────────────────────────────
+const claudeThread = await generateThreadWithClaude(latestEntry);
+const thread = claudeThread || generateFallbackThread(latestEntry);
 
-tweet += `\n\n${site}`;
-
-// Apply bold formatting to the body (not to @handles or URLs)
-// We bold the title and description parts, tags/URL stay plain
-const lines = tweet.split('\n');
-const formatted = lines.map(line => {
-  // Don't bold lines that are URLs or @mentions
-  if (line.startsWith('http') || line.startsWith('@')) return line;
-  return applyBold(line, version);
-}).join('\n');
-
-// Final safety: Twitter counts t.co URLs as 23 chars
 const output = {
-  text: formatted,
+  thread,
+  text: thread.join('\n\n---\n\n'), // legacy compat for single-post workflows
   version: latestEntry.version,
   title: latestEntry.title || '',
 };

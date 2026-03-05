@@ -21,9 +21,24 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.7.0',
+    version: 'v0.7.1',
     date: 'Mar 5, 2026',
     tag: 'current',
+    items: [
+      'Server\u2011side whitelist enforcement \u2014 middleware.ts verifies Bearer JWT (API routes) and gs_session cookie (page routes) against whitelist_entries via checkWhitelistEdge() on every request; 7 page routes + 26 API routes in matcher',
+      'Session cookie (gs_session) \u2014 lib/auth/sessionCookie.ts creates HS256\u2011signed JWT via jose SignJWT; set by /api/access/validate on 3 success paths (permanent, trial, promoted); cleared by /api/auth/logout POST; 7\u2011day maxAge, httpOnly + Secure + SameSite=Strict',
+      'Soft delete for whitelist \u2014 WhitelistEntry.isActive column; removeFromWhitelist() sets isActive=false instead of DELETE; banService.ts fixed to use update() not delete(); addToWhitelist() upserts with isActive=true for re\u2011activation',
+      'whitelistService.edge.ts \u2014 Edge\u2011compatible whitelist check via @neondatabase/serverless HTTP queries; predicate: isActive=true AND (expiresAt IS NULL OR expiresAt > NOW())',
+      'useAutoLogin whitelist pre\u2011check \u2014 calls /api/access/validate before /api/me; non\u2011whitelisted wallets get handleLogOut() immediately, preventing ghost profile creation',
+      'promoteFromWaitlist() fix \u2014 upsert update clause now sets isActive: true (survives prior admin soft\u2011delete)',
+      'KonamiOverlay trial\u2011expired UX \u2014 parses trialExpired from /api/access/konami 403 response; shows "Trial already used" instead of generic error',
+      'Navbar + WalletButton disconnect \u2014 fire\u2011and\u2011forget fetch("/api/auth/logout") before handleLogOut()',
+      'Ghost profile cleanup \u2014 4 zero\u2011engagement UserProfile rows deleted; Digital Panoply whitelisted via direct DB upsert',
+    ],
+  },
+  {
+    version: 'v0.7.0',
+    date: 'Mar 5, 2026',
     items: [
       'Portfolio Pins \u2014 FavoriteButton wired onto NFTGalleryGridCard image overlay (bottom\u2011right, opacity\u20110 group\u2011hover:opacity\u2011100); PinButton component reads useUserProfile().favorites, PATCH /api/favorites/[id] toggles pinned; useNFTGalleryFilters partitions by pinnedRefIds Set, floats pinned to top preserving sort order within each group',
       'isOwnPortfolio prop threaded NFTGalleryProps \u2192 NFTGalleryInner \u2192 NFTGalleryGridCard; computed in PortfolioClient via connectedWallets.includes(activeWalletData.address.toLowerCase())',
