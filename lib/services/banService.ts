@@ -46,7 +46,7 @@ export async function banAddress(
 
     // Remove from whitelist if present
     try {
-      await tx.whitelistEntry.delete({ where: { address: normalized } });
+      await tx.whitelistEntry.update({ where: { address: normalized }, data: { isActive: false } });
     } catch {
       // Not whitelisted — fine
     }
@@ -84,7 +84,7 @@ export async function resetAddress(address: string): Promise<void> {
 
   // Remove from whitelist if present
   try {
-    await prisma.whitelistEntry.delete({ where: { address: normalized } });
+    await prisma.whitelistEntry.update({ where: { address: normalized }, data: { isActive: false } });
   } catch {
     // Not whitelisted — fine
   }
