@@ -4,6 +4,7 @@ import { getWhitelistStatus } from '@/lib/services/whitelistService';
 import { isBanned } from '@/lib/services/banService';
 import { joinWaitlist, getWaitlistStatus, bumpExpiredTrialThreshold, BannedError } from '@/lib/services/waitlistService';
 import { claimCustomSlug } from '@/lib/services/referralService';
+import { createSessionCookie } from '@/lib/auth/sessionCookie';
 
 /**
  * POST /api/access/validate
@@ -48,16 +49,22 @@ export async function POST(request: NextRequest) {
 
     if (wlStatus.status === 'permanent') {
       console.info(`[ACCESS] WHITELISTED | id="${identifier}" | ip=${ip} | ${new Date().toISOString()}`);
-      return NextResponse.json({ success: true });
+      const response = NextResponse.json({ success: true });
+      const cookie = await createSessionCookie(identifier);
+      response.cookies.set(cookie.name, cookie.value, cookie.options as Parameters<typeof response.cookies.set>[2]);
+      return response;
     }
 
     if (wlStatus.status === 'trial') {
       console.info(`[ACCESS] TRIAL | id="${identifier}" | expires=${wlStatus.expiresAt?.toISOString()} | ip=${ip} | ${new Date().toISOString()}`);
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         trial: true,
         expiresAt: wlStatus.expiresAt?.toISOString(),
       });
+      const cookie = await createSessionCookie(identifier);
+      response.cookies.set(cookie.name, cookie.value, cookie.options as Parameters<typeof response.cookies.set>[2]);
+      return response;
     }
 
     if (wlStatus.status === 'expired') {
@@ -77,7 +84,10 @@ export async function POST(request: NextRequest) {
     // 3. If they were just promoted (race: promoted between whitelist check and here)
     if (entry.status === 'promoted' || entry.status === 'manual_promoted') {
       console.info(`[ACCESS] WAITLIST PROMOTED | id="${identifier}" | ip=${ip} | ${new Date().toISOString()}`);
-      return NextResponse.json({ success: true });
+      const response = NextResponse.json({ success: true });
+      const cookie = await createSessionCookie(identifier);
+      response.cookies.set(cookie.name, cookie.value, cookie.options as Parameters<typeof response.cookies.set>[2]);
+      return response;
     }
 
     // 4. Claim custom handle if provided (best-effort — don't fail the join)

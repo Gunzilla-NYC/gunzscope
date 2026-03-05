@@ -9,7 +9,10 @@
  * 5. Block with 401/403 if invalid or not whitelisted
  *
  * No token → pass through (route handler decides if auth is required).
- * Page routes can't be checked (JWT is in localStorage, not cookies).
+ *
+ * Page routes are protected via gs_session cookie (set by /api/access/validate).
+ * Whitelist removal (soft delete) takes effect on next page navigation —
+ * middleware re-validates against the DB on every page route request.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -72,6 +75,41 @@ function extractIdentifier(payload: JWTPayload): string | null {
 // ---------------------------------------------------------------------------
 
 export async function middleware(request: NextRequest) {
+  const isPageRoute = !request.nextUrl.pathname.startsWith('/api/');
+
+  // -----------------------------------------------------------------------
+  // Page routes — cookie-based whitelist check (gs_session)
+  // -----------------------------------------------------------------------
+  if (isPageRoute) {
+    const sessionToken = request.cookies.get('gs_session')?.value;
+    if (!sessionToken) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    const sessionSecret = process.env.SESSION_SECRET;
+    if (!sessionSecret) {
+      // SESSION_SECRET not configured — fail open (let page load)
+      return NextResponse.next();
+    }
+
+    try {
+      const secret = new TextEncoder().encode(sessionSecret);
+      const { payload } = await jwtVerify(sessionToken, secret);
+      const wallet = payload.wallet as string;
+      if (!wallet || !(await checkWhitelistEdge(wallet))) {
+        return NextResponse.redirect(new URL('/waitlist', request.url));
+      }
+      return NextResponse.next();
+    } catch {
+      // Invalid or expired cookie — redirect to home
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // API routes — Bearer token whitelist check (existing logic)
+  // -----------------------------------------------------------------------
+
   // No JWKS = no Dynamic environment configured → pass through
   if (!JWKS) return NextResponse.next();
 
@@ -123,6 +161,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // Page routes (cookie-based whitelist check)
+    '/portfolio',
+    '/account',
+    '/feature-requests',
+    '/leaderboard',
+    '/scarcity',
+    '/market',
+    '/explore',
+
     // User profile
     '/api/me',
     '/api/me/:path*',
