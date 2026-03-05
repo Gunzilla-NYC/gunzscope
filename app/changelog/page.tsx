@@ -21,9 +21,28 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v1.1.0',
+    date: 'Mar 5, 2026',
+    tag: 'current',
+    items: [
+      'Portfolio Pins \u2014 FavoriteButton wired onto NFTGalleryGridCard image overlay (bottom\u2011right, opacity\u20110 group\u2011hover:opacity\u2011100); PinButton component reads useUserProfile().favorites, PATCH /api/favorites/[id] toggles pinned; useNFTGalleryFilters partitions by pinnedRefIds Set, floats pinned to top preserving sort order within each group',
+      'isOwnPortfolio prop threaded NFTGalleryProps \u2192 NFTGalleryInner \u2192 NFTGalleryGridCard; computed in PortfolioClient via connectedWallets.includes(activeWalletData.address.toLowerCase())',
+      'Wishlist model \u2014 FavoriteItem extended with externalContract, externalTokenId, externalChain (String?), lastKnownValue (Float?), lastValueAt (DateTime?); type union includes "wishlist"',
+      'GET /api/favorites \u2014 listFavorites() splits by type !== "wishlist" vs type === "wishlist", returns { favorites, wishlist }',
+      'GET /api/favorites/refresh\u2011wishlist \u2014 updates lastValueAt for all wishlist items',
+      'AccountPanel Wishlist tab \u2014 TabId union extended; wishlistItems/favoriteItems computed from profile.favorites.filter(); star icon, lastKnownValue GUN display, lastValueAt date',
+      'Admin Users tab \u2014 listUsers() in userService with Prisma OR search (displayName, email, wallet address); GET /api/admin/users with verifyAdmin + isWhitelisted cross\u2011reference; UsersTools component with debounced search, 7\u2011column grid, whitelist dot indicator',
+      'Feature Requests GlitchLink in desktop navbar \u2014 gated behind hasWallet, positioned after ExperimentsDropdown',
+      'useUserProfile \u2014 togglePin() action with optimistic update; FavoriteItem interface gains pinned: boolean + wishlist fields; AddFavoriteInput gains optional externalContract/externalTokenId/externalChain',
+      'addFavorite() return type includes pinned: boolean; upsert create/update now persists wishlist fields',
+      'Display name fallback \u2014 UsersTools, ShareLeaderboard, admin shares page now show truncateAddress(primaryWallet) instead of raw email or "Anonymous"',
+      'shareService getShareLeaderboard() includes primaryWallet via wallets relation (orderBy isPrimary desc, take 1)',
+      'Duplicate cryptohaki UserProfile cleaned via raw SQL script (scripts/cleanup\u2011duplicate\u2011user.ts) with correct FK column mapping per table',
+    ],
+  },
+  {
     version: 'v0.5.4',
     date: 'Mar 4, 2026',
-    tag: 'current',
     items: [
       'PortfolioSparkline component \u2014 new chart in ValueHeader showing % change from cost basis over time; dual\u2011clip split\u2011gradient fill (profit above zero, loss below), zero baseline dashed line, pulsing endpoint dot, edge\u2011aware hover tooltip as absolute div sibling',
       'PortfolioSparkline colors \u2014 profit fill #A6F700 (brand lime), loss fill #B44AFF (soft orchid / \u2011\u2011gs\u2011rarity\u2011epic); endpoint glyph + drop\u2011shadow glow match; tooltip % text uses same palette',

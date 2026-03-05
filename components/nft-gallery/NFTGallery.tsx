@@ -19,7 +19,7 @@ const NFTDetailModal = dynamic(() => import('../NFTDetailModal'), {
   loading: () => null, // Modal is hidden by default, no loading UI needed
 });
 
-export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset, marketMap, portfolioViewMode, currentGunPrice }: NFTGalleryProps) {
+export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginationInfo, onLoadMore, isEnriching = false, stickyOffset, marketMap, portfolioViewMode, currentGunPrice, isOwnPortfolio }: NFTGalleryProps) {
   if (nfts.length === 0) {
     return (
       <div className="text-center py-24">
@@ -67,12 +67,13 @@ export default function NFTGallery({ nfts, chain: _chain, walletAddress, paginat
         marketMap={marketMap}
         portfolioViewMode={portfolioViewMode}
         currentGunPrice={currentGunPrice}
+        isOwnPortfolio={isOwnPortfolio}
       />
     </GalleryFilterProvider>
   );
 }
 
-function NFTGalleryInner({ nfts, walletAddress, paginationInfo, onLoadMore, isEnriching, stickyOffset, marketMap, portfolioViewMode, currentGunPrice }: Omit<NFTGalleryProps, 'chain'> & { isEnriching: boolean }) {
+function NFTGalleryInner({ nfts, walletAddress, paginationInfo, onLoadMore, isEnriching, stickyOffset, marketMap, portfolioViewMode, currentGunPrice, isOwnPortfolio }: Omit<NFTGalleryProps, 'chain'> & { isEnriching: boolean }) {
   const { getItemOrigin } = useItemOrigins();
   const {
     viewMode,
@@ -141,6 +142,7 @@ function NFTGalleryInner({ nfts, walletAddress, paginationInfo, onLoadMore, isEn
                   isEnriching={isEnriching}
                   onClick={handleNFTClick}
                   portfolioViewMode={portfolioViewMode}
+                  isOwnPortfolio={isOwnPortfolio}
                 />
               </div>
             );

@@ -11,6 +11,7 @@ const ADMIN_WALLET = '0xf9434e3057432032bb621aa5144329861869c72f';
 interface LeaderboardEntry {
   userProfileId: string;
   displayName: string | null;
+  primaryWallet: string | null;
   totalViews: number;
   shareCount: number;
 }
@@ -272,7 +273,7 @@ function AdminSharesContent() {
                                 #{i + 1}
                               </span>
                               <span className="font-body text-sm text-[var(--gs-white)] truncate">
-                                {entry.displayName || entry.userProfileId.slice(0, 12) + '\u2026'}
+                                {entry.displayName || (entry.primaryWallet ? truncateAddress(entry.primaryWallet) : entry.userProfileId.slice(0, 12) + '\u2026')}
                               </span>
                             </div>
                             <div className="flex items-center gap-4 shrink-0">

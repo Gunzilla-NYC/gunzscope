@@ -6,6 +6,7 @@ import { truncateAddress } from './utils';
 interface LeaderboardEntry {
   userProfileId: string;
   displayName: string | null;
+  primaryWallet: string | null;
   totalViews: number;
   shareCount: number;
 }
@@ -122,7 +123,7 @@ export function ShareLeaderboard({ adminSecret }: { adminSecret: string }) {
                     #{i + 1}
                   </span>
                   <span className="font-body text-sm text-[var(--gs-white)] truncate">
-                    {entry.displayName || entry.userProfileId.slice(0, 12) + '\u2026'}
+                    {entry.displayName || (entry.primaryWallet ? truncateAddress(entry.primaryWallet) : entry.userProfileId.slice(0, 12) + '\u2026')}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

@@ -15,9 +15,20 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v1.1.0',
+    date: 'Mar 5, 2026',
+    tag: 'current',
+    title: 'Your NFTs now know they\u2019re special',
+    items: [
+      'You can now favorite NFTs directly from the gallery. A heart icon appears on hover \u2014 click it, and the item shows up in your Favorites tab in Account. It\u2019s basically a bookmark, but for JPEGs you paid real money for.',
+      'Pinned favorites float to the top of your gallery. Found that one skin you keep scrolling past 200 items to find? Pin it. It\u2019ll be waiting at the top next time. Pins persist across sessions because we\u2019re not animals.',
+      'The new Wishlist tab lets you track NFTs you don\u2019t own yet. Add any item from any collection, and we\u2019ll keep an eye on its price. Think of it as window shopping with a spreadsheet.',
+      'Your account panel got a cleanup pass. Display names that were showing as "Anonymous" now fall back to your wallet address, which is at least more honest. Duplicate accounts from reconnecting the same wallet got merged quietly in the background.',
+    ],
+  },
+  {
     version: 'v0.5.4',
     date: 'Mar 4, 2026',
-    tag: 'current',
     title: 'We made it to Round 2. The charts got prettier to celebrate.',
     items: [
       'Your portfolio header now has a sparkline that shows how far above or below your cost basis you are over time. Green when you\u2019re winning, orchid purple when you\u2019re not. A dashed line at zero marks where you broke even \u2014 think of it as the emotional support line.',

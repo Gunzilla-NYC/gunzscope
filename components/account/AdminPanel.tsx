@@ -10,6 +10,7 @@ import { WhitelistTools } from './admin/WhitelistTools';
 import { WaitlistTools } from './admin/WaitlistTools';
 import { OnChainTools } from './admin/OnChainTools';
 import { BannedList } from './admin/BannedList';
+import { UsersTools } from './admin/UsersTools';
 
 interface AdminPanelProps {
   adminSecret: string;
@@ -31,7 +32,7 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-type AdminTab = 'manage' | 'tools' | 'links' | 'items';
+type AdminTab = 'manage' | 'users' | 'tools' | 'links' | 'items';
 
 const ADMIN_LINKS: { href: string; label: string; description: string; color: string }[] = [
   { href: '/brand', label: 'Brand Guidelines', description: 'Colors, typography, components, design system', color: 'var(--gs-purple)' },
@@ -46,6 +47,7 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
 
   const tabs: { key: AdminTab; label: string }[] = [
     { key: 'manage', label: 'Whitelist / Waitlist / Leaderboard' },
+    { key: 'users', label: 'Users' },
     { key: 'tools', label: 'Tools' },
     { key: 'links', label: 'Links' },
     { key: 'items', label: 'Item Database' },
@@ -94,6 +96,11 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
             <ShareLeaderboard adminSecret={adminSecret} />
           </div>
         </div>
+      )}
+
+      {/* Users tab — registered user profiles */}
+      {activeTab === 'users' && (
+        <UsersTools adminSecret={adminSecret} />
       )}
 
       {/* Tools tab — UX Testing + Handle Tools + On-Chain */}
