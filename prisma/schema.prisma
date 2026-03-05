@@ -224,6 +224,7 @@ model WhitelistEntry {
   label     String?   // Optional label (e.g. "Discord user", "OTG player")
   addedBy   String?   // Who added this entry (admin name or "seed")
   metadata  String?   // JSON blob for extra data
+  isActive  Boolean   @default(true) // Soft-delete / disable without removing row
   expiresAt DateTime? // Null = permanent access; non-null = trial (e.g. 72h Konami trial)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
