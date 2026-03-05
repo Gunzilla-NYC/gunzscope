@@ -22,7 +22,7 @@ export const LISTING_STALE_MS = 4 * 60 * 60 * 1000;
 // =============================================================================
 // Cache Configuration
 // =============================================================================
-const CACHE_NAMESPACE = 'zillascope';
+const CACHE_NAMESPACE = 'gunzscope';
 const DEFAULT_TTL_SECONDS = 72 * 60 * 60; // 72 hours — must match ENRICHMENT_STALE_MS in PortfolioClient.tsx
 
 // Check if we're in a browser environment
@@ -152,7 +152,7 @@ export function buildTokenKey(
 
 /**
  * Build cache key for NFT detail data
- * Format: zillascope:nft:detail:v2:${walletAddress}:${tokenKey}
+ * Format: gunzscope:nft:detail:v2:${walletAddress}:${tokenKey}
  */
 export function buildNftDetailCacheKey(
   walletAddress: string,
@@ -163,7 +163,7 @@ export function buildNftDetailCacheKey(
 
 /**
  * Build cache key for transfer history
- * Format: zillascope:nft:transfers:v2:${walletAddress}:${tokenKey}
+ * Format: gunzscope:nft:transfers:v2:${walletAddress}:${tokenKey}
  */
 export function buildTransfersCacheKey(
   walletAddress: string,
@@ -174,7 +174,7 @@ export function buildTransfersCacheKey(
 
 /**
  * Build cache key for GUN/USD price
- * Format: zillascope:price:gunusd:v1:${YYYY-MM-DD-HH} (hourly bucket)
+ * Format: gunzscope:price:gunusd:v1:${YYYY-MM-DD-HH} (hourly bucket)
  */
 export function buildPriceCacheKey(date: Date = new Date()): string {
   const yyyy = date.getFullYear();
@@ -186,7 +186,7 @@ export function buildPriceCacheKey(date: Date = new Date()): string {
 
 /**
  * Build cache key for historical price on a specific date
- * Format: zillascope:price:gunusd:v1:historical:${YYYY-MM-DD}
+ * Format: gunzscope:price:gunusd:v1:historical:${YYYY-MM-DD}
  */
 export function buildHistoricalPriceCacheKey(date: Date): string {
   const yyyy = date.getFullYear();
@@ -197,7 +197,7 @@ export function buildHistoricalPriceCacheKey(date: Date): string {
 
 /**
  * Build cache key for NFT metadata
- * Format: zillascope:nft:meta:v1:${chain}:${contract}:${tokenId}
+ * Format: gunzscope:nft:meta:v1:${chain}:${contract}:${tokenId}
  */
 export function buildMetadataCacheKey(
   chain: string,
@@ -499,7 +499,7 @@ export function needsReEnrichment(
 // =============================================================================
 
 // Old cache key prefix for migration/cleanup
-const LEGACY_CACHE_KEY_PREFIX = 'zillascope_nft_cache_';
+const LEGACY_CACHE_KEY_PREFIX = 'gunzscope_nft_cache_';
 
 interface LegacyCachedNFTData {
   quantity?: number;

@@ -92,7 +92,7 @@ export interface WalletClassifierConfig {
 // Cache Configuration
 // =============================================================================
 
-const CACHE_NAMESPACE = 'zillascope';
+const CACHE_NAMESPACE = 'gunzscope';
 const SCHEMA_VERSION = 'v1';
 const DEFAULT_CACHE_TTL_SECONDS = 30 * 60; // 30 minutes
 
