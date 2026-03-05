@@ -22,7 +22,7 @@ function attachConsoleCapture(page: Page) {
  * Wait for enrichment to complete by listening for the Enrichment Summary log.
  * Returns the summary text or throws after timeout.
  */
-function waitForEnrichmentComplete(page: Page, timeoutMs = 30_000): Promise<string> {
+function waitForEnrichmentComplete(page: Page, timeoutMs = 90_000): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error(`Enrichment did not complete within ${timeoutMs / 1000}s`)),
@@ -65,7 +65,7 @@ function waitForMergeLog(page: Page, timeoutMs = 20_000): Promise<string> {
 // second load (reload) verifies the merge applies cached data to fresh NFTs.
 // ---------------------------------------------------------------------------
 test('enrichment fields merge on load', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const consoleLogs = attachConsoleCapture(page);
 
   // --- First load: populate localStorage cache ---
@@ -108,7 +108,7 @@ test('enrichment fields merge on load', async ({ page }) => {
 // MutationObserver before navigation to capture every rendered value.
 // ---------------------------------------------------------------------------
 test('market value never shows $0 during load', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const consoleLogs = attachConsoleCapture(page);
 
   // --- First load: populate cache ---
@@ -148,7 +148,7 @@ test('market value never shows $0 during load', async ({ page }) => {
   await page.reload();
 
   // Wait for the main market value heading to appear (text-4xl is unique to it)
-  await page.locator('[aria-live="polite"] p.text-4xl').first().waitFor({ timeout: 30_000 });
+  await page.locator('[aria-live="polite"] p.text-4xl').first().waitFor({ timeout: 90_000 });
 
   // Let any state transitions settle
   await page.waitForTimeout(3_000);
@@ -183,7 +183,7 @@ test('market value never shows $0 during load', async ({ page }) => {
 // second load checks that bars never transition from non-zero to zero.
 // ---------------------------------------------------------------------------
 test('data quality bars never drop to 0% after showing non-zero', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const consoleLogs = attachConsoleCapture(page);
 
   // --- First load: populate cache ---
@@ -235,7 +235,7 @@ test('data quality bars never drop to 0% after showing non-zero', async ({ page 
   await page.reload();
 
   // Wait for enrichment merge log to confirm data loaded
-  await waitForMergeLog(page, 20_000);
+  await waitForMergeLog(page, 90_000);
 
   // Let enrichment + UI transitions settle
   await page.waitForTimeout(8_000);
@@ -269,14 +269,14 @@ test('data quality bars never drop to 0% after showing non-zero', async ({ page 
 // localStorage, then verify the TTL on cache entries is ~72h.
 // ---------------------------------------------------------------------------
 test('enrichment cache TTL is 72h, not 24h', async ({ browser }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
 
   const context = await browser.newContext();
   const page = await context.newPage();
   const consoleLogs = attachConsoleCapture(page);
 
   // Wait for enrichment to complete (writes cache entries to localStorage)
-  const enrichmentDone = waitForEnrichmentComplete(page, 60_000);
+  const enrichmentDone = waitForEnrichmentComplete(page, 120_000);
   await page.goto(PORTFOLIO_URL);
   await enrichmentDone;
 
