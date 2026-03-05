@@ -58,6 +58,7 @@ export const DataQualityCard = memo(function DataQualityCard({
 
   return (
     <div
+      data-testid="data-quality-card"
       className="px-4 py-3 cursor-pointer select-none transition-colors hover:bg-white/[0.02]"
       onClick={cycle}
     >

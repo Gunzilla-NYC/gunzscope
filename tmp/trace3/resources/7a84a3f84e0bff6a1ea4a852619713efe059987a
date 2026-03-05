@@ -1,0 +1,189 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [active]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - navigation [ref=e7]:
+            - button "previous" [disabled] [ref=e8]:
+              - img "previous" [ref=e9]
+            - generic [ref=e11]:
+              - generic [ref=e12]: 1/
+              - text: "1"
+            - button "next" [disabled] [ref=e13]:
+              - img "next" [ref=e14]
+          - img
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - img [ref=e18]
+            - generic "Latest available version is detected (16.1.6)." [ref=e20]: Next.js 16.1.6
+            - generic [ref=e21]: Turbopack
+          - img
+      - dialog "Build Error" [ref=e23]:
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: Build Error
+              - generic [ref=e31]:
+                - button "Copy Error Info" [ref=e32] [cursor=pointer]:
+                  - img [ref=e33]
+                - link "Go to related documentation" [ref=e35] [cursor=pointer]:
+                  - /url: https://nextjs.org/docs/messages/module-not-found
+                  - img [ref=e36]
+                - button "Attach Node.js inspector" [ref=e38] [cursor=pointer]:
+                  - img [ref=e39]
+            - generic [ref=e48]: "Module not found: Can't resolve './generated/prisma/client'"
+          - generic [ref=e50]:
+            - generic [ref=e52]:
+              - img [ref=e54]
+              - generic [ref=e58]: ./lib/db.ts (10:1)
+              - button "Open in editor" [ref=e59] [cursor=pointer]:
+                - img [ref=e61]
+            - generic [ref=e64]:
+              - generic [ref=e65]: "Module not found: Can't resolve './generated/prisma/client'"
+              - generic [ref=e66]: 8 |
+              - generic [ref=e67]: "*/"
+              - generic [ref=e68]: 9 |
+              - text: ">"
+              - generic [ref=e69]: 10 |
+              - text: import
+              - generic [ref=e70]: "{"
+              - text: PrismaClient
+              - generic [ref=e71]: "}"
+              - text: from './generated/prisma/client';
+              - generic [ref=e72]: "|"
+              - text: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              - generic [ref=e73]: 11 |
+              - text: import
+              - generic [ref=e74]: "{"
+              - text: PrismaNeon
+              - generic [ref=e75]: "}"
+              - text: from '@prisma/adapter-neon';
+              - generic [ref=e76]: 12 |
+              - generic [ref=e77]: 13 |
+              - text: const
+              - generic [ref=e78]: connectionString
+              - text: =
+              - generic [ref=e79]: process
+              - text: .env.DATABASE_URL!;
+              - generic [ref=e80]:
+                - text: "Import trace: App Route: ./lib/db.ts ./lib/services/itemOriginService.ts ./app/api/item-origins/route.ts"
+                - link "https://nextjs.org/docs/messages/module-not-found" [ref=e81] [cursor=pointer]:
+                  - /url: https://nextjs.org/docs/messages/module-not-found
+        - generic [ref=e82]: "1"
+        - generic [ref=e83]: "2"
+    - generic [ref=e88] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e89]:
+        - img [ref=e90]
+      - button "Open issues overlay" [ref=e94]:
+        - generic [ref=e95]:
+          - generic [ref=e96]: "0"
+          - generic [ref=e97]: "1"
+        - generic [ref=e98]: Issue
+  - generic:
+    - img
+  - generic [ref=e100]:
+    - link "Skip to content" [ref=e101]:
+      - /url: "#main-content"
+    - navigation [ref=e102]:
+      - generic [ref=e104]:
+        - generic [ref=e105]:
+          - link "GUNZscope" [ref=e106]:
+            - /url: /
+            - generic [ref=e108]:
+              - img [ref=e110]
+              - generic [ref=e112]: GUNZscope
+          - link "v0.5.4 // EARLY ACCESS" [ref=e113]:
+            - /url: /updates
+        - navigation
+    - generic [ref=e115]:
+      - generic [ref=e119]:
+        - textbox "Search another wallet..." [ref=e120]
+        - img [ref=e121]
+        - button "Go" [disabled] [ref=e123]
+      - generic [ref=e128]:
+        - generic [ref=e129]: 0xf943…c72f
+        - button "Copy wallet address" [ref=e130]:
+          - img [ref=e131]
+        - generic [ref=e133]:
+          - generic [ref=e135]: Live
+          - generic [ref=e136]: · Just now
+        - button "Wallet details" [ref=e137]:
+          - img [ref=e138]
+        - button "Share portfolio" [ref=e140]:
+          - img [ref=e141]
+      - generic [ref=e143]:
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Total Portfolio Value
+                - generic: Calculating
+          - generic [ref=e146]:
+            - paragraph [ref=e149]: GUN Balance
+            - paragraph [ref=e156]: NFT Holdings
+            - paragraph [ref=e160]: GUN Spent
+            - paragraph [ref=e167]: Data Quality
+        - generic [ref=e173]:
+          - img [ref=e175]
+          - heading "No Game Assets Found" [level=2] [ref=e177]
+          - paragraph [ref=e178]: This wallet doesn't have any Off The Grid items yet. Browse the leaderboard to see top collectors, or search another wallet.
+          - generic [ref=e179]:
+            - link "View Leaderboard" [ref=e180]:
+              - /url: /leaderboard
+            - button "Search Another Wallet" [ref=e181]
+      - contentinfo [ref=e182]:
+        - generic [ref=e183]:
+          - generic [ref=e184]:
+            - generic [ref=e185]: © 2026 GUNZscope
+            - generic [ref=e186]:
+              - generic [ref=e187]: ·
+              - link "Terms" [ref=e188]:
+                - /url: /terms
+              - generic [ref=e189]: ·
+              - link "Privacy" [ref=e190]:
+                - /url: /privacy
+              - generic [ref=e191]: ·
+              - link "Credits" [ref=e192]:
+                - /url: /credits
+              - generic [ref=e193]: ·
+              - link "X" [ref=e194]:
+                - /url: https://x.com/gunzscope
+                - img [ref=e195]
+              - generic [ref=e197]: ·
+              - link "Discord" [ref=e198]:
+                - /url: https://discord.gg/pgZCEteYjs
+                - img [ref=e199]
+          - paragraph [ref=e201]: Built with ♥ by CRYPTOHAKI for the Gunzilla community.
+  - generic [ref=e202]:
+    - generic [ref=e203]:
+      - paragraph [ref=e205]: Getting Started
+      - generic [ref=e208]:
+        - button "Minimize" [ref=e209]:
+          - img [ref=e210]
+        - button "Dismiss" [ref=e211]:
+          - img [ref=e212]
+    - generic [ref=e214]:
+      - generic [ref=e216]:
+        - img [ref=e218]
+        - paragraph [ref=e221]: Analyze a Portfolio
+      - button "Create an Account Session persistence & more" [ref=e222]:
+        - generic [ref=e225]:
+          - paragraph [ref=e226]: Create an Account
+          - paragraph [ref=e227]: Session persistence & more
+      - link "Explore the Leaderboard See how your portfolio stacks up" [ref=e228]:
+        - /url: /leaderboard
+        - generic [ref=e231]:
+          - paragraph [ref=e232]: Explore the Leaderboard
+          - paragraph [ref=e233]: See how your portfolio stacks up
+      - link "Track More Wallets Add extra wallets for a combined view" [ref=e234]:
+        - /url: /account
+        - generic [ref=e237]:
+          - paragraph [ref=e238]: Track More Wallets
+          - paragraph [ref=e239]: Add extra wallets for a combined view
+  - region "Notifications alt+T"
+  - alert [ref=e240]
+```
