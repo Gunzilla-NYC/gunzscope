@@ -55,8 +55,11 @@ test('2 — market value never shows $0 during load', async ({ page }) => {
 
 test('3 — data quality bars reflect seeded state', async ({ page }) => {
   await page.goto(`${BASE_URL}/portfolio?address=${TEST_WALLET}`);
-  await expect(page.locator('text=Enriched').locator('..').locator('[data-value]'))
-    .not.toHaveText('0%', { timeout: 15_000 });
+  // Wait for any non-zero percentage to appear in the Data Quality section
+  await expect(page.locator('text=/\\d+%/').first()).toBeVisible({ timeout: 15_000 });
+  // Assert the Enriched row specifically shows non-zero
+  const enrichedRow = page.locator('text=Enriched').locator('..');
+  await expect(enrichedRow).not.toContainText('0%', { timeout: 15_000 });
 });
 
 test('4 — localStorage TTL is 72h', async ({ page }) => {
@@ -67,9 +70,8 @@ test('4 — localStorage TTL is 72h', async ({ page }) => {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       const parsed = JSON.parse(raw);
-      if (parsed.expiresAt && parsed.cachedAt) {
-        const diff = new Date(parsed.expiresAt).getTime() - new Date(parsed.cachedAt).getTime();
-        results.push(diff);
+      if (typeof parsed.expiresAt === 'number' && typeof parsed.cachedAt === 'number') {
+        results.push(parsed.expiresAt - parsed.cachedAt);
       }
     }
     return results;
