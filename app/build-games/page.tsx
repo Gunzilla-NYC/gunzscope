@@ -27,7 +27,7 @@ function useScrollReveal() {
   useEffect(() => {
     if (!ref.current) return;
     const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('revealed'); }),
+      (entries, obs) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target); } }),
       { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
     );
     const els = ref.current.querySelectorAll('.reveal');

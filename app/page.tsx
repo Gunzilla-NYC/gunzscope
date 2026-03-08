@@ -357,12 +357,13 @@ export default function HomePage() {
   // Observe social proof section for count-up trigger
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => {
+      ([entry], obs) => {
         if (entry.isIntersecting && !socialProofVisible) {
           setSocialProofVisible(true);
           // Stagger the social proof animations
           walletsCountUp.startAnimation();
           setTimeout(() => socialNftsCountUp.startAnimation(), 100);
+          obs.unobserve(entry.target);
         }
       },
       { threshold: 0.3 }

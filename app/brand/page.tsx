@@ -45,10 +45,11 @@ export default function BrandPage() {
   useEffect(() => {
     if (!sdkHasLoaded || !isAdmin) return;
     observerRef.current = new IntersectionObserver(
-      (entries) => {
+      (entries, obs) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add('visible');
+            obs.unobserve(entry.target);
           }
         });
       },
