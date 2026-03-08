@@ -11,8 +11,15 @@ export default function ScrollToTopButton({ threshold = 400 }: ScrollToTopButton
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      setIsVisible(window.scrollY > threshold);
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setIsVisible(window.scrollY > threshold);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
