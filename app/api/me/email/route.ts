@@ -27,8 +27,7 @@ export async function POST(request: NextRequest) {
       if (typeof email !== 'string') {
         return jsonError('Email must be a string or null', 400);
       }
-      // Simple email format check (not comprehensive)
-      if (email && !email.includes('@')) {
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return jsonError('Invalid email format', 400);
       }
     }
