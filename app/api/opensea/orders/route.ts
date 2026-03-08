@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const requestedChain = searchParams.get('chain') || 'avalanche';
   const contract = searchParams.get('contract');
   const tokenId = searchParams.get('tokenId');
-  const debug = searchParams.get('debug') === '1';
+  const debug = process.env.NODE_ENV === 'development' && searchParams.get('debug') === '1';
 
   // Server timestamp for cache freshness tracking
   const asOfIso = new Date().toISOString();
