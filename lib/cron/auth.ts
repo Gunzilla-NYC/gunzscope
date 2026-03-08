@@ -9,9 +9,11 @@ export function verifyCronAuth(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
-    // In development, allow all cron requests
-    if (process.env.NODE_ENV === 'development') return true;
-    console.error('[Cron] CRON_SECRET not configured');
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[cron/auth] CRON_SECRET not set — skipping auth in development');
+      return true;
+    }
+    console.error('[cron/auth] CRON_SECRET not configured — rejecting request');
     return false;
   }
 
