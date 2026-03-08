@@ -13,7 +13,7 @@ export async function GET(
     const { contract, tokenId } = await params;
 
     // Basic validation
-    if (!contract || !tokenId || !/^0x[a-fA-F0-9]{40}$/.test(contract)) {
+    if (!contract || !tokenId || !/^0x[a-fA-F0-9]{40}$/.test(contract) || !/^\d+$/.test(tokenId) || tokenId.length > 78) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
