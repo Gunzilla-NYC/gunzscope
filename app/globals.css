@@ -229,6 +229,11 @@ body {
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
+/* ── Variable-driven Corner Cut Utilities ── */
+.cut-sm { clip-path: polygon(0 0, calc(100% - var(--gs-cut-sm)) 0, 100% var(--gs-cut-sm), 100% 100%, var(--gs-cut-sm) 100%, 0 calc(100% - var(--gs-cut-sm))); }
+.cut-md { clip-path: polygon(0 0, calc(100% - var(--gs-cut-md)) 0, 100% var(--gs-cut-md), 100% 100%, var(--gs-cut-md) 100%, 0 calc(100% - var(--gs-cut-md))); }
+.cut-lg { clip-path: polygon(0 0, calc(100% - var(--gs-cut-lg)) 0, 100% var(--gs-cut-lg), 100% 100%, var(--gs-cut-lg) 100%, 0 calc(100% - var(--gs-cut-lg))); }
+
 /* Top-right only cut — for cards with accent lines */
 .clip-corner-tr {
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
