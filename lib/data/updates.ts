@@ -15,9 +15,20 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.7.2',
+    date: 'Mar 7, 2026',
+    tag: 'current',
+    title: 'The front door got a redesign. The back door stopped locking people out.',
+    items: [
+      'The wallet modal used to say "Connect Whitelisted Wallet" and offer two unlabeled paths that looked identical until you picked one and found out. Now it says "Get Started" with two clearly marked lanes \u2014 "View Only" for pasting an in-game address, "Full Access" for connecting a real wallet. One is window shopping. The other is moving in.',
+      'If you shared a portfolio link with someone (?address=), they\u2019d hit the page, see a flash of content, and get redirected to the homepage. The auth middleware was checking for a session cookie even on view-only links. It now lets you through if you\u2019re just looking, which is the entire point of a share link.',
+      'The "View Only" badge in the portfolio header had a blind spot. If you were logged in with your own wallet and viewed someone else\u2019s address, the system still thought you were the owner. So you\u2019d see "Full Access" controls for a wallet you can\u2019t sign for. Fixed \u2014 it now compares the address you\u2019re viewing against the one you connected with.',
+      'Portfolio values could get permanently stuck on "Calculating..." if the price API timed out. The loading state waited for a GUN price that was never coming. There\u2019s now a 15-second hard timeout \u2014 after that, it shows what it has instead of what it wishes it had.',
+    ],
+  },
+  {
     version: 'v0.7.1',
     date: 'Mar 5, 2026',
-    tag: 'current',
     title: 'The wall is real now',
     items: [
       'The Early Access gate used to be a polite suggestion. A non-whitelisted wallet could connect, get a profile row created, browse around, and generally act like they owned the place. The server would shrug and let it happen. Now every authenticated route checks the whitelist before doing anything \u2014 API routes via JWT, page routes via session cookie. The bouncer finally showed up to work.',
