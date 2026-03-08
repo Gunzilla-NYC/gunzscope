@@ -124,10 +124,6 @@ function UpdateAccordionItem({
         aria-hidden={!open}
       >
         <div className="pt-3">
-          {entry.title && (
-            <p className="font-body text-sm text-[var(--gs-white)]/80 mb-2">{entry.title}</p>
-          )}
-
           <ul className="space-y-2">
             {entry.items.map((item, i) => (
               <li key={i} className="flex gap-2.5 text-sm text-[var(--gs-gray-4)] leading-relaxed font-body">
