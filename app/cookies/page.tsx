@@ -3,6 +3,8 @@ import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
+export const revalidate = 86400;
+
 export const metadata: Metadata = {
   title: 'Cookie Policy',
   description: 'How GUNZscope uses cookies and similar technologies.',
