@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   if (!auth.success) return unauthorizedResponse(auth);
 
   const wallet = request.nextUrl.searchParams.get('wallet');
-  if (!wallet) return jsonError('wallet query param required', 400);
+  if (!wallet || !WALLET_RE.test(wallet)) return jsonError('Valid wallet address required', 400);
 
   try {
     const referrer = await getReferrerByWallet(wallet);
