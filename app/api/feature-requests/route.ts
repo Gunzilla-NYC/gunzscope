@@ -92,8 +92,7 @@ export async function POST(request: NextRequest) {
 
     return jsonSuccess({ request: featureRequest }, 201);
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error('Error creating feature request:', msg, error);
-    return jsonError(`Failed to create feature request: ${msg}`);
+    console.error('[feature-requests]', error);
+    return jsonError('Failed to create feature request');
   }
 }
