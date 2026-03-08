@@ -18,7 +18,7 @@ export const UPDATES: UpdateEntry[] = [
     version: 'v0.7.2',
     date: 'Mar 7, 2026',
     tag: 'current',
-    title: 'The front door got a redesign. The back door stopped locking people out.',
+    title: 'The front door learned some manners',
     items: [
       'The wallet modal used to say "Connect Whitelisted Wallet" and offer two unlabeled paths that looked identical until you picked one and found out. Now it says "Get Started" with two clearly marked lanes \u2014 "View Only" for pasting an in-game address, "Full Access" for connecting a real wallet. One is window shopping. The other is moving in.',
       'If you shared a portfolio link with someone (?address=), they\u2019d hit the page, see a flash of content, and get redirected to the homepage. The auth middleware was checking for a session cookie even on view-only links. It now lets you through if you\u2019re just looking, which is the entire point of a share link.',
