@@ -3,6 +3,8 @@ import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
+export const revalidate = 86400;
+
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: 'Terms and conditions for using GUNZscope.',
