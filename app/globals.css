@@ -1094,3 +1094,9 @@ textarea::selection {
     opacity: 1;
   }
 }
+
+/* ── Content Visibility: skip layout/paint for offscreen sections ── */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}

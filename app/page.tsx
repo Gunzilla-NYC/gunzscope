@@ -703,7 +703,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="relative z-10 py-24 border-t border-white/[0.06]" id="features">
+      <section className="cv-auto relative z-10 py-24 border-t border-white/[0.06]" id="features">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -740,7 +740,7 @@ export default function HomePage() {
       </section>
 
       {/* Social Proof Section */}
-      <section className="relative z-10 py-16 border-t border-white/[0.06]">
+      <section className="cv-auto relative z-10 py-16 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div ref={socialProofRef} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
@@ -770,7 +770,7 @@ export default function HomePage() {
       </section>
 
       {/* Dashboard Preview Section */}
-      <section className="relative z-10 py-24 border-t border-white/[0.06]" id="preview">
+      <section className="cv-auto relative z-10 py-24 border-t border-white/[0.06]" id="preview">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
