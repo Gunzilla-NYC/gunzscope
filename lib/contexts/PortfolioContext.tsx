@@ -30,6 +30,10 @@ export interface PortfolioContextValue {
   networkInfo: NetworkInfo | null;
   walletType: 'in-game' | 'external' | 'unknown';
 
+  // Connection mode: 'full' when connected via Dynamic Labs (can sign),
+  // 'view-only' when viewing a pasted/shared address (read-only)
+  connectionMode: 'full' | 'view-only';
+
   // Portfolio calculation
   portfolioResult: PortfolioCalcResult | null;
 
@@ -80,6 +84,7 @@ const defaultValue: PortfolioContextValue = {
   gunPrice: undefined,
   networkInfo: null,
   walletType: 'unknown',
+  connectionMode: 'view-only',
   portfolioResult: null,
   enrichmentProgress: null,
   isEnriching: false,
@@ -179,8 +184,17 @@ export function usePortfolioNFTs() {
  * Re-renders when wallet data or network info changes.
  */
 export function usePortfolioWallet() {
-  const { walletData, address, networkInfo, walletType } = usePortfolioContext();
-  return { walletData, address, networkInfo, walletType };
+  const { walletData, address, networkInfo, walletType, connectionMode } = usePortfolioContext();
+  return { walletData, address, networkInfo, walletType, connectionMode };
+}
+
+/**
+ * Returns true if the current connection is view-only (pasted/shared address).
+ * View-only users cannot perform on-chain writes (attestation, signing).
+ */
+export function useIsViewOnly(): boolean {
+  const { connectionMode } = usePortfolioContext();
+  return connectionMode === 'view-only';
 }
 
 /**

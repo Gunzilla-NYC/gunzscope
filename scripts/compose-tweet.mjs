@@ -8,7 +8,10 @@
  * matching GUNZscope's voice (dry sarcasm, no emoji, no corporate speak).
  * Otherwise, falls back to a simple chunked format.
  *
- * Usage: node scripts/compose-tweet.mjs
+ * Usage:
+ *   node scripts/compose-tweet.mjs              # drafts thread for tag:'current'
+ *   node scripts/compose-tweet.mjs --version v0.7.0  # drafts thread for specific version
+ *
  * Output: JSON { thread: ["tweet1", "tweet2", ...], version, title }
  *
  * Legacy compat: also outputs { text } with the full thread joined by \n---\n
@@ -22,6 +25,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const updatesPath = resolve(__dirname, '../lib/data/updates.ts');
 const source = readFileSync(updatesPath, 'utf-8');
 
+// ── CLI args ─────────────────────────────────────────────────────
+const targetVersion = process.argv.includes('--version')
+  ? process.argv[process.argv.indexOf('--version') + 1]
+  : null;
+
 // ── Parse updates.ts ─────────────────────────────────────────────
 const entryRegex = /\{\s*version:\s*'([^']+)',\s*date:\s*'([^']+)',\s*(?:tag:\s*'([^']*)',\s*)?(?:title:\s*'([^']*)',\s*)?items:\s*\[([\s\S]*?)\],?\s*\}/g;
 
@@ -30,7 +38,13 @@ let match;
 
 while ((match = entryRegex.exec(source)) !== null) {
   const [, version, date, tag, title, itemsBlock] = match;
-  if (tag === 'current' || !latestEntry) {
+
+  // If --version specified, match exactly; otherwise pick tag:'current' or first
+  const isTarget = targetVersion
+    ? version === targetVersion
+    : (tag === 'current' || !latestEntry);
+
+  if (isTarget) {
     const items = [];
     const itemRegex = /'((?:[^'\\]|\\.)*)'/g;
     let itemMatch;
@@ -44,12 +58,14 @@ while ((match = entryRegex.exec(source)) !== null) {
       ? title.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
       : undefined;
     latestEntry = { version, date, tag, title: cleanTitle, items };
-    if (tag === 'current') break;
+    if (targetVersion || tag === 'current') break;
   }
 }
 
 if (!latestEntry) {
-  console.error('No update entry found in updates.ts');
+  console.error(targetVersion
+    ? `No update entry found for version "${targetVersion}"`
+    : 'No update entry found in updates.ts');
   process.exit(1);
 }
 

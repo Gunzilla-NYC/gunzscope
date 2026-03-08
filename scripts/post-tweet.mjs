@@ -20,6 +20,30 @@
  */
 
 import { createHmac, randomBytes } from 'crypto';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, '..');
+
+// Load .env.local so credentials work without inline env vars
+(function loadEnv() {
+  try {
+    const lines = readFileSync(resolve(root, '.env.local'), 'utf-8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx);
+      let val = trimmed.slice(eqIdx + 1);
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
+        val = val.slice(1, -1);
+      if (!process.env[key]) process.env[key] = val;
+    }
+  } catch { /* .env.local optional if env vars already set */ }
+})();
 
 const TWITTER_API_URL = 'https://api.twitter.com/2/tweets';
 

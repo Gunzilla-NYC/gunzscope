@@ -9,6 +9,7 @@ import {
   usePortfolioGunPrice,
   usePortfolioNFTs,
   usePortfolioIdentity,
+  useIsViewOnly,
 } from '@/lib/contexts/PortfolioContext';
 import { useNftPnL } from '@/components/portfolio-summary/hooks/useNftPnL';
 import { ShareDropdown } from '@/components/portfolio-summary/ShareDropdown';
@@ -73,6 +74,7 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
 
   // Get data from context
   const { walletData, address, networkInfo, walletType } = usePortfolioWallet();
+  const isViewOnly = useIsViewOnly();
 
   const lastUpdated = walletData?.lastUpdated;
   const shortAddress = address ? truncateAddr(address) : '';
@@ -318,6 +320,12 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
           )}
         </div>
 
+        {isViewOnly && (
+          <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 text-[var(--gs-gray-4)] border border-white/[0.08] bg-white/[0.03]">
+            View Only
+          </span>
+        )}
+
         <div className="flex-1" />
 
         {/* Right: info + share + switch */}
@@ -385,6 +393,11 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
               style={{ backgroundColor: `${walletTypeColor}12`, color: walletTypeColor, border: `1px solid ${walletTypeColor}25` }}
             >
               {walletTypeLabel}
+            </span>
+          )}
+          {isViewOnly && (
+            <span className="px-2 py-0.5 text-[11px] font-medium font-mono uppercase tracking-wider text-[var(--gs-gray-4)] border border-white/[0.08] bg-white/[0.03]">
+              View Only
             </span>
           )}
         </div>

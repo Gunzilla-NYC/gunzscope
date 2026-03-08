@@ -8,6 +8,7 @@ import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
 import DropPanel from '@/components/ui/DropPanel';
 import type { NFT } from '@/lib/types';
 import { usePortfolioAttestation, type AttestationStatus } from '@/lib/hooks/usePortfolioAttestation';
+import { useIsViewOnly } from '@/lib/contexts/PortfolioContext';
 
 interface ShareDropdownProps {
   walletAddress: string;
@@ -71,6 +72,7 @@ export function ShareDropdown({
 }: ShareDropdownProps) {
   const [copied, setCopied] = useState(false);
   const triggerBtnRef = useRef<HTMLButtonElement>(null);
+  const isViewOnly = useIsViewOnly();
 
   // On-chain attestation
   const {
@@ -333,8 +335,8 @@ export function ShareDropdown({
             </div>
           </button>
 
-          {/* On-Chain Attestation — only for wallet owner */}
-          {!!(isOwnWallet && walletProvider && nfts && nfts.length > 0) && (
+          {/* On-Chain Attestation — only for wallet owner with signing capability */}
+          {!!(isOwnWallet && !isViewOnly && walletProvider && nfts && nfts.length > 0) && (
             <>
               <div className="border-t border-white/[0.06] mt-3 pt-3">
                 <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-2">
