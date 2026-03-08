@@ -59,6 +59,47 @@
   --space-2xl: 64px;
   --space-3xl: 96px;
 
+  /* ── Neutral Scale + Semantic Aliases (v0.7.2) ── */
+  --gs-n-0: #000000;
+  --gs-n-1: #0A0A0A;   /* same as --gs-black */
+  --gs-n-2: #111111;   /* same as --gs-dark-1 */
+  --gs-n-3: #161616;   /* same as --gs-dark-2 */
+  --gs-n-4: #1C1C1C;   /* same as --gs-dark-3 */
+  --gs-n-5: #242424;   /* same as --gs-dark-4 */
+  --gs-n-6: #333333;   /* same as --gs-gray-1 */
+  --gs-n-7: #555555;   /* same as --gs-gray-2 */
+  --gs-n-8: #888888;
+  --gs-n-9: #AAAAAA;   /* same as --gs-gray-4 */
+  --gs-n-10: #CCCCCC;  /* same as --gs-white-dim */
+  --gs-n-11: #F0F0F0;  /* same as --gs-white */
+
+  /* Semantic aliases */
+  --gs-bg: var(--gs-black);
+  --gs-surface: var(--gs-dark-2);
+  --gs-surface-raised: var(--gs-dark-4);
+  --gs-text: var(--gs-white);
+  --gs-text-dim: var(--gs-white-dim);
+  --gs-text-muted: var(--gs-gray-4);
+  --gs-text-faint: var(--gs-gray-3);
+  --gs-text-ghost: var(--gs-gray-2);
+  --gs-border: rgba(255, 255, 255, 0.06);
+
+  /* Status backgrounds */
+  --gs-profit-bg: rgba(0, 255, 136, 0.08);
+  --gs-loss-bg: rgba(255, 68, 68, 0.08);
+  --gs-warning-bg: rgba(255, 170, 0, 0.08);
+
+  /* Corner cut sizes */
+  --gs-cut-sm: 6px;
+  --gs-cut-md: 10px;
+  --gs-cut-lg: 14px;
+
+  /* Transition tokens */
+  --gs-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --gs-dur-fast: 150ms;
+  --gs-dur-normal: 300ms;
+  --gs-dur-slow: 600ms;
+
   /* ── Legacy mapping (gradual migration) ── */
   --background: var(--gs-black);
   --background-secondary: var(--gs-dark-2);
