@@ -90,8 +90,7 @@ export default async function CreditsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">
-      <div className="grid-bg" />
-      <div className="scanlines" />
+      <div className="page-bg" />
 
       <Navbar />
 

@@ -249,7 +249,7 @@ export default function StrategyPage() {
 
   return (
     <div className="min-h-dvh flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)]">
-      <div className="grid-bg" />
+      <div className="page-bg" />
       <Navbar />
 
       <main className="flex-1 max-w-[900px] mx-auto px-5 md:px-10 py-16 w-full relative z-[1]">

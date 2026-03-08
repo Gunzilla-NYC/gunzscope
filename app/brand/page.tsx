@@ -78,8 +78,7 @@ export default function BrandPage() {
     <div className="min-h-screen bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">
       <UXRWelcomePopup />
       {/* Background Effects */}
-      <div className="grid-bg" />
-      <div className="scanlines" />
+      <div className="page-bg" />
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 lg:px-10 h-16 flex items-center justify-between glass-effect border-b border-white/[0.06]">

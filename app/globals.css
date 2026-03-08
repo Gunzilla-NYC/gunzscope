@@ -624,7 +624,27 @@ body {
    Landing Page Effects
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* Fixed grid background */
+/* Single composited page background — grid + scanlines in one layer */
+.page-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+  background:
+    linear-gradient(rgba(166,247,0,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(166,247,0,0.02) 1px, transparent 1px),
+    linear-gradient(rgba(109,91,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109,91,255,0.012) 1px, transparent 1px),
+    repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px);
+  background-size: 60px 60px, 60px 60px, 90px 90px, 90px 90px, auto;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+}
+
+/* Legacy classes — kept for one release cycle, use .page-bg instead */
+/* .grid-bg { ... } */
+/* .scanlines { ... } */
 .grid-bg {
   position: fixed;
   inset: 0;
@@ -640,7 +660,6 @@ body {
   -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
 }
 
-/* Scanline overlay effect */
 .scanlines {
   position: fixed;
   inset: 0;

@@ -219,7 +219,7 @@ function ScopeBar() {
 export default function BuildGamesRoadmap() {
   return (
     <div className="min-h-dvh flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)]">
-      <div className="grid-bg" />
+      <div className="page-bg" />
 
       {/* Minimal nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-b border-white/[0.06]">

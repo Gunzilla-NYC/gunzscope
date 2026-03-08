@@ -514,8 +514,7 @@ export default function HomePage() {
         retryOtp={retryOneTimePassword}
       />
       {/* Background Effects */}
-      <div className="grid-bg" />
-      <div className="scanlines" />
+      <div className="page-bg" />
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-effect border-b border-white/[0.06]">

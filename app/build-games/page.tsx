@@ -148,7 +148,7 @@ export default function BuildGamesPage() {
 
   return (
     <div ref={containerRef} className="min-h-dvh flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)]">
-      <div className="grid-bg" />
+      <div className="page-bg" />
 
       {/* ─── NAV ─── matches homepage nav structure exactly */}
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-effect border-b border-white/[0.06]">
