@@ -59,6 +59,11 @@ function extractWeaponTypeFromImage(imageUrl: string | undefined): string | null
  * getSpecificItemType(nft) // "Assault Rifle" or "Weapon Skin" or "Weapon"
  */
 export function getSpecificItemType(nft: NFT): string {
+  // Solana-chain classified items are "Solana Set" editions
+  if (nft.chain === 'solana' && isClassified(nft)) {
+    return 'Solana Set';
+  }
+
   // First try typeSpec.Item.item_type for weapons
   const itemType = nft.typeSpec?.Item?.item_type;
   if (itemType && itemType !== 'None' && ITEM_TYPE_LABELS[itemType]) {
