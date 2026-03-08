@@ -21,9 +21,25 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.7.2',
+    date: 'Mar 7, 2026',
+    tag: 'current',
+    items: [
+      'Wallet modal UX overhaul \u2014 "Connect Whitelisted Wallet" \u2192 "Get Started"; two lanes now labeled "View Only" (paste address) and "Full Access" (Dynamic connect) with badge indicators; description copy rewritten for clarity',
+      'Middleware view\u2011only bypass \u2014 /portfolio with ?address= query param now skips gs_session cookie validation; applies to both missing\u2011cookie and expired\u2011cookie paths in middleware.ts',
+      'connectionMode fix \u2014 PortfolioClient.tsx compares activeWalletData.address against primaryWallet.address (case\u2011insensitive); returns "view\u2011only" when viewing a different address than the connected wallet; fixes View Only badge, attestation button gating, and ShareDropdown signing controls',
+      'useIsViewOnly() hook \u2014 new selector in PortfolioContext.tsx; reads connectionMode from context; consumed by WalletIdentity.tsx (badge) and ShareDropdown.tsx (attestation gating)',
+      'Portfolio initializing hard timeout \u2014 15s setTimeout in isPortfolioInitializing effect; fires regardless of gunPrice state; prevents permanent "Calculating\u2026" when CoinGecko times out; existing 10s enrichment timeout preserved as inner guard',
+      'Error boundaries \u2014 app/global\u2011error.tsx (root\u2011level, wraps <html>/<body>) and app/portfolio/error.tsx (route\u2011level with brand styling); both show error digest + retry button',
+      'Body scroll lock \u2014 useEffect in app/page.tsx sets document.body.style.overflow="hidden" when showWalletModal is true; cleanup restores on unmount',
+      'NFTGalleryPagination "All N NFTs loaded" message gated behind process.env.NODE_ENV === "development"',
+      'E2E test suite \u2014 57 Playwright specs across 5 files (wallet\u2011modal, view\u2011only\u2011flow, hard\u2011refresh, network\u2011edge\u2011cases, data\u2011integrity\u2011responsive); desktop\u2011chrome + mobile\u2011chrome (Pixel\u00a07) projects; runs against BASE_URL || gunzscope.xyz',
+      'Tweet thread automation \u2014 compose\u2011tweet.mjs gains \u2011\u2011version flag for targeting specific update entries; post\u2011tweet.mjs auto\u2011loads .env.local credentials; tweet.mjs interactive CLI with preview/edit/post flow',
+    ],
+  },
+  {
     version: 'v0.7.1',
     date: 'Mar 5, 2026',
-    tag: 'current',
     items: [
       'Server\u2011side whitelist enforcement \u2014 middleware.ts verifies Bearer JWT (API routes) and gs_session cookie (page routes) against whitelist_entries via checkWhitelistEdge() on every request; 7 page routes + 26 API routes in matcher',
       'Session cookie (gs_session) \u2014 lib/auth/sessionCookie.ts creates HS256\u2011signed JWT via jose SignJWT; set by /api/access/validate on 3 success paths (permanent, trial, promoted); cleared by /api/auth/logout POST; 7\u2011day maxAge, httpOnly + Secure + SameSite=Strict',
