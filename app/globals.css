@@ -570,7 +570,7 @@ body {
 .delay-400 { animation-delay: 0.4s; }
 .delay-500 { animation-delay: 0.5s; }
 
-/* Respect reduced motion preference */
+/* ── Accessibility: respect reduced motion preference ── */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -578,6 +578,7 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
