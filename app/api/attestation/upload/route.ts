@@ -66,8 +66,7 @@ export async function POST(request: NextRequest) {
       url: `${METADATA_BASE_URL}/${cid}`,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Upload failed';
-    console.error('Auto Drive upload error:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('[attestation/upload]', err);
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }
