@@ -129,9 +129,11 @@ export async function PUT(request: NextRequest) {
     const referrer = await switchSlugType(walletAddress, slugType);
     return jsonSuccess({ handle: formatHandle(referrer) });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to switch slug type';
-    const status = msg === 'No slug changes remaining' ? 403 : 400;
     console.error('[Share] PUT /handle error:', err);
-    return jsonError(msg, status);
+    const isNoChanges = err instanceof Error && err.message === 'No slug changes remaining';
+    return jsonError(
+      isNoChanges ? 'No slug changes remaining' : 'Failed to switch slug type',
+      isNoChanges ? 403 : 500,
+    );
   }
 }
