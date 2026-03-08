@@ -355,10 +355,18 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // This ensures "Calculating..." shows during enrichment, then transitions to values or "Unpriced"
   useEffect(() => {
     if (!isPortfolioInitializing) return;
-    if (!portfolioResult || !gunPrice || gunPrice <= 0) return;
+
+    // Hard timeout: never stay in "Calculating" for more than 15s, even if gunPrice fails
+    const hardTimeout = setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Hard timeout fallback
+      setIsPortfolioInitializing(false);
+    }, 15000);
+
+    if (!portfolioResult || !gunPrice || gunPrice <= 0) return () => clearTimeout(hardTimeout);
 
     // If we have NFT price data, transition immediately
     if (portfolioResult.nftsWithPrice > 0) {
+      clearTimeout(hardTimeout);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarded one-time transition
       setIsPortfolioInitializing(false);
       return;
@@ -366,18 +374,19 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
     // If no NFTs, transition immediately (nothing to calculate)
     if (portfolioResult.nftCount === 0) {
+      clearTimeout(hardTimeout);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarded one-time transition
       setIsPortfolioInitializing(false);
       return;
     }
 
     // Otherwise, wait for enrichment with a timeout (max 10 seconds)
-    const timeoutId = setTimeout(() => {
+    const enrichTimeout = setTimeout(() => {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Timeout-based transition
       setIsPortfolioInitializing(false);
     }, 10000);
 
-    return () => clearTimeout(timeoutId);
+    return () => { clearTimeout(hardTimeout); clearTimeout(enrichTimeout); };
   }, [isPortfolioInitializing, portfolioResult, gunPrice]);
 
   // Record portfolio snapshot for site-wide NFT tracking (fires once per address)
@@ -885,12 +894,19 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     handleWalletSubmit(activeWalletData.address, 'avalanche');
   }, [activeWalletData?.address]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Connection mode: 'full' when viewing own connected wallet,
+  // 'view-only' when viewing a pasted/shared address or no wallet connected
+  const isOwnConnectedWallet = primaryWallet?.address &&
+    activeWalletData?.address?.toLowerCase() === primaryWallet.address.toLowerCase();
+  const connectionMode = isOwnConnectedWallet ? 'full' as const : 'view-only' as const;
+
   const contextValue: PortfolioContextValue = useMemo(() => ({
     walletData: activeWalletData,
     address: activeWalletData?.address ?? null,
     gunPrice,
     networkInfo: NETWORK_INFO,
     walletType: 'unknown',
+    connectionMode,
     portfolioResult,
     enrichmentProgress,
     isEnriching: enrichingNFTs,
@@ -917,6 +933,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   }), [
     activeWalletData,
     gunPrice,
+    connectionMode,
     portfolioResult,
     enrichmentProgress,
     enrichingNFTs,

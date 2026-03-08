@@ -81,8 +81,14 @@ export async function middleware(request: NextRequest) {
   // Page routes — cookie-based whitelist check (gs_session)
   // -----------------------------------------------------------------------
   if (isPageRoute) {
+    // Allow view-only portfolio access via ?address= without a session
+    const isViewOnlyPortfolio =
+      request.nextUrl.pathname === '/portfolio' &&
+      request.nextUrl.searchParams.has('address');
+
     const sessionToken = request.cookies.get('gs_session')?.value;
     if (!sessionToken) {
+      if (isViewOnlyPortfolio) return NextResponse.next();
       return NextResponse.redirect(new URL('/', request.url));
     }
 
@@ -101,7 +107,8 @@ export async function middleware(request: NextRequest) {
       }
       return NextResponse.next();
     } catch {
-      // Invalid or expired cookie — redirect to home
+      // Invalid or expired cookie — allow view-only portfolio, redirect others
+      if (isViewOnlyPortfolio) return NextResponse.next();
       return NextResponse.redirect(new URL('/', request.url));
     }
   }

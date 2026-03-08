@@ -74,8 +74,8 @@ export function NFTGalleryPagination({ paginationInfo, onLoadMore }: NFTGalleryP
         </>
       )}
 
-      {/* All Loaded Message */}
-      {!paginationInfo.hasMore && paginationInfo.totalOwnedCount > 0 && (
+      {/* All Loaded Message - dev only */}
+      {process.env.NODE_ENV === 'development' && !paginationInfo.hasMore && paginationInfo.totalOwnedCount > 0 && (
         <p className="font-mono text-xs text-[var(--gs-gray-3)]">
           All {paginationInfo.totalOwnedCount} NFTs loaded
         </p>

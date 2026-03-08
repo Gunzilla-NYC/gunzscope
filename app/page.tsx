@@ -406,6 +406,16 @@ export default function HomePage() {
     setShowWalletHelp(false);
   }, []);
 
+  // Wallet modal: body scroll lock
+  useEffect(() => {
+    if (showWalletModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showWalletModal]);
+
   // Wallet modal: Escape key handler
   useEffect(() => {
     if (!showWalletModal) return;
@@ -912,7 +922,7 @@ export default function HomePage() {
                   </button>
                 )}
                 <h2 className="font-display font-bold text-sm uppercase tracking-wider text-[var(--gs-white)]">
-                  {modalView === 'choose' ? 'Connect Whitelisted Wallet' : 'Enter Address'}
+                  {modalView === 'choose' ? 'Get Started' : 'Enter Address'}
                 </h2>
               </div>
               <button
@@ -946,11 +956,16 @@ export default function HomePage() {
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] mb-1 group-hover:text-[var(--gs-lime)] transition-colors duration-200">
-                          In&#8209;Game Wallet
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] group-hover:text-[var(--gs-lime)] transition-colors duration-200">
+                            In&#8209;Game Wallet
+                          </span>
+                          <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 pt-[3px] pb-[2px] leading-none flex items-center text-[var(--gs-gray-4)] border border-white/[0.08] bg-white/[0.03]">
+                            View Only
+                          </span>
                         </div>
                         <div className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
-                          Paste your wallet address from Off The Grid
+                          Paste your wallet address<br />from Off The Grid
                         </div>
                       </div>
                       <svg className="w-4 h-4 text-[var(--gs-gray-2)] group-hover:text-[var(--gs-lime)] transition-all duration-200 group-hover:translate-x-0.5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -973,11 +988,19 @@ export default function HomePage() {
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] mb-1 group-hover:text-[var(--gs-purple-bright)] transition-colors duration-200">
-                          Email / External Wallet
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] group-hover:text-[var(--gs-purple-bright)] transition-colors duration-200">
+                            Create Account
+                          </span>
+                          <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 pt-[3px] pb-[2px] leading-none flex items-center text-[var(--gs-purple-bright)] border border-[var(--gs-purple)]/30 bg-[var(--gs-purple)]/[0.08]">
+                            Full Access
+                          </span>
                         </div>
                         <div className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
-                          MetaMask, Rabby, WalletConnect & 300+ more
+                          Email, MetaMask, Phantom
+                        </div>
+                        <div className="font-mono text-caption text-[var(--gs-gray-2)] leading-relaxed mt-0.5">
+                          Track and own multiple in&#8209;game wallets, player legacy, and more.
                         </div>
                       </div>
                       <svg className="w-4 h-4 text-[var(--gs-gray-2)] group-hover:text-[var(--gs-purple-bright)] transition-all duration-200 group-hover:translate-x-0.5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
