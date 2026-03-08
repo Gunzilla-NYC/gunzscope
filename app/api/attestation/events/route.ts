@@ -131,7 +131,7 @@ export async function GET() {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to fetch events';
+    console.error('[attestation/events]', err);
 
     // Serve stale cache on error
     if (cache) {
@@ -140,6 +140,6 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch attestation events' }, { status: 500 });
   }
 }
