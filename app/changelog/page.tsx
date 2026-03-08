@@ -23,9 +23,22 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.7.3',
+    date: 'Mar 8, 2026',
+    tag: 'current',
+    items: [
+      'CSS design token system \u2014 12-step neutral scale (--gs-n-0 through --gs-n-11), 14 semantic aliases (--gs-bg, --gs-surface, --gs-card, --gs-text-*, --gs-border, --gs-status-*), 3 transition tokens (--gs-ease, --gs-dur-fast, --gs-dur-norm); enables single-point theme switching',
+      'Variable-driven corner-cut utilities \u2014 .cut-sm (4px), .cut-md (8px), .cut-lg (12px) classes backed by --gs-cut-* custom properties; replaces hardcoded clip-path polygons',
+      'Accessibility: scroll-behavior forced to auto in prefers-reduced-motion media query \u2014 smooth scrolling was still active for users with reduced motion enabled (WCAG 2.1 SC 2.3.3)',
+      'Compositing layer merge \u2014 grid-bg + scanlines collapsed into single .page-bg element across 8 page files; eliminates one full-viewport GPU texture per page (~2-4 MB VRAM savings)',
+      'IntersectionObserver auto-disconnect \u2014 observers in home page social proof, brand page, and build-games page now call unobserve() after element reveal; ~29 persistent observer callbacks eliminated post-animation',
+      'rAF-gated scroll handlers \u2014 Navbar, PublicNav, and ScrollToTopButton scroll listeners wrapped in requestAnimationFrame ticking gate with passive: true; caps setState calls at 1/frame (8\u00d7 reduction on 120Hz displays)',
+      'content-visibility: auto on 3 below-fold home page sections (Features, Social Proof, Dashboard Preview) \u2014 browser skips layout+paint for offscreen content; ~200-400 DOM nodes deferred on initial load',
+    ],
+  },
+  {
     version: 'v0.7.2',
     date: 'Mar 7, 2026',
-    tag: 'current',
     items: [
       'Wallet modal UX overhaul \u2014 "Connect Whitelisted Wallet" \u2192 "Get Started"; two lanes now labeled "View Only" (paste address) and "Full Access" (Dynamic connect) with badge indicators; description copy rewritten for clarity',
       'Middleware view\u2011only bypass \u2014 /portfolio with ?address= query param now skips gs_session cookie validation; applies to both missing\u2011cookie and expired\u2011cookie paths in middleware.ts',

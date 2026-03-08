@@ -15,9 +15,21 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.7.3',
+    date: 'Mar 8, 2026',
+    tag: 'current',
+    title: 'The plumbing nobody asked to see',
+    items: [
+      'The entire color system now runs through a single set of design tokens instead of 45 hex values scattered across stylesheets like confetti. Changing the background color of every surface in the app went from "find and replace and pray" to editing one line. You won\u2019t notice anything different. That\u2019s the point.',
+      'Those angular corner cuts on cards and panels used to be hardcoded pixel values baked into clip-path polygons. Now they\u2019re driven by CSS variables \u2014 small, medium, and large \u2014 so the entire geometric language of the site can be adjusted from three numbers instead of hunting through every component.',
+      'If you had reduced motion enabled in your OS, we were already disabling animations \u2014 but smooth scrolling was still doing its thing. Fixed. If your system says "stop moving stuff around," we now actually stop moving stuff around.',
+      'Every page had two invisible full-screen layers painting the grid background and scanline overlay. Now it\u2019s one. Your GPU was rendering two viewport-sized textures for a visual effect that works just as well composited into a single element. Freed up a few megabytes of VRAM that your browser was hoarding for no reason.',
+      'Scroll performance got a quiet overhaul. The navbar, public nav, and scroll-to-top button were all firing state updates on every single scroll event \u2014 up to 960 times per second on a 120Hz display. They now batch into one update per animation frame. The scroll-reveal animations also clean up after themselves instead of watching elements forever after they\u2019ve already appeared.',
+    ],
+  },
+  {
     version: 'v0.7.2',
     date: 'Mar 7, 2026',
-    tag: 'current',
     title: 'The front door learned some manners',
     items: [
       'The wallet modal used to say "Connect Whitelisted Wallet" and offer two unlabeled paths that looked identical until you picked one and found out. Now it says "Get Started" with two clearly marked lanes \u2014 "View Only" for pasting an in-game address, "Full Access" for connecting a real wallet. One is window shopping. The other is moving in.',
