@@ -5,6 +5,8 @@ import Footer from '@/components/Footer';
 import { UPDATES } from '@/lib/data/updates';
 import UpdateTimeline from '@/components/updates/UpdateTimeline';
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "What's New",
   description: 'The latest updates to GUNZscope. New features, improvements, and what we shipped this week.',
