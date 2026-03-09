@@ -175,7 +175,7 @@ export const config = {
     '/leaderboard',
     '/scarcity',
     '/market',
-    '/explore',
+    // '/explore' — public (on-chain attestation data)
 
     // User profile
     '/api/me',
@@ -221,8 +221,8 @@ export const config = {
     '/api/feature-requests',
     '/api/feature-requests/:path*',
 
-    // Attestations
-    '/api/attestation',
-    '/api/attestation/:path*',
+    // Attestations — /api/attestation/events & /metadata are public (used by /explore)
+    '/api/attestation/upload',
+    '/api/attestation/status',
   ],
 };
