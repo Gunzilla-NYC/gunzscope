@@ -894,11 +894,13 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     handleWalletSubmit(activeWalletData.address, 'avalanche');
   }, [activeWalletData?.address]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Connection mode: 'full' when viewing own connected wallet,
+  // Connection mode: 'full' when viewing own connected wallet or a portfolio wallet,
   // 'view-only' when viewing a pasted/shared address or no wallet connected
   const isOwnConnectedWallet = primaryWallet?.address &&
     activeWalletData?.address?.toLowerCase() === primaryWallet.address.toLowerCase();
-  const connectionMode = isOwnConnectedWallet ? 'full' as const : 'view-only' as const;
+  const isOwnPortfolioWallet = isAuthenticated && activeWalletData?.address &&
+    portfolioAddresses.some(p => p.address.toLowerCase() === activeWalletData.address.toLowerCase());
+  const connectionMode = (isOwnConnectedWallet || isOwnPortfolioWallet) ? 'full' as const : 'view-only' as const;
 
   const contextValue: PortfolioContextValue = useMemo(() => ({
     walletData: activeWalletData,
