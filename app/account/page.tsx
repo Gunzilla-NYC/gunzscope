@@ -160,6 +160,8 @@ function AccountContent() {
     removePortfolioAddress,
     addTrackedAddress,
     removeTrackedAddress,
+    removeFavorite,
+    togglePin,
     updateEmail,
     updateDisplayName,
     setPrimaryWallet,
@@ -185,7 +187,9 @@ function AccountContent() {
   const [email, setEmail] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [emailLoaded, setEmailLoaded] = useState(false);
-  const [walletTab, setWalletTab] = useState<'portfolio' | 'tracked'>('portfolio');
+  const [walletTab, setWalletTab] = useState<'portfolio' | 'tracked' | 'favorites'>('portfolio');
+  const [removingFavId, setRemovingFavId] = useState<string | null>(null);
+  const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
   const [newTrackedAddress, setNewTrackedAddress] = useState('');
   const [newTrackedLabel, setNewTrackedLabel] = useState('');
   const [isAddingTracked, setIsAddingTracked] = useState(false);
@@ -377,7 +381,7 @@ function AccountContent() {
             <section className="bg-[var(--gs-dark-2)] border border-white/[0.06] overflow-hidden">
               <div className="h-[2px] gradient-accent-line" />
               <div className="p-6">
-                <SectionLabel>Account</SectionLabel>
+                <SectionLabel>Account Wallet</SectionLabel>
 
                 {/* Connected wallet(s) */}
                 {primaryWallet && profile && profile.wallets.length > 0 && (
@@ -536,6 +540,19 @@ function AccountContent() {
                     Watchlist
                     {trackedSlotsUsed > 0 && (
                       <span className="ml-2 font-mono text-[9px] tabular-nums opacity-70">{trackedSlotsUsed}/{MAX_TRACKED_WALLETS}</span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setWalletTab('favorites')}
+                    className={`flex-1 font-mono text-data uppercase tracking-wider py-2 text-center transition-colors border border-l-0 cursor-pointer ${
+                      walletTab === 'favorites'
+                        ? 'bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/30 text-[#ff6b6b]'
+                        : 'bg-transparent border-white/[0.06] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.12]'
+                    }`}
+                  >
+                    Favorites
+                    {(profile?.favorites.length ?? 0) > 0 && (
+                      <span className="ml-2 font-mono text-[9px] tabular-nums opacity-70">{profile?.favorites.length}</span>
                     )}
                   </button>
                 </div>
@@ -776,6 +793,94 @@ function AccountContent() {
                       </div>
                     </form>
                   )
+                )}
+
+                {/* ── Favorites Tab content ── */}
+                {walletTab === 'favorites' && (
+                  <div className="space-y-2">
+                    {!profile?.favorites.length ? (
+                      <div className="text-center py-8">
+                        <svg className="size-8 text-[var(--gs-gray-2)] mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        <p className="font-mono text-caption text-[var(--gs-gray-3)]">
+                          No favorites yet. Heart items in your portfolio to save them here.
+                        </p>
+                      </div>
+                    ) : (
+                      profile.favorites.map((fav) => {
+                        const meta = fav.metadata as { name?: string; image?: string; collection?: string } | null;
+                        const name = meta?.name || fav.refId;
+                        return (
+                          <div
+                            key={fav.id}
+                            className="flex items-center gap-3 px-3 py-2.5 border border-white/[0.06] hover:border-white/[0.12] transition-colors group"
+                          >
+                            {/* Thumbnail */}
+                            {meta?.image ? (
+                              <img
+                                src={meta.image}
+                                alt={name}
+                                className="size-8 object-cover bg-[var(--gs-dark-4)] shrink-0"
+                              />
+                            ) : (
+                              <div className="size-8 bg-[var(--gs-dark-4)] flex items-center justify-center shrink-0">
+                                <span className="font-display text-[10px] font-bold text-[var(--gs-gray-2)]">
+                                  {name.slice(0, 2).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Name + type */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--gs-white)] truncate">
+                                {name}
+                              </p>
+                              <p className="font-mono text-label text-[var(--gs-gray-3)] uppercase tracking-wide">
+                                {fav.type}{meta?.collection ? ` \u00B7 ${meta.collection}` : ''}
+                              </p>
+                            </div>
+
+                            {/* Pin toggle */}
+                            <button
+                              onClick={async () => {
+                                setTogglingPinId(fav.id);
+                                await togglePin(fav.id);
+                                setTogglingPinId(null);
+                              }}
+                              disabled={togglingPinId === fav.id}
+                              className={`p-1.5 transition-colors cursor-pointer ${
+                                fav.pinned
+                                  ? 'text-[var(--gs-lime)]'
+                                  : 'text-[var(--gs-gray-2)] hover:text-[var(--gs-lime)] opacity-0 group-hover:opacity-100'
+                              } ${togglingPinId === fav.id ? 'opacity-50' : ''}`}
+                              title={fav.pinned ? 'Unpin' : 'Pin to top'}
+                            >
+                              <svg className="w-3.5 h-3.5" fill={fav.pinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 3l-4 4-4-4M8 7v6l-3 3h14l-3-3V7M12 16v5" />
+                              </svg>
+                            </button>
+
+                            {/* Remove */}
+                            <button
+                              onClick={async () => {
+                                setRemovingFavId(fav.id);
+                                await removeFavorite(fav.id);
+                                setRemovingFavId(null);
+                              }}
+                              disabled={removingFavId === fav.id}
+                              className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors opacity-0 group-hover:opacity-100 cursor-pointer disabled:opacity-50"
+                              title="Remove favorite"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 )}
 
                 {/* View portfolio link — only for portfolio tab */}
