@@ -131,6 +131,7 @@ async function main() {
     { slug: 'solana-set',        name: 'Solana Set',                     shortName: 'Solana Set',          category: 'content_pack', date: null, description: 'Solana-exclusive weapon variants' },
     { slug: 'legacy',            name: 'Legacy Collection',              shortName: 'Legacy',              category: 'content_pack', date: null, description: 'Base game legacy weapon variants' },
     { slug: 'retro',             name: 'Retro Collection',               shortName: 'Retro',               category: 'content_pack', date: null, description: 'Base game retro weapon variants' },
+    { slug: 'feedkiller',        name: 'Feedkiller Campaign',            shortName: 'Feedkiller',          category: 'event',        date: null, description: 'Feedkiller Campaign weapon variants' },
     { slug: 'unmapped',          name: 'Unmapped',                       shortName: 'Unknown',             category: 'content_pack', date: null, description: 'Bucket for items not yet mapped to a release' },
   ];
 
@@ -460,7 +461,7 @@ async function main() {
     ['Tap9 Retro', 'retro'],
     ['Tap9 Legacy', 'legacy'],
     ['Tap9 Pacifist', 'unmapped'],
-    ['Tap 9 Feedkiller', 'unmapped'],
+    ['Tap 9 Feedkiller', 'feedkiller'],
     ['Type 227', 'unmapped'],
     ['Type 227 Retro', 'retro'],
     ['Type 227 Legacy', 'legacy'],
@@ -480,7 +481,7 @@ async function main() {
     ['Proton Retro', 'retro'],
     ['Proton Legacy', 'legacy'],
     ['Proton OpenSea', 'unmapped'],
-    ['Proton Feedkiller', 'unmapped'],
+    ['Proton Feedkiller', 'feedkiller'],
     ['Proton Drifter', 'unmapped'],
     ['Ichnya', 'unmapped'],
     ['Ichnya Retro', 'retro'],
@@ -495,7 +496,7 @@ async function main() {
     ['Kestrel', 'unmapped'],
     ['Kestrel Retro', 'retro'],
     ['Kestrel Legacy', 'legacy'],
-    ['Kestrel Feedkiller', 'unmapped'],
+    ['Kestrel Feedkiller', 'feedkiller'],
     ['Kestrel Punisher', 'anti-cheat-bp'],
     ['Osprey', 'unmapped'],
     ['Osprey Retro', 'retro'],
@@ -614,7 +615,7 @@ async function main() {
     ['Hawk', 'unmapped'],
     ['Hawk Retro', 'retro'],
     ['Hawk Legacy', 'legacy'],
-    ['Hawk Feedkiller', 'unmapped'],
+    ['Hawk Feedkiller', 'feedkiller'],
     ['Hawk Cleanup Crew', 'unmapped'],
     // Hawk Anarchist already in Anarchist BP above
     // Hawk Blue Blood already in Hexmas above
@@ -660,7 +661,7 @@ async function main() {
     ['Squall LayerZero', 'unmapped'],
     ['Squall Combat DJ', 'combat-dj'],
     ['Squall Honksplatter', 'unmapped'],
-    ['Squall Feedkiller', 'unmapped'],
+    ['Squall Feedkiller', 'feedkiller'],
     // ── Emotes ──────────────────────────────────────────────────
     // Hexmas
     ['Snow and Blow', 'hexmas'],
@@ -813,6 +814,7 @@ async function main() {
     { type: 'contains', pattern: 'legacy',               releaseSlug: 'legacy',              priority: 5 },
     { type: 'contains', pattern: 'retro',                releaseSlug: 'retro',               priority: 4 },
     { type: 'contains', pattern: 'punisher',             releaseSlug: 'anti-cheat-bp',       priority: 6 },
+    { type: 'contains', pattern: 'feedkiller',           releaseSlug: 'feedkiller',          priority: 7 },
   ];
 
   for (const rule of matchRules) {

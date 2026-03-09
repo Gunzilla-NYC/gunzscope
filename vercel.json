@@ -3,6 +3,12 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  },
   "crons": [
     { "path": "/api/cron/gun-price", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/floor-drop", "schedule": "*/15 * * * *" },

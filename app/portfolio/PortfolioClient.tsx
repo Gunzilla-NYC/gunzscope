@@ -898,8 +898,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // 'view-only' when viewing a pasted/shared address or no wallet connected
   const isOwnConnectedWallet = primaryWallet?.address &&
     activeWalletData?.address?.toLowerCase() === primaryWallet.address.toLowerCase();
-  const isOwnPortfolioWallet = isAuthenticated && activeWalletData?.address &&
-    portfolioAddresses.some(p => p.address.toLowerCase() === activeWalletData.address.toLowerCase());
+  const activeAddr = activeWalletData?.address?.toLowerCase();
+  const isOwnPortfolioWallet = !!(isAuthenticated && activeAddr &&
+    portfolioAddresses.some(p => p.address.toLowerCase() === activeAddr));
   const connectionMode = (isOwnConnectedWallet || isOwnPortfolioWallet) ? 'full' as const : 'view-only' as const;
 
   const contextValue: PortfolioContextValue = useMemo(() => ({
