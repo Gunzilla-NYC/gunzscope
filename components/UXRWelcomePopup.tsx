@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const STORAGE_KEY = 'gs-uxr-welcome-dismissed';
 const SPRING = { stiffness: 300, damping: 30, mass: 0.8 };
@@ -11,6 +12,7 @@ const SPRING = { stiffness: 300, damping: 30, mass: 0.8 };
 export default function UXRWelcomePopup() {
   const { user } = useDynamicContext();
   const isAuthenticated = !!user;
+  const router = useRouter();
 
   const [visible, setVisible] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -151,7 +153,7 @@ export default function UXRWelcomePopup() {
               {/* CTA */}
               <div className="mt-4">
                 <button
-                  onClick={() => dismiss(true)}
+                  onClick={() => { dismiss(true); router.push('/portfolio'); }}
                   className="w-full py-3 px-4 bg-[var(--gs-lime)] text-black font-semibold text-sm hover:brightness-110 transition-all"
                   style={{
                     clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
