@@ -740,6 +740,18 @@ export default function AcquisitionTimeline({ nfts, gunPrice, embedded, zoomRef,
               </div>
             );
           })}
+          {/* Loss ring indicator */}
+          <div className="flex items-center gap-1.5">
+            <div
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{
+                backgroundColor: 'transparent',
+                border: `1.5px solid ${chartTheme.colors.loss}`,
+                boxShadow: `0 0 4px ${chartTheme.colors.loss}40`,
+              }}
+            />
+            <span className="font-mono text-micro text-[var(--gs-gray-3)]">Below cost</span>
+          </div>
           {excludedCount > 0 && (
             <span className="font-mono text-[9px] text-[#888888] ml-auto tabular-nums">
               Showing {timelineData.length} of {nfts.length} NFTs &middot; {excludedCount} missing dates
