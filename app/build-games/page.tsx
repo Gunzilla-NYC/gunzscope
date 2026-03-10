@@ -54,6 +54,7 @@ interface AttestationStats {
 function useLiveStats() {
   const [site, setSite] = useState<SiteStats>({ nftsTracked: 11000, walletsTracked: 280 });
   const [attestation, setAttestation] = useState<AttestationStats>({ totalAttestations: 150 });
+  const [gunPrice, setGunPrice] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/stats/site').then((r) => r.ok ? r.json() : null).then((d) => {
@@ -63,9 +64,13 @@ function useLiveStats() {
     fetch('/api/attestation/status').then((r) => r.ok ? r.json() : null).then((d) => {
       if (d) setAttestation({ totalAttestations: d.totalAttestations ?? 150 });
     }).catch(() => {});
+
+    fetch('/api/price/gun').then((r) => r.ok ? r.json() : null).then((d) => {
+      if (d?.price) setGunPrice(d.price);
+    }).catch(() => {});
   }, []);
 
-  return { site, attestation };
+  return { site, attestation, gunPrice };
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +149,7 @@ function SectionHeader({ num, title }: { num: string; title: string }) {
 
 export default function BuildGamesPage() {
   const containerRef = useScrollReveal();
-  const { site, attestation } = useLiveStats();
+  const { site, attestation, gunPrice } = useLiveStats();
 
   return (
     <div ref={containerRef} className="min-h-dvh flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)]">
@@ -165,6 +170,7 @@ export default function BuildGamesPage() {
             <GlitchLink href="#architecture" label="Architecture" isActive={false} />
             <GlitchLink href="#features" label="Features" isActive={false} />
             <GlitchLink href="#preview" label="Dashboard" isActive={false} />
+            <GlitchLink href="#builder" label="Builder" isActive={false} />
             <GlitchLink href="/build-games/roadmap" label="Roadmap" isActive={false} />
           </nav>
           <a
@@ -245,6 +251,15 @@ export default function BuildGamesPage() {
             >
               View Roadmap
             </Link>
+            <a
+              href="https://github.com/Gunzilla-NYC/gunzscope"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm flex items-center h-[52px] gap-2"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              GitHub
+            </a>
           </div>
         </div>
         </div>
@@ -254,7 +269,7 @@ export default function BuildGamesPage() {
           <div className="max-w-7xl mx-auto flex flex-wrap">
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06] bg-[var(--gs-lime)]/[0.03]">
               <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-lime)] block mb-1">GUN Price</span>
-              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">$<span className="text-[var(--gs-lime)]">0.0264</span></span>
+              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">$<span className="text-[var(--gs-lime)]">{gunPrice ? gunPrice.toFixed(4) : '0.0264'}</span></span>
             </div>
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06]">
               <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">NFTs Tracked</span>
@@ -282,10 +297,60 @@ export default function BuildGamesPage() {
         </div>
       </section>
 
+      {/* ─── THE MARKET ─── */}
+      <section className="relative z-10 py-24 border-t border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <SectionHeader num="01" title="The Market" />
+
+          <div className="grid md:grid-cols-2 gap-10 md:gap-16">
+            <div className="flex flex-col justify-center gap-5 reveal">
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> is one of the largest
+                blockchain&#8209;integrated games ever shipped. <strong className="text-[var(--gs-white)] font-medium">13 million unique players</strong> across
+                Xbox, PlayStation, Epic Games Store, and Steam &mdash; all with on&#8209;chain wallets.
+              </p>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                No portfolio tracker exists for these players. Items are acquired through HEX loot boxes,
+                marketplace purchases, in&#8209;game rewards, and cross&#8209;platform transfers &mdash; but there is
+                <strong className="text-[var(--gs-white)] font-medium"> no way to see what you own or what it&rsquo;s worth</strong>.
+                Players resort to Discord price checks and spreadsheets. GUNZscope fills that gap.
+              </p>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                This is a <strong className="text-[var(--gs-white)] font-medium">category&#8209;level absence</strong> &mdash;
+                true across all of blockchain gaming, not just OTG. OTG and GUNZscope Phase I is a sequenced strategic entry point, not the ceiling.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 reveal">
+              <div className="p-6 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Unique Players</div>
+                <div className="font-display text-4xl font-bold text-[var(--gs-lime)]">13M</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Across all platforms</div>
+              </div>
+              <div className="p-6 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Daily Active</div>
+                <div className="font-display text-4xl font-bold text-[var(--gs-white)]">450K</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">DAU</div>
+              </div>
+              <div className="p-6 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Platforms</div>
+                <div className="font-display text-4xl font-bold text-[var(--gs-white)]">4</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Xbox &middot; PS &middot; Epic &middot; Steam</div>
+              </div>
+              <div className="p-6 border border-[var(--gs-purple)]/20 bg-[var(--gs-purple)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Portfolio Trackers</div>
+                <div className="font-display text-4xl font-bold text-[var(--gs-purple-bright)]">0</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Before GUNZscope</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── ARCHITECTURE ─── */}
       <section id="architecture" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="01" title="Multi-Chain Architecture" />
+          <SectionHeader num="02" title="Multi-Chain Architecture" />
 
           <div className="grid md:grid-cols-2 gap-10 md:gap-16">
             {/* Narrative */}
@@ -379,7 +444,7 @@ export default function BuildGamesPage() {
       {/* ─── FEATURES ─── */}
       <section id="features" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="02" title="Core Features" />
+          <SectionHeader num="03" title="Core Features" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.04] border border-white/[0.06] reveal">
             {FEATURES.map((f) => (
@@ -407,7 +472,7 @@ export default function BuildGamesPage() {
       {/* ─── ON-CHAIN PROOF ─── */}
       <section className="relative z-10 py-24 border-t border-white/[0.06] bg-[var(--gs-dark-1)]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="03" title="On-Chain Proof" />
+          <SectionHeader num="04" title="On-Chain Proof" />
 
           <div className="grid md:grid-cols-3 gap-6 reveal">
             <div className="p-6 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
@@ -434,18 +499,28 @@ export default function BuildGamesPage() {
             </div>
           </div>
 
-          <p className="mt-6 text-sm font-light text-[var(--gs-gray-3)] max-w-[700px] reveal">
-            Not a roadmap promise &mdash; on&#8209;chain attestations are <strong className="text-[var(--gs-white)] font-medium">live today</strong>.
-            Users connect a wallet, select which portfolio to attest, and GUNZscope writes a Merkle root to AVAX C&#8209;Chain
-            with full metadata stored on Autonomys&rsquo; distributed storage network.
-          </p>
+          <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-4 reveal">
+            <p className="text-sm font-light text-[var(--gs-gray-3)] max-w-[700px]">
+              Not a roadmap promise &mdash; on&#8209;chain attestations are <strong className="text-[var(--gs-white)] font-medium">live today</strong>.
+              Users connect a wallet, select which portfolio to attest, and GUNZscope writes a Merkle root to AVAX C&#8209;Chain
+              with full metadata stored on Autonomys&rsquo; distributed storage network.
+            </p>
+            <a
+              href="https://snowtrace.io/address/0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 font-mono text-[10px] tracking-wider uppercase px-3 py-1.5 border border-[var(--gs-lime)]/20 text-[var(--gs-lime)] hover:bg-[var(--gs-lime)]/10 transition-colors clip-corner-sm"
+            >
+              View on Snowtrace &rarr;
+            </a>
+          </div>
         </div>
       </section>
 
       {/* ─── VALUATION WATERFALL ─── */}
       <section id="valuation" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="04" title="Valuation Waterfall" />
+          <SectionHeader num="05" title="Valuation Waterfall" />
 
           <div className="grid md:grid-cols-2 gap-10 md:gap-16">
             <div className="flex flex-col justify-center gap-5 reveal">
@@ -494,7 +569,7 @@ export default function BuildGamesPage() {
       {/* ─── DASHBOARD PREVIEW ─── */}
       <section id="preview" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="05" title="Dashboard Preview" />
+          <SectionHeader num="06" title="Dashboard Preview" />
 
           <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden reveal">
             {/* Browser toolbar */}
@@ -577,6 +652,74 @@ export default function BuildGamesPage() {
         </div>
       </section>
 
+      {/* ─── BUILT BY ─── */}
+      <section id="builder" className="relative z-10 py-24 border-t border-white/[0.06] bg-[var(--gs-dark-1)]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <SectionHeader num="07" title="Built By" />
+
+          <div className="grid md:grid-cols-[1fr_auto] gap-10 md:gap-16 reveal">
+            <div className="flex flex-col gap-5">
+              <h3 className="font-display font-bold text-2xl uppercase tracking-wide text-[var(--gs-white)]">
+                Amik Ahmad
+              </h3>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                <strong className="text-[var(--gs-white)] font-medium">13 years in product</strong>. Co&#8209;founded
+                Amazon&rsquo;s Blockchain Group, worked on foundational models for Alexa AI, ML for the Department of Defense,
+                and launched multiple crypto and blockchain products. Most recently, led Product through two testnets and
+                mainnet + TGE at <strong className="text-[var(--gs-white)] font-medium">Autonomys</strong>, a sovereign
+                base&#8209;layer L1 built from the ground up with its own novel consensus mechanism &mdash;
+                Autonomys Decentralized Storage Network is currently used by GUNZscope for attestation metadata.
+              </p>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                I&rsquo;m also an OTG player &mdash; <strong className="text-[var(--gs-white)] font-medium">3,300+ matches,
+                650+ hours</strong>, top 8 contributor in the Gunzilla Discord. I&rsquo;ve spent two years deep in this
+                community &mdash; playing the game, studying gamer behavior, and conducting user research.
+                Every feature in GUNZscope is <strong className="text-[var(--gs-white)] font-medium">evidence&#8209;based</strong>,
+                built from real pain points observed firsthand. GUNZscope exists because of that.
+              </p>
+
+              <div className="flex flex-wrap gap-2 mt-2">
+                {[
+                  'Amazon Blockchain Group',
+                  'Alexa AI / DoD ML',
+                  'Autonomys (L1 · mainnet + TGE)',
+                  '3,300+ OTG Matches',
+                  '650+ Hours Played',
+                  'Top 8 Discord Contributor',
+                  'Solo Builder',
+                ].map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-block font-mono text-[10px] px-2.5 py-1 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.04] text-[var(--gs-gray-4)]"
+                    style={{ clipPath: CLIP_SM }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 md:min-w-[220px]">
+              <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Experience</div>
+                <div className="font-display text-2xl font-bold text-[var(--gs-white)]">13 years</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Product, Design &amp; Engineering</div>
+              </div>
+              <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">OTG Rank</div>
+                <div className="font-display text-2xl font-bold text-[var(--gs-lime)]">Top 8</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Discord engagement</div>
+              </div>
+              <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Build Time</div>
+                <div className="font-display text-2xl font-bold text-[var(--gs-purple-bright)]">47 days</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Jan 22 &rarr; Mar 10, 2026</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── BUILD GAMES CTA ─── */}
       <section className="relative z-10 py-24 border-t border-white/[0.06] bg-gradient-to-br from-[#E84142]/[0.04] to-[var(--gs-purple)]/[0.04] text-center">
         <div className="max-w-[700px] mx-auto px-6 reveal">
@@ -613,6 +756,15 @@ export default function BuildGamesPage() {
             >
               Full Roadmap
             </Link>
+            <a
+              href="https://github.com/Gunzilla-NYC/gunzscope"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-display font-semibold text-data uppercase tracking-wider px-6 py-2.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm flex items-center gap-2"
+            >
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              GitHub
+            </a>
           </div>
         </div>
       </section>

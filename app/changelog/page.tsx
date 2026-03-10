@@ -23,9 +23,20 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.7.4',
+    date: 'Mar 10, 2026',
+    tag: 'current',
+    items: [
+      '/build-games landing page overhaul \u2014 reordered sections: "The Market" (13M players, 450K DAU, zero existing trackers) now leads as section 01 before Architecture; judges see the "why" before the "how"',
+      'GitHub repo link added to hero CTAs and bottom CTA section \u2014 links to Gunzilla-NYC/gunzscope for judge access to source code',
+      'Attestation explorer link \u2014 "View on Snowtrace" button in On-Chain Proof section links directly to the attestation contract on AVAX C-Chain',
+      'Market section copy refined \u2014 "OTG and GUNZscope Phase I is a sequenced strategic entry point, not the ceiling" replaces generic framing',
+      'Footer \u2014 CRYPTOHAKI text now links to /cryptohaki profile page',
+    ],
+  },
+  {
     version: 'v0.7.3',
     date: 'Mar 8, 2026',
-    tag: 'current',
     items: [
       'CSS design token system \u2014 12-step neutral scale (--gs-n-0 through --gs-n-11), 14 semantic aliases (--gs-bg, --gs-surface, --gs-card, --gs-text-*, --gs-border, --gs-status-*), 3 transition tokens (--gs-ease, --gs-dur-fast, --gs-dur-norm); enables single-point theme switching',
       'Variable-driven corner-cut utilities \u2014 .cut-sm (4px), .cut-md (8px), .cut-lg (12px) classes backed by --gs-cut-* custom properties; replaces hardcoded clip-path polygons',

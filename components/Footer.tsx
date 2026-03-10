@@ -11,7 +11,7 @@ export default function Footer({ variant = 'full' }: FooterProps) {
     return (
       <footer className="relative z-10 py-8 px-6 text-center border-t border-white/[0.06]">
         <p className="font-mono text-caption tracking-wide text-[var(--gs-gray-4)]">
-          Built with <span className="text-[var(--gs-lime)]">&hearts;</span> by CRYPTOHAKI for the Gunzilla community. Not affiliated with Gunzilla Games.
+          Built with <span className="text-[var(--gs-lime)]">&hearts;</span> by <a href="/cryptohaki" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">CRYPTOHAKI</a> for the Gunzilla community. Not affiliated with Gunzilla Games.
         </p>
       </footer>
     );
@@ -47,7 +47,7 @@ export default function Footer({ variant = 'full' }: FooterProps) {
 
         {/* Credit */}
         <p className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] text-center sm:text-right">
-          Built with <span className="text-[var(--gs-lime)]">&hearts;</span> by CRYPTOHAKI for the Gunzilla community.
+          Built with <span className="text-[var(--gs-lime)]">&hearts;</span> by <a href="/cryptohaki" className="text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)] transition-colors">CRYPTOHAKI</a> for the Gunzilla community.
         </p>
       </div>
     </footer>
