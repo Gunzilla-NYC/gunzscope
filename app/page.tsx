@@ -498,6 +498,11 @@ export default function HomePage() {
   }, []);
 
 
+  // Already-authenticated users are being redirected — show nothing to avoid flash
+  if (wasConnectedOnMount.current && primaryWallet?.address) {
+    return <div className="min-h-screen bg-[var(--gs-black)]" />;
+  }
+
   return (
     <div className="min-h-screen bg-[var(--gs-black)] text-[var(--gs-white)] overflow-x-hidden">
       {/* Konami Code Easter Egg */}
