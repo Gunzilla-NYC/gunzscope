@@ -291,6 +291,15 @@ export default function HomePage() {
       .catch(() => {});
   }, [primaryWallet, user]);
 
+  // Already-connected users (e.g. Ledger persists across sessions) — redirect
+  // immediately. They already have a gs_session cookie from prior validation;
+  // middleware will verify it. If the cookie expired, middleware bounces to /.
+  useEffect(() => {
+    if (wasConnectedOnMount.current && primaryWallet?.address) {
+      router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+    }
+  }, [wasConnectedOnMount.current, primaryWallet?.address, router]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Wallet validation — fresh wallet connection only (not on page load with existing wallet)
   useEffect(() => {
     if (wasConnectedOnMount.current || !primaryWallet?.address) return;
