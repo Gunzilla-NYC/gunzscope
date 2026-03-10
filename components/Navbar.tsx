@@ -48,13 +48,11 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
       });
   }, [primaryWallet?.address, user?.userId, handleLogOut]);
 
-  // Redirect to portfolio after login on the home page
-  const wasAnonymousRef = useRef(!user);
+  // Redirect authenticated users away from home page to portfolio
   useEffect(() => {
-    if (wasAnonymousRef.current && user && pathname === '/') {
+    if (user && pathname === '/') {
       router.push('/portfolio');
     }
-    wasAnonymousRef.current = !user;
   }, [user, pathname, router]);
 
   const activeAddress = searchParams.get('address');
