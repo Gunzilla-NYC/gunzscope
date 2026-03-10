@@ -45,7 +45,7 @@ export default function ConnectPromptModal({
 
           {/* Modal */}
           <motion.div
-            className="relative bg-[#1a1a1a] border border-[#64ffff]/30 rounded-xl shadow-2xl shadow-black/50 w-full max-w-md mx-4 overflow-hidden"
+            className="relative bg-[rgba(22,22,22,0.88)] backdrop-blur-xl border border-white/[0.06] shadow-2xl shadow-black/50 w-full max-w-md mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}

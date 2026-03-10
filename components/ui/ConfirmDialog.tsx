@@ -59,7 +59,7 @@ export default function ConfirmDialog({
 
           {/* Card */}
           <motion.div
-            className="relative w-full max-w-sm mx-4 overflow-hidden border border-white/[0.08] bg-[var(--gs-dark-2)]"
+            className="relative w-full max-w-sm mx-4 overflow-hidden border border-white/[0.06] bg-[rgba(22,22,22,0.88)] backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.95, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

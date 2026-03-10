@@ -703,7 +703,7 @@ export default function BuildGamesPage() {
               <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
                 <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Experience</div>
                 <div className="font-display text-2xl font-bold text-[var(--gs-white)]">13 years</div>
-                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Product, Design &amp; Engineering</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Product, Design, Engineering, Web3 &amp; AI</div>
               </div>
               <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
                 <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">OTG Rank</div>

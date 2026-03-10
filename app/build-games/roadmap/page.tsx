@@ -111,7 +111,7 @@ const PHASES: Phase[] = [
     ],
     validation: {
       confirmed: [
-        'OTG Discord community member publicly requested an inventory value tool on mainnet',
+        'OTG Discord community members publicly requested an inventory value tool on mainnet',
         'Gunzilla team member responded by tagging the builder (cryptohaki) to make it happen',
         'No competing tool existed at the time of request \u2014 confirmed by community and team',
       ],

@@ -407,7 +407,9 @@ export function DynamicProvider({ children }: { children: React.ReactNode }) {
         environmentId: environmentId || '',
         walletConnectors: [EthereumWalletConnectors],
         cssOverrides,
-        // Add custom EVM chain for GunzChain
+        // Force network switch to a configured chain on connect
+        networkValidationMode: 'always',
+        // Add custom EVM chain for GunzChain (first = default)
         overrides: {
           evmNetworks: [
             {

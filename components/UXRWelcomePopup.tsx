@@ -72,7 +72,7 @@ export default function UXRWelcomePopup() {
             {/* Top accent line */}
             <div className="h-[2px] bg-gradient-to-r from-[var(--gs-lime)] via-[var(--gs-purple)] to-transparent" />
 
-            <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] border-t-0 p-6 sm:p-8">
+            <div className="bg-[rgba(22,22,22,0.88)] backdrop-blur-xl border border-white/[0.06] border-t-0 p-6 sm:p-8">
               {/* Close button */}
               <button
                 onClick={() => dismiss()}

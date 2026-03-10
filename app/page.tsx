@@ -933,7 +933,7 @@ export default function HomePage() {
             transition={{ duration: 0.3, ease: revealEase }}
             className="relative w-full max-w-[440px] clip-corner"
           >
-            <div className="relative bg-[rgba(22,22,22,0.75)] backdrop-blur-xl border border-white/[0.06] overflow-hidden">
+            <div className="relative bg-[rgba(22,22,22,0.88)] backdrop-blur-xl border border-white/[0.12] overflow-hidden">
             {/* Top accent gradient */}
             <div className="h-[2px] bg-gradient-to-r from-[var(--gs-lime)] to-[var(--gs-purple)]" />
 
@@ -973,43 +973,11 @@ export default function HomePage() {
               {modalView === 'choose' ? (
                 /* ── Choice View ── */
                 <div className="space-y-3">
-                  {/* In-Game Player tile */}
-                  <button
-                    type="button"
-                    onClick={() => setModalView('paste')}
-                    className="w-full text-left p-5 bg-[rgba(28,28,28,0.5)] backdrop-blur-md border border-white/[0.06] hover:bg-[rgba(36,36,36,0.7)] hover:border-[var(--gs-lime)]/40 group cursor-pointer clip-corner-sm overflow-hidden transition-all duration-200"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 flex items-center justify-center border border-white/[0.08] bg-[rgba(36,36,36,0.6)] text-[var(--gs-gray-3)] group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm shrink-0 transition-colors duration-200">
-                        {/* Gamepad icon */}
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.035 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.401.604-.401.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.959.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] group-hover:text-[var(--gs-lime)] transition-colors duration-200">
-                            In&#8209;Game Wallet
-                          </span>
-                          <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 pt-[3px] pb-[2px] leading-none flex items-center text-[var(--gs-gray-4)] border border-white/[0.08] bg-white/[0.03]">
-                            View Only
-                          </span>
-                        </div>
-                        <div className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
-                          Paste your wallet address<br />from Off The Grid
-                        </div>
-                      </div>
-                      <svg className="w-4 h-4 text-[var(--gs-gray-2)] group-hover:text-[var(--gs-lime)] transition-all duration-200 group-hover:translate-x-0.5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </div>
-                  </button>
-
-                  {/* External Wallet tile */}
+                  {/* Full Access tile (top) */}
                   <button
                     type="button"
                     onClick={() => { pendingAuthFlowRef.current = true; setShowWalletModal(false); }}
-                    className="w-full text-left p-5 bg-[rgba(28,28,28,0.5)] backdrop-blur-md border border-white/[0.06] hover:bg-[rgba(36,36,36,0.7)] hover:border-[var(--gs-purple)]/40 group cursor-pointer clip-corner-sm overflow-hidden transition-all duration-200"
+                    className="w-full text-left p-5 bg-[rgba(28,28,28,0.5)] backdrop-blur-md border border-white/[0.12] hover:bg-[rgba(36,36,36,0.7)] hover:border-[var(--gs-purple)]/40 group cursor-pointer clip-corner-sm overflow-hidden transition-all duration-200"
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 flex items-center justify-center border border-white/[0.08] bg-[rgba(36,36,36,0.6)] text-[var(--gs-gray-3)] group-hover:text-[var(--gs-purple-bright)] group-hover:border-[var(--gs-purple)] clip-corner-sm shrink-0 transition-colors duration-200">
@@ -1021,10 +989,10 @@ export default function HomePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] group-hover:text-[var(--gs-purple-bright)] transition-colors duration-200">
-                            Create Account
+                            Full Access
                           </span>
                           <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 pt-[3px] pb-[2px] leading-none flex items-center text-[var(--gs-purple-bright)] border border-[var(--gs-purple)]/30 bg-[var(--gs-purple)]/[0.08]">
-                            Full Access
+                            Create Account
                           </span>
                         </div>
                         <div className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
@@ -1035,6 +1003,38 @@ export default function HomePage() {
                         </div>
                       </div>
                       <svg className="w-4 h-4 text-[var(--gs-gray-2)] group-hover:text-[var(--gs-purple-bright)] transition-all duration-200 group-hover:translate-x-0.5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {/* View Only tile */}
+                  <button
+                    type="button"
+                    onClick={() => setModalView('paste')}
+                    className="w-full text-left p-5 bg-[rgba(28,28,28,0.5)] backdrop-blur-md border border-white/[0.12] hover:bg-[rgba(36,36,36,0.7)] hover:border-[var(--gs-lime)]/40 group cursor-pointer clip-corner-sm overflow-hidden transition-all duration-200"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 flex items-center justify-center border border-white/[0.08] bg-[rgba(36,36,36,0.6)] text-[var(--gs-gray-3)] group-hover:text-[var(--gs-lime)] group-hover:border-[var(--gs-lime)] clip-corner-sm shrink-0 transition-colors duration-200">
+                        {/* Gamepad icon */}
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.035 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.401.604-.401.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.959.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-display font-semibold text-sm uppercase tracking-wide text-[var(--gs-white)] group-hover:text-[var(--gs-lime)] transition-colors duration-200">
+                            View Only
+                          </span>
+                          <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 pt-[3px] pb-[2px] leading-none flex items-center text-[var(--gs-gray-4)] border border-white/[0.08] bg-white/[0.03]">
+                            Paste Your Address
+                          </span>
+                        </div>
+                        <div className="font-mono text-caption text-[var(--gs-gray-3)] leading-relaxed">
+                          Paste your wallet address from<br />Off The Grid
+                        </div>
+                      </div>
+                      <svg className="w-4 h-4 text-[var(--gs-gray-2)] group-hover:text-[var(--gs-lime)] transition-all duration-200 group-hover:translate-x-0.5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                       </svg>
                     </div>
@@ -1119,13 +1119,13 @@ export default function HomePage() {
                   {/* Helper text + expandable guide */}
                   <div className="mt-4">
                     <p className="font-mono text-caption text-[var(--gs-gray-2)] leading-relaxed">
-                      Paste your wallet address from Off The Grid on PC or Console.{' '}
+                      Paste your address from PC, Console, or third&#8209;party wallet.{' '}
                       <button
                         type="button"
                         onClick={() => setShowWalletHelp(prev => !prev)}
                         className={`font-mono text-caption transition-colors cursor-pointer ${showWalletHelp ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-purple-bright)] hover:text-[var(--gs-lime)]'}`}
                       >
-                        How do I find my wallet address?
+                        How do I find my in&#8209;game wallet address?
                       </button>
                     </p>
 
@@ -1146,7 +1146,7 @@ export default function HomePage() {
                             : 'opacity 0.15s ease-in',
                         }}
                       >
-                        <div className="mt-3 p-3 bg-[var(--gs-black)] border border-white/[0.06] clip-corner-sm space-y-2.5">
+                        <div className="mt-3 p-3 bg-[var(--gs-black)] clip-corner-sm space-y-2.5">
                           <p className="font-mono text-caption uppercase tracking-wider text-[var(--gs-gray-3)]">How to find your address</p>
                           <ol className="font-body text-data leading-relaxed text-[var(--gs-gray-4)] list-decimal list-inside space-y-1">
                             <li>Stop admiring your drip in the <span className="text-[var(--gs-white)]">OTG Lobby</span></li>
@@ -1154,9 +1154,9 @@ export default function HomePage() {
                             <li>Click <span className="text-[var(--gs-white)]">Open Wallet</span></li>
                             <li>Copy your wallet address</li>
                           </ol>
+                          <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">PC</p>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src="/otg-wallet-guide.gif" alt="How to find wallet address in OTG" className="w-full rounded-sm border border-white/[0.06]" />
-                          <p className="font-mono text-caption text-[var(--gs-gray-2)]">Solana players: use your Phantom or in&#8209;game Solana address.</p>
+                          <img src="/otg-wallet-guide.gif" alt="How to find wallet address in OTG" className="w-full rounded-sm" />
                         </div>
                       </div>
                     </div>
