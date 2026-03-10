@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, startTransition } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import Logo from './Logo';
 import { GlitchLink } from './navbar/GlitchLink';
@@ -8,6 +8,8 @@ import VersionBadge from './ui/VersionBadge';
 
 interface PublicNavProps {
   activeHref?: string;
+  /** When set, shows a "Back to Portfolio" link pointing to /portfolio?address=<value> */
+  backToPortfolio?: string;
 }
 
 const NAV_LINKS = [
@@ -15,115 +17,100 @@ const NAV_LINKS = [
   { href: '/explore', label: 'Onchain Explorer' },
 ];
 
-export default function PublicNav({ activeHref }: PublicNavProps) {
-  const [isScrolled, setIsScrolled] = useState(false);
+export default function PublicNav({ activeHref, backToPortfolio }: PublicNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          startTransition(() => setIsScrolled(window.scrollY > 10));
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
     <>
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-black/90 backdrop-blur-xl shadow-lg shadow-black/20'
-            : 'bg-black/50 backdrop-blur-sm'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-4 shrink-0">
-              <Link href="/" className="flex items-center group">
-                <div className="relative w-[10rem] sm:w-[15rem] overflow-hidden">
-                  <Logo size="md" variant="full" glitchOnHover />
-                </div>
-              </Link>
-              <VersionBadge className="hidden sm:inline shrink-0" />
-            </div>
+      <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-effect border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-full flex items-center justify-between">
+          {/* Logo — matches home page */}
+          <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
+              <Logo size="md" variant="icon" />
+              <span className="font-display font-bold text-lg tracking-wider uppercase">
+                GUNZ<span className="text-[var(--gs-purple)]">scope</span>
+              </span>
+            </Link>
+            <VersionBadge />
+          </div>
 
-            {/* Navigation links */}
-            <nav className="hidden md:flex items-center gap-5 ml-6 shrink-0">
-              {NAV_LINKS.map(link => (
+          {/* Navigation links — right side */}
+          <div className="hidden md:flex items-center gap-5">
+            {backToPortfolio ? (
+              <>
+                <GlitchLink href="/explore" label="Onchain Explorer" isActive={true} />
+                <Link
+                  href={`/portfolio?address=${encodeURIComponent(backToPortfolio)}`}
+                  className="font-mono text-data tracking-wider uppercase text-[var(--gs-lime)] hover:text-[var(--gs-lime-hover)] transition-colors"
+                >
+                  &larr; Back to Portfolio
+                </Link>
+              </>
+            ) : (
+              NAV_LINKS.filter(link => link.href !== activeHref).map(link => (
                 <GlitchLink
                   key={link.href}
                   href={link.href}
                   label={link.label}
-                  isActive={activeHref === link.href}
+                  isActive={false}
                 />
-              ))}
-            </nav>
+              ))
+            )}
+          </div>
 
-            {/* Login CTA — right side */}
-            <div className="hidden md:flex items-center ml-auto shrink-0">
-              <Link
-                href="/"
-                className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm"
-              >
-                Login
-              </Link>
-            </div>
-
-            {/* Mobile hamburger */}
-            <button
-              onClick={() => setMobileMenuOpen(prev => !prev)}
-              className="md:hidden ml-auto p-1.5 text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors cursor-pointer"
-              aria-label="Toggle menu"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                )}
+          {/* Mobile hamburger */}
+          <button
+            type="button"
+            className="flex md:hidden flex-col gap-[5px] bg-transparent border-none p-2 cursor-pointer"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <svg className="w-5 h-5 text-[var(--gs-gray-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
-          </div>
+            ) : (
+              <>
+                <span className="block w-5 h-[2px] bg-[var(--gs-gray-3)] transition-all" />
+                <span className="block w-5 h-[2px] bg-[var(--gs-gray-3)] transition-all" />
+                <span className="block w-3.5 h-[2px] bg-[var(--gs-gray-3)] transition-all" />
+              </>
+            )}
+          </button>
         </div>
-
-        {/* Mobile menu panel */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-white/[0.06] bg-black/95 backdrop-blur-xl">
-            <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
-              {NAV_LINKS.map(link => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
-                    activeHref === link.href
-                      ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
-                      : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <div className="mt-1 pt-1 border-t border-white/[0.06]">
-                <Link
-                  href="/"
-                  className="block w-full font-display font-semibold text-body-sm uppercase tracking-wider px-3 py-3 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm mt-1 text-center"
-                >
-                  Login
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
       </nav>
+
+      {/* Mobile menu panel */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed top-16 left-0 right-0 z-50 flex flex-col items-start gap-5 px-4 py-6 bg-[rgba(10,10,10,0.97)] backdrop-blur-lg border-b border-white/[0.06]">
+          {backToPortfolio ? (
+            <>
+              <span className="font-mono text-body-sm tracking-wider uppercase text-[var(--gs-lime)]">
+                Onchain Explorer
+              </span>
+              <Link
+                href={`/portfolio?address=${encodeURIComponent(backToPortfolio)}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="font-mono text-body-sm tracking-wider uppercase text-[var(--gs-lime)] hover:text-[var(--gs-lime-hover)] transition-colors"
+              >
+                &larr; Back to Portfolio
+              </Link>
+            </>
+          ) : (
+            NAV_LINKS.filter(link => link.href !== activeHref).map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="font-mono text-body-sm tracking-wider uppercase text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Spacer to prevent content from going under fixed navbar */}
       <div className="h-16" />

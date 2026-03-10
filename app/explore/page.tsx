@@ -1,6 +1,9 @@
 'use client';
 
 import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import PublicNav from '@/components/PublicNav';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useExplorer, type AttestationEvent } from '@/lib/hooks/useExplorer';
@@ -135,6 +138,27 @@ function MobileCard({ event, index, total }: { event: AttestationEvent; index: n
   );
 }
 
+/* ─── Nav picker: public → PublicNav, view-only → PublicNav + back link, full-access → Navbar ─── */
+function ExploreNav() {
+  const { user, primaryWallet, sdkHasLoaded } = useDynamicContext();
+  const searchParams = useSearchParams();
+  const isFullAccess = !!user && !!primaryWallet?.address;
+  const viewOnlyAddress = searchParams.get('address');
+
+  // Don't render until SDK loads to avoid flash
+  if (!sdkHasLoaded) return <div className="h-16" />;
+
+  if (isFullAccess) return <Navbar />;
+
+  // View-only user navigated from portfolio — show back link
+  if (viewOnlyAddress) {
+    return <PublicNav activeHref="/explore" backToPortfolio={viewOnlyAddress} />;
+  }
+
+  // Public (logged out)
+  return <PublicNav activeHref="/explore" />;
+}
+
 /* ─── Main content ─── */
 function ExploreContent() {
   const { events, stats, isLoading, error, lastUpdated, refetch } = useExplorer();
@@ -143,7 +167,7 @@ function ExploreContent() {
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
-      <Navbar />
+      <ExploreNav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}

@@ -118,7 +118,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                 <>
                   {isAnonymous && <GlitchLink href="/" label="Home" isActive={false} />}
                   <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
-                  <GlitchLink href="/explore" label="Onchain Explorer" isActive={pathname === '/explore'} />
+                  <GlitchLink href={isAnonymous && activeAddress ? `/explore?address=${encodeURIComponent(activeAddress)}` : '/explore'} label="Onchain Explorer" isActive={pathname === '/explore'} />
                   {hasWallet && (
                     <ExperimentsDropdown pathname={pathname} leaderboardHref={leaderboardHref} />
                   )}
@@ -208,7 +208,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                     Portfolio
                   </Link>
                   <Link
-                    href="/explore"
+                    href={isAnonymous && activeAddress ? `/explore?address=${encodeURIComponent(activeAddress)}` : '/explore'}
                     className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
                       pathname === '/explore'
                         ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
