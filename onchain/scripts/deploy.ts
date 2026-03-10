@@ -1,12 +1,18 @@
 import { ethers, upgrades } from "hardhat";
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
-  const balance = await ethers.provider.getBalance(deployer.address);
+  const signers = await ethers.getSigners();
+  const deployer = signers[0];
 
-  console.log("Deploying PortfolioAttestation (UUPS Proxy)...");
-  console.log("  Deployer:", deployer.address);
-  console.log("  Balance:", ethers.formatEther(balance), "AVAX");
+  if (!deployer) {
+    // Ledger-only mode: no hot wallet signers, Ledger plugin handles signing at provider level
+    console.log("No hot wallet signer found — deploying via Ledger plugin...");
+  } else {
+    const balance = await ethers.provider.getBalance(deployer.address);
+    console.log("Deploying PortfolioAttestation (UUPS Proxy)...");
+    console.log("  Deployer:", deployer.address);
+    console.log("  Balance:", ethers.formatEther(balance), "AVAX");
+  }
 
   const attestFee = ethers.parseEther("0.01"); // 0.01 AVAX
 
@@ -25,7 +31,7 @@ async function main() {
   console.log("  Proxy:", proxyAddress);
   console.log("  Implementation:", implAddress);
   console.log("  Attest fee:", ethers.formatEther(attestFee), "AVAX");
-  console.log("  Owner:", deployer.address);
+  console.log("  Owner:", deployer?.address ?? "Ledger");
   console.log("\nAdd to .env.local:");
   console.log(`  NEXT_PUBLIC_ATTESTATION_CONTRACT=${proxyAddress}`);
 }

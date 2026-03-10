@@ -3,7 +3,8 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
 import "@nomicfoundation/hardhat-ledger";
 
-const DEPLOYER_KEY = process.env.DEPLOYER_PRIVATE_KEY || "0x" + "0".repeat(64);
+const DEPLOYER_KEY = process.env.DEPLOYER_PRIVATE_KEY;
+const accounts = DEPLOYER_KEY ? [DEPLOYER_KEY] : [];
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -20,22 +21,25 @@ const config: HardhatUserConfig = {
     gunzchain: {
       url: "https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc",
       chainId: 43419,
-      accounts: [DEPLOYER_KEY],
+      accounts,
     },
     gunzchainTestnet: {
       url: "https://rpc.gunz.dev/ext/bc/ryk9vkvNuKtewME2PeCgybo9sdWXGmCkBrrx4VPuZPdVdAak8/rpc",
       chainId: 49321,
-      accounts: [DEPLOYER_KEY],
+      accounts,
     },
     fuji: {
       url: "https://api.avax-test.network/ext/bc/C/rpc",
       chainId: 43113,
-      accounts: [DEPLOYER_KEY],
+      accounts,
+      ledgerAccounts: [
+        "0x8ABF795f22931DFb0D086693343F5f80571b488C",
+      ],
     },
     avalanche: {
       url: "https://avalanche-c-chain-rpc.publicnode.com",
       chainId: 43114,
-      accounts: [DEPLOYER_KEY],
+      accounts,
       ledgerAccounts: [
         "0x8ABF795f22931DFb0D086693343F5f80571b488C", // Contract owner (Ledger)
       ],
@@ -44,6 +48,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       avalanche: "verifyContract",
+      avalancheFujiTestnet: "verifyContract",
     },
     customChains: [
       {
@@ -52,6 +57,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api",
           browserURL: "https://snowtrace.io",
+        },
+      },
+      {
+        network: "avalancheFujiTestnet",
+        chainId: 43113,
+        urls: {
+          apiURL: "https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api",
+          browserURL: "https://testnet.snowtrace.io",
         },
       },
     ],
