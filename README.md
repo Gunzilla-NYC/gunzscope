@@ -1,10 +1,11 @@
 # GUNZscope
 
-**Portfolio intelligence for Off The Grid on GunzChain.**
+> **Avalanche Build Games 2026 — Stage 2 MVP Submission**
+> [Live App](https://gunzscope.xyz) · [Competition Page](https://gunzscope.xyz/build-games) · [Roadmap](https://gunzscope.xyz/build-games/roadmap)
 
-Multi-chain portfolio tracker with on-chain attestations, dual-track P&L, acquisition intelligence, real-time alerts, and community features for the GUNZILLA gaming ecosystem.
+**Portfolio intelligence and on-chain proof of holdings for Off The Grid.**
 
-**[Live App](https://gunzscope.xyz)** · **[On-Chain Explorer](https://gunzscope.xyz/explore)** · **[Build Games Submission](https://gunzscope.xyz/build-games)**
+Multi-chain portfolio tracker with on-chain attestations, dual-track P&L, acquisition intelligence, real-time alerts, and community features — built on Avalanche and GunzChain.
 
 ---
 
@@ -22,10 +23,12 @@ The core on-chain component is the **PortfolioAttestation** contract deployed on
 
 | | |
 |---|---|
-| **Contract** | [`0xEBE8...c16`](https://snowtrace.io/address/0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16/contract/43114/code) |
+| **Contract** | [`0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16`](https://snowtrace.io/address/0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16/contract/43114/code) |
+| **Verified** | [View on Snowtrace](https://snowtrace.io/address/0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16/contract/43114/code) |
 | **Pattern** | UUPS Upgradeable Proxy (OpenZeppelin) |
 | **Chain** | Avalanche C-Chain (43114) |
 | **Storage** | Merkle root on-chain, full holdings on [Autonomys DSN](https://ai3.storage) |
+| **Tests** | Hardhat test suite (`onchain/test/PortfolioAttestation.test.ts`) |
 
 **What triggers a transaction:**
 
@@ -35,7 +38,7 @@ The core on-chain component is the **PortfolioAttestation** contract deployed on
 4. Contract emits `PortfolioAttested` event — indexed by the [On-Chain Explorer](https://gunzscope.xyz/explore)
 5. Anyone can verify individual holdings via `verifyHolding()` with a Merkle proof
 
-**Why on-chain:** Proves portfolio holdings trustlessly. Shareable, verifiable, unfakeable. Useful for airdrop eligibility, tournament entry, and social proof.
+**Why on-chain:** Proves portfolio holdings trustlessly. Shareable, verifiable, unfakeable. Foundation for expanded player identity — tournament entry, airdrop eligibility, reputation, and social proof.
 
 ## Features
 
@@ -86,6 +89,7 @@ The core on-chain component is the **PortfolioAttestation** contract deployed on
 |---------|--------|-------------|
 | **Weapon Lab** | WIP | Model code extraction for weapon compatibility and mod eligibility |
 | **Reputation SBTs** | Next | Soulbound badges for milestones — collection size, trade volume, certifications |
+| **Tournament System** | Next | On-chain identity-gated tournaments with attested results |
 
 ## Architecture
 
@@ -164,14 +168,17 @@ cd onchain
 npm install
 npx hardhat compile
 
-# Deploy to GunzChain or C-Chain (requires DEPLOYER_PRIVATE_KEY in .env)
+# Run tests
+npx hardhat test
+
+# Deploy to C-Chain (requires DEPLOYER_PRIVATE_KEY in .env)
 npx hardhat run scripts/deploy.ts --network avalanche
 ```
 
 ## Project Structure
 
 ```
-app/                            # Next.js App Router (20 pages)
+app/                            # Next.js App Router (20+ pages)
 ├── api/                        # Server-side API routes (61 endpoints)
 │   ├── attestation/            #   Upload, events, metadata, status
 │   ├── opensea/                #   Orders, sales, floor, rarity floors, comparable sales
@@ -191,7 +198,8 @@ app/                            # Next.js App Router (20 pages)
 ├── leaderboard/                # Global rankings
 ├── account/                    # User settings, wallets, alerts
 ├── feature-requests/           # Community feature voting
-└── build-games/                # Competition submission page
+└── build-games/                # Competition submission + roadmap
+    └── roadmap/                #   5-phase strategic roadmap
 
 components/                     # React components
 lib/                            # Shared business logic
@@ -208,7 +216,7 @@ onchain/                        # Smart contracts (Hardhat)
 ├── contracts/                  #   Solidity sources
 │   └── PortfolioAttestation.sol
 ├── scripts/                    #   Deploy + upgrade scripts
-└── test/                       #   Contract tests
+└── test/                       #   Contract tests (Hardhat + Chai)
 
 prisma/                         # Database schema (20+ models)
 ```
@@ -221,6 +229,18 @@ prisma/                         # Database schema (20+ models)
 | Avalanche C-Chain | 43114 | Portfolio attestation contract |
 | Solana Mainnet | — | GUN SPL token |
 
+## Roadmap
+
+GUNZscope is built as a compounding flywheel — each phase creates the foundation for the next:
+
+1. **Portfolio Intelligence & Proof** — Track holdings, attest on-chain (C-Chain), establish proof of holdings
+2. **On-Chain Identity & Tournaments** — Expand attestations into player identity, tournament system with verified results
+3. **Trusted Market Interface** — P2P offers with identity-backed trust, escrow, intent matching
+4. **Cross-Game Intelligence** — Multi-game portfolio tracking, cross-game identity portability
+5. **Infrastructure Layer** — SDK licensing, API tiers, oracle feeds for the gaming ecosystem
+
+Full roadmap with research and strategy: [gunzscope.xyz/build-games/roadmap](https://gunzscope.xyz/build-games/roadmap)
+
 ## Documentation
 
 Technical documentation is in the [docs/](docs/) directory:
@@ -231,7 +251,6 @@ Technical documentation is in the [docs/](docs/) directory:
 - [Wallet Classification](docs/WALLET_CLASSIFICATION.md) — in-game vs external detection
 - [Network Detection](docs/NETWORK_DETECTION.md) — chain detection implementation
 
-
 ## License
 
-[Apache License 2.0](LICENSE)
+[Business Source License 1.1](LICENSE)
