@@ -228,7 +228,7 @@ prisma/                         # Database schema (20+ models)
 | GunzChain Mainnet | 43419 | NFT holdings, GUN token, game data |
 | Avalanche C-Chain | 43114 | Portfolio attestation contract ([verified](https://snowtrace.io/address/0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16/contract/43114/code)) |
 | Avalanche Fuji (testnet) | 43113 | Testnet attestation contract ([verified](https://testnet.snowtrace.io/address/0x6378B604276E54e040b531e5efABf7b444e1138D#code)) |
-| Solana Mainnet | — | GUN SPL token |
+| Solana Mainnet | — | GUN SPL token ([view](https://solscan.io/token/3jUf2RTyXp867piSB2dt8uUcNiLDW58asjGtXkRAkBbe)) |
 | [Autonomys DSN](https://autonomys.xyz) | — | Decentralized storage for attestation metadata ([live attestations](https://gunzscope.xyz/explore)) |
 
 ## Roadmap
