@@ -291,13 +291,28 @@ export default function HomePage() {
       .catch(() => {});
   }, [primaryWallet, user]);
 
-  // Already-connected users (e.g. Ledger persists across sessions) — redirect
-  // immediately. They already have a gs_session cookie from prior validation;
-  // middleware will verify it. If the cookie expired, middleware bounces to /.
+  // Already-connected users (e.g. Ledger/MetaMask persists across sessions) —
+  // validate first to ensure gs_session cookie is fresh, then redirect.
+  // Without validation, an expired cookie causes middleware to bounce back to /.
   useEffect(() => {
-    if (wasConnectedOnMount.current && primaryWallet?.address) {
-      router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
-    }
+    if (!wasConnectedOnMount.current || !primaryWallet?.address) return;
+
+    fetch('/api/access/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: primaryWallet.address }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          localStorage.removeItem('gs_waitlist_address');
+          router.push(`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`);
+        }
+        // Not whitelisted or expired — stay on home page, user can re-connect
+      })
+      .catch(() => {
+        // Network error — stay on home page
+      });
   }, [wasConnectedOnMount.current, primaryWallet?.address, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wallet validation — fresh wallet connection only (not on page load with existing wallet)
@@ -548,9 +563,9 @@ export default function HomePage() {
 
         <div className="hidden md:flex items-center gap-5">
           <GlitchLink href="/explore" label="Onchain Explorer" isActive={false} />
-          {user && (
+          {user && primaryWallet?.address && (
             <Link
-              href="/portfolio"
+              href={`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`}
               className="font-mono text-data tracking-wider uppercase text-[var(--gs-lime)] hover:text-[var(--gs-lime-hover)] transition-colors"
             >
               Go to Portfolio &rarr;
@@ -582,9 +597,9 @@ export default function HomePage() {
             >
               Onchain Explorer
             </Link>
-            {user && (
+            {user && primaryWallet?.address && (
               <Link
-                href="/portfolio"
+                href={`/portfolio?address=${encodeURIComponent(primaryWallet.address)}`}
                 className="font-mono text-sm tracking-[1.5px] uppercase text-[var(--gs-lime)] hover:text-[var(--gs-lime-hover)] transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >

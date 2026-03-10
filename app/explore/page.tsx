@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import PublicNav from '@/components/PublicNav';
+import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useExplorer, type AttestationEvent } from '@/lib/hooks/useExplorer';
 
@@ -143,7 +143,7 @@ function ExploreContent() {
 
   return (
     <div className="min-h-dvh bg-[var(--gs-black)] text-[var(--gs-white)]">
-      <PublicNav activeHref="/explore" />
+      <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
