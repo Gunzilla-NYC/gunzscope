@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
@@ -57,7 +57,6 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
   const hasWallet = isConnected; // email-only users: false → gates leaderboard/scarcity/feature-requests
   const walletAddress = primaryWallet?.address || '';
   const connectorName = primaryWallet?.connector?.name || '';
-  const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleDisconnect = useCallback(async () => {
@@ -76,40 +75,21 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  useEffect(() => {
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          startTransition(() => setIsScrolled(window.scrollY > 10));
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
     <>
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-black/90 backdrop-blur-xl shadow-lg shadow-black/20'
-            : 'bg-black/50 backdrop-blur-sm'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            {/* Logo — connected users stay on current page, anonymous users go home */}
-            <div className="flex items-center gap-4 shrink-0">
-              <Link href={(isAnonymous || !isInApp) ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center group">
-                <div className="relative w-[10rem] sm:w-[15rem] overflow-hidden">
-                  <Logo size="md" variant="full" glitchOnHover />
-                </div>
+      <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-effect border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-full flex items-center">
+          <div className="flex items-center h-16 w-full">
+            {/* Logo — matches home page / PublicNav */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Link href={(isAnonymous || !isInApp) ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center gap-2">
+                <Logo size="md" variant="icon" />
+                <span className="font-display font-bold text-lg tracking-wider uppercase">
+                  GUNZ<span className="text-[var(--gs-purple)]">scope</span>
+                </span>
               </Link>
-              <VersionBadge className="hidden sm:inline shrink-0" />
+              <VersionBadge />
             </div>
 
             {/* Navigation links — left-anchored so wallet width changes can't shift them */}
