@@ -15,9 +15,19 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.7.4',
+    date: 'Mar 10, 2026',
+    tag: 'current',
+    title: 'The ghost in the redirect',
+    items: [
+      'If you logged out on the portfolio page, the navbar decided you didn\u2019t deserve navigation links OR a login button. Just a logo floating in the void. You could stare at it. That was the experience. Fixed \u2014 anonymous users now see nav links and a Login button on every page, like a normal website.',
+      'Refreshing the homepage had a coin-flip chance of teleporting you to the waitlist page. Turns out, signing up with your email months ago left a breadcrumb in localStorage that said "this person is on the waitlist." You got whitelisted, connected a wallet, used the app for weeks \u2014 and that breadcrumb was still there, patiently waiting to yeet you back to the waitlist on every homepage visit. It\u2019s gone now.',
+      'The logo in the navbar used to keep you on whatever page you were on when logged in. If you were anonymous on an in-app page (say, viewing someone\u2019s shared portfolio), clicking the logo did nothing useful. It now takes you home, which is where homeless users should go.',
+    ],
+  },
+  {
     version: 'v0.7.3',
     date: 'Mar 8, 2026',
-    tag: 'current',
     title: 'The plumbing nobody asked to see',
     items: [
       'The entire color system now runs through a single set of design tokens instead of 45 hex values scattered across stylesheets like confetti. Changing the background color of every surface in the app went from "find and replace and pray" to editing one line. You won\u2019t notice anything different. That\u2019s the point.',
