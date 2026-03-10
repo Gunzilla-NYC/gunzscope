@@ -271,9 +271,9 @@ export default function HomePage() {
     }
   };
 
-  // Returning waitlisted user detection — auto-redirect if still on waitlist
+  // Clean up stale waitlist marker on mount (if user was promoted but key lingered)
   useEffect(() => {
-    if (primaryWallet || user) return; // Already authenticated, normal flow handles it
+    if (primaryWallet || user) return; // Authenticated users handled by normal flow
     const waitlistAddr = localStorage.getItem('gs_waitlist_address');
     if (!waitlistAddr) return;
     const isEmail = waitlistAddr.startsWith('email:');
@@ -285,12 +285,11 @@ export default function HomePage() {
       .then((data) => {
         if (data.promoted) {
           localStorage.removeItem('gs_waitlist_address');
-        } else if (data.position != null) {
-          router.push(`/waitlist?${param}`);
         }
+        // Don't auto-redirect — user can reach /waitlist via the modal if needed
       })
-      .catch(() => {}); // Fail silently — user can still interact normally
-  }, [primaryWallet, user, router]);
+      .catch(() => {});
+  }, [primaryWallet, user]);
 
   // Wallet validation — fresh wallet connection only (not on page load with existing wallet)
   useEffect(() => {
