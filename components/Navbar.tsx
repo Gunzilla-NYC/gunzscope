@@ -18,7 +18,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
   const searchParams = useSearchParams();
   const router = useRouter();
   const isStaticPage = ['/terms', '/privacy', '/credits'].includes(pathname);
-  const { user, primaryWallet, setShowAuthFlow, handleLogOut } = useDynamicContext();
+  const { user, primaryWallet, setShowAuthFlow, handleLogOut, sdkHasLoaded } = useDynamicContext();
 
   // Global auto-login: create profile as soon as wallet connects on ANY page
   useAutoLogin(!!user, primaryWallet?.address, handleLogOut);
@@ -51,7 +51,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
   const activeAddress = searchParams.get('address');
   const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/scarcity' || pathname === '/market' || pathname === '/account' || pathname === '/feature-requests' || pathname === '/explore';
   const isProfileActive = pathname === '/account' || pathname === '/feature-requests';
-  const isAnonymous = !user;
+  const isAnonymous = !user && sdkHasLoaded; // don't show Login until SDK confirms no session
   const showNavLinks = pathname !== '/';
   const isConnected = !!primaryWallet?.address;
   const hasWallet = isConnected; // email-only users: false → gates leaderboard/scarcity/feature-requests
