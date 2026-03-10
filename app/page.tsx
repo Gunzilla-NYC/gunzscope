@@ -255,6 +255,7 @@ export default function HomePage() {
 
       if (data.success) {
         setShowWalletModal(false);
+        localStorage.removeItem('gs_waitlist_address');
         router.push(`/portfolio?address=${encodeURIComponent(trimmed)}`);
       } else if (data.waitlisted) {
         setShowWalletModal(false);
@@ -304,6 +305,8 @@ export default function HomePage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
+          // Clear waitlist marker — user is whitelisted now
+          localStorage.removeItem('gs_waitlist_address');
           // Store trial expiry for countdown display if applicable
           if (data.trial && data.expiresAt) {
             localStorage.setItem('gs_trial_expires', data.expiresAt);

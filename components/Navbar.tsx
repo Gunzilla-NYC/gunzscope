@@ -61,7 +61,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
   const isInApp = pathname === '/portfolio' || pathname === '/leaderboard' || pathname === '/scarcity' || pathname === '/market' || pathname === '/account' || pathname === '/feature-requests' || pathname === '/explore';
   const isProfileActive = pathname === '/account' || pathname === '/feature-requests';
   const isAnonymous = !user;
-  const showNavLinks = !isAnonymous && pathname !== '/';
+  const showNavLinks = pathname !== '/';
   const isConnected = !!primaryWallet?.address;
   const hasWallet = isConnected; // email-only users: false → gates leaderboard/scarcity/feature-requests
   const walletAddress = primaryWallet?.address || '';
@@ -113,7 +113,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
           <div className="flex items-center h-16">
             {/* Logo — connected users stay on current page, anonymous users go home */}
             <div className="flex items-center gap-4 shrink-0">
-              <Link href={isAnonymous ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center group">
+              <Link href={(isAnonymous || !isInApp) ? '/' : pathname + (activeAddress ? `?address=${activeAddress}` : '')} className="flex items-center group">
                 <div className="relative w-[10rem] sm:w-[15rem] overflow-hidden">
                   <Logo size="md" variant="full" glitchOnHover />
                 </div>
@@ -125,6 +125,7 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
             <nav className="hidden md:flex items-center gap-5 ml-6 shrink-0">
               {showNavLinks && (
                 <>
+                  {isAnonymous && <GlitchLink href="/" label="Home" isActive={false} />}
                   <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
                   <GlitchLink href="/explore" label="Onchain Explorer" isActive={pathname === '/explore'} />
                   {hasWallet && (
@@ -137,23 +138,21 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
             {/* Wallet / Auth — ml-auto pushes to right edge, width changes absorbed by auto margin */}
             <div className="hidden md:flex items-center ml-auto shrink-0">
               {isAnonymous ? (
-                !isInApp ? (
-                  isStaticPage ? (
-                    <button
-                      onClick={() => router.back()}
-                      className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
-                    >
-                      Back
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setShowAuthFlow(true)}
-                      className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                    >
-                      Login
-                    </button>
-                  )
-                ) : null
+                isStaticPage ? (
+                  <button
+                    onClick={() => router.back()}
+                    className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAuthFlow(true)}
+                    className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+                  >
+                    Login
+                  </button>
+                )
               ) : isConnected ? (
                 <WalletDropdown
                   walletAddress={walletAddress}
@@ -183,23 +182,21 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
                   )}
                 </svg>
               </button>
-            ) : !isInApp ? (
-              isStaticPage ? (
-                <button
-                  onClick={() => router.back()}
-                  className="md:hidden ml-auto font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
-                >
-                  Back
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowAuthFlow(true)}
-                  className="md:hidden ml-auto font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
-                >
-                  Login
-                </button>
-              )
-            ) : null}
+            ) : isStaticPage ? (
+              <button
+                onClick={() => router.back()}
+                className="md:hidden ml-auto font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 border border-white/[0.12] text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:border-white/[0.25] transition-colors clip-corner-sm cursor-pointer"
+              >
+                Back
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAuthFlow(true)}
+                className="md:hidden ml-auto font-display font-semibold text-data uppercase tracking-wider px-3 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm cursor-pointer"
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
 

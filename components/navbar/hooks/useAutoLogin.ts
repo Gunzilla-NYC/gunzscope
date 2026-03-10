@@ -54,6 +54,8 @@ export function useAutoLogin(
             onNotWhitelisted();
             return;
           }
+          // Clear stale waitlist marker — user is whitelisted
+          try { localStorage.removeItem('gs_waitlist_address'); } catch {}
           // Whitelisted — create/update profile
           return fetch('/api/me', {
             method: 'GET',
