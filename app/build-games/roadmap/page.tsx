@@ -187,7 +187,7 @@ const PHASES: Phase[] = [
       confirmed: [
         'Active community interest in competitive tournaments with real prizes',
         'Ranked mode frustration is the most consistent complaint across OTG Discord',
-        'FAT.Toe and other community members actively evangelizing GUNZscope to players',
+        'Ambassadors and multiple community members actively evangelizing GUNZscope to players',
       ],
       research: [
         'Validating willingness to adopt on\u2011chain identity as a tournament prerequisite',
