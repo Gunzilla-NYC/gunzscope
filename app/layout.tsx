@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     url: 'https://gunzscope.xyz',
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'GUNZscope - GUN Token & NFT Portfolio Tracker',
     description: 'Track your GUN tokens and NFTs across GunzChain and Solana.',
   },
