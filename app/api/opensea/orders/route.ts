@@ -8,6 +8,7 @@ interface OpenSeaOrdersResponse {
   ordersCount: number;
   lowest: number | null;
   highest: number | null;
+  imageUrl?: string | null; // High-res image from OpenSea CDN
   asOfIso: string;
   error?: string;
   upstreamStatus: number;
@@ -171,11 +172,17 @@ export async function GET(request: NextRequest) {
     const lowest = prices.length > 0 ? Math.min(...prices) : null;
     const highest = prices.length > 0 ? Math.max(...prices) : null;
 
+    // Extract high-res image URL from first order's asset data (OpenSea CDN)
+    const imageUrl = orders[0]?.maker_asset_bundle?.assets?.[0]?.image_url
+      || orders[0]?.taker_asset_bundle?.assets?.[0]?.image_url
+      || null;
+
     return jsonWithCache(
       {
         ordersCount: orders.length,
         lowest,
         highest,
+        imageUrl,
         asOfIso,
         upstreamStatus,
         transient: false, // Success response

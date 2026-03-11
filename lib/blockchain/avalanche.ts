@@ -726,6 +726,7 @@ export class AvalancheService {
               name: cachedMeta.value.name,
               description: cachedMeta.value.description,
               image: cachedMeta.value.image,
+              imageHires: cachedMeta.value.imageHires,
               collection: 'Off The Grid NFT Collection',
               contractAddress: nftContractAddress,
               chain: 'avalanche',

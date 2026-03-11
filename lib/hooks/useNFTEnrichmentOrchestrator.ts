@@ -5,7 +5,7 @@ import { NFT, EnrichmentProgress } from '@/lib/types';
 import { AvalancheService } from '@/lib/blockchain/avalanche';
 import { GameMarketplaceService } from '@/lib/api/marketplace';
 import { OpenSeaService } from '@/lib/api/opensea';
-import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey, LISTING_STALE_MS } from '@/lib/utils/nftCache';
+import { getCachedNFT, setCachedNFT, needsReEnrichment, buildTokenKey, LISTING_STALE_MS, getCachedMetadata, setCachedMetadata } from '@/lib/utils/nftCache';
 
 // =============================================================================
 // Constants
@@ -567,6 +567,7 @@ export function useNFTEnrichmentOrchestrator(
         acquisitionTxHash: acquisition?.txHash ?? undefined,
         currentLowestListing: listing?.lowest ?? undefined,
         currentHighestListing: listing?.highest ?? undefined,
+        imageHires: listing?.imageUrl ?? undefined,
       };
 
       // Cache the result
@@ -603,6 +604,17 @@ export function useNFTEnrichmentOrchestrator(
           currentHighestListing: enrichedData.currentHighestListing,
           listingFetchedAt: listing ? nowIso : undefined,
         });
+      }
+
+      // Persist high-res image URL into metadata cache (piggybacks on existing OpenSea call)
+      if (listing?.imageUrl) {
+        const existingMeta = getCachedMetadata('avalanche', nftContractAddress, primaryTokenId);
+        if (existingMeta.hit && existingMeta.value) {
+          setCachedMetadata('avalanche', nftContractAddress, primaryTokenId, {
+            ...existingMeta.value,
+            imageHires: listing.imageUrl,
+          });
+        }
       }
 
       return {

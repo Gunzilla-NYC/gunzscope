@@ -263,6 +263,7 @@ export interface CachedMetadataData {
   name: string;
   description?: string;
   image: string;
+  imageHires?: string; // High-res image URL from OpenSea CDN
   traits?: Record<string, string>;
   mintNumber?: string;
 }

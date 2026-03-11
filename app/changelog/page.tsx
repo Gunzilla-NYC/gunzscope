@@ -23,9 +23,23 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    version: 'v0.7.4',
+    version: 'v0.7.5',
     date: 'Mar 10, 2026',
     tag: 'current',
+    items: [
+      'NFTDetailPositionCard text readability pass \u2014 row labels 9px/40% \u2192 10px/50%, section headers 10px \u2192 11px, GUN values 14px \u2192 15px, USD conversions 50% \u2192 60% opacity, arrows 30% \u2192 40%, italic subtexts switched to text-white/50 + tracking-wide',
+      'Purple accent visibility \u2014 VIA SALES label, waterfall dropdown buttons, Reference Estimate header, warning icon all bumped to full opacity (were /60\u2013/80)',
+      'Low-confidence waterfall dropdown: labels 20% \u2192 30%, values 12px/40% \u2192 13px/50%; full-confidence: labels 25% \u2192 35%, values same bump',
+      'NFT description subtitle in modal: added tracking-wide letter spacing',
+      'Image lightbox \u2014 click NFT image in modal to open fixed z-[200] overlay; scroll-to-zoom (0.5\u00d7\u20135\u00d7, 0.15 step), click-to-toggle (1\u00d7/2\u00d7); bg-black/95 solid (no backdrop-blur to avoid GPU load); zoom % indicator at bottom; plain <img> tag to avoid Next.js Image fill constraints',
+      'Modal image size bump \u2014 180\u00d7180/220\u00d7220 \u2192 220\u00d7220/280\u00d7280 (mobile/desktop); container changed from aspect-square+max-w to explicit dimensions; parent switched to flex justify-center for proper centering',
+      'High-res image pipeline \u2014 imageHires field added to NFT type, CachedMetadataData, and avalanche.ts cache read path; /api/opensea/orders extracts image_url from maker_asset_bundle; threaded through getNFTListings \u2192 enrichment orchestrator \u2192 metadata cache (7d TTL); lightbox uses imageHires || image',
+      'Acquisition timeline tooltip \u2014 glass effect: background rgba(22,22,22,0.6), backdrop-blur 6px, border 12% white opacity',
+    ],
+  },
+  {
+    version: 'v0.7.4',
+    date: 'Mar 10, 2026',
     items: [
       '/build-games landing page overhaul \u2014 reordered sections: "The Market" (13M players, 450K DAU, zero existing trackers) now leads as section 01 before Architecture; judges see the "why" before the "how"',
       'GitHub repo link added to hero CTAs and bottom CTA section \u2014 links to Gunzilla-NYC/gunzscope for judge access to source code',

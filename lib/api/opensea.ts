@@ -552,7 +552,7 @@ export class OpenSeaService {
     contractAddress: string,
     tokenId: string,
     chain: string = 'avalanche'
-  ): Promise<{ lowest: number | null; highest: number | null; error?: string }> {
+  ): Promise<{ lowest: number | null; highest: number | null; imageUrl?: string | null; error?: string }> {
     const tokenKey = `${chain}:${contractAddress}:${tokenId}`;
 
     // Check circuit breaker
@@ -578,10 +578,10 @@ export class OpenSeaService {
 
         if (data.error) {
           // Don't cache this as failure - it's from OpenSea, might recover
-          return { lowest: data.lowest, highest: data.highest, error: data.error };
+          return { lowest: data.lowest, highest: data.highest, imageUrl: data.imageUrl, error: data.error };
         }
 
-        return { lowest: data.lowest, highest: data.highest };
+        return { lowest: data.lowest, highest: data.highest, imageUrl: data.imageUrl };
       }
 
       // Server-side: call OpenSea directly with mapped chain
@@ -610,13 +610,19 @@ export class OpenSeaService {
         })
         .filter((price: number) => price > 0);
 
+      // Extract high-res image from first order's asset data
+      const imageUrl = orders[0]?.maker_asset_bundle?.assets?.[0]?.image_url
+        || orders[0]?.taker_asset_bundle?.assets?.[0]?.image_url
+        || null;
+
       if (prices.length === 0) {
-        return { lowest: null, highest: null };
+        return { lowest: null, highest: null, imageUrl };
       }
 
       return {
         lowest: Math.min(...prices),
         highest: Math.max(...prices),
+        imageUrl,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Network error';

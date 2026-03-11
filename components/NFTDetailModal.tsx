@@ -3,7 +3,7 @@
 import { NFT } from '@/lib/types';
 import dynamic from 'next/dynamic';
 import { NFTImage } from '@/components/ui/NFTImage';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useGunPrice } from '@/lib/hooks/useGunPrice';
@@ -84,6 +84,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   // GUN price hook - fetches current GUN/USD rate when modal opens
   const { gunPrice: currentGunPrice, timestamp: gunPriceTimestamp } = useGunPrice(isOpen);
   const [relatedItemsExpanded, setRelatedItemsExpanded] = useState(false);
+  const [showFullImage, setShowFullImage] = useState(false);
+  const [imageZoom, setImageZoom] = useState(1);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   // Debug mode: enabled via ?debugNft=1 URL parameter
   // No-cache mode: enabled via ?noCache=1 - bypasses all cache reads for fresh data
@@ -105,6 +108,8 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
   useEffect(() => {
     if (isOpen) {
       setActiveItemIndex(0);
+      setShowFullImage(false);
+      setImageZoom(1);
       resetDebugData(noCacheMode);
     }
   }, [isOpen, noCacheMode]);
@@ -383,9 +388,9 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                       return (
                         <button
                           key={item.tokenId}
-                          onClick={() => setActiveItemIndex(index)}
+                          onClick={() => isActive ? setShowFullImage(true) : setActiveItemIndex(index)}
                           className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
-                            isActive ? 'ring-1 opacity-100' : 'opacity-60 hover:opacity-80'
+                            isActive ? 'ring-1 opacity-100 cursor-zoom-in' : 'opacity-60 hover:opacity-80'
                           }`}
                           style={{
                             border: isActive ? `1px solid ${item.colors.border}` : `1px solid ${item.colors.primary}40`,
@@ -419,25 +424,35 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                   </div>
                 ) : (
                   // Single image - responsive: 180px on small screens, 220px otherwise
-                  <div className="relative mx-auto max-h-[180px] sm:max-h-[220px]">
-                    <div
-                      className="relative aspect-square rounded-xl overflow-hidden mx-auto max-h-[180px] sm:max-h-[220px] max-w-[180px] sm:max-w-[220px]"
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => !loadingDetails && setShowFullImage(true)}
+                      className="relative rounded-xl overflow-hidden mx-auto w-[220px] h-[220px] sm:w-[280px] sm:h-[280px] cursor-zoom-in group"
                       style={{
                         border: `1px solid ${activeItem?.colors.border}`,
                         boxShadow: `0 0 5px ${activeItem?.colors.border}`,
                       }}
+                      aria-label="View full-size image"
                     >
                       {loadingDetails ? (
                         <div className="w-full h-full bg-[var(--gs-dark-2)] animate-pulse" />
                       ) : (
-                        <NFTImage
-                          src={nft.image}
-                          alt={nft.name}
-                          fill
-                          className="object-cover"
-                        />
+                        <>
+                          <NFTImage
+                            src={nft.image}
+                            alt={nft.name}
+                            fill
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            <svg className="w-8 h-8 text-white/0 group-hover:text-white/80 transition-colors drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                            </svg>
+                          </div>
+                        </>
                       )}
-                    </div>
+                    </button>
                   </div>
                 )}
 
@@ -449,7 +464,7 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
                     const descriptionText = (nft?.description ?? '').trim();
                     const subtitle = descriptionText.length > 0 ? descriptionText : nft.collection;
                     return (
-                      <p className="text-sm text-white/60 leading-snug line-clamp-2 mt-0.5">
+                      <p className="text-sm text-white/60 leading-snug line-clamp-2 mt-0.5 tracking-wide">
                         {subtitle}
                       </p>
                     );
@@ -601,6 +616,55 @@ export default function NFTDetailModal({ nft, isOpen, onClose, walletAddress, al
           )}
         </div>
       </div>
+
+      {/* ─── Full-size image lightbox with scroll-to-zoom ─── */}
+      {showFullImage && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95"
+          onClick={() => { setShowFullImage(false); setImageZoom(1); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setShowFullImage(false); setImageZoom(1); } }}
+          onWheel={(e) => {
+            e.preventDefault();
+            setImageZoom(prev => {
+              const delta = e.deltaY > 0 ? -0.15 : 0.15;
+              return Math.min(5, Math.max(0.5, prev + delta));
+            });
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close full-size image"
+        >
+          <button
+            type="button"
+            onClick={() => { setShowFullImage(false); setImageZoom(1); }}
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white/80 hover:text-white z-10"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white/60 text-xs font-mono">
+            {Math.round(imageZoom * 100)}%
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={imageRef}
+            src={nft.imageHires || nft.image}
+            alt={nft.name}
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg transition-transform duration-100 ease-out"
+            style={{ transform: `scale(${imageZoom})`, cursor: imageZoom > 1 ? 'zoom-out' : 'zoom-in' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (imageZoom > 1) {
+                setImageZoom(1);
+              } else {
+                setImageZoom(2);
+              }
+            }}
+          />
+        </div>
+      )}
 
     </>,
     document.body

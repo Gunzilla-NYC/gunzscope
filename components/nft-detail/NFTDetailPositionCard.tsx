@@ -163,7 +163,7 @@ export function NFTDetailPositionCard({
           {costBasisGun !== null && currentGunPrice !== null && (
             <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5" style={{ borderLeftColor: 'var(--gs-lime)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-lime)]">Your Deal</span>
+                <span className="font-mono text-[11px] uppercase tracking-[2px] text-[var(--gs-lime)]">Your Deal</span>
                 {batchInfo && (
                   <InfoTooltip wide>
                     <div className="space-y-2">
@@ -204,13 +204,13 @@ export function NFTDetailPositionCard({
 
               {/* Cost Basis row */}
               <div className="flex items-baseline justify-between mb-1.5">
-                <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Cost Basis</span>
-                <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
+                <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">Cost Basis</span>
+                <span className="font-display text-[15px] font-semibold text-white tabular-nums text-right">
                   {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
                   {costBasisUsdAtAcquisition !== null && (
                     <>
-                      <span className="text-white/30 mx-0.5">&rarr;</span>
-                      <span className="text-white/50">
+                      <span className="text-white/40 mx-0.5">&rarr;</span>
+                      <span className="text-white/60">
                         ${costBasisUsdAtAcquisition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </>
@@ -230,11 +230,11 @@ export function NFTDetailPositionCard({
 
               {/* Today's Value row */}
               <div className="flex items-baseline justify-between mb-1.5">
-                <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Today&apos;s Value</span>
-                <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
+                <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">Today&apos;s Value</span>
+                <span className="font-display text-[15px] font-semibold text-white tabular-nums text-right">
                   {costBasisGun.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
-                  <span className="text-white/30 mx-0.5">&rarr;</span>
-                  <span className="text-white/50">
+                  <span className="text-white/40 mx-0.5">&rarr;</span>
+                  <span className="text-white/60">
                     ${(costBasisGun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </span>
@@ -245,7 +245,7 @@ export function NFTDetailPositionCard({
                 {xgunUnrealizedUsd !== null && xgunUnrealizedPct !== null ? (
                   <>
                     <div className="flex items-baseline justify-between">
-                      <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">P&L</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">P&L</span>
                       <span className={`font-display text-[20px] font-bold tabular-nums text-right ${
                         xgunUnrealizedUsd > 0.01 ? 'text-[var(--gs-profit)]' :
                         xgunUnrealizedUsd < -0.01 ? 'text-[var(--gs-loss)]' :
@@ -258,13 +258,13 @@ export function NFTDetailPositionCard({
                         </span>
                       </span>
                     </div>
-                    <p className="text-[11px] font-light text-[var(--gs-gray-2)] italic mt-1 text-right">
+                    <p className="text-[11px] font-light text-white/50 italic mt-1 text-right tracking-wide">
                       The GUN you spent has appreciated since purchase
                     </p>
                   </>
                 ) : (
                   <div className="flex items-baseline justify-between">
-                    <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Value</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">Value</span>
                     <span className="font-display text-[20px] font-bold text-white tabular-nums text-right">
                       ${(costBasisGun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
@@ -293,9 +293,9 @@ export function NFTDetailPositionCard({
             if (!hasTrackB && !hasMarket) {
               return (
                 <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5" style={{ borderLeftColor: 'var(--gs-purple)' }}>
-                  <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-purple)]">Market Reality</span>
+                  <span className="font-mono text-[11px] uppercase tracking-[2px] text-[var(--gs-purple)]">Market Reality</span>
                   <p className="text-[13px] font-medium text-white/85 mt-3">No market data available</p>
-                  <p className="text-[11px] font-light text-[var(--gs-gray-2)] italic">This is an illiquid market; reference values may be unavailable.</p>
+                  <p className="text-[11px] font-light text-white/50 italic tracking-wide">This is an illiquid market; reference values may be unavailable.</p>
                 </div>
               );
             }
@@ -330,17 +330,17 @@ export function NFTDetailPositionCard({
 
               return (
                 <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5 opacity-80" style={{ borderLeftColor: 'var(--gs-purple)' }}>
-                  <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-purple)]/70 mb-3 block">Reference Estimate</span>
+                  <span className="font-mono text-[11px] uppercase tracking-[2px] text-[var(--gs-purple)] mb-3 block">Reference Estimate</span>
 
                   {/* Best estimate (primary) */}
                   <div className="flex items-baseline justify-between mb-2">
-                    <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/30 shrink-0 w-[120px]">{tierDisplayName}</span>
-                    <span className="font-display text-[14px] font-semibold text-white/70 tabular-nums text-right">
+                    <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">{tierDisplayName}</span>
+                    <span className="font-display text-[15px] font-semibold text-white/70 tabular-nums text-right">
                       ~{Math.round(exitGun!).toLocaleString()} GUN
                       {currentGunPrice ? (
                         <>
-                          <span className="text-white/20 mx-0.5">&rarr;</span>
-                          <span className="text-white/40">
+                          <span className="text-white/30 mx-0.5">&rarr;</span>
+                          <span className="text-white/50">
                             ${(exitGun! * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </>
@@ -354,7 +354,7 @@ export function NFTDetailPositionCard({
                       <button
                         type="button"
                         onClick={() => setWaterfallExpanded(prev => !prev)}
-                        className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[1px] text-[var(--gs-purple)]/60 hover:text-[var(--gs-purple)] transition-colors"
+                        className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[1px] text-[var(--gs-purple)]/80 hover:text-[var(--gs-purple)] transition-colors"
                       >
                         <span className={`inline-block transition-transform duration-200 ${waterfallExpanded ? 'rotate-90' : ''}`}>&#9656;</span>
                         {otherTiers.length} other reference{otherTiers.length > 1 ? 's' : ''}
@@ -364,13 +364,13 @@ export function NFTDetailPositionCard({
                         <div className="mt-2 space-y-1.5 pl-3 border-l border-white/[0.06]">
                           {otherTiers.map(tier => (
                             <div key={tier.label} className="flex items-baseline justify-between">
-                              <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/20 shrink-0 w-[120px]">{tier.label}</span>
-                              <span className="font-display text-[12px] text-white/40 tabular-nums text-right">
+                              <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/30 shrink-0 w-[120px]">{tier.label}</span>
+                              <span className="font-display text-[13px] text-white/50 tabular-nums text-right">
                                 ~{Math.round(tier.gun).toLocaleString()} GUN
                                 {currentGunPrice ? (
                                   <>
-                                    <span className="text-white/15 mx-0.5">&rarr;</span>
-                                    <span className="text-white/25">
+                                    <span className="text-white/25 mx-0.5">&rarr;</span>
+                                    <span className="text-white/35">
                                       ${(tier.gun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                   </>
@@ -385,12 +385,12 @@ export function NFTDetailPositionCard({
 
                   {/* Warning */}
                   <div className="border-t border-white/[0.04] pt-2.5 mt-2.5">
-                    <p className="text-[11px] text-white/40 inline-flex items-start gap-1.5">
-                      <span className="text-[var(--gs-purple)]/60 shrink-0 mt-px">{'\u26A0'}</span>
+                    <p className="text-[11px] text-white/50 inline-flex items-start gap-1.5">
+                      <span className="text-[var(--gs-purple)] shrink-0 mt-px">{'\u26A0'}</span>
                       <span>
                         Based on {exitTierLabel === 'RARITY' ? 'rarity tier average' : exitTierLabel === 'FLOOR' ? 'collection floor' : exitTierLabel === 'LISTED' ? 'current listing price' : 'statistical proxy'}, not actual sales.
                         <br />
-                        <span className="text-white/30 italic">No comparable sales found for this item.</span>
+                        <span className="text-white/40 italic">No comparable sales found for this item.</span>
                       </span>
                     </p>
                   </div>
@@ -410,7 +410,7 @@ export function NFTDetailPositionCard({
 
             return (
               <div className="mt-4 bg-[var(--gs-dark-3)] border border-white/[0.06] rounded-lg border-l-[3px] p-5" style={{ borderLeftColor: 'var(--gs-purple)' }}>
-                <span className="font-mono text-[10px] uppercase tracking-[2px] text-[var(--gs-purple)] mb-3 block">Market Reality</span>
+                <span className="font-mono text-[11px] uppercase tracking-[2px] text-[var(--gs-purple)] mb-3 block">Market Reality</span>
 
                 {loadingDetails ? (
                   <div className="space-y-2">
@@ -423,13 +423,13 @@ export function NFTDetailPositionCard({
                     {/* Estimated Sale row */}
                     {hasTrackB && (
                       <div className="flex items-baseline justify-between mb-1.5">
-                        <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Estimated Sale</span>
-                        <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
+                        <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">Estimated Sale</span>
+                        <span className="font-display text-[15px] font-semibold text-white tabular-nums text-right">
                           ~{Math.round(exitGun!).toLocaleString()} GUN
                           {currentGunPrice ? (
                             <>
-                              <span className="text-white/30 mx-0.5">&rarr;</span>
-                              <span className="text-white/50">
+                              <span className="text-white/40 mx-0.5">&rarr;</span>
+                              <span className="text-white/60">
                                 ${(exitGun! * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </>
@@ -439,13 +439,13 @@ export function NFTDetailPositionCard({
                     )}
                     {!hasTrackB && hasMarket && (
                       <div className="flex items-baseline justify-between mb-1.5">
-                        <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Estimated Sale</span>
-                        <span className="font-display text-[14px] font-semibold text-white tabular-nums text-right">
+                        <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">Estimated Sale</span>
+                        <span className="font-display text-[15px] font-semibold text-white tabular-nums text-right">
                           ~{marketRef.gunValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUN
                           {marketRef.usdValue != null && (
                             <>
-                              <span className="text-white/30 mx-0.5">&rarr;</span>
-                              <span className="text-white/50">
+                              <span className="text-white/40 mx-0.5">&rarr;</span>
+                              <span className="text-white/60">
                                 ${marketRef.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </>
@@ -457,8 +457,8 @@ export function NFTDetailPositionCard({
                     {/* VS Cost row */}
                     {costBasisGun !== null && hasTrackB && costBasisUsdAtAcquisition !== null && currentGunPrice && (
                       <div className="flex items-baseline justify-between mb-1.5">
-                        <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">VS Cost</span>
-                        <span className={`font-display text-[14px] font-semibold tabular-nums text-right ${
+                        <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">VS Cost</span>
+                        <span className={`font-display text-[15px] font-semibold tabular-nums text-right ${
                           exitGun! * currentGunPrice > costBasisUsdAtAcquisition ? 'text-[var(--gs-profit)]' :
                           exitGun! * currentGunPrice < costBasisUsdAtAcquisition ? 'text-[var(--gs-loss)]' :
                           'text-white/60'
@@ -472,7 +472,7 @@ export function NFTDetailPositionCard({
                     <div className="border-t border-white/[0.06] pt-3 mt-3">
                       {trackBPnlUsd !== null && trackBPnlPct !== null ? (
                         <div className="flex items-center justify-between">
-                          <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Market P&L</span>
+                          <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">Market P&L</span>
                           <div className="flex items-center gap-2">
                             <span className={`font-display text-[20px] font-bold tabular-nums ${
                               trackBPnlUsd > 0.01 ? 'text-[var(--gs-profit)]' :
@@ -494,7 +494,7 @@ export function NFTDetailPositionCard({
                         </div>
                       ) : positionLabel.pnlPct !== null ? (
                         <div className="flex items-center justify-between">
-                          <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/40 shrink-0 w-[120px]">Market P&L</span>
+                          <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/50 shrink-0 w-[120px]">Market P&L</span>
                           <div className="flex items-center gap-2">
                             <span className={`font-display text-[20px] font-bold tabular-nums ${
                               positionLabel.state === 'UP' ? 'text-[var(--gs-profit)]' :
@@ -520,14 +520,14 @@ export function NFTDetailPositionCard({
                     {/* Confidence line */}
                     <div className="flex items-center gap-2 mt-3">
                       {exitTierLabel && (
-                        <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-purple)]/80 inline-flex items-center gap-1">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--gs-purple)] inline-flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-profit)] inline-block" />
                           {exitTierLabel}
                         </span>
                       )}
                       {positionLabel.dataQuality && (
                         <span
-                          className="font-mono text-[9px] text-white/40 cursor-help"
+                          className="font-mono text-[10px] text-white/50 cursor-help"
                           title="Based on observed price range only. Listings are sparse and may not reflect actual sale prices."
                         >
                           Data Quality: <span className="capitalize">{positionLabel.dataQuality}</span>
@@ -559,7 +559,7 @@ export function NFTDetailPositionCard({
                           <button
                             type="button"
                             onClick={() => setWaterfallExpanded(prev => !prev)}
-                            className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[1px] text-[var(--gs-purple)]/60 hover:text-[var(--gs-purple)] transition-colors"
+                            className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[1px] text-[var(--gs-purple)]/80 hover:text-[var(--gs-purple)] transition-colors"
                           >
                             <span className={`inline-block transition-transform duration-200 ${waterfallExpanded ? 'rotate-90' : ''}`}>&#9656;</span>
                             {others.length} other reference{others.length > 1 ? 's' : ''}
@@ -568,13 +568,13 @@ export function NFTDetailPositionCard({
                             <div className="mt-2 space-y-1.5 pl-3 border-l border-white/[0.06]">
                               {others.map(tier => (
                                 <div key={tier.label} className="flex items-baseline justify-between">
-                                  <span className="font-mono text-[9px] uppercase tracking-[1px] text-white/25 shrink-0 w-[120px]">{tier.label}</span>
-                                  <span className="font-display text-[12px] text-white/40 tabular-nums text-right">
+                                  <span className="font-mono text-[10px] uppercase tracking-[1px] text-white/35 shrink-0 w-[120px]">{tier.label}</span>
+                                  <span className="font-display text-[13px] text-white/50 tabular-nums text-right">
                                     ~{Math.round(tier.gun).toLocaleString()} GUN
                                     {currentGunPrice ? (
                                       <>
-                                        <span className="text-white/15 mx-0.5">&rarr;</span>
-                                        <span className="text-white/25">
+                                        <span className="text-white/25 mx-0.5">&rarr;</span>
+                                        <span className="text-white/35">
                                           ${(tier.gun * currentGunPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
                                       </>
@@ -590,7 +590,7 @@ export function NFTDetailPositionCard({
 
                     {/* Subtext */}
                     {hasTrackB && (
-                      <p className="text-[11px] font-light text-[var(--gs-gray-2)] italic mt-1">
+                      <p className="text-[11px] font-light text-white/50 italic mt-1 tracking-wide">
                         What similar items are actually trading for
                       </p>
                     )}
@@ -602,13 +602,13 @@ export function NFTDetailPositionCard({
 
           {/* ─── Acquisition Details ─── */}
           <div className="flex items-center gap-2 mt-4 mb-2">
-            <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">Acquisition</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-white/40">Acquisition</span>
             <div className="flex-1 h-px bg-white/8" />
           </div>
           <div className="space-y-1.5">
             {/* Source */}
             <div className="flex items-center justify-between">
-              <span className="text-data uppercase tracking-wider text-white/40">Source</span>
+              <span className="text-data uppercase tracking-wider text-white/50">Source</span>
               {currentPurchaseData?.acquisitionVenue && currentPurchaseData.acquisitionVenue !== 'unknown' ? (
                 <span className={`text-[13px] font-medium ${
                   currentPurchaseData.acquisitionVenue === 'opensea' ? 'text-blue-400' :
@@ -624,7 +624,7 @@ export function NFTDetailPositionCard({
             </div>
             {/* Date */}
             <div className="flex items-center justify-between">
-              <span className="text-data uppercase tracking-wider text-white/40">
+              <span className="text-data uppercase tracking-wider text-white/50">
                 {currentPurchaseData?.acquisitionVenue === 'transfer' && currentPurchaseData?.acquiredAt
                   && currentPurchaseData?.purchaseDate
                   && currentPurchaseData.acquiredAt.getTime() !== currentPurchaseData.purchaseDate.getTime()
@@ -643,7 +643,7 @@ export function NFTDetailPositionCard({
               !currentPurchaseData.purchaseDate || currentPurchaseData.acquiredAt.getTime() !== currentPurchaseData.purchaseDate.getTime()
             ) && (
               <div className="flex items-center justify-between">
-                <span className="text-data uppercase tracking-wider text-white/40">Transferred</span>
+                <span className="text-data uppercase tracking-wider text-white/50">Transferred</span>
                 <span className="text-[13px] font-medium text-white/70 tabular-nums">
                   {formatDate(currentPurchaseData.acquiredAt)}
                 </span>
@@ -651,7 +651,7 @@ export function NFTDetailPositionCard({
             )}
             {/* Transaction link */}
             <div className="flex items-center justify-between">
-              <span className="text-data uppercase tracking-wider text-white/40">Transaction</span>
+              <span className="text-data uppercase tracking-wider text-white/50">Transaction</span>
               {(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash) ? (
                 <a
                   href={gunzExplorerTxUrl(currentPurchaseData?.marketplaceTxHash || currentPurchaseData?.acquisitionTxHash || holdingAcquisitionRaw?.txHash || '')}
@@ -677,7 +677,7 @@ export function NFTDetailPositionCard({
               if (!txFee && !senderFee) return null;
               return (
                 <div className="flex items-center justify-between">
-                  <span className="text-data uppercase tracking-wider text-white/40">
+                  <span className="text-data uppercase tracking-wider text-white/50">
                     {isTransfer && senderFee ? 'Fees' : 'Gas Fee'}
                   </span>
                   <span className="text-[13px] font-medium text-white/60 tabular-nums">

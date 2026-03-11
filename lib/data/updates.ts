@@ -15,9 +15,21 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
-    version: 'v0.7.4',
+    version: 'v0.7.5',
     date: 'Mar 10, 2026',
     tag: 'current',
+    title: 'The squint-free update',
+    items: [
+      'Every piece of text in the NFT detail modal got bumped up in size and opacity. Cost basis labels, P&L values, USD conversions, section headers, italic subtexts \u2014 all of it. If you were leaning into your monitor to read your own position data, you can sit back now. The information was always there. It was just cosplaying as invisible.',
+      'The purple accent text (labels and headers) was so faint it looked like a rendering bug. Full opacity bump. Purple should look like purple, not like purple just quit the lobby.',
+      'Clicking the NFT image in the detail modal now opens a full-screen lightbox. Scroll to zoom in up to 5\u00d7, click to toggle between 1\u00d7 and 2\u00d7, click anywhere else to close. A zoom percentage indicator sits at the bottom so you know exactly how deep you\u2019ve gone. For when you need to count the pixels on your new drip.',
+      'High-res images now cache themselves automatically. When OpenSea returns listing data, we grab the CDN image URL and stash it in the metadata cache. Next time you open the lightbox, the hi-res version loads instantly instead of whatever the on-chain metadata felt like providing. The cache fills itself as you browse \u2014 no extra API calls, no loading spinners, just quietly better images over time.',
+      'The acquisition timeline tooltip got a frosted glass treatment. Semi-transparent background with a subtle backdrop blur, because even hover states deserve a little atmosphere.',
+    ],
+  },
+  {
+    version: 'v0.7.4',
+    date: 'Mar 10, 2026',
     title: 'The ghost in the redirect',
     items: [
       'If you logged out on the portfolio page, the navbar decided you didn\u2019t deserve navigation links OR a login button. Just a logo floating in the void. You could stare at it. That was the experience. Fixed \u2014 anonymous users now see nav links and a Login button on every page, like a normal website.',

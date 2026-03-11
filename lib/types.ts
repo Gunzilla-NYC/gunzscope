@@ -48,6 +48,7 @@ export interface NFT {
   name: string;
   description?: string; // NFT description from metadata
   image: string;
+  imageHires?: string; // High-res image URL from OpenSea CDN (i.seadn.io)
   collection: string;
   contractAddress?: string; // Contract address for the NFT collection
   chain: 'avalanche' | 'solana';
