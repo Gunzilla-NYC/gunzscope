@@ -6,9 +6,6 @@ import { getAuthToken } from '@dynamic-labs/sdk-react-core';
 import { clipHex } from '@/lib/utils/styles';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
 import DropPanel from '@/components/ui/DropPanel';
-import type { NFT } from '@/lib/types';
-import { usePortfolioAttestation, type AttestationStatus } from '@/lib/hooks/usePortfolioAttestation';
-import { useIsViewOnly } from '@/lib/contexts/PortfolioContext';
 
 interface ShareDropdownProps {
   walletAddress: string;
@@ -18,24 +15,7 @@ interface ShareDropdownProps {
   nftCount?: number;
   nftPnlPct?: number | null;
   totalGunSpent?: string;
-  /** NFTs for on-chain attestation */
-  nfts?: NFT[];
-  /** Whether the viewer is the wallet owner (only owners can attest) */
-  isOwnWallet?: boolean;
-  /** Dynamic Labs wallet provider for signing */
-  walletProvider?: unknown;
 }
-
-const ATTEST_LABELS: Record<AttestationStatus, string> = {
-  idle: '', // dynamic — depends on latestAttestation
-  building: 'Building proof\u2026',
-  uploading: 'Uploading metadata\u2026',
-  'switching-chain': 'Switch to Avalanche\u2026',
-  signing: 'Sign in wallet\u2026',
-  confirming: 'Confirming\u2026',
-  success: 'Verified!',
-  error: 'Retry Attestation',
-};
 
 /** Fallback: build a long share URL if the API call fails */
 function buildFallbackUrl(
@@ -66,28 +46,9 @@ export function ShareDropdown({
   nftCount,
   nftPnlPct,
   totalGunSpent,
-  nfts,
-  isOwnWallet,
-  walletProvider,
 }: ShareDropdownProps) {
   const [copied, setCopied] = useState(false);
   const triggerBtnRef = useRef<HTMLButtonElement>(null);
-  const isViewOnly = useIsViewOnly();
-
-  // On-chain attestation
-  const {
-    attest,
-    status: attestStatus,
-    txHash,
-    error: attestError,
-    latestAttestation,
-  } = usePortfolioAttestation(
-    isOwnWallet ? walletAddress : undefined,
-    nfts ?? [],
-    walletProvider,
-  );
-  const isAttesting = attestStatus !== 'idle' && attestStatus !== 'success' && attestStatus !== 'error';
-
   // Panel state — use context if available (portfolio page), else local state
   const panelCtx = useSlidePanelContext();
   const [localOpen, setLocalOpen] = useState(false);
@@ -335,90 +296,6 @@ export function ShareDropdown({
             </div>
           </button>
 
-          {/* On-Chain Attestation — only for wallet owner with signing capability */}
-          {!!(isOwnWallet && !isViewOnly && walletProvider && nfts && nfts.length > 0) && (
-            <>
-              <div className="border-t border-white/[0.06] mt-3 pt-3">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)] block mb-2">
-                  On&#8209;Chain
-                </span>
-              </div>
-
-              {/* Existing attestation indicator */}
-              {latestAttestation && attestStatus === 'idle' && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-[var(--gs-lime)]/[0.05] border border-[var(--gs-lime)]/10">
-                  <svg className="w-3.5 h-3.5 text-[var(--gs-lime)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="font-mono text-[9px] text-[var(--gs-lime)]">
-                    Verified {new Date(latestAttestation.timestamp).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-
-              {/* Attest button */}
-              <button
-                onClick={attest}
-                disabled={isAttesting}
-                className={`w-full flex items-center gap-3 px-4 py-3 border transition-all cursor-pointer text-left ${
-                  attestStatus === 'success'
-                    ? 'border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/[0.08]'
-                    : attestStatus === 'error'
-                      ? 'border-[var(--gs-loss)]/30 bg-[var(--gs-loss)]/[0.05] hover:bg-[var(--gs-loss)]/[0.08]'
-                      : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-purple)]/30'
-                } ${isAttesting ? 'opacity-60 cursor-wait' : ''}`}
-                style={{ clipPath: clipHex(5) }}
-              >
-                {/* Avalanche icon / spinner */}
-                <div className="w-5 h-5 shrink-0 flex items-center justify-center">
-                  {isAttesting ? (
-                    <span className="animate-spin inline-block w-4 h-4"><svg className="w-4 h-4 text-[var(--gs-purple)]" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg></span>
-                  ) : attestStatus === 'success' ? (
-                    <svg className="w-5 h-5 text-[var(--gs-lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5 text-[var(--gs-purple)]" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2L2 19.5h20L12 2zm0 4l6.5 11.5h-13L12 6z" />
-                    </svg>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <span className={`font-mono text-data block ${
-                    attestStatus === 'success' ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-white)]'
-                  }`}>
-                    {attestStatus === 'idle'
-                      ? (latestAttestation ? 'Verify On\u2011Chain' : 'Verify Your Account')
-                      : ATTEST_LABELS[attestStatus]}
-                  </span>
-                  <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">
-                    {attestStatus === 'success' && txHash
-                      ? 'View on Snowtrace'
-                      : attestStatus === 'error' && attestError
-                        ? attestError.slice(0, 60)
-                        : latestAttestation
-                          ? 'Update your verification and on\u2011chain proof'
-                          : 'Prove your wallet and current holdings on Avalanche C\u2011Chain'}
-                  </span>
-                </div>
-              </button>
-
-              {/* Snowtrace link on success */}
-              {attestStatus === 'success' && txHash && (
-                <a
-                  href={`https://snowtrace.io/tx/${txHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-center font-mono text-[9px] text-[var(--gs-purple)] hover:text-[var(--gs-lime)] transition-colors mt-1"
-                >
-                  snowtrace.io/tx/{txHash.slice(0, 10)}&hellip;
-                </a>
-              )}
-            </>
-          )}
         </div>
       </DropPanel>
     </>

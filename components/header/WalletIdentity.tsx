@@ -15,6 +15,8 @@ import { useNftPnL } from '@/components/portfolio-summary/hooks/useNftPnL';
 import { ShareDropdown } from '@/components/portfolio-summary/ShareDropdown';
 import DropPanel from '@/components/ui/DropPanel';
 import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
+import { usePortfolioAttestation } from '@/lib/hooks/usePortfolioAttestation';
+import { clipHex } from '@/lib/utils/styles';
 import { useReferral } from '@/lib/hooks/useReferral';
 
 interface WalletIdentityProps {
@@ -61,6 +63,7 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
   const [localSwitcherOpen, setLocalSwitcherOpen] = useState(false);
   const isSwitcherOpen = panelCtx ? panelCtx.activePanel === 'wallet-switcher' : localSwitcherOpen;
   const isDetailsOpen = panelCtx ? panelCtx.activePanel === 'details' : false;
+  const isAttestOpen = panelCtx ? panelCtx.activePanel === 'attest' : false;
   // Extract stable function refs — avoids re-triggering effects when context value changes
   const ctxClose = panelCtx?.closePanel;
   const ctxToggle = panelCtx?.togglePanel;
@@ -167,6 +170,21 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
     if (!portfolioResult || !portfolioResult.totalGunSpent) return undefined;
     return portfolioResult.totalGunSpent.toLocaleString();
   }, [portfolioResult]);
+
+  // On-chain attestation
+  const {
+    attest,
+    status: attestStatus,
+    txHash,
+    error: attestError,
+    latestAttestation,
+  } = usePortfolioAttestation(
+    isOwnWallet ? (address ?? undefined) : undefined,
+    allNfts ?? [],
+    walletProviderObj,
+  );
+  const isAttesting = attestStatus !== 'idle' && attestStatus !== 'success' && attestStatus !== 'error';
+  const closeAttest = useCallback(() => { if (ctxClose) ctxClose(); }, [ctxClose]);
 
   // Early return if no wallet data (after all hooks)
   if (!walletData || !address) return null;
@@ -294,9 +312,6 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
               nftCount={portfolioResult.nftCount}
               nftPnlPct={nftPnL.pct}
               totalGunSpent={shareGunSpent}
-              nfts={allNfts}
-              isOwnWallet={isOwnWallet}
-              walletProvider={walletProviderObj}
             />
           )}
         </div>
@@ -350,10 +365,20 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
             nftCount={portfolioResult.nftCount}
             nftPnlPct={nftPnL.pct}
             totalGunSpent={shareGunSpent}
-            nfts={allNfts}
-            isOwnWallet={isOwnWallet}
-            walletProvider={walletProviderObj}
           />
+        )}
+
+        {isOwnWallet && !isViewOnly && walletProviderObj && allNfts && allNfts.length > 0 && (
+          <button
+            onClick={() => ctxToggle?.('attest')}
+            className={`p-1.5 transition-colors cursor-pointer ${isAttestOpen ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'}`}
+            aria-label="On-chain verification"
+            title="On-chain verification"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+          </button>
         )}
 
         {mode === 'switcher' && (
@@ -505,6 +530,145 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
             </svg>
             Manage Wallets
           </Link>
+        </div>
+      </DropPanel>
+
+      {/* On-chain verification panel */}
+      <DropPanel isOpen={isAttestOpen} onClose={closeAttest} title="On&#8209;Chain Verification" portalTarget={panelCtx?.panelSlotNode ?? null}>
+        <div className="px-3 py-3 space-y-2">
+          {/* Existing attestation indicator */}
+          {latestAttestation && attestStatus === 'idle' && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-[var(--gs-lime)]/[0.05] border border-[var(--gs-lime)]/10">
+              <svg className="w-3.5 h-3.5 text-[var(--gs-lime)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="font-mono text-[9px] text-[var(--gs-lime)]">
+                Verified {new Date(latestAttestation.timestamp).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+
+          {/* Attest button */}
+          <button
+            onClick={attest}
+            disabled={isAttesting}
+            className={`w-full flex items-center gap-3 px-4 py-3 border transition-all cursor-pointer text-left ${
+              attestStatus === 'success'
+                ? 'border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/[0.08]'
+                : attestStatus === 'error'
+                  ? 'border-[var(--gs-loss)]/30 bg-[var(--gs-loss)]/[0.05] hover:bg-[var(--gs-loss)]/[0.08]'
+                  : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-[var(--gs-purple)]/30'
+            } ${isAttesting ? 'opacity-60 cursor-wait' : ''}`}
+            style={{ clipPath: clipHex(5) }}
+          >
+            {/* Avalanche icon / spinner */}
+            <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+              {isAttesting ? (
+                <span className="animate-spin inline-block w-4 h-4"><svg className="w-4 h-4 text-[var(--gs-purple)]" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg></span>
+              ) : attestStatus === 'success' ? (
+                <svg className="w-5 h-5 text-[var(--gs-lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-[var(--gs-purple)]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L2 19.5h20L12 2zm0 4l6.5 11.5h-13L12 6z" />
+                </svg>
+              )}
+            </div>
+            <div className="min-w-0">
+              <span className={`font-mono text-data block ${
+                attestStatus === 'success' ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-white)]'
+              }`}>
+                {attestStatus === 'idle'
+                  ? (latestAttestation ? 'Update Your Verification' : 'Verify Your Account')
+                  : attestStatus === 'building' ? 'Building proof\u2026'
+                  : attestStatus === 'uploading' ? 'Uploading metadata\u2026'
+                  : attestStatus === 'switching-chain' ? 'Switch to Avalanche\u2026'
+                  : attestStatus === 'signing' ? 'Sign in wallet\u2026'
+                  : attestStatus === 'confirming' ? 'Confirming\u2026'
+                  : attestStatus === 'success' ? 'Verified!'
+                  : 'Retry Verification'}
+              </span>
+              <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">
+                {attestStatus === 'success' && txHash
+                  ? 'View on Snowtrace'
+                  : attestStatus === 'error' && attestError
+                    ? attestError.slice(0, 60)
+                    : latestAttestation
+                      ? 'Create a new snapshot of your holdings for tournaments and rankings'
+                      : 'Prove your wallet and current holdings on Avalanche C\u2011Chain'}
+              </span>
+            </div>
+          </button>
+
+          {/* Snowtrace link on success */}
+          {attestStatus === 'success' && txHash && (
+            <a
+              href={`https://snowtrace.io/tx/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center font-mono text-[9px] text-[var(--gs-purple)] hover:text-[var(--gs-lime)] transition-colors mt-1"
+            >
+              snowtrace.io/tx/{txHash.slice(0, 10)}&hellip;
+            </a>
+          )}
+
+          {/* Why Verify? / Coming Soon — row-aligned grid */}
+          <div className="border-t border-white/[0.06] mt-3 pt-3 px-1">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-3 text-[13px] leading-normal">
+              {/* Headers */}
+              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">Why Verify?</span>
+              <div />
+              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-purple)]">Coming Soon</span>
+
+              {/* Row 1 */}
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-lime)] shrink-0 leading-none mt-0.5">&#10003;</span>
+                <span className="text-white/80">Prove you own this wallet and its holdings</span>
+              </div>
+              <div className="w-px bg-white/[0.06] self-stretch" />
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-purple)] shrink-0 text-[10px] mt-1">&#9670;</span>
+                <span className="text-white/70">Verified tournaments</span>
+              </div>
+
+              {/* Row 2 */}
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-lime)] shrink-0 leading-none mt-0.5">&#10003;</span>
+                <span className="text-white/80">Tamper&#8209;proof record on Avalanche C&#8209;Chain</span>
+              </div>
+              <div className="w-px bg-white/[0.06] self-stretch" />
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-purple)] shrink-0 text-[10px] mt-1">&#9670;</span>
+                <span className="text-white/70">Verified player rankings</span>
+              </div>
+
+              {/* Row 3 */}
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-lime)] shrink-0 leading-none mt-0.5">&#10003;</span>
+                <span className="text-white/80">Shareable link anyone can verify on&#8209;chain</span>
+              </div>
+              <div className="w-px bg-white/[0.06] self-stretch" />
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-purple)] shrink-0 text-[10px] mt-1">&#9670;</span>
+                <span className="text-white/70">On&#8209;chain &amp; cross&#8209;platform economics</span>
+              </div>
+
+              {/* Row 4 */}
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-lime)] shrink-0 leading-none mt-0.5">&#10003;</span>
+                <span className="text-white/80">Start your player legacy with a permanent full data archive</span>
+              </div>
+              <div className="w-px bg-white/[0.06] self-stretch" />
+              <div className="flex gap-2.5 items-start">
+                <span className="text-[var(--gs-gray-4)] shrink-0 text-[10px] mt-1">&#9670;</span>
+                <span className="text-[var(--gs-gray-4)]">More&hellip;</span>
+              </div>
+            </div>
+          </div>
         </div>
       </DropPanel>
     </div>
