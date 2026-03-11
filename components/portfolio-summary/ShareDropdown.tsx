@@ -27,13 +27,13 @@ interface ShareDropdownProps {
 }
 
 const ATTEST_LABELS: Record<AttestationStatus, string> = {
-  idle: 'Attest On\u2011Chain',
+  idle: '', // dynamic — depends on latestAttestation
   building: 'Building proof\u2026',
   uploading: 'Uploading metadata\u2026',
   'switching-chain': 'Switch to Avalanche\u2026',
   signing: 'Sign in wallet\u2026',
   confirming: 'Confirming\u2026',
-  success: 'Attested!',
+  success: 'Verified!',
   error: 'Retry Attestation',
 };
 
@@ -351,7 +351,7 @@ export function ShareDropdown({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                   <span className="font-mono text-[9px] text-[var(--gs-lime)]">
-                    Attested {new Date(latestAttestation.timestamp).toLocaleDateString()}
+                    Verified {new Date(latestAttestation.timestamp).toLocaleDateString()}
                   </span>
                 </div>
               )}
@@ -390,7 +390,9 @@ export function ShareDropdown({
                   <span className={`font-mono text-data block ${
                     attestStatus === 'success' ? 'text-[var(--gs-lime)]' : 'text-[var(--gs-white)]'
                   }`}>
-                    {ATTEST_LABELS[attestStatus]}
+                    {attestStatus === 'idle'
+                      ? (latestAttestation ? 'Verify On\u2011Chain' : 'Verify Your Account')
+                      : ATTEST_LABELS[attestStatus]}
                   </span>
                   <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">
                     {attestStatus === 'success' && txHash
@@ -398,8 +400,8 @@ export function ShareDropdown({
                       : attestStatus === 'error' && attestError
                         ? attestError.slice(0, 60)
                         : latestAttestation
-                          ? 'Update your on\u2011chain proof'
-                          : 'Merkle proof on Avalanche C\u2011Chain'}
+                          ? 'Update your verification and on\u2011chain proof'
+                          : 'Prove your wallet and current holdings on Avalanche C\u2011Chain'}
                   </span>
                 </div>
               </button>
