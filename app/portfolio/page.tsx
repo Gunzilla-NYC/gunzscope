@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import PortfolioClient from './PortfolioClient';
 
 interface PageProps {
@@ -48,5 +49,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 }
 
 export default function PortfolioPage() {
-  return <PortfolioClient />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <PortfolioClient />
+    </Suspense>
+  );
 }

@@ -35,9 +35,10 @@ export function useTextScramble({
   const [isScrambling, setIsScrambling] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mountedRef = useRef(true);
+  const wordIndexRef = useRef(0);
 
   const getRandomChar = useCallback(() => {
     return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
@@ -50,40 +51,38 @@ export function useTextScramble({
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
-  // Main animation cycle
-  useEffect(() => {
+    const cleanup = () => {
+      mountedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+
     if (prefersReducedMotion) {
-      // Just cycle words without animation
       const cycleInterval = setInterval(() => {
         if (!mountedRef.current) return;
-        setCurrentWordIndex(prev => {
-          const next = (prev + 1) % words.length;
-          setDisplayText(words[next]);
-          return next;
-        });
+        wordIndexRef.current = (wordIndexRef.current + 1) % words.length;
+        setDisplayText(words[wordIndexRef.current]);
+        setCurrentWordIndex(wordIndexRef.current);
       }, pauseDuration + scrambleDuration);
 
-      return () => clearInterval(cycleInterval);
+      return () => {
+        cleanup();
+        clearInterval(cycleInterval);
+      };
     }
 
-    // Schedule the scramble to next word
     const scheduleNextScramble = () => {
       timeoutRef.current = setTimeout(() => {
         if (!mountedRef.current) return;
 
-        const nextIndex = (currentWordIndex + 1) % words.length;
+        const nextIndex = (wordIndexRef.current + 1) % words.length;
         const targetWord = words[nextIndex];
         const totalFrames = Math.floor(scrambleDuration / frameRate);
         let frame = 0;
 
         setIsScrambling(true);
 
-        // Clear any existing interval
         if (intervalRef.current) clearInterval(intervalRef.current);
 
         intervalRef.current = setInterval(() => {
@@ -114,28 +113,19 @@ export function useTextScramble({
             if (intervalRef.current) clearInterval(intervalRef.current);
             setDisplayText(targetWord);
             setIsScrambling(false);
+            wordIndexRef.current = nextIndex;
             setCurrentWordIndex(nextIndex);
+            // Schedule the next scramble
+            scheduleNextScramble();
           }
         }, frameRate);
       }, pauseDuration);
     };
 
-    // Only schedule when not scrambling
-    if (!isScrambling) {
-      scheduleNextScramble();
-    }
+    scheduleNextScramble();
 
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [currentWordIndex, isScrambling, words, pauseDuration, scrambleDuration, frameRate, getRandomChar, prefersReducedMotion]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
+    return cleanup;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { displayText, isScrambling, currentWordIndex };

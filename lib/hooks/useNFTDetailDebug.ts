@@ -108,11 +108,14 @@ export function useNFTDetailDebug(
   const [debugCopied, setDebugCopied] = useState(false);
 
   // Sync GUN price timestamp from useGunPrice hook into debug data
+  // Compare by .getTime() — Date objects are recreated on every render by useGunPrice
+  const gunPriceTs = gunPriceTimestamp?.getTime() ?? null;
   useEffect(() => {
     if (gunPriceTimestamp) {
       setDebugData(prev => ({ ...prev, gunPriceTimestamp }));
     }
-  }, [gunPriceTimestamp]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gunPriceTs]);
 
   // Partial update convenience function — replaces setDebugData(prev => ({ ...prev, ... }))
   const updateDebugData = useCallback((updates: Partial<DebugDataState>) => {
