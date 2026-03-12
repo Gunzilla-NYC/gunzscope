@@ -86,6 +86,8 @@ export default function AccountPanel({
     { id: 'settings', label: 'Settings' },
   ];
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-end" onClick={onClose}>
       {/* Backdrop */}
