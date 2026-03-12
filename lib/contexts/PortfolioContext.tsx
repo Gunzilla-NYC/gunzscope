@@ -44,6 +44,10 @@ export interface PortfolioContextValue {
   // NFTs (convenience accessor)
   allNfts: NFT[];
 
+  // Aggregated NFTs across ALL portfolio wallets (for attestation)
+  allPortfolioNfts: NFT[];
+  allPortfolioAddresses: string[];
+
   // Connected wallets (for self-transfer vs gift classification)
   connectedWallets: string[];
 
@@ -89,6 +93,8 @@ const defaultValue: PortfolioContextValue = {
   enrichmentProgress: null,
   isEnriching: false,
   allNfts: [],
+  allPortfolioNfts: [],
+  allPortfolioAddresses: [],
   connectedWallets: [],
   isLoading: false,
   isInitializing: true,
@@ -177,6 +183,15 @@ export function usePortfolioResult() {
 export function usePortfolioNFTs() {
   const { allNfts, isEnriching, enrichmentProgress } = usePortfolioContext();
   return { allNfts, isEnriching, enrichmentProgress };
+}
+
+/**
+ * Access aggregated NFTs across ALL portfolio wallets.
+ * Used for cross-wallet attestation.
+ */
+export function useAllPortfolioNFTs() {
+  const { allPortfolioNfts, allPortfolioAddresses } = usePortfolioContext();
+  return { allPortfolioNfts, allPortfolioAddresses };
 }
 
 /**

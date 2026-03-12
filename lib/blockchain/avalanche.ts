@@ -249,7 +249,15 @@ async function resolveTokenURIMetadata(tokenURI: string): Promise<ResolvedMetada
   try {
     // HTTP(S) URLs
     if (tokenURI.startsWith('http://') || tokenURI.startsWith('https://')) {
-      const response = await fetchWithTimeout(tokenURI);
+      // Rewrite metadata.gunzchain.io URLs to use local proxy (CORS blocked in browser)
+      let fetchUrl = tokenURI;
+      const gunzMetaMatch = tokenURI.match(
+        /^https?:\/\/metadata\.gunzchain\.io\/api\/v1\/nft\/(0x[a-fA-F0-9]{40})\/(\d+)$/
+      );
+      if (gunzMetaMatch && typeof window !== 'undefined') {
+        fetchUrl = `/api/metadata/${gunzMetaMatch[1]}/${gunzMetaMatch[2]}`;
+      }
+      const response = await fetchWithTimeout(fetchUrl);
       if (!response.ok) {
         return { source: 'none', tokenURI, error: `HTTP ${response.status}` };
       }

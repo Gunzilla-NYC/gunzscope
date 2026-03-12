@@ -10,7 +10,7 @@ const SCHEMA_VERSIONS = {
   nftDetail: 'v25', // v25: Fix Seaport v1.6 OrderFulfilled ABI decoding — batch purchase prices were tx.value instead of per-item
   transfers: 'v2',
   priceGunUsd: 'v1',
-  metadata: 'v1', // v1: NFT metadata cache (name, image, traits, mintNumber)
+  metadata: 'v2', // v2: Fix CORS proxy for metadata.gunzchain.io tokenURI (images were missing)
 } as const;
 
 // Stale threshold for incomplete cache entries (10 minutes)

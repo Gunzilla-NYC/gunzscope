@@ -878,6 +878,16 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // All wallet addresses in walletMap (for switcher)
   const allWalletAddresses = useMemo(() => Object.values(walletMap).map(w => w.address), [walletMap]);
 
+  // Aggregated NFTs across ALL wallets in walletMap (for cross-wallet attestation)
+  const allPortfolioNfts = useMemo(() =>
+    Object.values(walletMap).flatMap(wd => [...wd.avalanche.nfts, ...wd.solana.nfts]),
+    [walletMap],
+  );
+  const allPortfolioAddresses = useMemo(() =>
+    Object.values(walletMap).map(wd => wd.address),
+    [walletMap],
+  );
+
   // Connected wallets (lowercased) — for self-transfer vs gift classification
   const connectedWallets = useMemo(() => {
     const set = new Set<string>();
@@ -914,6 +924,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     enrichmentProgress,
     isEnriching: enrichingNFTs,
     allNfts,
+    allPortfolioNfts,
+    allPortfolioAddresses,
     connectedWallets,
     isLoading: loading,
     isInitializing: isPortfolioInitializing,
@@ -941,6 +953,8 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     enrichmentProgress,
     enrichingNFTs,
     allNfts,
+    allPortfolioNfts,
+    allPortfolioAddresses,
     connectedWallets,
     loading,
     isPortfolioInitializing,

@@ -47,6 +47,8 @@ export function usePortfolioAttestation(
   walletAddress: string | undefined,
   nfts: NFT[],
   walletProvider: unknown,
+  gsHandle?: string | null,
+  portfolioAddresses?: string[],
 ): UsePortfolioAttestationResult {
   const [status, setStatus] = useState<AttestationStatus>('idle');
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -118,6 +120,8 @@ export function usePortfolioAttestation(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             wallet: walletAddress,
+            ...(gsHandle ? { gsHandle } : {}),
+            ...(portfolioAddresses && portfolioAddresses.length > 1 ? { wallets: portfolioAddresses } : {}),
             merkleRoot: root,
             totalValueGun: totalValueWei,
             itemCount: leafCount,
@@ -136,7 +140,7 @@ export function usePortfolioAttestation(
         metadataURI = url;
       } catch (uploadErr) {
         // Fallback to inline data URI if Auto Drive unavailable
-        metadataURI = `data:application/json,${encodeURIComponent(JSON.stringify({ wallet: walletAddress, items: leafCount, block: blockNumber }))}`;
+        metadataURI = `data:application/json,${encodeURIComponent(JSON.stringify({ wallet: walletAddress, ...(gsHandle ? { gsHandle } : {}), ...(portfolioAddresses && portfolioAddresses.length > 1 ? { wallets: portfolioAddresses } : {}), items: leafCount, block: blockNumber }))}`;
       }
 
       // Step 5: Submit attestation

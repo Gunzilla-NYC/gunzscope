@@ -8,6 +8,7 @@ import {
   usePortfolioResult,
   usePortfolioGunPrice,
   usePortfolioNFTs,
+  useAllPortfolioNFTs,
   usePortfolioIdentity,
   useIsViewOnly,
 } from '@/lib/contexts/PortfolioContext';
@@ -18,6 +19,7 @@ import { useSlidePanelContext } from '@/lib/contexts/SlidePanelContext';
 import { usePortfolioAttestation } from '@/lib/hooks/usePortfolioAttestation';
 import { clipHex } from '@/lib/utils/styles';
 import { useReferral } from '@/lib/hooks/useReferral';
+import { useUserProfile } from '@/lib/hooks/useUserProfile';
 
 interface WalletIdentityProps {
   className?: string;
@@ -171,7 +173,9 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
     return portfolioResult.totalGunSpent.toLocaleString();
   }, [portfolioResult]);
 
-  // On-chain attestation
+  // On-chain attestation — uses ALL portfolio wallets, not just active
+  const { profile } = useUserProfile();
+  const { allPortfolioNfts, allPortfolioAddresses } = useAllPortfolioNFTs();
   const {
     attest,
     status: attestStatus,
@@ -180,8 +184,10 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
     latestAttestation,
   } = usePortfolioAttestation(
     isOwnWallet ? (address ?? undefined) : undefined,
-    allNfts ?? [],
+    allPortfolioNfts.length > 0 ? allPortfolioNfts : (allNfts ?? []),
     walletProviderObj,
+    profile?.displayName,
+    allPortfolioAddresses,
   );
   const isAttesting = attestStatus !== 'idle' && attestStatus !== 'success' && attestStatus !== 'error';
   const closeAttest = useCallback(() => { if (ctxClose) ctxClose(); }, [ctxClose]);
