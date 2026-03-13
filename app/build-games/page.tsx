@@ -91,16 +91,8 @@ const FEATURES = [
     desc: 'Automatic detection of how each NFT was acquired \u2014 HEX decode, marketplace purchase, or transfer \u2014 with original GUN cost basis.',
   },
   {
-    icon: '\u{1F52B}', title: 'Weapon Lab', tag: 'wip',
-    desc: 'Compatibility detection via model codes extracted from asset URLs. Identifies locked special editions vs modifiable weapons. Real data, not name matching.',
-  },
-  {
     icon: '\u{1F4B0}', title: 'Tiered Valuation', tag: 'live',
     desc: '6\u2011tier valuation waterfall from exact item sales to collection floor. Each tier carries a confidence indicator so you know what you\u2019re looking at.',
-  },
-  {
-    icon: '\u{1F3F7}\uFE0F', title: 'Rarity Intelligence', tag: 'live',
-    desc: 'Dual rarity system \u2014 display rarity and functional tier. 7\u2011tier hierarchy from Common to Classified, with locked special edition detection.',
   },
   {
     icon: '\u2B1B', title: 'On\u2011Chain Attestations', tag: 'live',
@@ -109,6 +101,14 @@ const FEATURES = [
   {
     icon: '\u{1F396}\uFE0F', title: 'Reputation System', tag: 'next',
     desc: 'Soulbound badges earned through milestones \u2014 collection size, trade volume, certifications. Non\u2011transferable, chain\u2011verified credibility.',
+  },
+  {
+    icon: '\u{1F52B}', title: 'Weapon Intelligence', tag: 'live',
+    desc: 'Compatibility detection via model codes extracted from asset URLs. Identifies locked special editions vs modifiable weapons. Real data, not name matching.',
+  },
+  {
+    icon: '\u{1F3F7}\uFE0F', title: 'Rarity Intelligence', tag: 'live',
+    desc: 'Dual rarity system \u2014 display rarity and functional tier. 7\u2011tier hierarchy from Common to Classified, with locked special edition detection.',
   },
   {
     icon: '\u26A1', title: 'Live Pricing', tag: 'live',
@@ -277,7 +277,7 @@ export default function BuildGamesPage() {
             </div>
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06]">
               <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Blocks Scanned</span>
-              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">15M+</span>
+              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">13M+</span>
             </div>
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
               <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Tracking</span>
@@ -457,11 +457,9 @@ export default function BuildGamesPage() {
                 <span className={`inline-block font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 ${
                   f.tag === 'live'
                     ? 'bg-[var(--gs-profit)]/10 text-[var(--gs-profit)] border border-[var(--gs-profit)]/15'
-                    : f.tag === 'wip'
-                      ? 'bg-[var(--gs-warning)]/10 text-[var(--gs-warning)] border border-[var(--gs-warning)]/15'
-                      : 'bg-[var(--gs-purple)]/10 text-[var(--gs-purple)] border border-[var(--gs-purple)]/15'
+                    : 'bg-[var(--gs-purple)]/10 text-[var(--gs-purple)] border border-[var(--gs-purple)]/15'
                 }`}>
-                  {f.tag === 'live' ? 'Live' : f.tag === 'wip' ? 'In Progress' : 'Phase 2'}
+                  {f.tag === 'live' ? 'Live' : 'Phase 2'}
                 </span>
               </div>
             ))}
@@ -622,7 +620,7 @@ export default function BuildGamesPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { name: 'Vulture', type: 'Assault Rifle', rarity: 'Epic', rarityColor: 'bg-[#B44AFF]/15 text-[#B44AFF] border-[#B44AFF]/20', price: '1,200 GUN', source: 'Via Sales \u00B7 T2', pnl: '+23.4%', profit: true },
-                  { name: 'Kestrel', type: 'Sniper Rifle', rarity: 'Legendary', rarityColor: 'bg-[#FF8C00]/15 text-[#FF8C00] border-[#FF8C00]/20', price: '3,400 GUN', source: 'Exact \u00B7 T1', pnl: '+8.7%', profit: true },
+                  { name: 'Kestrel', type: 'Sniper Rifle', rarity: 'Epic', rarityColor: 'bg-[#B44AFF]/15 text-[#B44AFF] border-[#B44AFF]/20', price: '3,400 GUN', source: 'Exact \u00B7 T1', pnl: '+8.7%', profit: true },
                   { name: 'Vulture Solana', type: 'Special Edition', rarity: 'Classified', rarityColor: 'bg-[#E74C3C]/15 text-[#E74C3C] border-[#E74C3C]/20', price: '\u2014 GUN', source: 'No Mods Available', pnl: 'Locked', profit: false },
                   { name: 'Reflex Sight', type: 'Attachment', rarity: 'Rare', rarityColor: 'bg-[#4A7AFF]/15 text-[#4A7AFF] border-[#4A7AFF]/20', price: '400 GUN', source: 'Via Floor \u00B7 T6', pnl: '\u22125.2%', profit: false },
                 ].map((nft) => (
@@ -712,8 +710,8 @@ export default function BuildGamesPage() {
               </div>
               <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
                 <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Build Time</div>
-                <div className="font-display text-2xl font-bold text-[var(--gs-purple-bright)]">47 days</div>
-                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Jan 22 &rarr; Mar 10, 2026</div>
+                <div className="font-display text-2xl font-bold text-[var(--gs-purple-bright)]">51 days</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Jan 22 &rarr; Mar 13, 2026</div>
               </div>
             </div>
           </div>
