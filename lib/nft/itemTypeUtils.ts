@@ -28,6 +28,32 @@ const MODEL_PREFIX_TO_TYPE: Record<string, string> = {
   ML: 'Melee',
 };
 
+/**
+ * Name-based classification for items that lack a CLASS trait (e.g., event/airdrop items).
+ * Patterns are tested against the NFT name (case-insensitive).
+ */
+const NAME_CLASSIFICATION_PATTERNS: Array<[RegExp, string]> = [
+  [/\bmask\b/i, 'Facewear'],
+  [/\bbalaklava\b/i, 'Facewear'],
+  [/\bbandana\b/i, 'Facewear'],
+  [/\bhelmet\b/i, 'Headwear'],
+  [/\bberet\b/i, 'Headwear'],
+  [/\bcap\b/i, 'Headwear'],
+  [/\bhat\b/i, 'Headwear'],
+  [/\bbeanie\b/i, 'Headwear'],
+  [/\bgoggles\b/i, 'Eyewear'],
+  [/\bshades\b/i, 'Eyewear'],
+  [/\bvisor\b/i, 'Eyewear'],
+  [/\bvest\b/i, 'Outerwear'],
+  [/\bchest rig\b/i, 'Outerwear'],
+  [/\bpuffer\b/i, 'Outerwear'],
+  [/\bshorts\b/i, 'Legwear'],
+  [/\bboot(?:ies|s)?\b/i, 'Footwear'],
+  [/\bjetpack\b/i, 'Backpack'],
+  [/\bskin\b/i, 'Weapon Skin'],
+  [/\bglykobitz\b/i, 'Sticker'],
+];
+
 // Regex to extract model code from image URLs (e.g., AR05 from Weapon_Weapon_AR05_S03_Epic_hd.png)
 const WEAPON_MODEL_PATTERN = /Weapon_Weapon_([A-Z]+)\d+/;
 
@@ -74,8 +100,17 @@ export function getSpecificItemType(nft: NFT): string {
     }
   }
 
-  // Fallback to CLASS trait (existing behavior)
-  return classValue || 'Unknown';
+  // Fallback to CLASS trait
+  if (classValue) return classValue;
+
+  // Last resort: infer from item name (for event/airdrop items without CLASS trait)
+  if (nft.name) {
+    for (const [pattern, label] of NAME_CLASSIFICATION_PATTERNS) {
+      if (pattern.test(nft.name)) return label;
+    }
+  }
+
+  return 'Unknown';
 }
 
 // Asset path patterns that indicate special/locked editions
