@@ -1311,7 +1311,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
             {/* Pinned favorites row — cross-wallet, above main gallery */}
             {pinnedItems.length > 0 && (
-              <div className="bg-[var(--gs-dark-3)] p-6 pb-0 border border-white/[0.06] border-b-0 clip-corner">
+              <div className="bg-[var(--gs-dark-3)] p-6 pb-0 border border-white/[0.06] border-b-0 clip-corner overflow-hidden">
                 <PinnedFavoritesRow
                   pinnedItems={pinnedItems}
                   currentGunPrice={gunPrice}
