@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { ATTESTATION_ABI, getContractAddress, getCChainProvider } from '@/lib/attestation/contract';
 
-/** Historical contract addresses and their deployment blocks on C-Chain */
+/**
+ * Historical contract addresses and their deployment blocks on C-Chain.
+ * Old non-proxy contracts are kept for historical completeness but
+ * the UUPS proxy is the canonical address going forward.
+ */
 const CONTRACT_HISTORY = [
   { address: '0x5198a3661654748b2752F351efE361DC6Ef4Cd1D', deployBlock: 79266818 },
   { address: '0xf8f5aa3D940009987F02AD92e44A5434Bab748bf', deployBlock: 79327768 },
@@ -10,7 +14,7 @@ const CONTRACT_HISTORY = [
 ];
 
 /** Max block range per queryFilter call (public RPC limit) */
-const BLOCK_CHUNK = 49000;
+const BLOCK_CHUNK = 100_000;
 
 interface AttestationEvent {
   wallet: string;
@@ -32,13 +36,13 @@ interface CachedResponse {
 
 let cache: CachedResponse | null = null;
 let cacheExpiresAt = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes — attestations are infrequent
 
 export async function GET() {
   const now = Date.now();
   if (cache && now < cacheExpiresAt) {
     return NextResponse.json(cache, {
-      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
     });
   }
 
@@ -53,10 +57,10 @@ export async function GET() {
       allContracts.push({ address: currentAddress, deployBlock: CONTRACT_HISTORY.at(-1)?.deployBlock ?? 79266818 });
     }
 
-    // Query events from all contract addresses
+    // Query events from all contract addresses (in parallel)
     const allLogs: (ethers.EventLog & { _contractAddress: string })[] = [];
 
-    for (const { address, deployBlock } of allContracts) {
+    await Promise.all(allContracts.map(async ({ address, deployBlock }) => {
       const contract = new ethers.Contract(address, ATTESTATION_ABI, provider);
       const filter = contract.filters.PortfolioAttested();
 
@@ -68,17 +72,21 @@ export async function GET() {
           allLogs.push(log as ethers.EventLog & { _contractAddress: string });
         }
       }
-    }
+    }));
 
-    // Collect unique block numbers for timestamp lookup
+    // Collect unique block numbers for timestamp lookup (concurrency-limited)
     const blockNumbers = [...new Set(allLogs.map(l => l.blockNumber))];
     const blockTimestamps = new Map<number, number>();
-    await Promise.all(
-      blockNumbers.map(async (bn) => {
-        const block = await provider.getBlock(bn);
-        if (block) blockTimestamps.set(bn, block.timestamp * 1000);
-      }),
-    );
+    const TIMESTAMP_CONCURRENCY = 5;
+    for (let i = 0; i < blockNumbers.length; i += TIMESTAMP_CONCURRENCY) {
+      const batch = blockNumbers.slice(i, i + TIMESTAMP_CONCURRENCY);
+      await Promise.all(
+        batch.map(async (bn) => {
+          const block = await provider.getBlock(bn);
+          if (block) blockTimestamps.set(bn, block.timestamp * 1000);
+        }),
+      );
+    }
 
     // Parse events — use first contract's interface (ABI is the same across versions)
     const iface = new ethers.Interface(ATTESTATION_ABI);
@@ -128,7 +136,7 @@ export async function GET() {
     cacheExpiresAt = now + CACHE_TTL;
 
     return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
     });
   } catch (err: unknown) {
     console.error('[attestation/events]', err);
