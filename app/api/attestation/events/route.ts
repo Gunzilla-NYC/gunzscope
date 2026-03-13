@@ -2,8 +2,16 @@ import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { ATTESTATION_ABI, getContractAddress, getCChainProvider } from '@/lib/attestation/contract';
 
-/** UUPS proxy deploy block — the only contract that matters */
-const PROXY_DEPLOY_BLOCK = 79329579;
+/**
+ * Contract addresses and the block ranges they were active.
+ * Old non-proxy contracts have a tight endBlock so we only scan their active window.
+ * The UUPS proxy scans from deploy to latest.
+ */
+const CONTRACT_HISTORY: { address: string; deployBlock: number; endBlock?: number }[] = [
+  { address: '0x5198a3661654748b2752F351efE361DC6Ef4Cd1D', deployBlock: 79266818, endBlock: 79327767 },
+  { address: '0xf8f5aa3D940009987F02AD92e44A5434Bab748bf', deployBlock: 79327768, endBlock: 79329578 },
+  { address: '0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16', deployBlock: 79329579 }, // UUPS proxy — open-ended
+];
 
 /** Max block range per queryFilter call (public RPC limit) */
 const BLOCK_CHUNK = 100_000;
@@ -41,23 +49,26 @@ export async function GET() {
   try {
     const provider = getCChainProvider();
     const latestBlock = await provider.getBlockNumber();
-    const contractAddress = getContractAddress();
-    const contract = new ethers.Contract(contractAddress, ATTESTATION_ABI, provider);
-    const filter = contract.filters.PortfolioAttested();
 
-    // Query events in chunks (sequential to avoid RPC rate limits)
+    // Query events from all contracts — old ones have tight ranges (1 chunk each)
     const allLogs: (ethers.EventLog & { _contractAddress: string })[] = [];
 
-    for (let from = PROXY_DEPLOY_BLOCK; from <= latestBlock; from += BLOCK_CHUNK) {
-      const to = Math.min(from + BLOCK_CHUNK - 1, latestBlock);
-      try {
-        const chunk = await contract.queryFilter(filter, from, to);
-        for (const log of chunk) {
-          (log as ethers.EventLog & { _contractAddress: string })._contractAddress = contractAddress;
-          allLogs.push(log as ethers.EventLog & { _contractAddress: string });
+    for (const { address, deployBlock, endBlock } of CONTRACT_HISTORY) {
+      const contract = new ethers.Contract(address, ATTESTATION_ABI, provider);
+      const filter = contract.filters.PortfolioAttested();
+      const scanEnd = endBlock ?? latestBlock;
+
+      for (let from = deployBlock; from <= scanEnd; from += BLOCK_CHUNK) {
+        const to = Math.min(from + BLOCK_CHUNK - 1, scanEnd);
+        try {
+          const chunk = await contract.queryFilter(filter, from, to);
+          for (const log of chunk) {
+            (log as ethers.EventLog & { _contractAddress: string })._contractAddress = address;
+            allLogs.push(log as ethers.EventLog & { _contractAddress: string });
+          }
+        } catch (chunkErr) {
+          console.warn(`[attestation/events] chunk ${from}-${to} on ${address.slice(0, 10)} failed, skipping`, chunkErr);
         }
-      } catch (chunkErr) {
-        console.warn(`[attestation/events] chunk ${from}-${to} failed, skipping`, chunkErr);
       }
     }
 
