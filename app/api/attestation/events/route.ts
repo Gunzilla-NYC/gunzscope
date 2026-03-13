@@ -13,8 +13,8 @@ const CONTRACT_HISTORY: { address: string; deployBlock: number; endBlock?: numbe
   { address: '0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16', deployBlock: 79329579 }, // UUPS proxy — open-ended
 ];
 
-/** Max block range per queryFilter call (public RPC limit) */
-const BLOCK_CHUNK = 100_000;
+/** Max block range per queryFilter call (publicnode.com limit is 50k) */
+const BLOCK_CHUNK = 49_000;
 
 interface AttestationEvent {
   wallet: string;
