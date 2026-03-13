@@ -7,61 +7,24 @@
 
 'use client';
 
-import { memo, useState, useCallback } from 'react';
+import { memo } from 'react';
 import { NFTImage } from '@/components/ui/NFTImage';
 import FavoriteButton from '@/components/FavoriteButton';
-import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { getSpecificItemType } from '@/lib/nft/itemTypeUtils';
 import { getRarityColorByName, getMarketScarcityColor, getCostBasisDisplay, getVenueLabel, ORIGIN_CATEGORY_COLORS } from './utils';
 import { ValuationLabel } from './ValuationLabel';
 import type { NFTGalleryGridCardProps } from './types';
 
-/** Pin toggle button — shown when a favorite ID is provided */
-function PinButton({ favoriteId, pinned, togglePin }: { favoriteId: string; pinned: boolean; togglePin: (id: string) => Promise<boolean> }) {
-  const [isToggling, setIsToggling] = useState(false);
-
-  const handlePin = useCallback(async () => {
-    setIsToggling(true);
-    await togglePin(favoriteId);
-    setIsToggling(false);
-  }, [favoriteId, togglePin]);
-
+/** Favorite action — favoriting automatically pins to the cross-wallet row */
+function FavoritePinActions({ refId, nft }: { refId: string; nft: NFTGalleryGridCardProps['cardData']['nft'] }) {
   return (
-    <button
-      onClick={handlePin}
-      disabled={isToggling}
-      className={`p-1.5 transition-colors cursor-pointer ${
-        pinned
-          ? 'text-[var(--gs-lime)]'
-          : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-lime)]'
-      } ${isToggling ? 'opacity-50 cursor-wait' : ''}`}
-      title={pinned ? 'Unpin from top' : 'Pin to top'}
-    >
-      <svg className="w-4 h-4" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16 3l-4 4-4-4M8 7v6l-3 3h14l-3-3V7M12 16v5" />
-      </svg>
-    </button>
-  );
-}
-
-/** Wrapper that combines FavoriteButton + PinButton with shared state */
-function FavoritePinActions({ refId, nft, viewMode }: { refId: string; nft: NFTGalleryGridCardProps['cardData']['nft']; viewMode: string }) {
-  const { profile, togglePin } = useUserProfile();
-  const fav = profile?.favorites.find((f) => f.type === 'nft' && f.refId === refId);
-
-  return (
-    <>
-      <FavoriteButton
-        type="nft"
-        refId={refId}
-        size="sm"
-        className="hover:bg-black/80 rounded-none"
-        metadata={{ name: nft.name, image: nft.image, collection: nft.collection }}
-      />
-      {fav && (
-        <PinButton favoriteId={fav.id} pinned={fav.pinned} togglePin={togglePin} />
-      )}
-    </>
+    <FavoriteButton
+      type="nft"
+      refId={refId}
+      size="sm"
+      className="hover:bg-black/80 rounded-none"
+      metadata={{ name: nft.name, image: nft.image, collection: nft.collection }}
+    />
   );
 }
 
@@ -125,7 +88,6 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
             <FavoritePinActions
               refId={`${nft.contractAddress}:${nft.tokenId}`}
               nft={nft}
-              viewMode={viewMode}
             />
           </div>
         )}

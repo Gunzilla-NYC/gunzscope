@@ -45,8 +45,8 @@ export function usePinnedFavorites(
       return { pinnedItems: [], crossWalletCount: 0 };
     }
 
-    // Collect pinned NFT favorites
-    const pinnedFavorites = favorites.filter(f => f.pinned && f.type === 'nft');
+    // All NFT favorites are treated as pinned — no separate pin toggle needed
+    const pinnedFavorites = favorites.filter(f => f.type === 'nft');
     if (pinnedFavorites.length === 0) {
       return { pinnedItems: [], crossWalletCount: 0 };
     }

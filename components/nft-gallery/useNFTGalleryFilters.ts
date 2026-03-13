@@ -8,7 +8,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { NFT } from '@/lib/types';
 import { buildTokenKey } from '@/lib/utils/nftCache';
-import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import {
   SortOption, ViewMode, Rarity, MarketItemData,
   getRarityRank, getRarityName,
@@ -37,18 +36,6 @@ function matchesTraits(nft: NFT, query: string): boolean {
 
 export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, MarketItemData>, currentGunPrice?: number) {
   const { getItemOrigin } = useItemOrigins();
-  const { profile } = useUserProfile();
-
-  // Stable set of pinned NFT refIds — used to sort pinned items to top
-  const pinnedRefIds = useMemo(() => {
-    const set = new Set<string>();
-    if (profile?.favorites) {
-      for (const f of profile.favorites) {
-        if (f.type === 'nft' && f.pinned) set.add(f.refId);
-      }
-    }
-    return set;
-  }, [profile?.favorites]);
 
   // Modal state
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
@@ -313,17 +300,8 @@ export function useNFTGalleryFilters(nfts: NFT[], marketMap?: Map<string, Market
       });
     }
 
-    // Float pinned NFTs to top, preserving sort order within each group
-    if (pinnedRefIds.size > 0) {
-      const isPinned = (nft: NFT) =>
-        nft.contractAddress ? pinnedRefIds.has(`${nft.contractAddress}:${nft.tokenId}`) : false;
-      const pinned = result.filter(isPinned);
-      const unpinned = result.filter((n) => !isPinned(n));
-      return [...pinned, ...unpinned];
-    }
-
     return result;
-  }, [preRarityFilteredNFTs, activeRarities, sortBy, marketMap, currentGunPrice, pinnedRefIds]);
+  }, [preRarityFilteredNFTs, activeRarities, sortBy, marketMap, currentGunPrice]);
 
   // Event handlers
   const handleNFTClick = useCallback((nft: NFT) => {
