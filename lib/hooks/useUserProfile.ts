@@ -233,6 +233,17 @@ export function useUserProfile(): UseUserProfileReturn {
     refreshProfile();
   }, [isAuthenticated, primaryWallet?.address, user?.userId, refreshProfile]);
 
+  // Sync profile across hook instances — when any instance updates favorites,
+  // all other instances receive the updated profile via custom event.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const profile = (e as CustomEvent).detail?.profile;
+      if (profile) setProfile(profile);
+    };
+    window.addEventListener('gs:profile-updated', handler);
+    return () => window.removeEventListener('gs:profile-updated', handler);
+  }, []);
+
   // Update email
   const updateEmail = useCallback(async (email: string | null): Promise<boolean> => {
     const token = getAuthToken();
@@ -473,10 +484,13 @@ export function useUserProfile(): UseUserProfileReturn {
           const filtered = prev.favorites.filter(
             (f) => !(f.type === type && f.refId === refId)
           );
-          return {
+          const next = {
             ...prev,
             favorites: [favorite, ...filtered],
           };
+          // Notify other hook instances (e.g. PortfolioClient's pinned favorites)
+          window.dispatchEvent(new CustomEvent('gs:profile-updated', { detail: { profile: next } }));
+          return next;
         });
         return favorite;
       }
@@ -499,10 +513,13 @@ export function useUserProfile(): UseUserProfileReturn {
     if (result.success) {
       setProfile((prev) => {
         if (!prev) return null;
-        return {
+        const next = {
           ...prev,
           favorites: prev.favorites.filter((f) => f.id !== id),
         };
+        // Notify other hook instances (e.g. PortfolioClient's pinned favorites)
+        window.dispatchEvent(new CustomEvent('gs:profile-updated', { detail: { profile: next } }));
+        return next;
       });
       return true;
     }
