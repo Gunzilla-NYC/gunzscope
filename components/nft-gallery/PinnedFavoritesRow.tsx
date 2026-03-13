@@ -106,7 +106,7 @@ export function PinnedFavoritesRow({
           return (
             <div
               key={key}
-              className="flex-shrink-0 w-[180px] sm:w-[200px] snap-start relative"
+              className="flex-shrink-0 w-[180px] sm:w-[200px] snap-start"
             >
               <NFTGalleryGridCard
                 cardData={cardData}
@@ -115,10 +115,10 @@ export function PinnedFavoritesRow({
                 onClick={handleCardClick}
                 isOwnPortfolio={isOwnPortfolio}
               />
-              {/* Cross-wallet source badge */}
+              {/* Cross-wallet source badge — below the card */}
               {pinnedNft.isCrossWallet && (
-                <div className="absolute bottom-1 left-1 right-1 flex justify-center pointer-events-none">
-                  <span className="font-mono text-[8px] uppercase tracking-wider text-[var(--gs-gray-3)] bg-black/70 px-1.5 py-0.5 backdrop-blur-sm border border-white/[0.06]">
+                <div className="flex justify-center mt-1.5">
+                  <span className="font-mono text-[8px] uppercase tracking-wider text-[var(--gs-gray-3)]">
                     from {truncateAddress(pinnedNft.sourceWallet)}
                   </span>
                 </div>
