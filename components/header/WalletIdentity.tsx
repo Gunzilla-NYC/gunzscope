@@ -173,21 +173,35 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
     return portfolioResult.totalGunSpent.toLocaleString();
   }, [portfolioResult]);
 
-  // On-chain attestation — uses ALL portfolio wallets, not just active
+  // On-chain attestation — uses only VERIFIED portfolio wallets
   const { profile } = useUserProfile();
   const { allPortfolioNfts, allPortfolioAddresses } = useAllPortfolioNFTs();
+  const unverifiedCount = useMemo(() => {
+    if (!profile?.portfolioAddresses) return 0;
+    return profile.portfolioAddresses.filter(pa => pa.status === 'SELF_REPORTED').length;
+  }, [profile?.portfolioAddresses]);
+  const dbPortfolioWallets = useMemo(() => {
+    if (!profile?.portfolioAddresses) return undefined;
+    return profile.portfolioAddresses.map((pa) => ({
+      address: pa.address,
+      status: pa.status,
+    }));
+  }, [profile?.portfolioAddresses]);
+
   const {
     attest,
     status: attestStatus,
     txHash,
     error: attestError,
     latestAttestation,
+    syncWarnings,
   } = usePortfolioAttestation(
     isOwnWallet ? (address ?? undefined) : undefined,
     allPortfolioNfts.length > 0 ? allPortfolioNfts : (allNfts ?? []),
     walletProviderObj,
     profile?.displayName,
     allPortfolioAddresses,
+    dbPortfolioWallets,
   );
   const isAttesting = attestStatus !== 'idle' && attestStatus !== 'success' && attestStatus !== 'error';
   const closeAttest = useCallback(() => { if (ctxClose) ctxClose(); }, [ctxClose]);
@@ -554,6 +568,18 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
             </div>
           )}
 
+          {/* Unverified wallet warning */}
+          {unverifiedCount > 0 && attestStatus === 'idle' && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-[var(--gs-warning)]/[0.05] border border-[var(--gs-warning)]/10">
+              <svg className="w-3.5 h-3.5 text-[var(--gs-warning)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <span className="font-mono text-[9px] text-[var(--gs-warning)]">
+                {unverifiedCount} unverified wallet{unverifiedCount > 1 ? 's' : ''} excluded
+              </span>
+            </div>
+          )}
+
           {/* Attest button */}
           <button
             onClick={attest}
@@ -593,6 +619,7 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
                   : attestStatus === 'building' ? 'Building proof\u2026'
                   : attestStatus === 'uploading' ? 'Uploading metadata\u2026'
                   : attestStatus === 'switching-chain' ? 'Switch to Avalanche\u2026'
+                  : attestStatus === 'syncing-wallets' ? 'Syncing wallets on\u2011chain\u2026'
                   : attestStatus === 'signing' ? 'Sign in wallet\u2026'
                   : attestStatus === 'confirming' ? 'Confirming\u2026'
                   : attestStatus === 'success' ? 'Verified!'
@@ -620,6 +647,15 @@ export default function WalletIdentity({ className = '' }: WalletIdentityProps =
             >
               snowtrace.io/tx/{txHash.slice(0, 10)}&hellip;
             </a>
+          )}
+
+          {/* Sync warnings */}
+          {syncWarnings.length > 0 && attestStatus === 'success' && (
+            <div className="mt-1.5">
+              {syncWarnings.map((w, i) => (
+                <p key={i} className="font-mono text-[9px] text-[var(--gs-warning)]">{w}</p>
+              ))}
+            </div>
           )}
 
           {/* Why Verify? / Coming Soon — row-aligned grid */}

@@ -6,12 +6,14 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
+import { useWalletVerification } from '@/lib/hooks/useWalletVerification';
 import { useAlertPreferences, type AlertType } from '@/lib/hooks/useAlertPreferences';
 import { useFeatureRequests } from '@/lib/hooks/useFeatureRequests';
 import { useGlitchText } from '@/hooks/useGlitchText';
 import { toast } from 'sonner';
 import ShareReferralSection from '@/components/account/ShareReferralSection';
 import AdminPanel from '@/components/account/AdminPanel';
+import HandleRegistration from '@/components/account/HandleRegistration';
 import { WalletAddressInput } from '@/components/ui/WalletAddressInput';
 import { detectChain } from '@/lib/utils/detectChain';
 
@@ -158,6 +160,7 @@ function AccountContent() {
     isLoading,
     addPortfolioAddress,
     removePortfolioAddress,
+    verifyPortfolioAddress,
     addTrackedAddress,
     removeTrackedAddress,
     removeFavorite,
@@ -210,7 +213,49 @@ function AccountContent() {
   }
 
   const walletAddress = primaryWallet?.address ?? '';
-  const portfolioAddresses = profile?.portfolioAddresses ?? [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const walletProviderObj = useMemo(() => {
+    if (!primaryWallet?.connector) return null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (primaryWallet.connector as any).getWalletClient?.() ?? null;
+    } catch {
+      return null;
+    }
+  }, [primaryWallet?.connector]);
+
+  const handleHandleRegistered = useCallback(async (handle: string) => {
+    try {
+      await updateDisplayName(handle);
+      setDisplayName(handle);
+    } catch (err) {
+      console.error('Failed to sync handle to display name:', err);
+    }
+  }, [updateDisplayName]);
+
+  const {
+    verifying: verifyingAddress,
+    error: verifyError,
+    errorAddress: verifyErrorAddress,
+    clearError: clearVerifyError,
+    requestVerification,
+  } = useWalletVerification(walletAddress);
+
+  // Clear verification errors when profile changes (login/logout/refresh)
+  useEffect(() => { clearVerifyError(); }, [profile?.id, clearVerifyError]);
+
+  // Track whether browser has a wallet extension (for showing VERIFY button)
+  const hasEthereum = typeof window !== 'undefined' && !!window.ethereum;
+
+  const portfolioAddresses = useMemo(() => {
+    const addrs = profile?.portfolioAddresses ?? [];
+    return [...addrs].sort((a, b) => {
+      if (a.status === 'PRIMARY' && b.status !== 'PRIMARY') return -1;
+      if (b.status === 'PRIMARY' && a.status !== 'PRIMARY') return 1;
+      return 0;
+    });
+  }, [profile?.portfolioAddresses]);
   const slotsUsed = portfolioAddresses.length;
   const isAtLimit = slotsUsed >= MAX_PORTFOLIO_WALLETS;
 
@@ -241,14 +286,20 @@ function AccountContent() {
       return;
     }
     setIsAdding(true);
-    const result = await addPortfolioAddress(trimmed, newLabel.trim() || undefined);
-    setIsAdding(false);
-    if (result) {
-      toast.success('Wallet added to portfolio');
-      setNewAddress('');
-      setNewLabel('');
-    } else {
-      toast.error('Failed to add wallet. It may already exist or you\u2019ve reached the limit.');
+    try {
+      const result = await addPortfolioAddress(trimmed, newLabel.trim() || undefined);
+      if (result) {
+        toast.success('Wallet added to portfolio');
+        setNewAddress('');
+        setNewLabel('');
+      } else {
+        toast.error('Failed to add wallet. You may have reached the limit.');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to add wallet';
+      toast.error(msg);
+    } finally {
+      setIsAdding(false);
     }
   }, [newAddress, newLabel, addPortfolioAddress]);
 
@@ -497,6 +548,19 @@ function AccountContent() {
                   </div>
                 )}
 
+                {/* On-Chain Identity */}
+                {walletAddress && walletProviderObj && (
+                  <>
+                    <Divider />
+                    <HandleRegistration
+                      walletAddress={walletAddress}
+                      walletProvider={walletProviderObj}
+                      displayNameSuggestion={profile?.displayName ?? undefined}
+                      onHandleRegistered={handleHandleRegistered}
+                    />
+                  </>
+                )}
+
                 {/* Member since */}
                 {profile && (
                   <>
@@ -567,50 +631,93 @@ function AccountContent() {
 
                         if (pa) {
                           // ── Filled slot ──
+                          const isVerifying = verifyingAddress?.toLowerCase() === pa.address.toLowerCase();
                           return (
-                            <div
-                              key={pa.id}
-                              className="flex items-center justify-between py-2.5 px-3 border border-white/[0.06] bg-[var(--gs-dark-3)]/30"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] shrink-0" />
-                                <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
-                                  {truncateAddress(pa.address)}
-                                </span>
-                                {pa.label && (
-                                  <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
-                                    {pa.label}
+                            <div key={pa.id}>
+                              <div className="flex items-center justify-between py-2.5 px-3 border border-white/[0.06] bg-[var(--gs-dark-3)]/30">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    pa.status === 'SELF_REPORTED' ? 'bg-[#fbbf24]' : 'bg-[var(--gs-lime)]'
+                                  }`} />
+                                  <span className="font-mono text-sm text-[var(--gs-lime)] tabular-nums">
+                                    {truncateAddress(pa.address)}
                                   </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <Link
-                                  href={`/portfolio?address=${pa.address}`}
-                                  className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
-                                >
-                                  View
-                                </Link>
-                                {isPrimary ? (
-                                  <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5">
-                                    Primary
-                                  </span>
-                                ) : (
-                                  <button
-                                    onClick={() => handleRemoveWallet(pa.id)}
-                                    disabled={removingId === pa.id}
-                                    className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
-                                    aria-label="Remove wallet"
-                                  >
-                                    {removingId === pa.id ? (
-                                      <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  {pa.label && (
+                                    <span className="font-mono text-data text-[var(--gs-gray-3)] truncate">
+                                      {pa.label}
+                                    </span>
+                                  )}
+                                  {/* Status badge */}
+                                  {pa.status === 'VERIFIED' ? (
+                                    <span className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)]" title={pa.verifiedAt ? `Verified ${new Date(pa.verifiedAt).toLocaleDateString()}` : 'Verified'}>
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                       </svg>
-                                    )}
-                                  </button>
-                                )}
+                                      Verified
+                                    </span>
+                                  ) : pa.status === 'SELF_REPORTED' ? (
+                                    <span className="font-mono text-[9px] uppercase tracking-widest text-[#fbbf24]" title="Ownership not yet proven">
+                                      Self&#8209;Reported
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Link
+                                    href={`/portfolio?address=${pa.address}`}
+                                    className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-gray-1)] text-[var(--gs-gray-3)] hover:border-[var(--gs-gray-3)] hover:text-[var(--gs-white)] transition-colors"
+                                  >
+                                    View
+                                  </Link>
+                                  {/* Verify button — only for SELF_REPORTED EVM wallets when browser has wallet extension */}
+                                  {pa.status === 'SELF_REPORTED' && hasEthereum && detectChain(pa.address) === 'gunzchain' && (
+                                    <button
+                                      onClick={() => {
+                                        clearVerifyError();
+                                        requestVerification(pa.address, pa.id, verifyPortfolioAddress);
+                                      }}
+                                      disabled={isVerifying}
+                                      className="font-mono text-caption uppercase tracking-wider px-2.5 py-1 border border-[var(--gs-purple)]/50 text-[var(--gs-purple)] hover:border-[var(--gs-purple)] hover:text-[var(--gs-white)] transition-colors disabled:opacity-50"
+                                    >
+                                      {isVerifying ? (
+                                        <div className="w-3.5 h-3.5 border border-[var(--gs-purple)] border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        'Verify'
+                                      )}
+                                    </button>
+                                  )}
+                                  {isPrimary ? (
+                                    <span className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-lime)] border border-[var(--gs-lime)]/30 px-1.5 py-0.5">
+                                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                      </svg>
+                                      Primary
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleRemoveWallet(pa.id)}
+                                      disabled={removingId === pa.id}
+                                      className="p-1.5 text-[var(--gs-gray-2)] hover:text-[var(--gs-loss)] transition-colors disabled:opacity-50"
+                                      aria-label="Remove wallet"
+                                    >
+                                      {removingId === pa.id ? (
+                                        <div className="w-3.5 h-3.5 border border-[var(--gs-gray-3)] border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
+                              {/* Error message for this specific wallet */}
+                              {verifyError && verifyErrorAddress?.toLowerCase() === pa.address.toLowerCase() && (
+                                <div className="px-3 py-1.5 text-[var(--gs-loss)] font-mono text-[10px]">
+                                  {verifyError.includes('does not match')
+                                    ? 'Wrong wallet active \u2014 switch to this address in your extension and try again'
+                                    : verifyError}
+                                </div>
+                              )}
                             </div>
                           );
                         }

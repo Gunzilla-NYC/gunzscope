@@ -53,6 +53,10 @@ declare module "hardhat/types/runtime" {
       name: "PortfolioAttestation",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.PortfolioAttestation__factory>;
+    getContractFactory(
+      name: "PortfolioAttestationV2",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.PortfolioAttestationV2__factory>;
 
     getContractAt(
       name: "IERC1822Proxiable",
@@ -104,6 +108,11 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.PortfolioAttestation>;
+    getContractAt(
+      name: "PortfolioAttestationV2",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.PortfolioAttestationV2>;
 
     deployContract(
       name: "IERC1822Proxiable",
@@ -145,6 +154,10 @@ declare module "hardhat/types/runtime" {
       name: "PortfolioAttestation",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.PortfolioAttestation>;
+    deployContract(
+      name: "PortfolioAttestationV2",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.PortfolioAttestationV2>;
 
     deployContract(
       name: "IERC1822Proxiable",
@@ -196,6 +209,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.PortfolioAttestation>;
+    deployContract(
+      name: "PortfolioAttestationV2",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.PortfolioAttestationV2>;
 
     // default types
     getContractFactory(

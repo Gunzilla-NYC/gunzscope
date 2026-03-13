@@ -103,7 +103,7 @@ function ScrambledHint({ text }: { text: string }) {
 }
 
 // Features data
-const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing'; title: string; desc: string }[] = [
+const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'identity'; title: string; desc: string }[] = [
   {
     icon: 'analytics',
     title: 'Portfolio Analytics',
@@ -111,13 +111,13 @@ const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 
   },
   {
     icon: 'chain',
-    title: 'Cross-Chain',
+    title: 'Cross\u2011Chain',
     desc: 'Unified view of your NFT holdings across GunzChain (Avalanche L1) and Solana. One wallet, one dashboard, complete visibility.',
   },
   {
     icon: 'intel',
     title: 'Acquisition Intel',
-    desc: 'Automatic detection of how each NFT was acquired — HEX decode, marketplace purchase, or transfer — with original GUN cost basis.',
+    desc: 'Automatic detection of how each NFT was acquired \u2014 HEX decode, marketplace purchase, or transfer \u2014 with original GUN cost basis.',
   },
   {
     icon: 'weapon',
@@ -125,14 +125,14 @@ const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 
     desc: 'Smart matching of compatible weapon modifications, skins, and attachments based on model codes, not just name matching.',
   },
   {
+    icon: 'identity',
+    title: 'Verifiable On\u2011chain Identity',
+    desc: 'Claim your handle, link your wallets, and prove your portfolio on Avalanche C\u2011Chain. Your verifiable identity unlocks an ecosystem of utility.',
+  },
+  {
     icon: 'rarity',
     title: 'Rarity Tiers',
     desc: 'Dual rarity system showing both display rarity and functional tier. Classified items flagged as locked special editions.',
-  },
-  {
-    icon: 'pricing',
-    title: 'Live Pricing',
-    desc: 'GUN token price via CoinGecko, with historical price tracking for accurate cost basis calculations at time of acquisition.',
   },
 ];
 
@@ -663,9 +663,9 @@ export default function HomePage() {
             transition={{ duration: 0.8, delay: 0.2, ease: revealEase }}
             className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-none mb-10"
           >
-            The tactical intelligence layer for <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong>.
+            The verifiable intelligence layer for <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong>.
             <br />
-            Start your legacy, analyze the market, dominate the meta.
+            Understand your worth. Prove it on&#8209;chain. Unlock what comes next.
           </motion.p>
 
           {/* Connect Wallet CTA */}

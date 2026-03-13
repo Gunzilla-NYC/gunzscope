@@ -26,3 +26,5 @@ export type { Errors } from "./@openzeppelin/contracts/utils/Errors";
 export { Errors__factory } from "./factories/@openzeppelin/contracts/utils/Errors__factory";
 export type { PortfolioAttestation } from "./contracts/PortfolioAttestation";
 export { PortfolioAttestation__factory } from "./factories/contracts/PortfolioAttestation__factory";
+export type { PortfolioAttestationV2 } from "./contracts/PortfolioAttestationV2";
+export { PortfolioAttestationV2__factory } from "./factories/contracts/PortfolioAttestationV2__factory";

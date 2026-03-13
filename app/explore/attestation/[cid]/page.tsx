@@ -5,6 +5,13 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import PublicNav from '@/components/PublicNav';
 import Footer from '@/components/Footer';
+import {
+  getGsHandle,
+  getPortfolioWalletsOnChain,
+  getCChainProvider,
+  OnChainWalletStatus,
+  type OnChainPortfolioWallet,
+} from '@/lib/attestation/contract';
 
 const SNOWTRACE_BASE = 'https://snowtrace.io';
 const AUTONOMYS_GATEWAY = 'https://gateway.autonomys.xyz/file';
@@ -16,14 +23,21 @@ interface Holding {
   valueWei: string;
 }
 
+interface MetadataWallet {
+  address: string;
+  status: string;
+}
+
 interface AttestationData {
   wallet: string;
+  gsHandle?: string;
   merkleRoot: string;
   totalValueWei: string;
   itemCount: number;
   blockNumber: number;
   timestamp: number;
   holdings: Holding[];
+  wallets?: MetadataWallet[];
 }
 
 function weiToGun(wei: string): number {
@@ -46,6 +60,23 @@ function truncateAddress(addr: string): string {
 function truncateHash(hash: string, chars = 16): string {
   if (hash.length <= chars + 4) return hash;
   return `${hash.slice(0, chars)}\u2026${hash.slice(-4)}`;
+}
+
+function walletStatusLabel(status: string | OnChainWalletStatus): { text: string; color: string } {
+  const s = typeof status === 'string' ? status : OnChainWalletStatus[status];
+  switch (s) {
+    case 'PRIMARY':
+    case '1':
+      return { text: 'PRIMARY', color: 'text-[var(--gs-lime)] border-[var(--gs-lime)]/30' };
+    case 'VERIFIED':
+    case '2':
+      return { text: 'VERIFIED', color: 'text-[#6D5BFF] border-[#6D5BFF]/30' };
+    case 'SELF_REPORTED':
+    case '3':
+      return { text: 'SELF\u2011REPORTED', color: 'text-[var(--gs-gray-3)] border-white/10' };
+    default:
+      return { text: 'UNKNOWN', color: 'text-[var(--gs-gray-3)] border-white/10' };
+  }
 }
 
 /* ─── Skeleton ─── */
@@ -109,6 +140,8 @@ export default function AttestationViewerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [handle, setHandle] = useState<string | null>(null);
+  const [portfolioWallets, setPortfolioWallets] = useState<{ address: string; status: string; source: 'metadata' | 'onchain' }[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!cid) return;
@@ -133,6 +166,49 @@ export default function AttestationViewerPage() {
     fetchData();
   }, [fetchData]);
 
+  // Resolve handle and portfolio wallets after data loads
+  useEffect(() => {
+    if (!data?.wallet) return;
+    let cancelled = false;
+    const provider = getCChainProvider();
+
+    // Resolve handle: prefer metadata gsHandle, else query on-chain
+    if (data.gsHandle) {
+      setHandle(data.gsHandle);
+    } else {
+      getGsHandle(provider, data.wallet)
+        .then((h) => { if (!cancelled) setHandle(h); })
+        .catch(() => { /* no handle */ });
+    }
+
+    // Resolve portfolio wallets: prefer metadata, fall back to on-chain
+    if (data.wallets && data.wallets.length > 0) {
+      setPortfolioWallets(data.wallets.map((w) => ({ address: w.address, status: w.status, source: 'metadata' as const })));
+    } else {
+      getPortfolioWalletsOnChain(provider, data.wallet)
+        .then((onChain) => {
+          if (cancelled) return;
+          const wallets = [
+            { address: data.wallet, status: 'PRIMARY', source: 'onchain' as const },
+            ...onChain.map((w) => ({
+              address: w.addr,
+              status: OnChainWalletStatus[w.status] || 'UNKNOWN',
+              source: 'onchain' as const,
+            })),
+          ];
+          setPortfolioWallets(wallets);
+        })
+        .catch(() => {
+          // No on-chain wallets — show primary only
+          if (!cancelled) {
+            setPortfolioWallets([{ address: data.wallet, status: 'PRIMARY', source: 'onchain' as const }]);
+          }
+        });
+    }
+
+    return () => { cancelled = true; };
+  }, [data?.wallet, data?.gsHandle, data?.wallets]);
+
   const totalGun = data ? weiToGun(data.totalValueWei) : 0;
   const holdings = data?.holdings ?? [];
   const displayedHoldings = showAll ? holdings : holdings.slice(0, INITIAL_DISPLAY);
@@ -155,7 +231,7 @@ export default function AttestationViewerPage() {
             Back to Explorer
           </Link>
           <h1 className="text-balance font-display font-bold text-3xl sm:text-4xl uppercase mb-2">
-            Portfolio Attestation
+            {handle ? `${handle}\u2019s Portfolio Attestation` : 'Portfolio Attestation'}
           </h1>
           <p className="text-pretty font-body text-sm text-[var(--gs-gray-4)]">
             On&#8209;chain proof of wallet holdings &mdash; immutable, verifiable, permanent
@@ -194,8 +270,11 @@ export default function AttestationViewerPage() {
                   rel="noopener noreferrer"
                   className="font-mono text-lg text-[var(--gs-lime)] hover:underline"
                 >
-                  {truncateAddress(data.wallet)}
+                  {handle ?? truncateAddress(data.wallet)}
                 </a>
+                {handle && (
+                  <span className="block font-mono text-[9px] text-[var(--gs-gray-3)] mt-0.5">{truncateAddress(data.wallet)}</span>
+                )}
               </div>
               <div className="bg-[var(--gs-dark-2)] px-5 py-4">
                 <span className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)] block mb-1">Total Value</span>
@@ -256,6 +335,40 @@ export default function AttestationViewerPage() {
               </span>
               <CopyButton text={cid} />
             </div>
+
+            {/* Portfolio wallets */}
+            {portfolioWallets.length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="font-mono text-label uppercase tracking-[1.5px] text-[var(--gs-gray-3)]">
+                    Portfolio Wallets ({portfolioWallets.length})
+                  </h2>
+                  {portfolioWallets[0]?.source === 'onchain' && (
+                    <span className="font-mono text-[9px] text-[var(--gs-gray-2)]">(current)</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-white/[0.06] border border-white/[0.06]">
+                  {portfolioWallets.map((w) => {
+                    const badge = walletStatusLabel(w.status);
+                    return (
+                      <div key={w.address} className="bg-[var(--gs-dark-2)] px-4 py-3 flex items-center justify-between gap-2">
+                        <a
+                          href={`${SNOWTRACE_BASE}/address/${w.address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-data text-[var(--gs-white)] hover:text-[var(--gs-lime)] transition-colors truncate"
+                        >
+                          {truncateAddress(w.address)}
+                        </a>
+                        <span className={`font-mono text-[9px] uppercase tracking-widest border px-1.5 py-0.5 shrink-0 ${badge.color}`}>
+                          {badge.text}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Holdings table — desktop */}
             {holdings.length > 0 && (

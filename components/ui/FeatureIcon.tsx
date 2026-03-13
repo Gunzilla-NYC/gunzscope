@@ -3,7 +3,7 @@
 import { ReactNode } from 'react';
 
 interface FeatureIconProps {
-  name: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing';
+  name: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'pricing' | 'identity';
   className?: string;
 }
 
@@ -50,6 +50,13 @@ export function FeatureIcon({ name, className = '' }: FeatureIconProps) {
     pricing: (
       <svg className={baseClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    ),
+    identity: (
+      <svg className={baseClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L21.5 7.5V16.5L12 22L2.5 16.5V7.5L12 2Z" />
+        <circle cx="12" cy="10" r="3" />
+        <path d="M7.5 16.5C8.5 14 10 13 12 13s3.5 1 4.5 3.5" />
       </svg>
     ),
   };

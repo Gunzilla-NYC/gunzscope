@@ -9,14 +9,20 @@ import {
   getCChainProvider,
   getSignerFromProvider,
   ensureAvalancheChain,
+  getPortfolioWalletsOnChain,
+  batchAddWalletsOnChain,
+  batchRemoveWalletsOnChain,
   type OnChainAttestation,
 } from '@/lib/attestation/contract';
+import { computeWalletSyncActions } from '@/lib/attestation/walletSync';
+import type { WalletClaimStatus } from '@/lib/hooks/useUserProfile';
 
 export type AttestationStatus =
   | 'idle'
   | 'building'
-  | 'uploading'
   | 'switching-chain'
+  | 'syncing-wallets'
+  | 'uploading'
   | 'signing'
   | 'confirming'
   | 'success'
@@ -37,6 +43,13 @@ interface UsePortfolioAttestationResult {
   latestAttestation: OnChainAttestation | null;
   /** Whether we're loading the existing attestation */
   loadingExisting: boolean;
+  /** Warnings from wallet sync (e.g. skipped wallets claimed by others) */
+  syncWarnings: string[];
+}
+
+export interface DbPortfolioWallet {
+  address: string;
+  status: WalletClaimStatus;
 }
 
 /**
@@ -49,6 +62,7 @@ export function usePortfolioAttestation(
   walletProvider: unknown,
   gsHandle?: string | null,
   portfolioAddresses?: string[],
+  dbPortfolioWallets?: DbPortfolioWallet[],
 ): UsePortfolioAttestationResult {
   const [status, setStatus] = useState<AttestationStatus>('idle');
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -56,6 +70,7 @@ export function usePortfolioAttestation(
   const [error, setError] = useState<string | null>(null);
   const [latestAttestation, setLatestAttestation] = useState<OnChainAttestation | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
+  const [syncWarnings, setSyncWarnings] = useState<string[]>([]);
 
   // Prevent double-fire
   const attestingRef = useRef(false);
@@ -111,7 +126,55 @@ export function usePortfolioAttestation(
       const signer = await getSignerFromProvider(walletProvider);
       const blockNumber = await signer.provider!.getBlockNumber();
 
-      // Step 4: Upload metadata to Autonomys Auto Drive
+      // Step 4: Sync wallets on-chain (if DB portfolio wallets provided)
+      setSyncWarnings([]);
+      if (dbPortfolioWallets && dbPortfolioWallets.length > 0 && walletAddress) {
+        setStatus('syncing-wallets');
+        const onChainWallets = await getPortfolioWalletsOnChain(getCChainProvider(), walletAddress);
+        const actions = computeWalletSyncActions(dbPortfolioWallets, onChainWallets, walletAddress);
+
+        if (actions.length > 0) {
+          const toAdd = actions.filter((a) => a.type === 'add' || a.type === 'upgrade');
+          const toRemove = actions.filter((a) => a.type === 'remove');
+          const warnings: string[] = [];
+
+          // Batch add/upgrade wallets
+          if (toAdd.length > 0) {
+            try {
+              await batchAddWalletsOnChain(
+                signer,
+                toAdd.map((a) => a.address),
+                toAdd.map((a) => a.status!),
+              );
+            } catch (addErr: unknown) {
+              const msg = addErr instanceof Error ? addErr.message : '';
+              if (msg.includes('Already claimed') || msg.includes('reverted')) {
+                // Some wallets may be claimed by others — skip and warn
+                warnings.push('Some wallets could not be synced (claimed by another user)');
+              } else {
+                throw addErr;
+              }
+            }
+          }
+
+          // Batch remove wallets
+          if (toRemove.length > 0) {
+            try {
+              await batchRemoveWalletsOnChain(
+                signer,
+                toRemove.map((a) => a.address),
+              );
+            } catch (removeErr: unknown) {
+              const msg = removeErr instanceof Error ? removeErr.message : '';
+              warnings.push(`Wallet removal failed: ${msg}`);
+            }
+          }
+
+          if (warnings.length > 0) setSyncWarnings(warnings);
+        }
+      }
+
+      // Step 5: Upload metadata
       setStatus('uploading');
       let metadataURI: string;
       try {
@@ -121,7 +184,11 @@ export function usePortfolioAttestation(
           body: JSON.stringify({
             wallet: walletAddress,
             ...(gsHandle ? { gsHandle } : {}),
-            ...(portfolioAddresses && portfolioAddresses.length > 1 ? { wallets: portfolioAddresses } : {}),
+            ...(dbPortfolioWallets && dbPortfolioWallets.length > 0
+              ? { wallets: dbPortfolioWallets.map((w) => ({ address: w.address, status: w.status })) }
+              : portfolioAddresses && portfolioAddresses.length > 1
+                ? { wallets: portfolioAddresses.map((a) => ({ address: a, status: 'SELF_REPORTED' })) }
+                : {}),
             merkleRoot: root,
             totalValueGun: totalValueWei,
             itemCount: leafCount,
@@ -143,7 +210,7 @@ export function usePortfolioAttestation(
         metadataURI = `data:application/json,${encodeURIComponent(JSON.stringify({ wallet: walletAddress, ...(gsHandle ? { gsHandle } : {}), ...(portfolioAddresses && portfolioAddresses.length > 1 ? { wallets: portfolioAddresses } : {}), items: leafCount, block: blockNumber }))}`;
       }
 
-      // Step 5: Submit attestation
+      // Step 6: Submit attestation
       setStatus('confirming');
       const result = await submitAttestation(signer, {
         wallet: walletAddress,
@@ -173,7 +240,7 @@ export function usePortfolioAttestation(
     } finally {
       attestingRef.current = false;
     }
-  }, [walletAddress, walletProvider, nfts]);
+  }, [walletAddress, walletProvider, nfts, dbPortfolioWallets]);
 
   return {
     attest,
@@ -183,5 +250,6 @@ export function usePortfolioAttestation(
     error,
     latestAttestation,
     loadingExisting,
+    syncWarnings,
   };
 }

@@ -23,6 +23,29 @@ export const ATTESTATION_ABI = [
   'function owner() external view returns (address)',
   'function withdraw() external',
   'event PortfolioAttested(address indexed wallet, uint256 indexed attestationId, bytes32 merkleRoot, uint256 totalValueGun, uint16 itemCount, uint256 blockNumber, string metadataURI)',
+  // V2: Handle functions
+  'function setHandle(string handle) external payable',
+  'function resolveHandle(string handle) external view returns (address)',
+  'function gsHandleOf(address) external view returns (string)',
+  'function hasRegisteredHandle(address) external view returns (bool)',
+  'function handleChangeFee() external view returns (uint256)',
+  'function setHandleChangeFee(uint256 newFee) external',
+  // V2: Wallet management
+  'function addWallet(address wallet, uint8 status) external',
+  'function removeWallet(address wallet) external',
+  'function batchAddWallets(address[] wallets, uint8[] statuses) external',
+  'function batchRemoveWallets(address[] wallets) external',
+  'function takeoverWallet(address wallet, address fromPrimary) external',
+  'function getPortfolioWallets(address primary) external view returns (tuple(address addr, uint8 status, uint48 addedAt)[])',
+  'function getPortfolioWalletCount(address primary) external view returns (uint256)',
+  'function primaryOf(address) external view returns (address)',
+  // V2: Events
+  'event HandleRegistered(address indexed wallet, string handle)',
+  'event HandleChanged(address indexed wallet, string oldHandle, string newHandle)',
+  'event WalletAdded(address indexed primary, address indexed wallet, uint8 status)',
+  'event WalletRemoved(address indexed primary, address indexed wallet)',
+  'event WalletUpgraded(address indexed primary, address indexed wallet, uint8 oldStatus, uint8 newStatus)',
+  'event HandleFeeUpdated(uint256 oldFee, uint256 newFee)',
 ] as const;
 
 export interface OnChainAttestation {
@@ -32,6 +55,19 @@ export interface OnChainAttestation {
   itemCount: number;
   timestamp: number;
   metadataURI: string;
+}
+
+export enum OnChainWalletStatus {
+  NONE = 0,
+  PRIMARY = 1,
+  VERIFIED = 2,
+  SELF_REPORTED = 3,
+}
+
+export interface OnChainPortfolioWallet {
+  addr: string;
+  status: OnChainWalletStatus;
+  addedAt: number;
 }
 
 export function getContractAddress(): string {
@@ -240,6 +276,133 @@ export async function ensureAvalancheChain(walletProvider: unknown): Promise<voi
       throw err;
     }
   }
+}
+
+// ═════════════════════════════════════════════════════════════
+// V2: Handle helpers
+// ═════════════════════════════════════════════════════════════
+
+/**
+ * Register or change a gsHandle on-chain.
+ * First registration is free; changes require handleChangeFee.
+ */
+export async function setHandle(
+  signer: Signer,
+  handle: string,
+  fee?: bigint,
+): Promise<{ txHash: string }> {
+  const contract = getWriteContract(signer);
+  const tx = await contract.setHandle(handle, { value: fee ?? BigInt(0) });
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash };
+}
+
+/**
+ * Resolve a handle to its owner address (case-insensitive).
+ * Returns the zero address if unregistered.
+ */
+export async function resolveHandle(
+  provider: ethers.Provider,
+  handle: string,
+): Promise<string> {
+  const contract = getReadContract(provider);
+  return contract.resolveHandle(handle);
+}
+
+/**
+ * Get the gsHandle for a wallet address. Returns null if none registered.
+ */
+export async function getGsHandle(
+  provider: ethers.Provider,
+  wallet: string,
+): Promise<string | null> {
+  const contract = getReadContract(provider);
+  const handle: string = await contract.gsHandleOf(wallet);
+  return handle || null;
+}
+
+/**
+ * Get the current fee for changing an existing handle.
+ */
+export async function getHandleChangeFee(
+  provider: ethers.Provider,
+): Promise<bigint> {
+  const contract = getReadContract(provider);
+  return contract.handleChangeFee();
+}
+
+// ═════════════════════════════════════════════════════════════
+// V2: Wallet management helpers
+// ═════════════════════════════════════════════════════════════
+
+/**
+ * Add a single wallet to the on-chain portfolio.
+ */
+export async function addWalletOnChain(
+  signer: Signer,
+  wallet: string,
+  status: OnChainWalletStatus,
+): Promise<{ txHash: string }> {
+  const contract = getWriteContract(signer);
+  const tx = await contract.addWallet(wallet, status);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash };
+}
+
+/**
+ * Remove a single wallet from the on-chain portfolio.
+ */
+export async function removeWalletOnChain(
+  signer: Signer,
+  wallet: string,
+): Promise<{ txHash: string }> {
+  const contract = getWriteContract(signer);
+  const tx = await contract.removeWallet(wallet);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash };
+}
+
+/**
+ * Batch add wallets to the on-chain portfolio in a single transaction.
+ */
+export async function batchAddWalletsOnChain(
+  signer: Signer,
+  wallets: string[],
+  statuses: OnChainWalletStatus[],
+): Promise<{ txHash: string }> {
+  const contract = getWriteContract(signer);
+  const tx = await contract.batchAddWallets(wallets, statuses);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash };
+}
+
+/**
+ * Batch remove wallets from the on-chain portfolio in a single transaction.
+ */
+export async function batchRemoveWalletsOnChain(
+  signer: Signer,
+  wallets: string[],
+): Promise<{ txHash: string }> {
+  const contract = getWriteContract(signer);
+  const tx = await contract.batchRemoveWallets(wallets);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash };
+}
+
+/**
+ * Read all portfolio wallets for a primary address from on-chain.
+ */
+export async function getPortfolioWalletsOnChain(
+  provider: ethers.Provider,
+  primaryAddress: string,
+): Promise<OnChainPortfolioWallet[]> {
+  const contract = getReadContract(provider);
+  const raw = await contract.getPortfolioWallets(primaryAddress);
+  return raw.map((w: { addr: string; status: bigint; addedAt: bigint }) => ({
+    addr: w.addr,
+    status: Number(w.status) as OnChainWalletStatus,
+    addedAt: Number(w.addedAt),
+  }));
 }
 
 function parseAttestation(raw: unknown[]): OnChainAttestation {

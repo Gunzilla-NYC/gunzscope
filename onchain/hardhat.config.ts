@@ -35,6 +35,10 @@ const config: HardhatUserConfig = {
       ledgerAccounts: [
         "0x8ABF795f22931DFb0D086693343F5f80571b488C",
       ],
+      ledgerOptions: {
+        derivationFunction: (accountNumber: number) =>
+          `m/44'/60'/${accountNumber}'/0/0`,
+      },
     },
     avalanche: {
       url: "https://avalanche-c-chain-rpc.publicnode.com",
@@ -43,6 +47,10 @@ const config: HardhatUserConfig = {
       ledgerAccounts: [
         "0x8ABF795f22931DFb0D086693343F5f80571b488C", // Contract owner (Ledger)
       ],
+      ledgerOptions: {
+        derivationFunction: (accountNumber: number) =>
+          `m/44'/60'/${accountNumber}'/0/0`,
+      },
     },
   },
   etherscan: {

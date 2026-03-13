@@ -1,6 +1,8 @@
+/**
+ * Fuji-only upgrade script — uses software signer (DEPLOYER_PRIVATE_KEY).
+ * For mainnet, use upgrade.ts which requires the Ledger.
+ */
 import { ethers, upgrades } from "hardhat";
-
-const LEDGER_OWNER = "0x8ABF795f22931DFb0D086693343F5f80571b488C";
 
 async function main() {
   const proxyAddress = process.env.PROXY_ADDRESS;
@@ -8,25 +10,14 @@ async function main() {
     throw new Error("Set PROXY_ADDRESS env var to the proxy contract address");
   }
 
-  // Get all signers — Ledger signer is available via hardhat-ledger plugin
-  const signers = await ethers.getSigners();
-  const ledgerSigner = signers.find(
-    (s) => s.address.toLowerCase() === LEDGER_OWNER.toLowerCase()
-  );
-
-  if (!ledgerSigner) {
-    throw new Error(
-      `Ledger signer ${LEDGER_OWNER} not found. Ensure Ledger is connected and the Ethereum app is open.`
-    );
-  }
-
-  console.log("Upgrading to PortfolioAttestationV2...");
+  const [signer] = await ethers.getSigners();
+  console.log("Upgrading to PortfolioAttestationV2 on Fuji...");
   console.log("  Proxy:", proxyAddress);
-  console.log("  Owner (Ledger):", ledgerSigner.address);
+  console.log("  Signer:", signer.address);
 
   const PortfolioAttestationV2 = await ethers.getContractFactory(
     "PortfolioAttestationV2",
-    ledgerSigner
+    signer
   );
   const upgraded = await upgrades.upgradeProxy(proxyAddress, PortfolioAttestationV2, {
     kind: "uups",

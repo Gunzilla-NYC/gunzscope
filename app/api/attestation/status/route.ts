@@ -15,12 +15,14 @@ export async function GET() {
     totalAttestations: number | null;
     contractAvaxBalance: string | null;
     attestFee: string | null;
+    handleChangeFee: string | null;
   } = {
     deployerBalance: null,
     deployerAvaxBalance: null,
     totalAttestations: null,
     contractAvaxBalance: null,
     attestFee: null,
+    handleChangeFee: null,
   };
 
   try {
@@ -45,17 +47,25 @@ export async function GET() {
     if (ATTESTATION_CONTRACT) {
       const contract = new ethers.Contract(
         ATTESTATION_CONTRACT,
-        ['function totalAttestations() view returns (uint256)', 'function attestFee() view returns (uint256)'],
+        [
+          'function totalAttestations() view returns (uint256)',
+          'function attestFee() view returns (uint256)',
+          'function handleChangeFee() view returns (uint256)',
+        ],
         cChainProvider,
       );
-      const [total, fee, balance] = await Promise.all([
+      const [total, fee, handleFee, balance] = await Promise.all([
         contract.totalAttestations(),
         contract.attestFee(),
+        contract.handleChangeFee().catch(() => null),
         cChainProvider.getBalance(ATTESTATION_CONTRACT),
       ]);
       result.totalAttestations = Number(total);
       result.contractAvaxBalance = parseFloat(ethers.formatEther(balance)).toFixed(4);
       result.attestFee = parseFloat(ethers.formatEther(fee)).toFixed(4);
+      if (handleFee !== null) {
+        result.handleChangeFee = parseFloat(ethers.formatEther(handleFee)).toFixed(4);
+      }
     }
   } catch {
     // Contract not deployed or wrong address — leave null

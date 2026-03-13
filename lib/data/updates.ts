@@ -15,9 +15,21 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.8.0',
+    date: 'Mar 13, 2026',
+    tag: 'current',
+    title: 'You are now a person on\u2011chain',
+    items: [
+      'GUNZscope Player Identity is live. Claim a unique handle \u2014 your on\u2011chain name, permanently yours, registered on Avalanche C\u2011Chain. First one\u2019s free. Changing it later costs 0.005\u00a0AVAX, because commitment should mean something.',
+      'Your portfolio wallets are now part of your on\u2011chain identity. Every wallet you\u2019ve added \u2014 verified or self\u2011reported \u2014 gets synced to the contract when you attest. One identity, many wallets, all provably yours. The kind of thing that sounds obvious until you realize nobody else is doing it.',
+      'The attestation flow got a new step: wallet sync. Before your portfolio hits the chain, we compare what\u2019s in your account with what\u2019s already on\u2011chain and batch the difference into one or two transactions. No more signing fifteen popups. If a wallet was claimed by someone else, we skip it gracefully and warn you instead of blowing up the whole attestation.',
+      'The Onchain ID explorer now shows handles next to addresses. Search by handle or address \u2014 type "CryptoHaki" and find them instantly instead of copy\u2011pasting 42 characters of hex. Individual attestation pages show the attester\u2019s handle, their portfolio wallets, and verification status badges.',
+      'Why this matters: your GUNZscope identity isn\u2019t locked in our database. It\u2019s on a public blockchain. Any app, any game, any ecosystem participant can look up your handle, see your verified wallets, and check your attestation history without asking us for permission. Your gaming reputation just became portable infrastructure.',
+    ],
+  },
+  {
     version: 'v0.7.5',
     date: 'Mar 10, 2026',
-    tag: 'current',
     title: 'The squint-free update',
     items: [
       'Every piece of text in the NFT detail modal got bumped up in size and opacity. Cost basis labels, P&L values, USD conversions, section headers, italic subtexts \u2014 all of it. If you were leaning into your monitor to read your own position data, you can sit back now. The information was always there. It was just cosplaying as invisible.',

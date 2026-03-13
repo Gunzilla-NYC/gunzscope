@@ -6,12 +6,14 @@ const METADATA_BASE_URL = 'https://gunzscope.xyz/api/attestation/metadata';
 
 interface AttestationMetadata {
   wallet: string;
+  gsHandle?: string;
   merkleRoot: string;
   totalValueGun: string;
   itemCount: number;
   blockNumber: number;
   timestamp: number;
   holdings: { contract: string; tokenId: string; valueWei: string }[];
+  wallets?: { address: string; status: string }[];
 }
 
 export async function POST(request: NextRequest) {

@@ -3,7 +3,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { ensureAvalancheChain, getSignerFromProvider, withdrawFees } from '@/lib/attestation/contract';
+import { ensureAvalancheChain, getSignerFromProvider, withdrawFees, getContractAddress, ATTESTATION_ABI } from '@/lib/attestation/contract';
+import { ethers } from 'ethers';
 import { truncateAddress } from './utils';
 
 const DEPLOYER_ADDRESS = process.env.NEXT_PUBLIC_DEPLOYER_ADDRESS ?? '';
@@ -16,15 +17,18 @@ interface OnChainInfo {
   totalAttestations: number | null;
   contractAvaxBalance: string | null;
   attestFee: string | null;
+  handleChangeFee: string | null;
   loading: boolean;
 }
 
 type WithdrawStatus = 'idle' | 'switching' | 'signing' | 'confirming' | 'success' | 'error';
 
 export function OnChainTools() {
-  const [info, setInfo] = useState<OnChainInfo>({ deployerBalance: null, deployerAvaxBalance: null, totalAttestations: null, contractAvaxBalance: null, attestFee: null, loading: false });
+  const [info, setInfo] = useState<OnChainInfo>({ deployerBalance: null, deployerAvaxBalance: null, totalAttestations: null, contractAvaxBalance: null, attestFee: null, handleChangeFee: null, loading: false });
   const [withdrawStatus, setWithdrawStatus] = useState<WithdrawStatus>('idle');
   const [withdrawTxHash, setWithdrawTxHash] = useState<string | null>(null);
+  const [newHandleFee, setNewHandleFee] = useState('');
+  const [handleFeeStatus, setHandleFeeStatus] = useState<'idle' | 'signing' | 'confirming' | 'success' | 'error'>('idle');
 
   const { primaryWallet } = useDynamicContext();
   const walletProvider = useMemo(() => {
@@ -48,6 +52,7 @@ export function OnChainTools() {
         totalAttestations: data.totalAttestations ?? null,
         contractAvaxBalance: data.contractAvaxBalance ?? null,
         attestFee: data.attestFee ?? null,
+        handleChangeFee: data.handleChangeFee ?? null,
         loading: false,
       });
     } catch {
@@ -88,6 +93,34 @@ export function OnChainTools() {
       }
     }
   }, [walletProvider, fetchInfo]);
+
+  const handleUpdateHandleFee = useCallback(async () => {
+    if (!walletProvider || !newHandleFee) return;
+    try {
+      setHandleFeeStatus('signing');
+      await ensureAvalancheChain(walletProvider);
+      const signer = await getSignerFromProvider(walletProvider);
+      const contract = new ethers.Contract(getContractAddress(), ATTESTATION_ABI, signer);
+
+      setHandleFeeStatus('confirming');
+      const tx = await contract.setHandleChangeFee(ethers.parseEther(newHandleFee));
+      await tx.wait();
+
+      setHandleFeeStatus('success');
+      toast.success(`Handle change fee updated to ${newHandleFee} AVAX`);
+      setNewHandleFee('');
+      fetchInfo();
+    } catch (err: unknown) {
+      setHandleFeeStatus('error');
+      const msg = err instanceof Error ? err.message : 'Failed to update fee';
+      if (msg.includes('user rejected') || msg.includes('User denied')) {
+        toast.error('Transaction cancelled');
+        setHandleFeeStatus('idle');
+      } else {
+        toast.error(msg);
+      }
+    }
+  }, [walletProvider, newHandleFee, fetchInfo]);
 
   const copyToClipboard = useCallback((text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -239,10 +272,43 @@ export function OnChainTools() {
 
         {info.attestFee !== null && (
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Current Fee</span>
+            <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Attest Fee</span>
             <span className="font-mono text-data tabular-nums text-[var(--gs-gray-4)]">
               {info.attestFee} AVAX
             </span>
+          </div>
+        )}
+
+        {info.handleChangeFee !== null && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[9px] text-[var(--gs-gray-3)]">Handle Change Fee</span>
+              <span className="font-mono text-data tabular-nums text-[var(--gs-gray-4)]">
+                {info.handleChangeFee} AVAX
+              </span>
+            </div>
+            {walletProvider && (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={newHandleFee}
+                  onChange={(e) => setNewHandleFee(e.target.value)}
+                  placeholder="New fee (AVAX)"
+                  className="flex-1 font-mono text-[9px] bg-white/[0.04] border border-white/[0.08] px-1.5 py-1 text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] outline-none focus:border-[var(--gs-purple)]/40"
+                />
+                <button
+                  onClick={handleUpdateHandleFee}
+                  disabled={!newHandleFee || handleFeeStatus === 'signing' || handleFeeStatus === 'confirming'}
+                  className="font-mono text-[8px] uppercase tracking-wider px-1.5 py-1 border border-[var(--gs-purple)]/40 text-[var(--gs-purple)] hover:bg-[var(--gs-purple)]/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default shrink-0"
+                >
+                  {handleFeeStatus === 'idle' && 'Update'}
+                  {handleFeeStatus === 'signing' && 'Sign\u2026'}
+                  {handleFeeStatus === 'confirming' && 'Confirming\u2026'}
+                  {handleFeeStatus === 'success' && 'Done'}
+                  {handleFeeStatus === 'error' && 'Retry'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

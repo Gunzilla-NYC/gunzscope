@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import PublicNav from '@/components/PublicNav';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useExplorer, type AttestationEvent } from '@/lib/hooks/useExplorer';
+import { useHandleResolver } from '@/lib/hooks/useHandleResolver';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_ATTESTATION_CONTRACT ?? '0xEBE8FD7d40724Eb84d9C888ce88840577Cc79c16';
 const SNOWTRACE_BASE = 'https://snowtrace.io';
@@ -84,7 +85,7 @@ function SkeletonRow() {
 }
 
 /* ─── Mobile card ─── */
-function MobileCard({ event, index, total }: { event: AttestationEvent; index: number; total: number }) {
+function MobileCard({ event, index, total, handle }: { event: AttestationEvent; index: number; total: number; handle: string | null }) {
   const meta = getMetadataLink(event.metadataURI);
   return (
     <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-4 space-y-2.5">
@@ -103,7 +104,7 @@ function MobileCard({ event, index, total }: { event: AttestationEvent; index: n
           rel="noopener noreferrer"
           className="font-mono text-data text-[var(--gs-lime)] hover:underline"
         >
-          {truncateAddress(event.wallet)}
+          {handle ? <>{handle} <span className="text-[var(--gs-gray-3)]">({truncateAddress(event.wallet)})</span></> : truncateAddress(event.wallet)}
         </a>
         <span className="font-mono text-data text-[var(--gs-white)] tabular-nums">
           {formatGun(event.totalValueGun)} GUN
@@ -162,6 +163,28 @@ function ExploreNav() {
 /* ─── Main content ─── */
 function ExploreContent() {
   const { events, stats, isLoading, error, lastUpdated, refetch } = useExplorer();
+  const { resolveAddresses, getHandle, isResolving } = useHandleResolver();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [resolvedCount, setResolvedCount] = useState(0);
+
+  // Resolve handles when events load
+  useEffect(() => {
+    if (events.length === 0) return;
+    const addresses = events.map((e) => e.wallet);
+    resolveAddresses(addresses).then(() => setResolvedCount((c) => c + 1));
+  }, [events, resolveAddresses]);
+
+  // Filter events by search query
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return events;
+    const q = searchQuery.toLowerCase().trim();
+    return events.filter((event) => {
+      const address = event.wallet.toLowerCase();
+      const handle = getHandle(event.wallet)?.toLowerCase() || '';
+      return address.includes(q) || handle.includes(q);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, searchQuery, resolvedCount]);
 
   const autonomysCount = events.filter(e => isAutonomysURI(e.metadataURI)).length;
 
@@ -259,6 +282,24 @@ function ExploreContent() {
           </a>
         </div>
 
+        {/* Search */}
+        {!isLoading && events.length > 0 && (
+          <div className="mb-6">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by handle or address\u2026"
+              className="w-full max-w-sm px-3 py-2 bg-[var(--gs-dark-2)] border border-white/[0.06] font-mono text-sm text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/30 transition-colors"
+            />
+            {searchQuery.trim() && (
+              <span className="ml-3 font-mono text-[9px] uppercase tracking-widest text-[var(--gs-gray-3)]">
+                {filteredEvents.length} result{filteredEvents.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <div className="bg-[var(--gs-loss)]/10 border border-[var(--gs-loss)]/20 p-4 mb-8 flex items-center justify-between gap-4">
@@ -319,11 +360,12 @@ function ExploreContent() {
                 </tr>
               </thead>
               <tbody>
-                {events.map((event, i) => {
+                {filteredEvents.map((event, i) => {
                   const meta = getMetadataLink(event.metadataURI);
+                  const handle = getHandle(event.wallet);
                   return (
                     <tr key={`${event.txHash}-${event.attestationId}`} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3.5 font-mono text-data text-[var(--gs-gray-3)] tabular-nums">{events.length - i}</td>
+                      <td className="px-4 py-3.5 font-mono text-data text-[var(--gs-gray-3)] tabular-nums">{filteredEvents.length - i}</td>
                       <td className="px-4 py-3.5">
                         <a
                           href={`${SNOWTRACE_BASE}/address/${event.wallet}`}
@@ -331,7 +373,7 @@ function ExploreContent() {
                           rel="noopener noreferrer"
                           className="font-mono text-data text-[var(--gs-lime)] hover:underline"
                         >
-                          {truncateAddress(event.wallet)}
+                          {handle ? <>{handle} <span className="text-[var(--gs-gray-3)]">({truncateAddress(event.wallet)})</span></> : truncateAddress(event.wallet)}
                         </a>
                       </td>
                       <td className="px-4 py-3.5 text-right font-mono text-data text-[var(--gs-white)] tabular-nums">
@@ -379,8 +421,8 @@ function ExploreContent() {
         {/* Mobile cards */}
         {!isLoading && events.length > 0 && (
           <div className="md:hidden space-y-2">
-            {events.map((event, i) => (
-              <MobileCard key={`${event.txHash}-${event.attestationId}`} event={event} index={i} total={events.length} />
+            {filteredEvents.map((event, i) => (
+              <MobileCard key={`${event.txHash}-${event.attestationId}`} event={event} index={i} total={filteredEvents.length} handle={getHandle(event.wallet)} />
             ))}
           </div>
         )}
