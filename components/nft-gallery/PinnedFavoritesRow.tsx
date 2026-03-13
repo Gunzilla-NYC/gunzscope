@@ -99,14 +99,13 @@ export function PinnedFavoritesRow({
         </span>
       </div>
 
-      {/* Horizontal scroll row — small cards */}
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 snap-x snap-mandatory">
+      {/* Grid row — matches gallery small view column sizing */}
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {cardDataList.map(({ cardData, pinnedNft }) => {
           const key = `pinned-${pinnedNft.nft.chain}-${pinnedNft.nft.tokenId}`;
           return (
             <div
               key={key}
-              className="flex-shrink-0 w-[130px] sm:w-[140px] snap-start"
             >
               <NFTGalleryGridCard
                 cardData={cardData}
