@@ -289,7 +289,7 @@ function ExploreContent() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by handle or address\u2026"
+              placeholder={'Search by handle or address\u2026'}
               className="w-full max-w-sm px-3 py-2 bg-[var(--gs-dark-2)] border border-white/[0.06] font-mono text-sm text-[var(--gs-white)] placeholder:text-[var(--gs-gray-2)] focus:outline-none focus:border-[var(--gs-lime)]/30 transition-colors"
             />
             {searchQuery.trim() && (

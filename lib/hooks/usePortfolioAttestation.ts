@@ -127,50 +127,56 @@ export function usePortfolioAttestation(
       const blockNumber = await signer.provider!.getBlockNumber();
 
       // Step 4: Sync wallets on-chain (if DB portfolio wallets provided)
+      // Entire sync step is best-effort — RPC failures skip sync, attestation continues
       setSyncWarnings([]);
       if (dbPortfolioWallets && dbPortfolioWallets.length > 0 && walletAddress) {
         setStatus('syncing-wallets');
-        const onChainWallets = await getPortfolioWalletsOnChain(getCChainProvider(), walletAddress);
-        const actions = computeWalletSyncActions(dbPortfolioWallets, onChainWallets, walletAddress);
+        try {
+          const onChainWallets = await getPortfolioWalletsOnChain(getCChainProvider(), walletAddress);
+          const actions = computeWalletSyncActions(dbPortfolioWallets, onChainWallets, walletAddress);
 
-        if (actions.length > 0) {
-          const toAdd = actions.filter((a) => a.type === 'add' || a.type === 'upgrade');
-          const toRemove = actions.filter((a) => a.type === 'remove');
-          const warnings: string[] = [];
+          if (actions.length > 0) {
+            const toAdd = actions.filter((a) => a.type === 'add' || a.type === 'upgrade');
+            const toRemove = actions.filter((a) => a.type === 'remove');
+            const warnings: string[] = [];
 
-          // Batch add/upgrade wallets
-          if (toAdd.length > 0) {
-            try {
-              await batchAddWalletsOnChain(
-                signer,
-                toAdd.map((a) => a.address),
-                toAdd.map((a) => a.status!),
-              );
-            } catch (addErr: unknown) {
-              const msg = addErr instanceof Error ? addErr.message : '';
-              if (msg.includes('Already claimed') || msg.includes('reverted')) {
-                // Some wallets may be claimed by others — skip and warn
-                warnings.push('Some wallets could not be synced (claimed by another user)');
-              } else {
-                throw addErr;
+            // Batch add/upgrade wallets
+            if (toAdd.length > 0) {
+              try {
+                await batchAddWalletsOnChain(
+                  signer,
+                  toAdd.map((a) => a.address),
+                  toAdd.map((a) => a.status!),
+                );
+              } catch (addErr: unknown) {
+                const msg = addErr instanceof Error ? addErr.message : '';
+                if (msg.includes('Already claimed') || msg.includes('reverted')) {
+                  warnings.push('Some wallets could not be synced (claimed by another user)');
+                } else {
+                  warnings.push(`Wallet sync failed: ${msg.slice(0, 100)}`);
+                }
               }
             }
-          }
 
-          // Batch remove wallets
-          if (toRemove.length > 0) {
-            try {
-              await batchRemoveWalletsOnChain(
-                signer,
-                toRemove.map((a) => a.address),
-              );
-            } catch (removeErr: unknown) {
-              const msg = removeErr instanceof Error ? removeErr.message : '';
-              warnings.push(`Wallet removal failed: ${msg}`);
+            // Batch remove wallets
+            if (toRemove.length > 0) {
+              try {
+                await batchRemoveWalletsOnChain(
+                  signer,
+                  toRemove.map((a) => a.address),
+                );
+              } catch (removeErr: unknown) {
+                const msg = removeErr instanceof Error ? removeErr.message : '';
+                warnings.push(`Wallet removal failed: ${msg.slice(0, 100)}`);
+              }
             }
-          }
 
-          if (warnings.length > 0) setSyncWarnings(warnings);
+            if (warnings.length > 0) setSyncWarnings(warnings);
+          }
+        } catch (syncErr: unknown) {
+          // RPC or contract call failed — skip wallet sync entirely, continue with attestation
+          const msg = syncErr instanceof Error ? syncErr.message : 'Unknown error';
+          setSyncWarnings([`Wallet sync skipped: ${msg.slice(0, 100)}`]);
         }
       }
 
