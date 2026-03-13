@@ -116,7 +116,7 @@ export function PinnedFavoritesRow({
                 isOwnPortfolio={isOwnPortfolio}
               />
               {/* Cross-wallet source badge — below the card */}
-              {pinnedNft.isCrossWallet && (
+              {pinnedNft.isCrossWallet && pinnedNft.sourceWallet !== 'unknown' && (
                 <div className="flex justify-center mt-1.5">
                   <span className="font-mono text-[8px] uppercase tracking-wider text-[var(--gs-gray-3)]">
                     from {truncateAddress(pinnedNft.sourceWallet)}

@@ -77,23 +77,47 @@ export function usePinnedFavorites(
       }
     }
 
-    // Resolve pinned favorites
+    // Resolve pinned favorites — full data from walletMap, or stub from metadata
     const pinnedItems: PinnedNFT[] = [];
     let crossWalletCount = 0;
 
     for (const fav of pinnedFavorites) {
       const match = nftLookup.get(fav.refId);
-      if (!match) continue; // NFT not in any loaded wallet — skip silently
 
-      const isCrossWallet = match.walletAddress.toLowerCase() !== activeKey;
-      if (isCrossWallet) crossWalletCount++;
+      if (match) {
+        // Full NFT data available from a loaded wallet
+        const isCrossWallet = match.walletAddress.toLowerCase() !== activeKey;
+        if (isCrossWallet) crossWalletCount++;
 
-      pinnedItems.push({
-        nft: match.nft,
-        sourceWallet: match.walletAddress,
-        isCrossWallet,
-        favoriteId: fav.id,
-      });
+        pinnedItems.push({
+          nft: match.nft,
+          sourceWallet: match.walletAddress,
+          isCrossWallet,
+          favoriteId: fav.id,
+        });
+      } else if (fav.metadata) {
+        // Wallet not loaded yet — build stub from stored metadata for instant display.
+        // Will upgrade to full data when walletMap updates (portfolio merge).
+        const [contract, tokenId] = fav.refId.split(':');
+        if (!contract || !tokenId) continue;
+
+        const stubNft: NFT = {
+          tokenId,
+          name: (fav.metadata.name as string) || 'Loading...',
+          image: (fav.metadata.image as string) || '',
+          collection: (fav.metadata.collection as string) || 'Off The Grid',
+          contractAddress: contract,
+          chain: 'avalanche',
+        };
+        crossWalletCount++;
+
+        pinnedItems.push({
+          nft: stubNft,
+          sourceWallet: 'unknown',
+          isCrossWallet: true,
+          favoriteId: fav.id,
+        });
+      }
     }
 
     // Sort: active wallet items first, then cross-wallet
