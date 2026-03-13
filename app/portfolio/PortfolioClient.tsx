@@ -58,6 +58,8 @@ import { useLoadingMessages } from '@/lib/hooks/useLoadingMessages';
 import { useChartMilestoneGating } from '@/lib/hooks/useChartMilestoneGating';
 import { usePortfolioSnapshot } from '@/lib/hooks/usePortfolioSnapshot';
 import { useWalletSearchActions } from '@/lib/hooks/useWalletSearchActions';
+import { usePinnedFavorites } from '@/lib/hooks/usePinnedFavorites';
+import { PinnedFavoritesRow } from '@/components/nft-gallery/PinnedFavoritesRow';
 
 function PortfolioContent() {
   const searchParams = useSearchParams();
@@ -912,6 +914,27 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     return Array.from(set);
   }, [primaryWallet?.address, portfolioAddresses]);
 
+  // Cross-wallet pinned favorites — resolved from all loaded wallets
+  const { pinnedItems, crossWalletCount } = usePinnedFavorites(
+    profile?.favorites,
+    activeWalletAddress,
+    walletMap,
+  );
+
+  // Deduplicate: remove active-wallet pinned items from main gallery (they show in pinned row)
+  const galleryNfts = useMemo(() => {
+    if (pinnedItems.length === 0) return allNfts;
+    const pinnedIds = new Set(
+      pinnedItems
+        .filter(p => !p.isCrossWallet)
+        .map(p => `${p.nft.contractAddress}:${p.nft.tokenId}`),
+    );
+    if (pinnedIds.size === 0) return allNfts;
+    return allNfts.filter(nft =>
+      !nft.contractAddress || !pinnedIds.has(`${nft.contractAddress}:${nft.tokenId}`),
+    );
+  }, [allNfts, pinnedItems]);
+
   // Manual refresh — clears localStorage cache and re-fetches from chain
   const handleRefresh = useCallback(() => {
     if (!activeWalletData?.address) return;
@@ -1286,8 +1309,22 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
               </div>
             )}
 
+            {/* Pinned favorites row — cross-wallet, above main gallery */}
+            {pinnedItems.length > 0 && (
+              <div className="bg-[var(--gs-dark-3)] p-6 pb-0 border border-white/[0.06] border-b-0 clip-corner">
+                <PinnedFavoritesRow
+                  pinnedItems={pinnedItems}
+                  currentGunPrice={gunPrice}
+                  isEnriching={enrichingNFTs}
+                  isOwnPortfolio={connectedWallets.includes(activeWalletData.address.toLowerCase())}
+                  walletAddress={activeWalletData.address}
+                  allNfts={allNfts}
+                />
+              </div>
+            )}
+
             <NFTGallery
-              nfts={allNfts}
+              nfts={galleryNfts}
               chain="avalanche"
               walletAddress={activeWalletData.address}
               paginationInfo={nftPagination}
