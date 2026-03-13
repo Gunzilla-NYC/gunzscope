@@ -30,10 +30,15 @@ export interface TrackedAddress {
   createdAt: string;
 }
 
+export type WalletClaimStatus = 'PRIMARY' | 'VERIFIED' | 'SELF_REPORTED';
+
 export interface PortfolioAddress {
   id: string;
   address: string;
   label: string | null;
+  verified: boolean;
+  verifiedAt: string | null;
+  status: WalletClaimStatus;
   addedAt: string;
 }
 
@@ -93,6 +98,7 @@ interface UseUserProfileReturn {
   // Portfolio addresses
   addPortfolioAddress: (address: string, label?: string) => Promise<PortfolioAddress | null>;
   removePortfolioAddress: (id: string) => Promise<boolean>;
+  verifyPortfolioAddress: (id: string, message: string, signature: string) => Promise<boolean>;
   isInPortfolio: (address: string) => boolean;
 
   // Favorites
@@ -332,37 +338,44 @@ export function useUserProfile(): UseUserProfileReturn {
     return false;
   }, []);
 
-  // Add portfolio address
+  // Add portfolio address (returns { address, error } to support 409 conflict messaging)
   const addPortfolioAddress = useCallback(
     async (address: string, label?: string): Promise<PortfolioAddress | null> => {
       const token = getAuthToken();
       if (!token) return null;
 
-      const result = await fetchWithAuth<{ portfolioAddress: PortfolioAddress }>(
-        '/api/portfolio-addresses',
-        {
-          method: 'POST',
-          body: JSON.stringify({ address, label }),
+      const response = await fetch('/api/portfolio-addresses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        token
-      );
+        body: JSON.stringify({ address, label }),
+      });
 
-      if (result.success && result.data) {
-        const portfolioAddr = result.data.portfolioAddress;
-        setProfile((prev) => {
-          if (!prev) return null;
-          // Remove if already exists (upsert behavior)
-          const filtered = prev.portfolioAddresses.filter(
-            (p) => p.address.toLowerCase() !== address.toLowerCase()
-          );
-          return {
-            ...prev,
-            portfolioAddresses: [portfolioAddr, ...filtered],
-          };
-        });
-        return portfolioAddr;
+      const data = await response.json();
+
+      if (response.status === 409) {
+        // Address already claimed by another user — throw so UI can toast
+        throw new Error(data.error || 'This address is already claimed by another user');
       }
-      return null;
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add portfolio address');
+      }
+
+      const portfolioAddr = data.portfolioAddress as PortfolioAddress;
+      setProfile((prev) => {
+        if (!prev) return null;
+        const filtered = prev.portfolioAddresses.filter(
+          (p) => p.address.toLowerCase() !== address.toLowerCase()
+        );
+        return {
+          ...prev,
+          portfolioAddresses: [portfolioAddr, ...filtered],
+        };
+      });
+      return portfolioAddr;
     },
     []
   );
@@ -384,6 +397,37 @@ export function useUserProfile(): UseUserProfileReturn {
         return {
           ...prev,
           portfolioAddresses: prev.portfolioAddresses.filter((p) => p.id !== id),
+        };
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Verify portfolio address ownership via signature
+  const verifyPortfolioAddress = useCallback(async (id: string, message: string, signature: string): Promise<boolean> => {
+    const token = getAuthToken();
+    if (!token) return false;
+
+    const result = await fetchWithAuth<{ portfolioAddress: { id: string; verified: boolean; verifiedAt: string | null; status: WalletClaimStatus } }>(
+      `/api/portfolio-addresses/${id}/verify`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, signature }),
+      },
+      token
+    );
+
+    if (result.success && result.data?.portfolioAddress) {
+      const { verifiedAt, status } = result.data.portfolioAddress;
+      setProfile((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          portfolioAddresses: prev.portfolioAddresses.map((p) =>
+            p.id === id ? { ...p, verified: true, verifiedAt, status } : p
+          ),
         };
       });
       return true;
@@ -573,6 +617,7 @@ export function useUserProfile(): UseUserProfileReturn {
     removeTrackedAddress,
     addPortfolioAddress,
     removePortfolioAddress,
+    verifyPortfolioAddress,
     isInPortfolio,
     setPrimaryWallet,
     addFavorite,

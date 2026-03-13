@@ -13,6 +13,7 @@ import {
   getProfileByDynamicId,
   addPortfolioAddress,
   getPortfolioAddressCount,
+  AddressAlreadyClaimedError,
 } from '@/lib/services/userService';
 import { jsonSuccess, jsonError } from '@/lib/api/types';
 
@@ -67,14 +68,23 @@ export async function POST(request: NextRequest) {
       return jsonError('Portfolio limit reached (5 wallets maximum)', 403);
     }
 
-    // Add portfolio address
+    // Determine claim status
+    const isPrimaryWallet = authResult.user.walletAddress
+      && address.toLowerCase() === authResult.user.walletAddress.toLowerCase();
+    const status = isPrimaryWallet ? 'PRIMARY' as const : 'SELF_REPORTED' as const;
+
+    // Add portfolio address (with global uniqueness enforcement)
     const portfolioAddress = await addPortfolioAddress(profile.id, {
       address,
       label,
+      status,
     });
 
     return jsonSuccess({ portfolioAddress });
   } catch (error) {
+    if (error instanceof AddressAlreadyClaimedError) {
+      return jsonError(error.message, 409);
+    }
     console.error('Error adding portfolio address:', error);
     return jsonError('Failed to add portfolio address');
   }

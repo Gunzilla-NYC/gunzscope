@@ -878,14 +878,30 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
   // All wallet addresses in walletMap (for switcher)
   const allWalletAddresses = useMemo(() => Object.values(walletMap).map(w => w.address), [walletMap]);
 
-  // Aggregated NFTs across ALL wallets in walletMap (for cross-wallet attestation)
+  // Verified addresses — only these are included in attestation Merkle tree
+  const verifiedAddresses = useMemo(() => {
+    const verified = new Set<string>();
+    // Primary wallet is always verified
+    if (primaryWallet?.address) verified.add(primaryWallet.address.toLowerCase());
+    // Add verified portfolio addresses
+    for (const pa of portfolioAddresses) {
+      if (pa.status === 'VERIFIED' || pa.status === 'PRIMARY') verified.add(pa.address.toLowerCase());
+    }
+    return verified;
+  }, [primaryWallet?.address, portfolioAddresses]);
+
+  // Aggregated NFTs across VERIFIED wallets only (for cross-wallet attestation)
   const allPortfolioNfts = useMemo(() =>
-    Object.values(walletMap).flatMap(wd => [...wd.avalanche.nfts, ...wd.solana.nfts]),
-    [walletMap],
+    Object.values(walletMap)
+      .filter(wd => verifiedAddresses.has(wd.address.toLowerCase()))
+      .flatMap(wd => [...wd.avalanche.nfts, ...wd.solana.nfts]),
+    [walletMap, verifiedAddresses],
   );
   const allPortfolioAddresses = useMemo(() =>
-    Object.values(walletMap).map(wd => wd.address),
-    [walletMap],
+    Object.values(walletMap)
+      .filter(wd => verifiedAddresses.has(wd.address.toLowerCase()))
+      .map(wd => wd.address),
+    [walletMap, verifiedAddresses],
   );
 
   // Connected wallets (lowercased) — for self-transfer vs gift classification

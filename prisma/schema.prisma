@@ -73,15 +73,25 @@ model TrackedAddress {
 // =============================================================================
 // Portfolio Address - Addresses aggregated into user's portfolio view
 // =============================================================================
+enum WalletClaimStatus {
+  PRIMARY       // Connected via Dynamic Labs (anchor wallet)
+  VERIFIED      // Proved via EIP-191 signature (or future SDK)
+  SELF_REPORTED // Claimed without proof
+}
+
 model PortfolioAddress {
-  id            String      @id @default(cuid())
+  id            String            @id @default(cuid())
   userProfileId String
-  address       String      // Wallet address (normalized to lowercase)
-  label         String?     // Optional friendly name
-  addedAt       DateTime    @default(now())
-  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  address       String            // Wallet address (normalized to lowercase)
+  label         String?           // Optional friendly name
+  verified      Boolean           @default(false) // DEPRECATED — use status field
+  verifiedAt    DateTime?
+  status        WalletClaimStatus @default(SELF_REPORTED)
+  addedAt       DateTime          @default(now())
+  userProfile   UserProfile       @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 
   @@unique([userProfileId, address]) // One entry per address per user
+  @@index([address])                 // Fast cross-user claim lookups
   @@map("portfolio_addresses")
 }
 

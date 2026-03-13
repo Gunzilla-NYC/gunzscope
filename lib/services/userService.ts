@@ -6,7 +6,11 @@
  */
 
 import prisma from '../db';
+import type { WalletClaimStatus } from '../generated/prisma/client';
 import type { DynamicUser } from '../auth/dynamicAuth';
+
+// Re-export for consumers
+export type { WalletClaimStatus } from '../generated/prisma/client';
 
 // =============================================================================
 // Types
@@ -49,6 +53,9 @@ export interface UserProfileWithRelations {
     id: string;
     address: string;
     label: string | null;
+    verified: boolean;
+    verifiedAt: Date | null;
+    status: WalletClaimStatus;
     addedAt: Date;
   }[];
 }
@@ -413,14 +420,88 @@ export async function updateTrackedAddressLabel(
 // =============================================================================
 
 /**
- * Add a portfolio address
+ * Error thrown when an address is already claimed by another user.
+ */
+export class AddressAlreadyClaimedError extends Error {
+  constructor(
+    public readonly existingStatus: WalletClaimStatus,
+    message?: string
+  ) {
+    super(message ?? 'This address is already claimed by another user');
+    this.name = 'AddressAlreadyClaimedError';
+  }
+}
+
+/**
+ * Find an existing portfolio claim for an address across all users.
+ * Uses @@index([address]) for fast lookup.
+ */
+export async function findClaimByAddress(
+  address: string
+): Promise<{ userProfileId: string; status: WalletClaimStatus; id: string } | null> {
+  const claim = await prisma.portfolioAddress.findFirst({
+    where: { address: address.toLowerCase() },
+    select: { id: true, userProfileId: true, status: true },
+  });
+  return claim;
+}
+
+/**
+ * Add a portfolio address with global uniqueness enforcement.
+ *
+ * - If unclaimed: creates the entry
+ * - If claimed by same user: upserts (updates label/status)
+ * - If claimed by another user with SELF_REPORTED and new status is VERIFIED/PRIMARY: takeover
+ * - If claimed by another user otherwise: throws AddressAlreadyClaimedError
  */
 export async function addPortfolioAddress(
   profileId: string,
-  input: AddPortfolioAddressInput
-): Promise<{ id: string; address: string; label: string | null; addedAt: Date }> {
+  input: AddPortfolioAddressInput & { status?: WalletClaimStatus }
+): Promise<{ id: string; address: string; label: string | null; verified: boolean; verifiedAt: Date | null; status: WalletClaimStatus; addedAt: Date }> {
   const normalizedAddress = input.address.toLowerCase();
+  const status = input.status ?? 'SELF_REPORTED';
+  const isVerifiedStatus = status === 'VERIFIED' || status === 'PRIMARY';
+  const now = isVerifiedStatus ? new Date() : undefined;
 
+  // Check for existing claim across all users
+  const existingClaim = await findClaimByAddress(normalizedAddress);
+
+  if (existingClaim && existingClaim.userProfileId !== profileId) {
+    // Another user has this address
+    if (isVerifiedStatus && existingClaim.status === 'SELF_REPORTED') {
+      // Takeover: verified/primary trumps self-reported
+      await prisma.$transaction([
+        prisma.portfolioAddress.delete({ where: { id: existingClaim.id } }),
+        prisma.portfolioAddress.create({
+          data: {
+            userProfileId: profileId,
+            address: normalizedAddress,
+            label: input.label ?? null,
+            verified: isVerifiedStatus,
+            verifiedAt: now ?? null,
+            status,
+          },
+        }),
+      ]);
+      // Fetch the newly created record
+      const created = await prisma.portfolioAddress.findFirst({
+        where: { userProfileId: profileId, address: normalizedAddress },
+      });
+      return {
+        id: created!.id,
+        address: created!.address,
+        label: created!.label,
+        verified: created!.verified,
+        verifiedAt: created!.verifiedAt,
+        status: created!.status,
+        addedAt: created!.addedAt,
+      };
+    }
+    // Can't take over — block the claim
+    throw new AddressAlreadyClaimedError(existingClaim.status);
+  }
+
+  // Same user or unclaimed — upsert
   const portfolioAddress = await prisma.portfolioAddress.upsert({
     where: {
       userProfileId_address: {
@@ -430,11 +511,15 @@ export async function addPortfolioAddress(
     },
     update: {
       label: input.label,
+      ...(isVerifiedStatus ? { verified: true, verifiedAt: now, status } : {}),
     },
     create: {
       userProfileId: profileId,
       address: normalizedAddress,
-      label: input.label,
+      label: input.label ?? null,
+      verified: isVerifiedStatus,
+      verifiedAt: now ?? null,
+      status,
     },
   });
 
@@ -442,8 +527,61 @@ export async function addPortfolioAddress(
     id: portfolioAddress.id,
     address: portfolioAddress.address,
     label: portfolioAddress.label,
+    verified: portfolioAddress.verified,
+    verifiedAt: portfolioAddress.verifiedAt,
+    status: portfolioAddress.status,
     addedAt: portfolioAddress.addedAt,
   };
+}
+
+/**
+ * Mark a portfolio address as verified (after signature check).
+ * Also handles takeover: if another user has a SELF_REPORTED claim on
+ * the same address, it gets revoked.
+ */
+export async function verifyPortfolioAddress(
+  profileId: string,
+  portfolioAddressId: string
+): Promise<{ id: string; address: string; verified: boolean; verifiedAt: Date | null; status: WalletClaimStatus } | null> {
+  // Get the address being verified
+  const record = await prisma.portfolioAddress.findFirst({
+    where: { id: portfolioAddressId, userProfileId: profileId },
+  });
+  if (!record) return null;
+
+  // Check for cross-user SELF_REPORTED claims to revoke
+  const otherClaim = await prisma.portfolioAddress.findFirst({
+    where: {
+      address: record.address,
+      userProfileId: { not: profileId },
+      status: 'SELF_REPORTED',
+    },
+  });
+
+  const now = new Date();
+
+  if (otherClaim) {
+    // Takeover: delete other user's claim, then mark ours verified
+    await prisma.$transaction([
+      prisma.portfolioAddress.delete({ where: { id: otherClaim.id } }),
+      prisma.portfolioAddress.updateMany({
+        where: { id: portfolioAddressId, userProfileId: profileId },
+        data: { verified: true, verifiedAt: now, status: 'VERIFIED' },
+      }),
+    ]);
+  } else {
+    await prisma.portfolioAddress.updateMany({
+      where: { id: portfolioAddressId, userProfileId: profileId },
+      data: { verified: true, verifiedAt: now, status: 'VERIFIED' },
+    });
+  }
+
+  const updated = await prisma.portfolioAddress.findUnique({
+    where: { id: portfolioAddressId },
+  });
+  return updated
+    ? { id: updated.id, address: updated.address, verified: updated.verified, verifiedAt: updated.verifiedAt, status: updated.status }
+    : null;
 }
 
 /**
