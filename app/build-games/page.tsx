@@ -842,10 +842,6 @@ export default function BuildGamesPage() {
                 a sovereign base&#8209;layer L1 with its own novel consensus mechanism &mdash; helped
                 establish <strong className="text-[var(--gs-white)] font-medium">AutoID</strong> to enable trusted, fully
                 on&#8209;chain autonomous agents. Autonomys DSN is currently used by GUNZscope for attestation metadata.
-                With a strong background in DeFi and RWA, in Q2 of 2026 I am launching the world&rsquo;s first
-                fully regulated and compliant RIA on Plume
-                with <strong className="text-[var(--gs-white)] font-medium">Anchorage</strong> and <strong className="text-[var(--gs-white)] font-medium">OpenTrade</strong> &mdash;
-                RWA is the first tokenized HFT strategy in existence available to retail investors.
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 I&rsquo;m also an OTG player &mdash; <strong className="text-[var(--gs-white)] font-medium">3,300+ matches,
