@@ -638,8 +638,8 @@ export default function BuildGamesPage() {
           <div className="grid md:grid-cols-3 gap-6 reveal">
             <div className="p-6 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
               <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Portfolio Attestations</div>
-              <div className="font-display text-3xl font-bold text-[var(--gs-lime)] mb-1">{attestation.totalAttestations}+</div>
-              <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Written to AVAX C&#8209;Chain</div>
+              <div className="font-display text-2xl font-bold text-[var(--gs-lime)] mb-1">Live on C&#8209;Chain</div>
+              <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Merkle root + CID per snapshot</div>
             </div>
             <div className="p-6 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
               <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Contract</div>
