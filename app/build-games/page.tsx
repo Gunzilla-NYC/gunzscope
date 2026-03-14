@@ -777,6 +777,7 @@ OpenSea:
           <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-4 reveal">
             <p className="text-sm font-light text-[var(--gs-gray-3)] max-w-[700px]">
               Not a roadmap promise &mdash; on&#8209;chain attestations are <strong className="text-[var(--gs-white)] font-medium">live today</strong>.
+              The enriched data from the pipeline above &mdash; cost basis, valuations, holdings &mdash; is what gets attested.
               Users connect a wallet, select which portfolio to attest, and GUNZscope writes a Merkle root to AVAX C&#8209;Chain
               with full metadata stored on Autonomys&rsquo; distributed storage network.
             </p>
@@ -988,6 +989,14 @@ OpenSea:
                   </span>
                 ))}
               </div>
+
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)] mt-4">
+                <strong className="text-[var(--gs-white)] font-medium">Distribution is built in, not bolted on.</strong>{' '}
+                Two years in the Gunzilla Discord as a top&#8209;8 contributor means the first users already know GUNZscope by name.
+                The Solana Gaming community &mdash; home to a large OTG clan &mdash; is supported natively via Phantom wallet through Dynamic Labs.
+                Early access is whitelist&#8209;controlled: the most engaged players get in first, provide direct feedback, and shape the product.
+                Every feature was built because a player asked for it. Growth follows trust, not marketing spend.
+              </p>
             </div>
 
             <div className="flex flex-col gap-3 md:min-w-[220px] md:mt-14">
