@@ -75,6 +75,13 @@ function extractIdentifier(payload: JWTPayload): string | null {
 // ---------------------------------------------------------------------------
 
 export async function middleware(request: NextRequest) {
+  // Overlay routes — pass through with a marker header for the root layout
+  if (request.nextUrl.pathname.startsWith('/overlay')) {
+    const response = NextResponse.next();
+    response.headers.set('x-overlay', '1');
+    return response;
+  }
+
   const isPageRoute = !request.nextUrl.pathname.startsWith('/api/');
 
   // -----------------------------------------------------------------------
@@ -168,6 +175,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // Overlay routes — marker header only, no auth
+    '/overlay/:path*',
+
     // Page routes (cookie-based whitelist check)
     '/portfolio',
     '/account',

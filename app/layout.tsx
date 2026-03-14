@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import dynamic from "next/dynamic";
+import { headers } from "next/headers";
 import { Chakra_Petch, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import AnalyticsDeferred from "@/components/AnalyticsDeferred";
@@ -81,11 +82,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const isOverlay = headersList.get('x-overlay') === '1';
+
+  if (isOverlay) {
+    return (
+      <html lang="en" className={`${chakraPetch.variable} ${outfit.variable} ${jetbrainsMono.variable}`}>
+        <body style={{ margin: 0, padding: 0, background: 'transparent', overflow: 'hidden' }}>
+          {children}
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang="en" className={`${chakraPetch.variable} ${outfit.variable} ${jetbrainsMono.variable}`}>
       <head>
