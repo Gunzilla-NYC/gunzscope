@@ -313,30 +313,52 @@ export default function BuildGamesPage() {
             {/* ── Body copy ── */}
             <div className="flex flex-col justify-center gap-5 reveal">
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                Blockchain gaming is a <strong className="text-[var(--gs-white)] font-medium">$21.6B market with 102 million players</strong> &mdash;
-                and not a single tool exists that gives players portfolio&#8209;level intelligence about what they own.
-                Existing analytics (DappRadar, Nansen, NFTGo, Zapper) operate at the marketplace and collection layer:
-                floor prices, whale tracking, trading volume. None of them understand game&#8209;specific context &mdash;
-                acquisition method, cost basis per item, weapon compatibility, rarity tier logic, or cross&#8209;marketplace
-                price discrepancies. There are <strong className="text-[var(--gs-white)] font-medium">47+ NFT analytics tools.
-                Zero are built for the player.</strong>
+                Blockchain gaming is a <strong className="text-[var(--gs-white)] font-medium">$21.6B market with 102 million players</strong>.
+                Three stacked problems block its growth &mdash; and each one requires the layer below it to solve.
               </p>
+
+              <div>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Gap 01 &middot; Data</div>
+                <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                  <strong className="text-[var(--gs-white)] font-medium">47+ NFT analytics tools. Zero built for the player.</strong>{' '}
+                  All operate at the marketplace layer: floor prices, whale tracking, trading volume. None understand game&#8209;specific
+                  context &mdash; acquisition cost, weapon compatibility, rarity tier logic, or cross&#8209;marketplace price discrepancies.{' '}
+                  <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> has{' '}
+                  <strong className="text-[var(--gs-white)] font-medium">14 million players</strong> across four platforms
+                  navigating decoupled markets, untrusted OTC trades, and Discord price checks.
+                  No single source of truth exists. GUNZscope transforms ~15 raw chain fields into{' '}
+                  <strong className="text-[var(--gs-lime)] font-medium">85 enriched fields per NFT</strong> from 5 data sources.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Gap 02 &middot; Identity</div>
+                <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                  Without the enriched data layer, there&rsquo;s nothing meaningful to put on&#8209;chain.
+                  Players have no verifiable record of what they own, what they paid, or what it&rsquo;s worth.
+                  GUNZscope&rsquo;s attestation system &mdash;{' '}
+                  <strong className="text-[var(--gs-white)] font-medium">live today on AVAX C&#8209;Chain</strong> &mdash;
+                  writes Merkle proofs with full metadata stored permanently on Autonomys DSN.
+                  The enriched portfolio becomes a <strong className="text-[var(--gs-white)] font-medium">portable, verifiable on&#8209;chain player identity</strong>.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Gap 03 &middot; Verification</div>
+                <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                  Without on&#8209;chain identity, competitive gaming has no trust layer.
+                  Tournaments can&rsquo;t verify participants, rankings can&rsquo;t be proven, smurf accounts can&rsquo;t be filtered.
+                  GUNZscope&rsquo;s <strong className="text-[var(--gs-white)] font-medium">soulbound identity token</strong> (ERC&#8209;721
+                  on C&#8209;Chain) and game&#8209;native verification make{' '}
+                  <strong className="text-[var(--gs-white)] font-medium">provable on&#8209;chain tournaments</strong> possible for the first time.
+                </p>
+              </div>
+
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> is one of the largest
-                blockchain&#8209;integrated games ever shipped. <strong className="text-[var(--gs-white)] font-medium">14 million
-                unique players</strong> across Xbox, PlayStation, Epic Games Store, and Steam. Items are acquired by
-                collecting HEXs in&#8209;game and decoding them to mint new items on&#8209;chain. Those items are then bought
-                and sold through various marketplaces. Due to completely decoupled markets, massive price gaps and a large,{' '}
-                <strong className="text-[var(--gs-white)] font-medium">completely untrusted OTC trading culture</strong> has
-                emerged &mdash; creating a highly inefficient, inaccurate, and unsafe market.{' '}
-                <strong className="text-[var(--gs-white)] font-medium">No single source of truth exists</strong> for these
-                players who have asked for a way to quantify and understand what they own. Instead they resort to untrusted
-                Discord price checks, unsafe solicitations, and personal spreadsheets that do not stay current.
-              </p>
-              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                <strong className="text-[var(--gs-white)] font-medium">GUNZscope solves for this gap.</strong>{' '}
                 This is a <strong className="text-[var(--gs-white)] font-medium">category&#8209;level absence</strong> &mdash;
-                true across all of blockchain gaming. OTG and GUNZscope Phase I is a sequenced strategic entry point, not the ceiling.
+                true across all of blockchain gaming. Each layer requires the one below it.
+                The data powers the identity. The identity powers verification.{' '}
+                <strong className="text-[var(--gs-white)] font-medium">No one else has built layer one.</strong>
               </p>
             </div>
 
