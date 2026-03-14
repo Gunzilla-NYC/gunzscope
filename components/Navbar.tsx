@@ -96,8 +96,12 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
             <nav className="hidden md:flex items-center gap-5 ml-6 shrink-0">
               {showNavLinks && (
                 <>
-                  {isAnonymous && <GlitchLink href="/" label="Home" isActive={false} />}
-                  <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
+                  {!isAnonymous && (
+                    <>
+                      <GlitchLink href="/" label="Home" isActive={false} />
+                      <GlitchLink href="/portfolio" label="Portfolio" isActive={pathname === '/portfolio'} />
+                    </>
+                  )}
                   <GlitchLink href={isAnonymous && activeAddress ? `/explore?address=${encodeURIComponent(activeAddress)}` : '/explore'} label="Onchain Explorer" isActive={pathname === '/explore'} />
                   {hasWallet && (
                     <ExperimentsDropdown pathname={pathname} leaderboardHref={leaderboardHref} />
@@ -177,16 +181,18 @@ export default function Navbar({ onSwitchWallet }: { onSwitchWallet?: (address: 
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
               {showNavLinks && (
                 <>
-                  <Link
-                    href="/portfolio"
-                    className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
-                      pathname === '/portfolio'
-                        ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
-                        : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
-                    }`}
-                  >
-                    Portfolio
-                  </Link>
+                  {!isAnonymous && (
+                    <Link
+                      href="/portfolio"
+                      className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
+                        pathname === '/portfolio'
+                          ? 'text-[var(--gs-lime)] bg-[var(--gs-lime)]/[0.05]'
+                          : 'text-[var(--gs-gray-3)] hover:text-[var(--gs-white)] hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      Portfolio
+                    </Link>
+                  )}
                   <Link
                     href={isAnonymous && activeAddress ? `/explore?address=${encodeURIComponent(activeAddress)}` : '/explore'}
                     className={`font-mono text-body-sm tracking-wider uppercase px-3 py-2.5 transition-colors ${
