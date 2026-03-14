@@ -209,7 +209,7 @@ export default function BuildGamesPage() {
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[#E84142]/30 bg-[#E84142]/5 clip-corner-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E84142] animate-pulse-dot" />
               <span className="font-mono text-data tracking-wider uppercase text-[#E84142]">
-                Avalanche Build Games 2026 MVP
+                Avalanche Build Games 2026
               </span>
             </div>
           </div>
@@ -418,64 +418,91 @@ export default function BuildGamesPage() {
                 Hybrid Architecture
               </div>
 
-              {/* ── LAYER 1: DATA SOURCES ── */}
-              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 1 &middot; Data Sources</div>
-              <div className="flex gap-3 mb-2">
-                <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
-                  <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-0.5">GunzChain</div>
-                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Avalanche L1</div>
-                  <div className="flex flex-wrap gap-1">
-                    {['NFTs', 'GUN', 'TXs'].map((op) => (
-                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
-                    ))}
+              {/* ── MVP WRAPPER: LAYERS 1+2 ── */}
+              <div className="relative border border-[var(--gs-lime)]/10 p-3 pb-2.5 mb-2">
+                <div className="absolute -top-2.5 right-3 font-mono text-[8px] tracking-wider uppercase text-[var(--gs-lime)] bg-[var(--gs-dark-2)] px-2">MVP &mdash; Live Today</div>
+
+                {/* Layer 1: Data Sources */}
+                <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 1 &middot; Data Sources</div>
+                <div className="flex gap-3 mb-1">
+                  <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
+                    <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-0.5">GunzChain</div>
+                    <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Avalanche L1</div>
+                    <div className="flex flex-wrap gap-1">
+                      {['NFTs', 'GUN', 'TXs'].map((op) => (
+                        <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
+                    <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[#9945FF] mb-0.5">Solana</div>
+                    <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Layer 1</div>
+                    <div className="flex flex-wrap gap-1">
+                      {['GUN', 'SPL'].map((op) => (
+                        <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
+                    <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-gray-4)] mb-0.5">Markets</div>
+                    <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">OpenSea &middot; OTG</div>
+                    <div className="flex flex-wrap gap-1">
+                      {['Sales', 'Listings', 'Floors'].map((op) => (
+                        <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
-                  <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[#9945FF] mb-0.5">Solana</div>
-                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Layer 1</div>
-                  <div className="flex flex-wrap gap-1">
-                    {['GUN', 'SPL'].map((op) => (
-                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
-                    ))}
-                  </div>
+                <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mb-2 ml-0.5">No tool consolidates these sources &mdash; players guess values across fragmented platforms</div>
+
+                {/* Down arrow */}
+                <div className="flex justify-center py-1">
+                  <div className="w-px h-4 bg-gradient-to-b from-[var(--gs-lime)]/40 to-[var(--gs-lime)]/20" />
                 </div>
-                <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
-                  <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-gray-4)] mb-0.5">Markets</div>
-                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">OpenSea &middot; OTG</div>
-                  <div className="flex flex-wrap gap-1">
-                    {['Sales', 'Listings', 'Floors'].map((op) => (
+
+                {/* Layer 2: Item Intelligence */}
+                <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 2 &middot; Item &amp; Portfolio Intelligence</div>
+                <div className="p-2.5 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]">
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <div className="font-display text-[11px] font-semibold uppercase tracking-wider text-[var(--gs-lime)]">Granular Per&#8209;Item Record</div>
+                    <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)]">Bound to player ID forever</div>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {['Acquisition Cost', 'Ownership History', 'Portfolio Value', 'P&L'].map((op) => (
                       <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
                     ))}
                   </div>
+                  <div className="flex flex-wrap gap-1">
+                    {['Usage History', 'Weapon Loadouts', 'Match Performance'].map((op) => (
+                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/5 text-[var(--gs-lime)]/50 border border-[var(--gs-lime)]/10 border-dashed">{op}</span>
+                    ))}
+                  </div>
+                  <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-1.5">Cross&#8209;marketplace resolution &middot; What you held, what you paid, how you used it</div>
                 </div>
               </div>
 
-              {/* Down arrow */}
-              <div className="flex justify-center py-1">
-                <div className="w-px h-4 bg-gradient-to-b from-[var(--gs-lime)]/40 to-[var(--gs-purple)]/40" />
+              {/* Flow arrow: intelligence feeds identity */}
+              <div className="flex items-center py-1">
+                <div className="flex-1 h-px bg-gradient-to-r from-[var(--gs-lime)]/30 via-[var(--gs-purple)]/40 to-[var(--gs-purple)]/30 relative">
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] bg-[var(--gs-dark-2)] px-2 whitespace-nowrap">
+                    Items &#8594; Identity &#8594; Attestation
+                  </span>
+                </div>
               </div>
 
-              {/* ── LAYER 2: GUNZSCOPE INTELLIGENCE ── */}
-              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 2 &middot; Intelligence</div>
-              <div className="flex gap-3 mb-2">
-                <div className="flex-1 p-2.5 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]">
-                  <div className="font-display text-[11px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-1.5">Data Intelligence</div>
-                  <div className="flex flex-wrap gap-1">
-                    {['Acquisition Costs', 'Portfolio Value', 'P&L'].map((op) => (
-                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
-                    ))}
-                  </div>
-                  <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-1.5">Cross&#8209;marketplace item resolution</div>
+              {/* ── LAYER 3: PLAYER IDENTITY ── */}
+              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5 mt-1">Layer 3 &middot; Player Identity</div>
+              <div className="p-2.5 border border-[var(--gs-purple)]/15 bg-[var(--gs-purple)]/[0.03] mb-2">
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <div className="font-display text-[11px] font-semibold uppercase tracking-wider text-[var(--gs-purple-bright)]">On&#8209;Chain Player Record</div>
+                  <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)]">Verifiable &middot; Portable</div>
                 </div>
-                <div className="flex-1 p-2.5 border border-[var(--gs-purple)]/15 bg-[var(--gs-purple)]/[0.03]">
-                  <div className="font-display text-[11px] font-semibold uppercase tracking-wider text-[var(--gs-purple-bright)] mb-1.5">Player Identity</div>
-                  <div className="flex flex-wrap gap-1">
-                    {['Handles', 'Wallet Registry', 'Attestations'].map((op) => (
-                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-purple)]/10 text-[var(--gs-purple)] border border-[var(--gs-purple)]/20">{op}</span>
-                    ))}
-                  </div>
-                  <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-1.5">Provable on&#8209;chain player records</div>
+                <div className="flex flex-wrap gap-1">
+                  {['Handle', 'Multi-Wallet Registry', 'Holdings Proof', 'Valuations'].map((op) => (
+                    <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-purple)]/10 text-[var(--gs-purple)] border border-[var(--gs-purple)]/20">{op}</span>
+                  ))}
                 </div>
+                <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-1.5">One player, many wallets across platforms &mdash; consolidated and verified into a single on&#8209;chain identity</div>
               </div>
 
               {/* Down arrow */}
@@ -483,8 +510,8 @@ export default function BuildGamesPage() {
                 <div className="w-px h-4 bg-gradient-to-b from-[var(--gs-purple)]/40 to-[#E84142]/40" />
               </div>
 
-              {/* ── LAYER 3: FOUNDATION (WRITE) ── */}
-              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 3 &middot; Foundation</div>
+              {/* ── LAYER 4: FOUNDATION (WRITE) ── */}
+              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 4 &middot; Permanent Storage</div>
               <div className="flex gap-3 mb-2">
                 <div className="flex-1 p-2.5 border border-[#E84142]/20 bg-[var(--gs-dark-3)]">
                   <div className="flex items-baseline justify-between mb-0.5">
@@ -515,8 +542,68 @@ export default function BuildGamesPage() {
               {/* Foundation bar */}
               <div className="mt-3 p-2 border border-white/[0.08] bg-white/[0.02] text-center">
                 <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)]">
-                  Unique dataset &middot; Data moat &middot; Acquisition layer
+                  Unique dataset &middot; Data moat &middot; Establishes foundation for utility flywheel
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── PROPRIETARY IP ─── */}
+      <section className="relative z-10 py-24 border-t border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <SectionHeader num="03" title="Proprietary Intelligence" />
+
+          <div className="grid md:grid-cols-2 gap-10 md:gap-16">
+            <div className="flex flex-col justify-center gap-5 reveal">
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                The real moat isn&rsquo;t the tech stack &mdash; it&rsquo;s the <strong className="text-[var(--gs-white)] font-medium">accumulated
+                intelligence</strong> that no one else has built. Anyone can read a blockchain. No one else has built the enrichment
+                pipeline that turns raw on&#8209;chain events into per&#8209;item cost basis with cross&#8209;marketplace validation
+                and provable portfolio value.
+              </p>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                Every wallet that connects adds data that makes the system more valuable. The dataset <strong className="text-[var(--gs-white)] font-medium">compounds</strong> &mdash;
+                and once attested on&#8209;chain with permanent storage, it becomes an asset that belongs to the player
+                and the platform simultaneously.
+              </p>
+            </div>
+
+            <div className="space-y-3 reveal">
+              {/* Proprietary pipeline */}
+              <div className="p-4 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">Acquisition Cost Resolution</div>
+                <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
+                  Traces each item through HEX loot box decodes, Seaport v1.5/v1.6 marketplace events, OTG direct purchases,
+                  and transfers to determine exact cost in GUN. Handles batch price splitting, ABI version fallbacks,
+                  and edge cases no generic tool accounts for.
+                </p>
+              </div>
+
+              <div className="p-4 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">6&#8209;Tier Valuation Waterfall</div>
+                <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
+                  Proprietary pricing model: exact item sale &#8594; variant &#8594; skin &#8594; weapon type &#8594; similar items &#8594; collection floor.
+                  Each tier with distinct confidence indicators. Dual&#8209;track P&L (Purchase Power + Market Exit) because
+                  thin markets require both lenses.
+                </p>
+              </div>
+
+              <div className="p-4 border border-[var(--gs-purple)]/15 bg-[var(--gs-purple)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-purple-bright)] mb-2">Cross&#8209;Marketplace Item Resolution</div>
+                <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
+                  Reconciles the same item across OpenSea, OTG Marketplace, and direct on&#8209;chain transfers into
+                  a single enriched record. Resolves exact mint&#8209;item data that not even Gunzilla provides.
+                </p>
+              </div>
+
+              <div className="p-4 border border-[var(--gs-purple)]/15 bg-[var(--gs-purple)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-purple-bright)] mb-2">Weapon Compatibility Intelligence</div>
+                <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
+                  Extracts model codes from asset metadata to determine weapon lab eligibility, related items,
+                  and loadout compatibility &mdash; turning raw NFT data into actionable game intelligence.
+                </p>
               </div>
             </div>
           </div>
@@ -526,7 +613,7 @@ export default function BuildGamesPage() {
       {/* ─── FEATURES ─── */}
       <section id="features" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="03" title="Core Features" />
+          <SectionHeader num="04" title="Core Features" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.04] border border-white/[0.06] reveal">
             {FEATURES.map((f) => (
@@ -552,7 +639,7 @@ export default function BuildGamesPage() {
       {/* ─── ON-CHAIN PROOF ─── */}
       <section className="relative z-10 py-24 border-t border-white/[0.06] bg-[var(--gs-dark-1)]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="04" title="On-Chain Proof" />
+          <SectionHeader num="05" title="On-Chain Proof" />
 
           <div className="grid md:grid-cols-3 gap-6 reveal">
             <div className="p-6 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
@@ -600,7 +687,7 @@ export default function BuildGamesPage() {
       {/* ─── VALUATION WATERFALL ─── */}
       <section id="valuation" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="05" title="Valuation Waterfall" />
+          <SectionHeader num="06" title="Valuation Waterfall" />
 
           <div className="grid md:grid-cols-2 gap-10 md:gap-16">
             <div className="flex flex-col justify-center gap-5 reveal">
@@ -617,6 +704,13 @@ export default function BuildGamesPage() {
                 The dual&#8209;track P&L system then applies two independent lenses:{' '}
                 <strong className="text-[var(--gs-white)] font-medium">GUN appreciation</strong> and{' '}
                 <strong className="text-[var(--gs-white)] font-medium">market reference</strong>.
+              </p>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                The result is a <strong className="text-[var(--gs-white)] font-medium">dynamic, failproof</strong> way
+                to value every item in a player&rsquo;s portfolio &mdash; enhancing decision&#8209;making whether
+                they&rsquo;re holding, trading, or building a loadout. It also sets the stage
+                for <strong className="text-[var(--gs-white)] font-medium">proprietary AI&#8209;driven assistance</strong> in the future,
+                powered by a dataset no one else has.
               </p>
             </div>
 
@@ -649,7 +743,7 @@ export default function BuildGamesPage() {
       {/* ─── DASHBOARD PREVIEW ─── */}
       <section id="preview" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="06" title="Dashboard Preview" />
+          <SectionHeader num="07" title="Dashboard Preview" />
 
           <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden reveal">
             {/* Browser toolbar */}
@@ -735,7 +829,7 @@ export default function BuildGamesPage() {
       {/* ─── BUILT BY ─── */}
       <section id="builder" className="relative z-10 py-24 border-t border-white/[0.06] bg-[var(--gs-dark-1)]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="07" title="Built By" />
+          <SectionHeader num="08" title="Built By" />
 
           <div className="grid md:grid-cols-[1fr_auto] gap-10 md:gap-16 reveal">
             <div className="flex flex-col gap-5">
@@ -745,10 +839,22 @@ export default function BuildGamesPage() {
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 <strong className="text-[var(--gs-white)] font-medium">13 years in product</strong>. Co&#8209;founded
                 Amazon&rsquo;s Blockchain Group, worked on foundational models for Alexa AI, ML for the Department of Defense,
-                and launched multiple crypto and blockchain products. Most recently, led Product through two testnets and
-                mainnet + TGE at <strong className="text-[var(--gs-white)] font-medium">Autonomys</strong>, a sovereign
-                base&#8209;layer L1 built from the ground up with its own novel consensus mechanism &mdash;
-                Autonomys Decentralized Storage Network is currently used by GUNZscope for attestation metadata.
+                and launched multiple crypto and blockchain products.
+                At <strong className="text-[var(--gs-white)] font-medium">Kresus</strong>, launched InstaWallet technology
+                with Sotheby&rsquo;s and built the Kresus MPC wallet with advanced biometric security.
+                At <strong className="text-[var(--gs-white)] font-medium">Blockchains</strong>, worked on
+                blockchain&#8209;based identity consolidating PII into a single wallet, and led the development
+                of a Unity&#8209;driven 3D gaming environment to onboard Web2 users into Web3.
+              </p>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                Led Product through two testnets and mainnet + TGE at <strong className="text-[var(--gs-white)] font-medium">Autonomys</strong>,
+                a sovereign base&#8209;layer L1 with its own novel consensus mechanism &mdash; helped
+                establish <strong className="text-[var(--gs-white)] font-medium">AutoID</strong> to enable trusted, fully
+                on&#8209;chain autonomous agents. Autonomys DSN is currently used by GUNZscope for attestation metadata.
+                With a strong background in DeFi and RWA, in Q2 of 2026 I am launching the world&rsquo;s first
+                fully regulated and compliant RIA on Plume
+                with <strong className="text-[var(--gs-white)] font-medium">Anchorage</strong> and <strong className="text-[var(--gs-white)] font-medium">OpenTrade</strong> &mdash;
+                RWA is the first tokenized HFT strategy in existence available to retail investors.
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 I&rsquo;m also an OTG player &mdash; <strong className="text-[var(--gs-white)] font-medium">3,300+ matches,
@@ -763,7 +869,10 @@ export default function BuildGamesPage() {
                 {[
                   'Amazon Blockchain Group',
                   'Alexa AI / DoD ML',
-                  'Autonomys (L1 · mainnet + TGE)',
+                  'Kresus (MPC Wallet · Sotheby\u2019s)',
+                  'Blockchains (Identity · Gaming)',
+                  'Autonomys (L1 · AutoID · TGE)',
+                  'Plume RWA (Anchorage + OpenTrade)',
                   '3,300+ OTG Matches',
                   '650+ Hours Played',
                   'Top 8 Discord Contributor',
@@ -780,7 +889,7 @@ export default function BuildGamesPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 md:min-w-[220px]">
+            <div className="flex flex-col gap-3 md:min-w-[220px] md:mt-14">
               <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
                 <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Experience</div>
                 <div className="font-display text-2xl font-bold text-[var(--gs-white)]">13 years</div>
@@ -792,7 +901,7 @@ export default function BuildGamesPage() {
                 <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Discord engagement</div>
               </div>
               <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">Build Time</div>
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">GUNZscope Build Time</div>
                 <div className="font-display text-2xl font-bold text-[var(--gs-purple-bright)]">51 days</div>
                 <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Jan 22 &rarr; Mar 13, 2026</div>
               </div>
