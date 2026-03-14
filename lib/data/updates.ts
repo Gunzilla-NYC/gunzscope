@@ -20,10 +20,10 @@ export const UPDATES: UpdateEntry[] = [
     tag: 'current',
     title: 'The one where your favorites learn to materialize',
     items: [
-      'Pinned favorites now remember which wallet they came from. Before this, if you favorited an NFT from your Cryptohaki wallet and then switched to your primary, the card would just\u2026 appear. No context. No indication it lived in a completely different wallet. Now it shows "FROM CRYPTOHAKI" under the card \u2014 and if you hover the label, you get the actual hex address. If the wallet hasn\u2019t loaded yet, it says "FROM OTHER WALLET" instead of pretending the NFT materialized from thin air.',
-      'Speaking of materializing: the favorites section now decodes into existence like it\u2019s being extracted from the Matrix. A green scanline sweeps across, digital rain columns fall, the label scrambles through random characters before resolving, and each card assembles itself from a compressed, blown\u2011out fragment into a solid image. It\u2019s entirely unnecessary and we regret nothing.',
-      'The wallet search box was basically invisible. Same background color as everything around it with a transparent border \u2014 the input equivalent of camouflage. It now has a visible outline so you can actually tell there\u2019s a text field there without squinting or accidentally clicking it.',
-      'Fixed a React warning where unfavoriting an NFT would cause WalletDropdown to update during FavoriteButton\u2019s render cycle. The kind of bug that works perfectly fine until React decides to yell at you about it in the console. Deferred the cross\u2011component sync by one microtask.',
+      'Pinned favorites now show which wallet they came from. "FROM CRYPTOHAKI" beats staring at a card wondering where it lives. Hover the label for the hex address.',
+      'The favorites section now decodes into existence like it\u2019s being extracted from the Matrix. Scanline, digital rain, character scramble. Entirely unnecessary. Zero regrets.',
+      'The wallet search box has a visible border now. It was camouflaged against its own background. You can find it without squinting.',
+      'Fixed a React state sync bug when unfavoriting NFTs. The kind that works fine but makes the console angry.',
     ],
   },
   {
