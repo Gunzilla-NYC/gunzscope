@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     default: 'GUNZscope - GUN Token & NFT Portfolio Tracker',
     template: '%s | GUNZscope',
   },
-  description: 'Track your GUN tokens and NFTs across GunzChain and Solana. Real-time blockchain portfolio tracking for the GUNZILLA gaming ecosystem.',
+  description: 'Track your GUN tokens and NFTs on GunzChain (Avalanche L1). Real-time blockchain portfolio tracking for the GUNZILLA gaming ecosystem.',
   metadataBase: new URL('https://gunzscope.xyz'),
   icons: {
     icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
@@ -67,13 +67,13 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'GUNZscope',
     title: 'GUNZscope - GUN Token & NFT Portfolio Tracker',
-    description: 'Track your GUN tokens and NFTs across GunzChain and Solana. Real-time portfolio tracking for Off The Grid.',
+    description: 'Track your GUN tokens and NFTs on GunzChain (Avalanche L1). Real-time portfolio tracking for Off The Grid.',
     url: 'https://gunzscope.xyz',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'GUNZscope - GUN Token & NFT Portfolio Tracker',
-    description: 'Track your GUN tokens and NFTs across GunzChain and Solana.',
+    description: 'Track your GUN tokens and NFTs on GunzChain (Avalanche L1).',
   },
   robots: {
     index: true,
@@ -97,7 +97,7 @@ export default function RootLayout({
               '@type': 'WebApplication',
               name: 'GUNZscope',
               url: 'https://gunzscope.xyz',
-              description: 'Multi-chain portfolio tracker for GUN tokens and NFTs across GunzChain and Solana.',
+              description: 'Portfolio tracker for GUN tokens and NFTs on GunzChain (Avalanche L1).',
               applicationCategory: 'FinanceApplication',
               operatingSystem: 'Web',
               offers: {
