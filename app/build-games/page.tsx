@@ -889,8 +889,8 @@ export default function BuildGamesPage() {
               </div>
               <div className="p-4 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
                 <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1">GUNZscope Build Time</div>
-                <div className="font-display text-2xl font-bold text-[var(--gs-purple-bright)]">51 days</div>
-                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Jan 22 &rarr; Mar 13, 2026</div>
+                <div className="font-display text-2xl font-bold text-[var(--gs-purple-bright)]">52 days</div>
+                <div className="font-mono text-[10px] text-[var(--gs-gray-4)]">Jan 22 &rarr; Mar 14, 2026</div>
               </div>
             </div>
           </div>
