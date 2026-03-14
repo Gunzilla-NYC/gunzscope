@@ -393,12 +393,6 @@ export default function BuildGamesPage() {
                 while writing platform&#8209;native data to <em className="text-[var(--gs-lime)] not-italic font-medium">AVAX C&#8209;Chain</em> and <em className="text-[var(--gs-lime)] not-italic font-medium">Autonomys DSN</em>.
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                The data layer solves a problem no one else has touched. GUNZscope resolves <strong className="text-[var(--gs-white)] font-medium">exact
-                mint&#8209;item acquisition costs</strong> across every marketplace &mdash; data that not even Gunzilla
-                provides &mdash; and computes <strong className="text-[var(--gs-white)] font-medium">aggregate portfolio
-                value</strong> for gaming NFTs. This dataset doesn&rsquo;t exist anywhere else in the ecosystem.
-              </p>
-              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 Attestations write a Merkle proof to C&#8209;Chain with full metadata stored permanently
                 on <em className="text-[var(--gs-white)] not-italic font-medium">Autonomys DSN</em> &mdash;
                 creating an <strong className="text-[var(--gs-white)] font-medium">on&#8209;chain player record</strong> that
