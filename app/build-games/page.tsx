@@ -902,7 +902,7 @@ export default function BuildGamesPage() {
         <div className="max-w-[700px] mx-auto px-6 reveal">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 mb-6 border border-[#E84142]/30 bg-[#E84142]/5 clip-corner-sm">
             <span className="font-mono text-data tracking-wider uppercase text-[#E84142]">
-              &#9670; Avalanche Build Games 2026 MVP
+              &#9670; Avalanche Build Games 2026
             </span>
           </div>
 
