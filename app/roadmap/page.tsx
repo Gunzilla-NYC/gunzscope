@@ -166,7 +166,7 @@ export default function RoadmapPage() {
                   ['Native Currency', 'GUN (not ERC\u201120)', 'Use eth_getBalance for GUN balance, not token contract calls'],
                   ['NFT Standard', 'ERC\u2011721', 'Standard ownerOf, tokenURI, balanceOf queries work'],
                   ['Explorer', 'gunzscan.io (Blockscout)', 'Blockscout v2 API available at gunzscan.io/api/v2/*'],
-                  ['Bridge', 'AVAX C\u2011Chain + Solana', 'Cross\u2011chain portfolio tracking requires monitoring bridge contracts'],
+                  ['Bridge', 'AVAX C\u2011Chain', 'GUN tokens bridge between GunzChain and C\u2011Chain; GUNZscope reads GunzChain side'],
                   ['Scale', '14M+ wallets, 440M+ txns', 'Mature chain with substantial on\u2011chain history to index'],
                   ['RPC Endpoint', 'rpc.gunzchain.io/ext/bc/2M47T\u2026/rpc', 'Public node available \u2014 may need IP whitelisting for production'],
                 ] as [string, string | [string, string], string][]).map(([prop, detail, impl]) => {
@@ -491,7 +491,7 @@ export default function RoadmapPage() {
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <ArchNode variant="gunz" dim>Native GunzChain Deployment (Partnership)</ArchNode>
-                  <ArchNode variant="external" dim>Solana (SPL NFTs)</ArchNode>
+                  <ArchNode variant="external" dim>Multi\u2011Game Support</ArchNode>
                 </div>
               </div>
             </div>
