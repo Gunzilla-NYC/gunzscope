@@ -307,7 +307,7 @@ export default function BuildGamesPage() {
       {/* ─── THE MARKET ─── */}
       <section className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="01" title="The Market" />
+          <SectionHeader num="01" title="The Gap" />
 
           <div className="grid md:grid-cols-2 gap-10 md:gap-16">
             {/* ── Body copy ── */}
