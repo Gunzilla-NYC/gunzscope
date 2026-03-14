@@ -754,8 +754,9 @@ export default function BuildGamesPage() {
                 I&rsquo;m also an OTG player &mdash; <strong className="text-[var(--gs-white)] font-medium">3,300+ matches,
                 650+ hours</strong>, top 8 contributor in the Gunzilla Discord. I&rsquo;ve spent two years deep in this
                 community &mdash; playing the game, studying gamer behavior, and conducting user research.
-                Every feature in GUNZscope is <strong className="text-[var(--gs-white)] font-medium">evidence&#8209;based</strong>,
-                built from real pain points observed firsthand. GUNZscope exists because of that.
+                Every feature in GUNZscope is <strong className="text-[var(--gs-white)] font-medium">evidence&#8209;based</strong> &mdash;
+                built as solutions to real pain points observed qualitatively and validated quantitatively.
+                GUNZscope exists because of my journey and support from the community.
               </p>
 
               <div className="flex flex-wrap gap-2 mt-2">
@@ -817,8 +818,9 @@ export default function BuildGamesPage() {
 
           <p className="text-base font-light text-[var(--gs-gray-4)] leading-relaxed mb-8">
             GUNZscope demonstrates the <strong className="text-[var(--gs-white)] font-medium">Avalanche multi&#8209;chain thesis</strong> &mdash;
-            reading game state from GunzChain (an Avalanche L1) and writing platform data to C&#8209;Chain.
-            Not a workaround for permissioned constraints. A <strong className="text-[var(--gs-white)] font-medium">feature</strong>.
+            reading game state from GunzChain (an Avalanche L1), writing proofs to C&#8209;Chain, and storing
+            complete player records permanently on <strong className="text-[var(--gs-white)] font-medium">Autonomys DSN</strong>.
+            A unique data layer that doesn&rsquo;t exist anywhere else in gaming.
           </p>
 
           <div className="flex justify-center gap-4 flex-wrap">
