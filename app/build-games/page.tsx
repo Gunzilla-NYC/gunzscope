@@ -383,16 +383,14 @@ export default function BuildGamesPage() {
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <SectionHeader num="02" title="Multi-Chain Architecture" />
 
-          <div className="grid md:grid-cols-2 gap-10 md:gap-16">
-            {/* Narrative */}
-            <div className="flex flex-col justify-center gap-5 reveal">
+          <div className="flex flex-col gap-10">
+            {/* Narrative — full width, brief setup */}
+            <div className="max-w-[700px] flex flex-col gap-5 reveal">
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 GUNZscope operates a <strong className="text-[var(--gs-white)] font-medium">hybrid multi&#8209;chain architecture</strong> &mdash;
                 reading game state from <em className="text-[var(--gs-lime)] not-italic font-medium">GunzChain</em> (an Avalanche L1)
                 and <em className="text-[var(--gs-lime)] not-italic font-medium">Solana</em>,
                 while writing platform&#8209;native data to <em className="text-[var(--gs-lime)] not-italic font-medium">AVAX C&#8209;Chain</em> and <em className="text-[var(--gs-lime)] not-italic font-medium">Autonomys DSN</em>.
-              </p>
-              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 Attestations write a Merkle proof to C&#8209;Chain with full metadata stored permanently
                 on <em className="text-[var(--gs-white)] not-italic font-medium">Autonomys DSN</em> &mdash;
                 creating an <strong className="text-[var(--gs-white)] font-medium">on&#8209;chain player record</strong> that
@@ -404,8 +402,8 @@ export default function BuildGamesPage() {
               </p>
             </div>
 
-            {/* Diagram */}
-            <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-6 relative overflow-hidden reveal">
+            {/* Diagram — full width, room to breathe */}
+            <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] p-6 md:p-8 relative overflow-hidden reveal">
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-[#E84142] via-[var(--gs-purple)] to-transparent opacity-50" />
               <div className="font-mono text-[10px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-5 flex items-center gap-2">
                 <span className="w-2 h-px bg-[#E84142]" />
