@@ -215,19 +215,7 @@ export default function HomePage() {
     startOnMount: false
   });
 
-  // Social proof count-ups
-  const walletsCountUp = useCountUp({
-    end: siteStats?.walletsTracked ?? 0,
-    duration: 1500,
-    decimals: 0,
-    startOnMount: false
-  });
-  const socialNftsCountUp = useCountUp({
-    end: siteStats?.nftsTracked ?? 0,
-    duration: 1500,
-    decimals: 0,
-    startOnMount: false
-  });
+  // Social proof visibility (no count-ups needed — all stats are hardcoded capability metrics)
 
   const handleWalletAddressChange = (value: string) => {
     setWalletAddress(value);
@@ -380,15 +368,12 @@ export default function HomePage() {
   const socialProofRef = useRef<HTMLDivElement>(null);
   const [socialProofVisible, setSocialProofVisible] = useState(false);
 
-  // Observe social proof section for count-up trigger
+  // Observe social proof section for reveal animation
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry], obs) => {
         if (entry.isIntersecting && !socialProofVisible) {
           setSocialProofVisible(true);
-          // Stagger the social proof animations
-          walletsCountUp.startAnimation();
-          setTimeout(() => socialNftsCountUp.startAnimation(), 100);
           obs.unobserve(entry.target);
         }
       },
@@ -400,7 +385,7 @@ export default function HomePage() {
     }
 
     return () => observer.disconnect();
-  }, [socialProofVisible, walletsCountUp, socialNftsCountUp]);
+  }, [socialProofVisible]);
 
   // Deferred auth flow — opened after modal exit animation completes.
   // Uses both AnimatePresence.onExitComplete AND a useEffect fallback
@@ -775,9 +760,9 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div ref={socialProofRef} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: socialProofVisible && siteStats?.walletsTracked != null ? walletsCountUp.displayValue : (siteStats?.walletsTracked ?? '—'), label: 'Wallets Connected', color: 'text-[var(--gs-lime)]' },
-              { value: '50+', label: 'Collections Indexed', color: 'text-[var(--gs-purple-bright)]' },
-              { value: '12', label: 'Data Points per NFT', color: 'text-[var(--gs-white)]' },
+              { value: '15M+', label: 'Blocks Scanned', color: 'text-[var(--gs-lime)]' },
+              { value: '6', label: 'Valuation Tiers', color: 'text-[var(--gs-purple-bright)]' },
+              { value: '35+', label: 'Data Points per NFT', color: 'text-[var(--gs-white)]' },
               { value: '3', label: 'Pricing Sources', color: 'text-[var(--gs-profit)]' },
             ].map((stat, i) => (
               <motion.div
