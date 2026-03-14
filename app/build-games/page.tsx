@@ -547,8 +547,9 @@ export default function BuildGamesPage() {
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <SectionHeader num="03" title="Proprietary Intelligence" />
 
-          <div className="grid md:grid-cols-2 gap-10 md:gap-16">
-            <div className="flex flex-col justify-center gap-5 reveal">
+          <div className="flex flex-col gap-10">
+            {/* Prose — full width */}
+            <div className="max-w-[700px] flex flex-col gap-5 reveal">
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 The real moat isn&rsquo;t the tech stack &mdash; it&rsquo;s the <strong className="text-[var(--gs-white)] font-medium">accumulated
                 intelligence</strong> that no one else has built. Anyone can read a blockchain. No one else has built the enrichment
@@ -562,8 +563,8 @@ export default function BuildGamesPage() {
               </p>
             </div>
 
-            <div className="space-y-3 reveal">
-              {/* Proprietary pipeline */}
+            {/* Intelligence cards — 2x2 grid */}
+            <div className="grid md:grid-cols-2 gap-3 reveal">
               <div className="p-4 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
                 <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">Acquisition Cost Resolution</div>
                 <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
