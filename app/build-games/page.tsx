@@ -281,12 +281,12 @@ export default function BuildGamesPage() {
               <span className="font-display text-3xl font-bold text-[var(--gs-white)]">{site.nftsTracked.toLocaleString()}</span>
             </div>
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06]">
-              <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Blocks Scanned</span>
-              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">15M+</span>
+              <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Wallets Tracked</span>
+              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">{site.walletsTracked.toLocaleString()}</span>
             </div>
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
-              <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Tracking</span>
-              <span className="font-display text-3xl font-bold text-[var(--gs-profit)]">24/7</span>
+              <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-purple-bright)] block mb-1">C&#8209;Chain Attestations</span>
+              <span className="font-display text-3xl font-bold text-[var(--gs-purple-bright)]">{attestation.totalAttestations}+</span>
             </div>
           </div>
         </div>
