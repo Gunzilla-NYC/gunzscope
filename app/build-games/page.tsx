@@ -486,10 +486,11 @@ OpenSea:
               </p>
             </div>
             <div className="p-4 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
-              <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">Know What Fits</div>
+              <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">Prove Who You Are</div>
               <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
-                Weapon, skin, and attachment compatibility detected via internal model codes.
-                Your wallet tells you which skins fit which weapons &mdash; no guessing, no wasted purchases.
+                Your portfolio data becomes a verifiable on&#8209;chain identity. Acquisition history, holdings,
+                and valuations attested to C&#8209;Chain with permanent records on Autonomys DSN.
+                Not a profile you fill out. A reputation the chain can verify.
               </p>
             </div>
           </div>
