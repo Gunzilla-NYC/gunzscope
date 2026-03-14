@@ -20,7 +20,7 @@ export const UPDATES: UpdateEntry[] = [
     tag: 'current',
     title: 'The one where your favorites learn to materialize',
     items: [
-      'Pinned favorites now show which wallet they came from. "FROM CRYPTOHAKI" beats staring at a card wondering where it lives. Hover the label for the hex address.',
+      'Pinned favorites now show which wallet they came from. If you named your wallets, you\u2019ll see that name under the card. Hover it for the full address.',
       'The favorites section now decodes into existence like it\u2019s being extracted from the Matrix. Scanline, digital rain, character scramble. Entirely unnecessary. Zero regrets.',
       'The wallet search box has a visible border now. It was camouflaged against its own background. You can find it without squinting.',
       'Fixed a React state sync bug when unfavoriting NFTs. The kind that works fine but makes the console angry.',
