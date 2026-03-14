@@ -112,7 +112,7 @@ const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 
   {
     icon: 'chain',
     title: 'Cross\u2011Chain',
-    desc: 'Unified view of your NFT holdings across GunzChain (Avalanche L1) and Solana. One wallet, one dashboard, complete visibility.',
+    desc: 'Unified view of your NFT holdings across GunzChain (Avalanche L1). 300+ wallets supported including Phantom. One dashboard, complete visibility.',
   },
   {
     icon: 'intel',
