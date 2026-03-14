@@ -490,7 +490,7 @@ OpenSea:
               <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
                 Your portfolio data becomes a verifiable on&#8209;chain identity. Acquisition history, holdings,
                 and valuations attested to C&#8209;Chain with permanent records on Autonomys DSN.
-                Not a profile you fill out. A reputation the chain can verify.
+                Not a profile you fill out. A reputation the chain can verify and expand upon. This is the foundation for new types of on&#8209;chain utility.
               </p>
             </div>
           </div>
