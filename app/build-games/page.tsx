@@ -469,6 +469,31 @@ OpenSea:
             </div>
           </div>
 
+          {/* Outcome cards */}
+          <div className="grid md:grid-cols-3 gap-3 mt-8 reveal">
+            <div className="p-4 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+              <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">Know What You Paid</div>
+              <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
+                Acquisition cost and venue for every NFT. HEX decode, marketplace purchase, or gift &mdash;
+                resolved automatically with historical USD cost at time of purchase. No spreadsheets.
+              </p>
+            </div>
+            <div className="p-4 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+              <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">Know What It&rsquo;s Worth</div>
+              <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
+                6&#8209;tier valuation waterfall, not just floor price. An Epic Vulture valued at ~892 GUN,
+                not the 45 GUN Common floor. Each estimate carries a confidence tier.
+              </p>
+            </div>
+            <div className="p-4 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+              <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-2">Know What Fits</div>
+              <p className="text-[11px] leading-relaxed text-[var(--gs-gray-4)]">
+                Weapon, skin, and attachment compatibility detected via internal model codes.
+                Your wallet tells you which skins fit which weapons &mdash; no guessing, no wasted purchases.
+              </p>
+            </div>
+          </div>
+
           {/* Supporting line */}
           <p className="text-sm font-light text-[var(--gs-gray-3)] mt-8 max-w-[700px] reveal">
             Every wallet that connects adds data. Every enriched field is computed, not cached.
