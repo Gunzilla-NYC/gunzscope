@@ -84,7 +84,7 @@ const FEATURES = [
   },
   {
     icon: '\u{1F310}', title: 'Cross\u2011Chain', tag: 'live',
-    desc: 'Unified portfolio across GunzChain (Avalanche L1) and Solana. 300+ wallets supported via Dynamic Labs. One dashboard, complete visibility.',
+    desc: 'Unified portfolio across GunzChain (Avalanche L1) and AVAX C\u2011Chain with permanent records on Autonomys DSN. 300+ wallets supported via Dynamic Labs, one dashboard, complete visibility.',
   },
   {
     icon: '\u{1F50D}', title: 'Acquisition Intel', tag: 'live',
@@ -230,7 +230,7 @@ export default function BuildGamesPage() {
             Track, analyze, and value your <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> NFT
             arsenal with dual&#8209;track P&L, tiered valuations, and weapon intelligence.
             On&#8209;chain player identity via <strong className="text-[var(--gs-white)] font-medium">Avalanche</strong> attestations.
-            Multi&#8209;chain across GunzChain and Solana.
+            Multi&#8209;chain across GunzChain, C&#8209;Chain, and Autonomys DSN.
           </p>
 
           {/* CTAs */}
@@ -388,8 +388,7 @@ export default function BuildGamesPage() {
             <div className="max-w-[700px] flex flex-col gap-5 reveal">
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 GUNZscope operates a <strong className="text-[var(--gs-white)] font-medium">hybrid multi&#8209;chain architecture</strong> &mdash;
-                reading game state from <em className="text-[var(--gs-lime)] not-italic font-medium">GunzChain</em> (an Avalanche L1)
-                and <em className="text-[var(--gs-lime)] not-italic font-medium">Solana</em>,
+                reading game state from <em className="text-[var(--gs-lime)] not-italic font-medium">GunzChain</em> (an Avalanche L1),
                 while writing platform&#8209;native data to <em className="text-[var(--gs-lime)] not-italic font-medium">AVAX C&#8209;Chain</em> and <em className="text-[var(--gs-lime)] not-italic font-medium">Autonomys DSN</em>.
                 Attestations write a Merkle proof to C&#8209;Chain with full metadata stored permanently
                 on <em className="text-[var(--gs-white)] not-italic font-medium">Autonomys DSN</em> &mdash;
@@ -422,15 +421,6 @@ export default function BuildGamesPage() {
                     <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Avalanche L1</div>
                     <div className="flex flex-wrap gap-1">
                       {['NFTs', 'GUN', 'TXs'].map((op) => (
-                        <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
-                    <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[#9945FF] mb-0.5">Solana</div>
-                    <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Layer 1</div>
-                    <div className="flex flex-wrap gap-1">
-                      {['GUN', 'SPL'].map((op) => (
                         <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
                       ))}
                     </div>

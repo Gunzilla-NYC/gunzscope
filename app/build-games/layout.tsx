@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'GUNZscope — OTG Arsenal Intelligence | Build Games 2026',
   description:
-    'Track, analyze, and value your Off The Grid NFT arsenal with dual-track P&L, tiered valuations, and weapon intelligence. On-chain player identity via Avalanche attestations. Multi-chain across GunzChain and Solana.',
+    'Track, analyze, and value your Off The Grid NFT arsenal with dual-track P&L, tiered valuations, and weapon intelligence. On-chain player identity via Avalanche attestations. Multi-chain across GunzChain, C-Chain, and Autonomys DSN.',
   openGraph: {
     title: 'GUNZscope — OTG Arsenal Intelligence',
     description:
