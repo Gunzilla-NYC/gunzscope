@@ -155,32 +155,37 @@ export default function BuildGamesPage() {
     <div ref={containerRef} className="min-h-dvh flex flex-col bg-[var(--gs-black)] text-[var(--gs-white)]">
       <div className="page-bg" />
 
-      {/* ─── NAV ─── matches homepage nav structure exactly */}
+      {/* ─── NAV ─── matches homepage Navbar.tsx structure */}
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 glass-effect border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-          <div className="flex items-center gap-4 shrink-0">
-            <Link href="/build-games" className="flex items-center group">
-              <div className="relative w-[10rem] sm:w-[15rem] overflow-hidden">
-                <Logo size="md" variant="full" glitchOnHover />
-              </div>
-            </Link>
-            <VersionBadge className="hidden sm:inline shrink-0" />
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-full flex items-center">
+          <div className="flex items-center h-16 w-full">
+            <div className="flex items-center gap-2 shrink-0">
+              <Link href="/build-games" className="flex items-center gap-2">
+                <Logo size="md" variant="icon" />
+                <span className="font-display font-bold text-lg tracking-wider uppercase">
+                  GUNZ<span className="text-[var(--gs-purple)]">scope</span>
+                </span>
+              </Link>
+              <VersionBadge />
+            </div>
+            <nav className="hidden md:flex items-center gap-5 ml-6 shrink-0">
+              <GlitchLink href="#architecture" label="Architecture" isActive={false} />
+              <GlitchLink href="#features" label="Features" isActive={false} />
+              <GlitchLink href="#preview" label="Dashboard" isActive={false} />
+              <GlitchLink href="#builder" label="Builder" isActive={false} />
+              <GlitchLink href="/build-games/roadmap" label="Roadmap" isActive={false} />
+            </nav>
+            <div className="ml-auto shrink-0">
+              <a
+                href={LIVE_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm"
+              >
+                Launch App &rarr;
+              </a>
+            </div>
           </div>
-          <nav className="hidden md:flex items-center gap-5">
-            <GlitchLink href="#architecture" label="Architecture" isActive={false} />
-            <GlitchLink href="#features" label="Features" isActive={false} />
-            <GlitchLink href="#preview" label="Dashboard" isActive={false} />
-            <GlitchLink href="#builder" label="Builder" isActive={false} />
-            <GlitchLink href="/build-games/roadmap" label="Roadmap" isActive={false} />
-          </nav>
-          <a
-            href={LIVE_APP_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-display font-semibold text-data uppercase tracking-wider px-4 py-1.5 bg-[var(--gs-lime)] text-[var(--gs-black)] hover:bg-[var(--gs-lime-hover)] transition-colors clip-corner-sm"
-          >
-            Launch App &rarr;
-          </a>
         </div>
       </nav>
       <div className="h-16" />
