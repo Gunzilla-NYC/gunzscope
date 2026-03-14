@@ -295,6 +295,9 @@ export default function BuildGamesPage() {
       <section className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <SectionHeader num="00" title="Build Velocity" />
+          <p className="text-sm font-light text-[var(--gs-gray-3)] -mt-6 mb-6 reveal">
+            Solo builder. 57 releases in 52 days. Commit history from Jan 22 &#8594; Mar 14, 2026.
+          </p>
           <div className="reveal">
             <BuildVelocityChart />
           </div>
