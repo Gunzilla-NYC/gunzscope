@@ -344,8 +344,8 @@ export default function BuildGamesPage() {
             <div className="flex flex-col gap-4 reveal">
               {/* Top row: 3 cards */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="p-5 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
-                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Blockchain Gaming Market</div>
+                <div className="p-5 border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/[0.05]" style={{ clipPath: CLIP_SM }}>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-lime)]/60 mb-2">Blockchain Gaming Market</div>
                   <div className="font-display text-3xl font-bold text-[var(--gs-lime)]">$21.6B</div>
                   <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">2025, projected $1.27T by 2033</div>
                 </div>
@@ -354,10 +354,10 @@ export default function BuildGamesPage() {
                   <div className="font-display text-3xl font-bold text-[var(--gs-white)]">102M</div>
                   <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Of 3.48B total gamers globally</div>
                 </div>
-                <div className="p-5 border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/[0.05]" style={{ clipPath: CLIP_SM }}>
-                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-lime)]/60 mb-2">NFT Analytics Tools</div>
-                  <div className="font-display text-3xl font-bold text-[var(--gs-lime)]">47+</div>
-                  <div className="font-mono text-[10px] text-[var(--gs-white)]/70 mt-1">All market&#8209;level. <strong className="text-[var(--gs-white)]">Zero player&#8209;level.</strong></div>
+                <div className="p-5 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">NFT Analytics Tools</div>
+                  <div className="font-display text-3xl font-bold text-[var(--gs-white)]">47+</div>
+                  <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">All market&#8209;level. <strong className="text-[var(--gs-white)]">Zero player&#8209;level.</strong></div>
                 </div>
               </div>
               {/* Bottom row: 2 cards */}
