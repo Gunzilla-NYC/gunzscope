@@ -29,7 +29,7 @@ const PHASES: Phase[] = [
     title: 'Portfolio Intelligence',
     active: true,
     items: [
-      'Multi\u2011chain portfolio tracker (GunzChain + Solana)',
+      'GunzChain portfolio tracker (Avalanche L1)',
       'Real\u2011time GUN price + NFT valuation waterfall',
       'NFT acquisition pipeline with P&L analytics',
       'Weapon Lab compatibility engine',
