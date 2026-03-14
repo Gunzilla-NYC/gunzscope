@@ -230,8 +230,7 @@ export default function BuildGamesPage() {
             Track, analyze, and value your <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> NFT
             arsenal with dual&#8209;track P&L, tiered valuations, and weapon intelligence.
             On&#8209;chain player identity via <strong className="text-[var(--gs-white)] font-medium">Avalanche</strong> attestations.
-            Multi&#8209;chain across <strong className="text-[var(--gs-white)] font-medium">GunzChain</strong> and{' '}
-            <strong className="text-[var(--gs-white)] font-medium">Solana</strong>.
+            Multi&#8209;chain across GunzChain and Solana.
           </p>
 
           {/* CTAs */}
