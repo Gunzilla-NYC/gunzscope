@@ -378,10 +378,109 @@ export default function BuildGamesPage() {
         </div>
       </section>
 
+      {/* ─── DATA ENRICHMENT ─── */}
+      <section className="relative z-10 py-24 border-t border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <SectionHeader num="02" title="Data Enrichment" />
+
+          {/* Hero stat */}
+          <div className="flex flex-col items-center text-center mb-12 reveal">
+            <div className="flex items-baseline gap-3 sm:gap-5 mb-3">
+              <span className="font-display text-4xl sm:text-5xl md:text-6xl font-bold text-[var(--gs-gray-3)]">~15</span>
+              <span className="font-mono text-lg sm:text-xl text-[var(--gs-gray-3)]">&rarr;</span>
+              <span className="font-display text-4xl sm:text-5xl md:text-6xl font-bold text-[var(--gs-lime)]">85</span>
+            </div>
+            <div className="font-mono text-[10px] sm:text-[11px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+              Raw player&#8209;accessible fields &rarr; Enriched user&#8209;visible fields per NFT
+            </div>
+            <div className="font-display text-sm sm:text-base font-medium text-[var(--gs-white)] mt-2">
+              9.4x intelligence amplification
+            </div>
+          </div>
+
+          {/* Before / After comparison */}
+          <div className="grid md:grid-cols-2 gap-4 md:gap-6 reveal">
+            {/* RAW CHAIN DATA */}
+            <div className="p-5 md:p-6 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_LG }}>
+              <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-gray-3)]" />
+                What Exists Today
+              </div>
+              <pre className="font-mono text-[10px] sm:text-[11px] leading-relaxed text-[var(--gs-gray-3)] whitespace-pre-wrap overflow-x-auto">
+{`Transfer event:
+  from: 0x000...000
+  to:   0xe48...4ae
+  tokenId: 7821
+
+Transaction:
+  value: 250000000000000000000
+  data:  0x8a0b... (hex calldata)
+
+Block:
+  timestamp: 1718371200
+
+CoinGecko:
+  current_price: 0.032
+
+OpenSea:
+  floor_price: 45.0`}
+              </pre>
+              <div className="mt-4 pt-3 border-t border-white/[0.06]">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+                  ~15 usable fields &middot; No names, no costs, no context
+                </div>
+              </div>
+            </div>
+
+            {/* GUNZSCOPE OUTPUT */}
+            <div className="p-5 md:p-6 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_LG }}>
+              <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-lime)] mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gs-lime)] animate-pulse-dot" />
+                GUNZscope Output
+              </div>
+              <div className="font-mono text-[10px] sm:text-[11px] leading-relaxed space-y-3">
+                <div>
+                  <span className="text-[var(--gs-white)] font-semibold">VULTURE LEGACY #768</span>
+                  <div className="text-[var(--gs-gray-3)] text-[9px] tracking-wider uppercase mt-0.5">━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+                </div>
+                <div className="space-y-1">
+                  <div><span className="text-[var(--gs-gray-3)]">Acquired:</span>{' '}<span className="text-[var(--gs-white)]">HEX Decode</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">Cost:</span>{' '}<span className="text-[var(--gs-white)]">250 GUN</span>{' '}<span className="text-[var(--gs-gray-4)]">($8.00)</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">Date:</span>{' '}<span className="text-[var(--gs-white)]">June 14, 2025</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">Venue:</span>{' '}<span className="text-[var(--gs-lime)]">decode</span></div>
+                </div>
+                <div className="space-y-1">
+                  <div><span className="text-[var(--gs-gray-3)]">Valuation:</span>{' '}<span className="text-[var(--gs-lime)]">~892 GUN</span>{' '}<span className="text-[var(--gs-gray-4)]">(VIA SALES)</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">Confidence:</span>{' '}<span className="text-[var(--gs-white)]">Tier 2 / HIGH</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">P&L (GUN):</span>{' '}<span className="text-[var(--gs-profit)]">&#9650; +256.8%</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">P&L (Market):</span>{' '}<span className="text-[var(--gs-profit)]">&#9650; +112.4%</span></div>
+                </div>
+                <div className="space-y-1">
+                  <div><span className="text-[var(--gs-gray-3)]">Rarity:</span>{' '}<span className="text-[#B44AFF]">Epic</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">Class:</span>{' '}<span className="text-[var(--gs-white)]">Assault Rifle</span></div>
+                  <div><span className="text-[var(--gs-gray-3)]">Compatible:</span>{' '}<span className="text-[var(--gs-lime)]">2 items in wallet</span></div>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-[var(--gs-lime)]/15">
+                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-lime)]">
+                  85 enriched fields &middot; Actionable intelligence
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Supporting line */}
+          <p className="text-sm font-light text-[var(--gs-gray-3)] mt-8 max-w-[700px] reveal">
+            Every wallet that connects adds data. Every enriched field is computed, not cached.
+            Five data sources, one enrichment pipeline, zero manual input.
+          </p>
+        </div>
+      </section>
+
       {/* ─── ARCHITECTURE ─── */}
       <section id="architecture" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="02" title="Multi-Chain Architecture" />
+          <SectionHeader num="03" title="Multi-Chain Architecture" />
 
           <div className="flex flex-col gap-10">
             {/* Narrative — full width, brief setup */}
@@ -535,7 +634,7 @@ export default function BuildGamesPage() {
       {/* ─── PROPRIETARY IP ─── */}
       <section className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="03" title="Proprietary Intelligence" />
+          <SectionHeader num="04" title="Proprietary Intelligence" />
 
           <div className="flex flex-col gap-10">
             {/* Prose — full width */}
@@ -596,7 +695,7 @@ export default function BuildGamesPage() {
       {/* ─── FEATURES ─── */}
       <section id="features" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="04" title="Core Features" />
+          <SectionHeader num="05" title="Core Features" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.04] border border-white/[0.06] reveal">
             {FEATURES.map((f) => (
@@ -622,7 +721,7 @@ export default function BuildGamesPage() {
       {/* ─── ON-CHAIN PROOF ─── */}
       <section className="relative z-10 py-24 border-t border-white/[0.06] bg-[var(--gs-dark-1)]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="05" title="On-Chain Proof" />
+          <SectionHeader num="06" title="On-Chain Proof" />
 
           <div className="grid md:grid-cols-3 gap-6 reveal">
             <div className="p-6 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
@@ -670,7 +769,7 @@ export default function BuildGamesPage() {
       {/* ─── VALUATION WATERFALL ─── */}
       <section id="valuation" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="06" title="Valuation Waterfall" />
+          <SectionHeader num="07" title="Valuation Waterfall" />
 
           <div className="grid md:grid-cols-2 gap-10 md:gap-16">
             <div className="flex flex-col justify-center gap-5 reveal">
@@ -723,7 +822,7 @@ export default function BuildGamesPage() {
       {/* ─── DASHBOARD PREVIEW ─── */}
       <section id="preview" className="relative z-10 py-24 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="07" title="Dashboard Preview" />
+          <SectionHeader num="08" title="Dashboard Preview" />
 
           <div className="bg-[var(--gs-dark-2)] border border-white/[0.06] rounded-lg overflow-hidden reveal">
             {/* Browser toolbar */}
@@ -809,7 +908,7 @@ export default function BuildGamesPage() {
       {/* ─── BUILT BY ─── */}
       <section id="builder" className="relative z-10 py-24 border-t border-white/[0.06] bg-[var(--gs-dark-1)]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <SectionHeader num="08" title="Built By" />
+          <SectionHeader num="09" title="Built By" />
 
           <div className="grid md:grid-cols-[1fr_auto] gap-10 md:gap-16 reveal">
             <div className="flex flex-col gap-5">
