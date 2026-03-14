@@ -995,7 +995,9 @@ OpenSea:
                 Two years in the Gunzilla Discord as a top&#8209;8 contributor means the first users already know GUNZscope by name.
                 The Solana Gaming community &mdash; home to a large OTG clan &mdash; is supported natively via Phantom wallet through Dynamic Labs.
                 Early access is whitelist&#8209;controlled: the most engaged players get in first, provide direct feedback, and shape the product.
-                Every feature was built because a player asked for it. Growth follows trust, not marketing spend.
+                Every feature was built because a player asked for it.
+                The best players in the game are already asking to use their on&#8209;chain identity for Phase 2 tournaments &mdash; competitive events with verifiable entry, provable rankings, and on&#8209;chain results.
+                Growth follows trust, not marketing spend.
               </p>
             </div>
 
