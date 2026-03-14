@@ -29,8 +29,8 @@ export default function BreakcardOverlay() {
       `}</style>
       <div
         style={{
-          width: 2560,
-          height: 1440,
+          width: '100vw',
+          height: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -40,7 +40,7 @@ export default function BreakcardOverlay() {
         {/* Card */}
         <div
           style={{
-            width: 880,
+            width: 1100,
             position: 'relative',
             background: 'rgba(10, 10, 10, 0.95)',
             backdropFilter: 'blur(24px)',
@@ -144,7 +144,7 @@ export default function BreakcardOverlay() {
               style={{
                 fontFamily: 'var(--font-display), Chakra Petch, sans-serif',
                 fontWeight: 700,
-                fontSize: 34,
+                fontSize: 42,
                 textTransform: 'uppercase',
                 lineHeight: 1.2,
                 margin: 0,
@@ -161,7 +161,7 @@ export default function BreakcardOverlay() {
               style={{
                 fontFamily: 'var(--font-body), Outfit, sans-serif',
                 fontWeight: 300,
-                fontSize: 15,
+                fontSize: 17,
                 lineHeight: 1.6,
                 color: 'rgba(255,255,255,0.4)',
                 margin: '14px 0 0',
@@ -268,7 +268,7 @@ export default function BreakcardOverlay() {
                       fontFamily:
                         'var(--font-display), Chakra Petch, sans-serif',
                       fontWeight: 700,
-                      fontSize: 28,
+                      fontSize: 34,
                       color: '#F0F0F0',
                     }}
                   >
@@ -367,7 +367,7 @@ export default function BreakcardOverlay() {
               <div
                 style={{
                   fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-                  fontSize: 18,
+                  fontSize: 22,
                   color: 'rgba(255,255,255,0.6)',
                   marginBottom: 6,
                 }}
@@ -418,7 +418,7 @@ export default function BreakcardOverlay() {
                 style={{
                   fontFamily: 'var(--font-display), Chakra Petch, sans-serif',
                   fontWeight: 700,
-                  fontSize: 14,
+                  fontSize: 16,
                   color: '#0A0A0A',
                   background: '#A6F700',
                   padding: '8px 20px',
