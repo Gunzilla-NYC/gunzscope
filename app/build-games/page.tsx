@@ -334,9 +334,7 @@ export default function BuildGamesPage() {
                 Discord price checks, unsafe solicitations, and personal spreadsheets that do not stay current.
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                <strong className="text-[var(--gs-white)] font-medium">GUNZscope solves for this gap.</strong>
-              </p>
-              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                <strong className="text-[var(--gs-white)] font-medium">GUNZscope solves for this gap.</strong>{' '}
                 This is a <strong className="text-[var(--gs-white)] font-medium">category&#8209;level absence</strong> &mdash;
                 true across all of blockchain gaming. OTG and GUNZscope Phase I is a sequenced strategic entry point, not the ceiling.
               </p>
