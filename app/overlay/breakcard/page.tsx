@@ -93,7 +93,7 @@ export default function BreakcardOverlay() {
               justifyContent: 'space-between',
               padding: '18px 32px',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
-              animation: 'fade-up 0.5s ease both 0.1s',
+              animation: 'fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both 0.1s',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -136,7 +136,7 @@ export default function BreakcardOverlay() {
           <div
             style={{
               padding: '36px 32px 28px',
-              animation: 'fade-up 0.5s ease both 0.2s',
+              animation: 'fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both 0.2s',
             }}
           >
             {/* Headline */}
@@ -183,7 +183,7 @@ export default function BreakcardOverlay() {
               border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 6,
               overflow: 'hidden',
-              animation: 'fade-up 0.5s ease both 0.35s',
+              animation: 'fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both 0.35s',
             }}
           >
             {/* Browser chrome bar */}
@@ -359,7 +359,7 @@ export default function BreakcardOverlay() {
               justifyContent: 'space-between',
               padding: '20px 32px 24px',
               borderTop: '1px solid rgba(255,255,255,0.06)',
-              animation: 'fade-up 0.5s ease both 0.45s',
+              animation: 'fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both 0.45s',
             }}
           >
             {/* Footer left */}
