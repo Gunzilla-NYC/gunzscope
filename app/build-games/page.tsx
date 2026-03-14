@@ -691,10 +691,9 @@ export default function BuildGamesPage() {
                 <strong className="text-[var(--gs-white)] font-medium">statistical proxies</strong> (estimates based on similar items).
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                Each NFT&rsquo;s value flows through a 6&#8209;tier waterfall &mdash; starting with the most specific data
-                and widening only when needed. Every valuation carries a <strong className="text-[var(--gs-white)] font-medium">confidence indicator</strong>.
-              </p>
-              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                Each NFT&rsquo;s value flows through a 6&#8209;tier waterfall &mdash; starting with the most
+                specific data and widening only when needed. Every valuation carries
+                a <strong className="text-[var(--gs-white)] font-medium">confidence indicator</strong>.
                 The dual&#8209;track P&L system then applies two independent lenses:{' '}
                 <strong className="text-[var(--gs-white)] font-medium">GUN appreciation</strong> and{' '}
                 <strong className="text-[var(--gs-white)] font-medium">market reference</strong>.
@@ -702,9 +701,7 @@ export default function BuildGamesPage() {
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 The result is a <strong className="text-[var(--gs-white)] font-medium">dynamic, failproof</strong> way
                 to value every item in a player&rsquo;s portfolio &mdash; enhancing decision&#8209;making whether
-                they&rsquo;re holding, trading, or building a loadout. It also sets the stage
-                for <strong className="text-[var(--gs-white)] font-medium">proprietary AI&#8209;driven assistance</strong> in the future,
-                powered by a dataset no one else has.
+                they&rsquo;re holding, trading, or building a loadout.
               </p>
             </div>
 
