@@ -119,6 +119,19 @@ const ENRICHMENT_FIELDS = [
  *  Must match DEFAULT_TTL_SECONDS in nftCache.ts */
 const ENRICHMENT_STALE_MS = 72 * 60 * 60 * 1000;
 
+/** Pick only enrichment fields from an existing NFT (for in-memory merge) */
+function pickEnrichmentFields(nft: NFT): Partial<NFT> {
+  const patch: Partial<NFT> = {};
+  for (const field of ENRICHMENT_FIELDS) {
+    const value = nft[field as keyof NFT];
+    if (value !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (patch as any)[field] = value;
+    }
+  }
+  return patch;
+}
+
 /**
  * Merge localStorage-cached enrichment fields into freshly fetched NFTs.
  * Prevents the "flash of zeros" between live fetch and enrichment re-hydration.
@@ -582,27 +595,49 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
 
       // Store each wallet separately in walletMap, merging cached enrichment
       // fields to prevent the "flash of zeros" between live fetch and enrichment.
-      const newMap: Record<string, WalletData> = {};
-      let totalMerged = 0;
-      for (const r of successfulResults) {
-        const addrKey = r.walletData.address.toLowerCase();
-        const { merged, mergedCount } = mergeEnrichmentFromCache(
-          r.walletData.avalanche.nfts,
-          addrKey,
-        );
-        totalMerged += mergedCount;
-        newMap[addrKey] = {
-          ...r.walletData,
-          avalanche: { ...r.walletData.avalanche, nfts: merged },
-        };
-      }
-      console.log('[PortfolioClient] Live fetch complete — walletMap set with enrichment merge', {
-        walletAddress: address,
-        freshNftCount: newMap[address.toLowerCase()]?.avalanche?.nfts?.length ?? 0,
-        enrichedFieldsMerged: totalMerged,
-        enrichedFieldsLost: 0,
+      // Also merge from existing in-memory walletMap for fields not yet in localStorage.
+      setWalletMap(prev => {
+        const merged = { ...prev };
+        let totalMerged = 0;
+        for (const r of successfulResults) {
+          const addrKey = r.walletData.address.toLowerCase();
+          // First merge from localStorage cache
+          const { merged: cacheMerged, mergedCount } = mergeEnrichmentFromCache(
+            r.walletData.avalanche.nfts,
+            addrKey,
+          );
+          totalMerged += mergedCount;
+
+          // Then merge from existing in-memory walletMap entry (has enrichment fields
+          // that may not be in localStorage yet, e.g. mid-enrichment)
+          const existingWd = prev[addrKey];
+          let finalNfts = cacheMerged;
+          if (existingWd) {
+            const existingMap = new Map(
+              existingWd.avalanche.nfts.map(n => [n.tokenIds?.[0] || n.tokenId, n])
+            );
+            finalNfts = cacheMerged.map(nft => {
+              const key = nft.tokenIds?.[0] || nft.tokenId;
+              const existing = existingMap.get(key);
+              if (!existing) return nft;
+              // Only carry over enrichment fields from existing if fresh NFT lacks them
+              if (nft.purchasePriceGun !== undefined) return nft;
+              return { ...nft, ...pickEnrichmentFields(existing) };
+            });
+          }
+
+          merged[addrKey] = {
+            ...r.walletData,
+            avalanche: { ...r.walletData.avalanche, nfts: finalNfts },
+          };
+        }
+        console.log('[PortfolioClient] Live fetch complete — walletMap set with enrichment merge', {
+          walletAddress: address,
+          freshNftCount: merged[address.toLowerCase()]?.avalanche?.nfts?.length ?? 0,
+          enrichedFieldsMerged: totalMerged,
+        });
+        return merged;
       });
-      setWalletMap(newMap);
       setActiveWalletAddress(address);
 
       // Pagination for the primary (active) wallet only
@@ -627,8 +662,9 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
         // Seeds localStorage with synthetic points from GUN price sparkline
         // so that sparkline + 24h/7d changes render immediately
         if (price) {
-          const activeWd = newMap[address.toLowerCase()];
-          if (activeWd) {
+          const activeResult = successfulResults.find(r => r.walletData.address.toLowerCase() === address.toLowerCase());
+          if (activeResult) {
+            const activeWd = activeResult.walletData;
             const gunBal = (activeWd.avalanche.gunToken?.balance ?? 0) + (activeWd.solana.gunToken?.balance ?? 0);
             const estValue = gunBal * price;
             if (estValue > 0) {
@@ -669,10 +705,10 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
       // progress jumps.
       if (!primaryResult.nftResult.hasMore) {
         const marketplaceConfigured = marketplaceService.isConfigured();
-        const activeWd = newMap[address.toLowerCase()];
-        if (activeWd) {
+        const activeEnrichResult = successfulResults.find(r => r.walletData.address.toLowerCase() === address.toLowerCase());
+        if (activeEnrichResult) {
           startEnrichment(
-            activeWd.avalanche.nfts,
+            activeEnrichResult.walletData.avalanche.nfts,
             address,
             avalancheService,
             marketplaceConfigured ? marketplaceService : null,
@@ -913,6 +949,15 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
     for (const pa of portfolioAddresses) set.add(pa.address.toLowerCase());
     return Array.from(set);
   }, [primaryWallet?.address, portfolioAddresses]);
+
+  // Wallet address → label lookup for cross-wallet badges
+  const walletLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const pa of portfolioAddresses) {
+      if (pa.label) map.set(pa.address.toLowerCase(), pa.label);
+    }
+    return map;
+  }, [portfolioAddresses]);
 
   // Cross-wallet pinned favorites — resolved from all loaded wallets
   const { pinnedItems, crossWalletCount } = usePinnedFavorites(
@@ -1319,6 +1364,7 @@ function PortfolioInner({ debugMode, initialAddress }: { debugMode: boolean; ini
                   isOwnPortfolio={connectedWallets.includes(activeWalletData.address.toLowerCase())}
                   walletAddress={activeWalletData.address}
                   allNfts={allNfts}
+                  walletLabels={walletLabels}
                 />
               </div>
             )}

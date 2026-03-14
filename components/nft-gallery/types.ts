@@ -38,6 +38,8 @@ export interface NFTGalleryGridCardProps {
   portfolioViewMode?: 'simple' | 'detailed';
   /** Whether the viewer is the wallet owner — enables favorite button */
   isOwnPortfolio?: boolean;
+  /** Source wallet address — stored in favorite metadata for cross-wallet label */
+  walletAddress?: string;
 }
 
 /** Props for NFTGalleryListRow */

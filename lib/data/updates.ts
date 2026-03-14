@@ -15,9 +15,20 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: 'v0.8.1',
+    date: 'Mar 14, 2026',
+    tag: 'current',
+    title: 'The one where your favorites learn to materialize',
+    items: [
+      'Pinned favorites now remember which wallet they came from. Before this, if you favorited an NFT from your Cryptohaki wallet and then switched to your primary, the card would just\u2026 appear. No context. No indication it lived in a completely different wallet. Now it shows "FROM CRYPTOHAKI" under the card \u2014 and if you hover the label, you get the actual hex address. If the wallet hasn\u2019t loaded yet, it says "FROM OTHER WALLET" instead of pretending the NFT materialized from thin air.',
+      'Speaking of materializing: the favorites section now decodes into existence like it\u2019s being extracted from the Matrix. A green scanline sweeps across, digital rain columns fall, the label scrambles through random characters before resolving, and each card assembles itself from a compressed, blown\u2011out fragment into a solid image. It\u2019s entirely unnecessary and we regret nothing.',
+      'The wallet search box was basically invisible. Same background color as everything around it with a transparent border \u2014 the input equivalent of camouflage. It now has a visible outline so you can actually tell there\u2019s a text field there without squinting or accidentally clicking it.',
+      'Fixed a React warning where unfavoriting an NFT would cause WalletDropdown to update during FavoriteButton\u2019s render cycle. The kind of bug that works perfectly fine until React decides to yell at you about it in the console. Deferred the cross\u2011component sync by one microtask.',
+    ],
+  },
+  {
     version: 'v0.8.0',
     date: 'Mar 13, 2026',
-    tag: 'current',
     title: 'You are now a person on\u2011chain',
     items: [
       'GUNZscope Player Identity is live. Claim a unique handle \u2014 your on\u2011chain name, permanently yours, registered on Avalanche C\u2011Chain. First one\u2019s free. Changing it later costs 0.005\u00a0AVAX, because commitment should mean something.',

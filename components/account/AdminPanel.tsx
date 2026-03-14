@@ -11,6 +11,7 @@ import { WaitlistTools } from './admin/WaitlistTools';
 import { OnChainTools } from './admin/OnChainTools';
 import { BannedList } from './admin/BannedList';
 import { UsersTools } from './admin/UsersTools';
+import { FeesRevenueTab } from './admin/FeesRevenueTab';
 
 interface AdminPanelProps {
   adminSecret: string;
@@ -32,7 +33,7 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-type AdminTab = 'manage' | 'users' | 'tools' | 'links' | 'items';
+type AdminTab = 'manage' | 'users' | 'tools' | 'links' | 'items' | 'fees';
 
 const ADMIN_LINKS: { href: string; label: string; description: string; color: string }[] = [
   { href: '/brand', label: 'Brand Guidelines', description: 'Colors, typography, components, design system', color: 'var(--gs-purple)' },
@@ -51,6 +52,7 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
     { key: 'tools', label: 'Tools' },
     { key: 'links', label: 'Links' },
     { key: 'items', label: 'Item Database' },
+    { key: 'fees', label: 'Fees & Revenue' },
   ];
 
   return (
@@ -127,6 +129,11 @@ export default function AdminPanel({ adminSecret }: AdminPanelProps) {
       {/* Items tab — item origin database CRUD */}
       {activeTab === 'items' && (
         <ItemOriginsTools adminSecret={adminSecret} />
+      )}
+
+      {/* Fees & Revenue tab */}
+      {activeTab === 'fees' && (
+        <FeesRevenueTab adminSecret={adminSecret} />
       )}
 
       {/* Links tab — admin-only page links */}

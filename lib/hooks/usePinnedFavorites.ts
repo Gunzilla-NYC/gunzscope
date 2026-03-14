@@ -8,7 +8,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { NFT, WalletData } from '@/lib/types';
 import type { FavoriteItem } from '@/lib/hooks/useUserProfile';
 
@@ -40,6 +40,10 @@ export function usePinnedFavorites(
   activeWalletAddress: string | null,
   walletMap: Record<string, WalletData>,
 ): UsePinnedFavoritesResult {
+  // Cache previously resolved full NFTs so we don't downgrade to stubs
+  // when walletMap temporarily loses a wallet during re-fetch
+  const resolvedCacheRef = useRef<Map<string, { nft: NFT; walletAddress: string }>>(new Map());
+
   return useMemo(() => {
     if (!favorites || !activeWalletAddress) {
       return { pinnedItems: [], crossWalletCount: 0 };
@@ -85,13 +89,26 @@ export function usePinnedFavorites(
       const match = nftLookup.get(fav.refId);
 
       if (match) {
-        // Full NFT data available from a loaded wallet
+        // Full NFT data available from a loaded wallet — cache it
+        resolvedCacheRef.current.set(fav.refId, match);
         const isCrossWallet = match.walletAddress.toLowerCase() !== activeKey;
         if (isCrossWallet) crossWalletCount++;
 
         pinnedItems.push({
           nft: match.nft,
           sourceWallet: match.walletAddress,
+          isCrossWallet,
+          favoriteId: fav.id,
+        });
+      } else if (resolvedCacheRef.current.has(fav.refId)) {
+        // WalletMap temporarily lost this wallet — use previously resolved data
+        const cached = resolvedCacheRef.current.get(fav.refId)!;
+        const isCrossWallet = cached.walletAddress.toLowerCase() !== activeKey;
+        if (isCrossWallet) crossWalletCount++;
+
+        pinnedItems.push({
+          nft: cached.nft,
+          sourceWallet: cached.walletAddress,
           isCrossWallet,
           favoriteId: fav.id,
         });
@@ -108,13 +125,22 @@ export function usePinnedFavorites(
           collection: (fav.metadata.collection as string) || 'Off The Grid',
           contractAddress: contract,
           chain: 'avalanche',
+          ...(fav.metadata.quantity ? { quantity: fav.metadata.quantity as number } : {}),
+          ...(fav.metadata.mintNumber ? { mintNumber: fav.metadata.mintNumber as string } : {}),
+          ...(fav.metadata.mintNumbers ? { mintNumbers: fav.metadata.mintNumbers as string[] } : {}),
+          ...(fav.metadata.groupedRarities ? { groupedRarities: fav.metadata.groupedRarities as string[] } : {}),
+          ...(fav.metadata.traits ? { traits: fav.metadata.traits as Record<string, string> } : {}),
         };
-        crossWalletCount++;
+
+        // Use stored wallet address from metadata if available
+        const storedWallet = (fav.metadata.walletAddress as string) || 'unknown';
+        const isCross = storedWallet === 'unknown' || storedWallet.toLowerCase() !== activeKey;
+        if (isCross) crossWalletCount++;
 
         pinnedItems.push({
           nft: stubNft,
-          sourceWallet: 'unknown',
-          isCrossWallet: true,
+          sourceWallet: storedWallet,
+          isCrossWallet: isCross,
           favoriteId: fav.id,
         });
       }

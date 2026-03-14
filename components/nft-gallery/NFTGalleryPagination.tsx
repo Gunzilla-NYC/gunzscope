@@ -36,8 +36,8 @@ export function NFTGalleryPagination({ paginationInfo, onLoadMore }: NFTGalleryP
 
   return (
     <div className="mt-6 flex flex-col items-center gap-3">
-      {/* Pagination Debug Info - only visible in development */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* Pagination Debug Info - only visible with ?debug=1 */}
+      {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1' && (
         <div className="font-mono text-xs text-[var(--gs-gray-3)] flex flex-wrap justify-center gap-x-4 gap-y-1">
           <span>
             <span className="text-[var(--gs-gray-4)]">totalOwnedCount:</span>{' '}

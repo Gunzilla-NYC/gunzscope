@@ -237,8 +237,10 @@ export function useUserProfile(): UseUserProfileReturn {
   // all other instances receive the updated profile via custom event.
   useEffect(() => {
     const handler = (e: Event) => {
-      const profile = (e as CustomEvent).detail?.profile;
-      if (profile) setProfile(profile);
+      const updated = (e as CustomEvent).detail?.profile;
+      // Defer to avoid "setState during render" when the dispatch originates
+      // from a sibling component's render cycle (e.g. FavoriteButton → WalletDropdown)
+      if (updated) queueMicrotask(() => setProfile(updated));
     };
     window.addEventListener('gs:profile-updated', handler);
     return () => window.removeEventListener('gs:profile-updated', handler);

@@ -303,44 +303,70 @@ export default function BuildGamesPage() {
           <SectionHeader num="01" title="The Market" />
 
           <div className="grid md:grid-cols-2 gap-10 md:gap-16">
+            {/* ── Body copy ── */}
             <div className="flex flex-col justify-center gap-5 reveal">
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> is one of the largest
-                blockchain&#8209;integrated games ever shipped. <strong className="text-[var(--gs-white)] font-medium">13 million unique players</strong> across
-                Xbox, PlayStation, Epic Games Store, and Steam &mdash; all with on&#8209;chain wallets.
+                Blockchain gaming is a <strong className="text-[var(--gs-white)] font-medium">$21.6B market with 102 million players</strong> &mdash;
+                and not a single tool exists that gives players portfolio&#8209;level intelligence about what they own.
+                Existing analytics (DappRadar, Nansen, NFTGo, Zapper) operate at the marketplace and collection layer:
+                floor prices, whale tracking, trading volume. None of them understand game&#8209;specific context &mdash;
+                acquisition method, cost basis per item, weapon compatibility, rarity tier logic, or cross&#8209;marketplace
+                price discrepancies. There are <strong className="text-[var(--gs-white)] font-medium">47+ NFT analytics tools.
+                Zero are built for the player.</strong>
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                No portfolio tracker exists for these players. Items are acquired through HEX loot boxes,
-                marketplace purchases, in&#8209;game rewards, and cross&#8209;platform transfers &mdash; but there is
-                <strong className="text-[var(--gs-white)] font-medium"> no way to see what you own or what it&rsquo;s worth</strong>.
-                Players resort to Discord price checks and spreadsheets. GUNZscope fills that gap.
+                <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> is one of the largest
+                blockchain&#8209;integrated games ever shipped. <strong className="text-[var(--gs-white)] font-medium">14 million
+                unique players</strong> across Xbox, PlayStation, Epic Games Store, and Steam. Items are acquired by
+                collecting HEXs in&#8209;game and decoding them to mint new items on&#8209;chain. Those items are then bought
+                and sold through various marketplaces. Due to completely decoupled markets, massive price gaps and a large,{' '}
+                <strong className="text-[var(--gs-white)] font-medium">completely untrusted OTC trading culture</strong> has
+                emerged &mdash; creating a highly inefficient, inaccurate, and unsafe market.{' '}
+                <strong className="text-[var(--gs-white)] font-medium">No single source of truth exists</strong> for these
+                players who have asked for a way to quantify and understand what they own. Instead they resort to untrusted
+                Discord price checks, unsafe solicitations, and personal spreadsheets that do not stay current.
+              </p>
+              <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
+                <strong className="text-[var(--gs-white)] font-medium">GUNZscope solves for this gap.</strong>
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 This is a <strong className="text-[var(--gs-white)] font-medium">category&#8209;level absence</strong> &mdash;
-                true across all of blockchain gaming, not just OTG. OTG and GUNZscope Phase I is a sequenced strategic entry point, not the ceiling.
+                true across all of blockchain gaming. OTG and GUNZscope Phase I is a sequenced strategic entry point, not the ceiling.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 reveal">
-              <div className="p-6 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Unique Players</div>
-                <div className="font-display text-4xl font-bold text-[var(--gs-lime)]">13M</div>
-                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Across all platforms</div>
+            {/* ── Stat cards ── */}
+            <div className="flex flex-col gap-4 reveal">
+              {/* Top row: 3 cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-5 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Blockchain Gaming Market</div>
+                  <div className="font-display text-3xl font-bold text-[var(--gs-lime)]">$21.6B</div>
+                  <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">2025, projected $1.27T by 2033</div>
+                </div>
+                <div className="p-5 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Blockchain Gamers</div>
+                  <div className="font-display text-3xl font-bold text-[var(--gs-white)]">102M</div>
+                  <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Of 3.48B total gamers globally</div>
+                </div>
+                <div className="p-5 border border-[var(--gs-lime)]/30 bg-[var(--gs-lime)]/[0.05]" style={{ clipPath: CLIP_SM }}>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-lime)]/60 mb-2">NFT Analytics Tools</div>
+                  <div className="font-display text-3xl font-bold text-[var(--gs-lime)]">47+</div>
+                  <div className="font-mono text-[10px] text-[var(--gs-white)]/70 mt-1">All market&#8209;level. <strong className="text-[var(--gs-white)]">Zero player&#8209;level.</strong></div>
+                </div>
               </div>
-              <div className="p-6 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Daily Active</div>
-                <div className="font-display text-4xl font-bold text-[var(--gs-white)]">450K</div>
-                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">DAU</div>
-              </div>
-              <div className="p-6 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Platforms</div>
-                <div className="font-display text-4xl font-bold text-[var(--gs-white)]">4</div>
-                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Xbox &middot; PS &middot; Epic &middot; Steam</div>
-              </div>
-              <div className="p-6 border border-[var(--gs-purple)]/20 bg-[var(--gs-purple)]/[0.03]" style={{ clipPath: CLIP_SM }}>
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Portfolio Trackers</div>
-                <div className="font-display text-4xl font-bold text-[var(--gs-purple-bright)]">0</div>
-                <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Before GUNZscope</div>
+              {/* Bottom row: 2 cards */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-5 border border-white/[0.06] bg-[var(--gs-dark-2)]" style={{ clipPath: CLIP_SM }}>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">OTG Players</div>
+                  <div className="font-display text-3xl font-bold text-[var(--gs-white)]">14M+</div>
+                  <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Across 4 platforms + GeForce Now</div>
+                </div>
+                <div className="p-5 border border-[var(--gs-purple)]/20 bg-[var(--gs-purple)]/[0.03]" style={{ clipPath: CLIP_SM }}>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Portfolio Trackers for Gamers</div>
+                  <div className="font-display text-3xl font-bold text-[var(--gs-purple-bright)]">0</div>
+                  <div className="font-mono text-[10px] text-[var(--gs-gray-4)] mt-1">Before GUNZscope</div>
+                </div>
               </div>
             </div>
           </div>

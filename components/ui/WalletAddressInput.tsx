@@ -56,7 +56,7 @@ export function WalletAddressInput({
   const visualClasses = className ?? 'px-3 py-2 text-sm bg-[var(--gs-dark-3)] placeholder:text-[var(--gs-gray-2)]';
   const borderClasses = validateChain && hasInput && !chain
     ? 'border-[var(--gs-loss)]/40 focus:border-[var(--gs-loss)]/60'
-    : 'border-transparent focus:border-[var(--gs-lime)]/30';
+    : 'border-white/[0.12] focus:border-[var(--gs-lime)]/40';
   const paddingRight = chain && badgePadding ? badgePadding : '';
 
   return (

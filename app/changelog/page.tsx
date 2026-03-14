@@ -23,9 +23,30 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    version: 'v0.8.1',
+    date: 'Mar 14, 2026',
+    tag: 'current',
+    items: [
+      'Cross\u2011wallet favorite labels \u2014 PinnedFavoritesRow now shows source wallet label (from portfolioAddresses) with title attr for full address; falls back to truncateAddress(), then "other wallet" for unresolved stubs',
+      'Favorite metadata now stores walletAddress \u2014 FavoritePinActions passes walletAddress into FavoriteButton metadata; usePinnedFavorites stub path reads fav.metadata.walletAddress instead of hardcoding "unknown"',
+      'walletLabels prop \u2014 PortfolioClient builds Map<string, string> from portfolioAddresses; threaded through PinnedFavoritesRow for label\u2011over\u2011address display',
+      'NFTGalleryGridCardProps.walletAddress \u2014 new optional prop threaded from NFTGallery \u2192 NFTGalleryGridCard \u2192 FavoritePinActions for metadata capture',
+      'Matrix decode entrance animation \u2014 CSS keyframes: matrix\u2011scanline (lime sweep), matrix\u2011card\u2011decode (clip\u2011path + scaleY + blur + brightness), matrix\u2011rain\u2011col (vertical lines), matrix\u2011label\u2011decode (letter\u2011spacing + blur flicker), matrix\u2011container\u2011enter (inward glow), matrix\u2011divider\u2011decode (scaleX sweep)',
+      'DecodeText component \u2014 character\u2011by\u2011character scramble effect using requestAnimationFrame interval; resolves left\u2011to\u2011right with randomized probability; 18\u2011frame cycle (~300ms)',
+      'MatrixRain component \u2014 generates N random vertical gradient lines with staggered delays/durations; positioned absolutely within matrix\u2011container',
+      'Animation gating \u2014 hasAnimated ref in PinnedFavoritesRow prevents replay on re\u2011renders; prefers\u2011reduced\u2011motion media query disables all matrix animations',
+      'Admin panel: Fees & Revenue tab \u2014 new AdminTab "fees" with FeesRevenueTab component; 3 sections: Revenue Streams (lime gradient, dynamic stats from /api/admin/revenue), User\u2011Facing Costs (purple gradient, static table), Operator Costs (warning gradient, static table with cache notes)',
+      '/api/admin/revenue route \u2014 GET endpoint, Bearer $ADMIN_SECRET auth; returns attestationCount, handleChangeCount, avaxCollected (placeholder values, TODO: wire to on\u2011chain events)',
+      'WalletAddressInput default border \u2014 border\u2011transparent \u2192 border\u2011white/[0.12]; focus: border\u2011[var(\u2011\u2011gs\u2011lime)]/40',
+      'useUserProfile event handler fix \u2014 gs:profile\u2011updated handler wrapped in queueMicrotask() to prevent "setState during render" warning when FavoriteButton dispatch triggers setProfile in WalletDropdown\u2019s useUserProfile instance',
+      'UsersTools.tsx placeholder fix \u2014 \\u2026 in JSX string attr rendered literally; wrapped in {""} expression for proper unicode interpretation',
+      'NFTGalleryPagination debug info \u2014 gated behind ?debug=1 URL param instead of NODE_ENV === "development"',
+      'usePinnedFavorites resolvedCacheRef \u2014 caches previously resolved NFT+wallet pairs so walletMap re\u2011fetches don\u2019t downgrade full cards to stubs',
+    ],
+  },
+  {
     version: 'v0.7.5',
     date: 'Mar 10, 2026',
-    tag: 'current',
     items: [
       'NFTDetailPositionCard text readability pass \u2014 row labels 9px/40% \u2192 10px/50%, section headers 10px \u2192 11px, GUN values 14px \u2192 15px, USD conversions 50% \u2192 60% opacity, arrows 30% \u2192 40%, italic subtexts switched to text-white/50 + tracking-wide',
       'Purple accent visibility \u2014 VIA SALES label, waterfall dropdown buttons, Reference Estimate header, warning icon all bumped to full opacity (were /60\u2013/80)',

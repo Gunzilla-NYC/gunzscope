@@ -16,19 +16,27 @@ import { ValuationLabel } from './ValuationLabel';
 import type { NFTGalleryGridCardProps } from './types';
 
 /** Favorite action — favoriting automatically pins to the cross-wallet row */
-function FavoritePinActions({ refId, nft }: { refId: string; nft: NFTGalleryGridCardProps['cardData']['nft'] }) {
+function FavoritePinActions({ refId, nft, walletAddress }: { refId: string; nft: NFTGalleryGridCardProps['cardData']['nft']; walletAddress?: string }) {
   return (
     <FavoriteButton
       type="nft"
       refId={refId}
       size="sm"
       className="hover:bg-black/80 rounded-none"
-      metadata={{ name: nft.name, image: nft.image, collection: nft.collection }}
+      metadata={{
+        name: nft.name, image: nft.image, collection: nft.collection,
+        ...(walletAddress ? { walletAddress } : {}),
+        ...(nft.quantity && nft.quantity > 1 ? { quantity: nft.quantity } : {}),
+        ...(nft.mintNumber ? { mintNumber: nft.mintNumber } : {}),
+        ...(nft.mintNumbers?.length ? { mintNumbers: nft.mintNumbers } : {}),
+        ...(nft.groupedRarities?.length ? { groupedRarities: nft.groupedRarities } : {}),
+        ...(nft.traits ? { traits: nft.traits } : {}),
+      }}
     />
   );
 }
 
-export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, portfolioViewMode, isOwnPortfolio }: NFTGalleryGridCardProps) {
+export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, viewMode, isEnriching, onClick, portfolioViewMode, isOwnPortfolio, walletAddress }: NFTGalleryGridCardProps) {
   const {
     nft, rarityName, rarityColor, isMixedRarity, mintDisplay, mintData, nameInitials,
     pnlPct, pnlPending, isProfit, isLoss, priceGun, priceDisplay, pnlDisplay, unrealizedUsd,
@@ -55,31 +63,33 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
       onClick={() => onClick(nft)}
     >
       {/* Image Container — clean, no overlapping badges */}
-      <div
-        className="aspect-square relative bg-[var(--gs-dark-4)] mb-2 overflow-hidden"
-        style={{
-          clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-          boxShadow: isGrouped ? `inset 0 0 0 1px ${groupAccent}20` : `inset 0 0 0 1px ${rarityColor}20`,
-        }}
-      >
-        {/* Rarity accent — 2px left edge stripe (white for grouped, rarity color for single) */}
+      <div className="relative mb-2">
         <div
-          className="absolute top-0 left-0 bottom-0 w-[2px] z-10"
-          style={{ background: isGrouped ? groupAccent : rarityColor }}
-        />
+          className="aspect-square relative bg-[var(--gs-dark-4)] overflow-hidden"
+          style={{
+            clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+            boxShadow: isGrouped ? `inset 0 0 0 1px ${groupAccent}20` : `inset 0 0 0 1px ${rarityColor}20`,
+          }}
+        >
+          {/* Rarity accent — 2px left edge stripe (white for grouped, rarity color for single) */}
+          <div
+            className="absolute top-0 left-0 bottom-0 w-[2px] z-10"
+            style={{ background: isGrouped ? groupAccent : rarityColor }}
+          />
 
-        {/* Image or Placeholder */}
-        <NFTImage
-          src={nft.image}
-          alt={nft.name}
-          fill
-          className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-          sizes={viewMode === 'small' ? '(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
-          fallbackInitials={nameInitials}
-          fallbackClassName="font-display text-3xl font-bold text-[var(--gs-gray-1)] group-hover:text-[var(--gs-gray-2)] transition-colors"
-        />
+          {/* Image or Placeholder */}
+          <NFTImage
+            src={nft.image}
+            alt={nft.name}
+            fill
+            className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+            sizes={viewMode === 'small' ? '(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
+            fallbackInitials={nameInitials}
+            fallbackClassName="font-display text-3xl font-bold text-[var(--gs-gray-1)] group-hover:text-[var(--gs-gray-2)] transition-colors"
+          />
+        </div>
 
-        {/* Favorite + Pin actions — own portfolio only */}
+        {/* Favorite + Pin actions — outside clip-path so clicks always register */}
         {isOwnPortfolio && nft.contractAddress && (
           <div
             className="absolute bottom-1 right-1 z-10 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60"
@@ -88,6 +98,7 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
             <FavoritePinActions
               refId={`${nft.contractAddress}:${nft.tokenId}`}
               nft={nft}
+              walletAddress={walletAddress}
             />
           </div>
         )}
@@ -254,12 +265,15 @@ export const NFTGalleryGridCard = memo(function NFTGalleryGridCard({ cardData, v
         title={mintDisplay}
       >
         {mintData.length > 1 ? (
-          mintData.map((m, i) => (
-            <span key={`${m.mint}-${i}`}>
-              <span style={{ color: getRarityColorByName(m.rarity) }}>{m.mint}</span>
-              {i < mintData.length - 1 && <span className="text-[var(--gs-gray-3)]">, </span>}
-            </span>
-          ))
+          <>
+            {mintData.slice(0, 3).map((m, i) => (
+              <span key={`${m.mint}-${i}`}>
+                <span style={{ color: getRarityColorByName(m.rarity) }}>{m.mint}</span>
+                {i < Math.min(mintData.length, 3) - 1 && <span className="text-[var(--gs-gray-3)]">, </span>}
+              </span>
+            ))}
+            {mintData.length > 3 && <span className="text-[var(--gs-gray-3)]">, &hellip;</span>}
+          </>
         ) : (
           <span style={{ color: rarityColor }}>{mintDisplay}</span>
         )}

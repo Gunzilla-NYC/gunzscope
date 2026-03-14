@@ -41,18 +41,98 @@ const NAME_CLASSIFICATION_PATTERNS: Array<[RegExp, string]> = [
   [/\bcap\b/i, 'Headwear'],
   [/\bhat\b/i, 'Headwear'],
   [/\bbeanie\b/i, 'Headwear'],
+  [/\bbrim\b/i, 'Headwear'],
   [/\bgoggles\b/i, 'Eyewear'],
   [/\bshades\b/i, 'Eyewear'],
   [/\bvisor\b/i, 'Eyewear'],
   [/\bvest\b/i, 'Outerwear'],
   [/\bchest rig\b/i, 'Outerwear'],
   [/\bpuffer\b/i, 'Outerwear'],
+  [/\bhoodie\b/i, 'Innerwear'],
+  [/\bshirt\b/i, 'Innerwear'],
   [/\bshorts\b/i, 'Legwear'],
+  [/\bpants\b/i, 'Legwear'],
+  [/\bknees\b/i, 'Legwear'],
+  [/\bsneaker(?:s)?\b/i, 'Footwear'],
   [/\bboot(?:ies|s)?\b/i, 'Footwear'],
+  [/\bhammerhead(?:s)?\b/i, 'Cyberlegs'],
+  [/\bleaper(?:s)?\b/i, 'Cyberlegs'],
+  [/\bcyberlancer(?:s)?\b/i, 'Cyberlegs'],
+  [/\bthumper(?:s)?\b/i, 'Cyberlegs'],
+  [/\broadrunner(?:s)?\b/i, 'Cyberlegs'],
   [/\bjetpack\b/i, 'Backpack'],
+  [/\bflex\b/i, 'Emote'],
+  [/\bdance\b/i, 'Emote'],
+  [/\bemote\b/i, 'Emote'],
+  [/\btaunt\b/i, 'Emote'],
+  [/\bsalute\b/i, 'Emote'],
+  [/\bmoonwalk\b/i, 'Emote'],
+  [/\bboogie\b/i, 'Emote'],
+  [/\bgrind\b/i, 'Emote'],
   [/\bskin\b/i, 'Weapon Skin'],
   [/\bglykobitz\b/i, 'Sticker'],
 ];
+
+/**
+ * Known emote names that can't be caught by keyword patterns.
+ * Normalized to lowercase for case-insensitive matching.
+ */
+const KNOWN_EMOTES = new Set([
+  'snow and blow',
+  'jingle and twitch',
+  'the blitz down',
+  "heads, you're liquidated.",
+  'hopping vampyre emote',
+  'westcol till i die',
+  'firework farts & freedom',
+  'light the fire',
+  "keep 'em out",
+  'trauma five',
+  'hug me',
+  'convulsions emote',
+  'slow rise emote',
+  'occupational hazard',
+  'hot licks',
+  'blackout',
+  'toss my fruit salad',
+  'permaban',
+  'the hover touch',
+  "eagle's cry",
+  'circus inferno',
+  'stuff that',
+  'meat puppet',
+  'neck snap emote',
+  'broken puppet emote',
+  'rma rampage',
+  'cold snap',
+  'no pulse',
+  'impact replay',
+  'circuit breaker',
+  'karmacide',
+  'techno tantrum',
+  'salute and execute',
+  'i want your cyberlimbs',
+  'zero aura',
+  'battle break',
+  "you can't see me",
+  'red carded',
+  'fire and flex',
+  'emergency ejection',
+  'rage quitter',
+  'final maul',
+  'two finger salute',
+  'bagged and tagged',
+  'the flip maul',
+  'the point and punish',
+  'bow before the beaten',
+  "hear that, b*tch?",
+  'flip the salute',
+  'give peace a chance',
+  'throne of games',
+  'going apeshit',
+  'hump for dominance',
+  'sleigh queen',
+]);
 
 // Regex to extract model code from image URLs (e.g., AR05 from Weapon_Weapon_AR05_S03_Epic_hd.png)
 const WEAPON_MODEL_PATTERN = /Weapon_Weapon_([A-Z]+)\d+/;
@@ -97,6 +177,18 @@ export function getSpecificItemType(nft: NFT): string {
     const weaponType = extractWeaponTypeFromImage(nft.image);
     if (weaponType) {
       return weaponType;
+    }
+  }
+
+  // For generic classes, try name-based reclassification first
+  // (e.g., shorts/pants → Legwear, cap/hat → Headwear, hammerheads → Cyberlegs)
+  const genericClasses = ['Customization Item', 'Body Part'];
+  if (genericClasses.includes(classValue) && nft.name) {
+    // Check known emotes list (exact name match)
+    if (KNOWN_EMOTES.has(nft.name.trim().toLowerCase())) return 'Emote';
+
+    for (const [pattern, label] of NAME_CLASSIFICATION_PATTERNS) {
+      if (pattern.test(nft.name)) return label;
     }
   }
 

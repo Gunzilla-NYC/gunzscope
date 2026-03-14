@@ -66,7 +66,7 @@ export function UsersTools({ adminSecret }: { adminSecret: string }) {
           type="text"
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
-          placeholder="Search by name, email, or wallet address\u2026"
+          placeholder={"Search by name, email, or wallet address\u2026"}
           className="w-full max-w-md px-3 py-1.5 font-mono text-data text-[var(--gs-white)] bg-[var(--gs-dark-3)] border border-white/[0.08] outline-none placeholder:text-[var(--gs-gray-4)] focus:border-[var(--gs-lime)]/30"
         />
       </div>

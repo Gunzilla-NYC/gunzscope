@@ -224,7 +224,11 @@ export function getMintNumericValue(mint: string | undefined): number {
 
 // Format mint numbers for display (up to 3, then "more...")
 export function formatMintNumbers(nft: NFT): { display: string; hasMore: boolean; mints: MintWithRarity[] } {
-  const mintNumbers = nft.mintNumbers || (nft.mintNumber ? [nft.mintNumber] : []);
+  // Also check traits for mint number as fallback when mintNumber field is missing
+  const traitMint = nft.traits?.['Serial Number'] || nft.traits?.['Mint Number'] ||
+                    nft.traits?.['MINT_NUMBER'] || nft.traits?.['SERIAL_NUMBER'] ||
+                    nft.traits?.['serialNumber'];
+  const mintNumbers = nft.mintNumbers || (nft.mintNumber ? [nft.mintNumber] : (traitMint && traitMint !== '0' ? [traitMint] : []));
   const rarities = nft.groupedRarities || [];
   const defaultRarity = nft.traits?.['RARITY'] || nft.traits?.['Rarity'] || 'Unknown';
 

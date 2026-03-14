@@ -143,6 +143,7 @@ function NFTGalleryInner({ nfts, walletAddress, paginationInfo, onLoadMore, isEn
                   onClick={handleNFTClick}
                   portfolioViewMode={portfolioViewMode}
                   isOwnPortfolio={isOwnPortfolio}
+                  walletAddress={walletAddress}
                 />
               </div>
             );

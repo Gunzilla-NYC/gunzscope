@@ -347,8 +347,13 @@ export default function AttestationViewerPage() {
                     <span className="font-mono text-[9px] text-[var(--gs-gray-2)]">(current)</span>
                   )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-white/[0.06] border border-white/[0.06]">
-                  {portfolioWallets.map((w) => {
+                {(() => {
+                  const trusted = portfolioWallets
+                    .filter(w => w.status === 'PRIMARY' || w.status === 'VERIFIED')
+                    .sort((a, b) => (a.status === 'PRIMARY' ? -1 : b.status === 'PRIMARY' ? 1 : 0));
+                  const selfReported = portfolioWallets.filter(w => w.status === 'SELF_REPORTED');
+
+                  const renderWallet = (w: typeof portfolioWallets[0]) => {
                     const badge = walletStatusLabel(w.status);
                     return (
                       <div key={w.address} className="bg-[var(--gs-dark-2)] px-4 py-3 flex items-center justify-between gap-2">
@@ -365,8 +370,23 @@ export default function AttestationViewerPage() {
                         </span>
                       </div>
                     );
-                  })}
-                </div>
+                  };
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Left column: Primary + Verified */}
+                      <div className="flex flex-col gap-px bg-white/[0.06] border border-white/[0.06]">
+                        {trusted.map(renderWallet)}
+                      </div>
+                      {/* Right column: Self-Reported */}
+                      {selfReported.length > 0 && (
+                        <div className="flex flex-col gap-px bg-white/[0.06] border border-white/[0.06]">
+                          {selfReported.map(renderWallet)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

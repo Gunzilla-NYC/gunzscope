@@ -102,12 +102,15 @@ export const NFTGalleryListRow = memo(function NFTGalleryListRow({ cardData, isE
         <p className="font-mono text-label text-[var(--gs-gray-4)] uppercase">Mint</p>
         <p className="font-mono text-caption font-medium">
           {mintData.length > 1 ? (
-            mintData.map((m, i) => (
-              <span key={m.mint}>
-                <span style={{ color: getRarityColorByName(m.rarity) }}>{m.mint}</span>
-                {i < mintData.length - 1 && <span className="text-[var(--gs-gray-4)]">, </span>}
-              </span>
-            ))
+            <>
+              {mintData.slice(0, 3).map((m, i) => (
+                <span key={m.mint}>
+                  <span style={{ color: getRarityColorByName(m.rarity) }}>{m.mint}</span>
+                  {i < Math.min(mintData.length, 3) - 1 && <span className="text-[var(--gs-gray-4)]">, </span>}
+                </span>
+              ))}
+              {mintData.length > 3 && <span className="text-[var(--gs-gray-4)]">, &hellip;</span>}
+            </>
           ) : (
             <span style={{ color: rarityColor }}>{mintDisplay}</span>
           )}
