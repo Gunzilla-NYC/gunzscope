@@ -411,8 +411,8 @@ export default function BuildGamesPage() {
               </div>
 
               {/* ── MVP WRAPPER: LAYERS 1+2 ── */}
-              <div className="relative border border-[var(--gs-lime)]/10 p-3 pb-2.5 mb-2">
-                <div className="absolute -top-2.5 right-3 font-mono text-[8px] tracking-wider uppercase text-[var(--gs-lime)] bg-[var(--gs-dark-2)] px-2">MVP &mdash; Live Today</div>
+              <div className="relative border border-[var(--gs-lime)]/10 p-3 pb-3">
+                <div className="absolute -top-2.5 right-3 font-mono text-[8px] tracking-wider uppercase text-[var(--gs-lime)] bg-[var(--gs-dark-2)] px-2">Live Today</div>
 
                 {/* Layer 1: Data Sources */}
                 <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 1 &middot; Data Sources</div>
@@ -471,7 +471,6 @@ export default function BuildGamesPage() {
                   </div>
                   <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-1.5">Cross&#8209;marketplace resolution &middot; What you held, what you paid, how you used it</div>
                 </div>
-              </div>
 
               {/* Flow arrow: intelligence feeds identity */}
               <div className="flex items-center py-1">
@@ -537,6 +536,7 @@ export default function BuildGamesPage() {
                   Unique dataset &middot; Data moat &middot; Establishes foundation for utility flywheel
                 </div>
               </div>
+              </div>{/* closes Live Today wrapper */}
             </div>
           </div>
         </div>
