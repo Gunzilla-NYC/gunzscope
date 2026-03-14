@@ -127,7 +127,7 @@ const PHASES: Phase[] = [
       'Minimize the effort to understand P&L in both GUN and USD',
       'Establish a baseline attestation that can expand into full player identity and legacy',
     ],
-    unlocks: 'Portfolio intelligence solves the immediate user need, and on\u2011chain attestations establish proof of holdings \u2014 together they form the foundation for expanded player legacy, identity, and verifiable reputation across the ecosystem.',
+    unlocks: 'Portfolio intelligence solves the immediate user need, and on\u2011chain attestations establish proof of holdings \u2014 together they form the foundation for expanded player legacy, identity, and verifiable reputation across the ecosystem. Phase 2 evolves Autonomys from storing proofs to storing complete player data \u2014 full enrichment history, item\u2011level records, and tournament results as a permanent, player\u2011owned data layer.',
     gtm: {
       built: [
         'Whitelist\u2011gated early access with exclusivity\u2011driven word\u2011of\u2011mouth',
@@ -174,6 +174,7 @@ const PHASES: Phase[] = [
       'On\u2011chain player identity + verification',
       'Permissionless tournament system',
       'On\u2011chain attestation of tournament results',
+      'Complete data storage on Autonomys DSN \u2014 beyond proofs to full player history',
       'Player legacy expansion (history, achievements)',
       'Identity\u2011gated entry (no proof, no compete)',
     ],

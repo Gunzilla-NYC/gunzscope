@@ -66,7 +66,7 @@ function useLiveStats() {
     }).catch(() => {});
 
     fetch('/api/price/gun').then((r) => r.ok ? r.json() : null).then((d) => {
-      if (d?.price) setGunPrice(d.price);
+      if (d?.gunTokenPrice) setGunPrice(d.gunTokenPrice);
     }).catch(() => {});
   }, []);
 
@@ -204,7 +204,7 @@ export default function BuildGamesPage() {
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[#E84142]/30 bg-[#E84142]/5 clip-corner-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E84142] animate-pulse-dot" />
               <span className="font-mono text-data tracking-wider uppercase text-[#E84142]">
-                Avalanche Build Games 2026
+                Avalanche Build Games 2026 MVP
               </span>
             </div>
           </div>
@@ -223,10 +223,10 @@ export default function BuildGamesPage() {
           {/* Subtitle */}
           <p className="font-body text-lg font-light leading-relaxed text-[var(--gs-gray-4)] max-w-none mb-10">
             Track, analyze, and value your <strong className="text-[var(--gs-white)] font-medium">Off The Grid</strong> NFT
-            portfolio with dual&#8209;track P&L, tiered valuations, and weapon intelligence across{' '}
-            <strong className="text-[var(--gs-white)] font-medium">GunzChain</strong> and{' '}
+            arsenal with dual&#8209;track P&L, tiered valuations, and weapon intelligence.
+            On&#8209;chain player identity via <strong className="text-[var(--gs-white)] font-medium">Avalanche</strong> attestations.
+            Multi&#8209;chain across <strong className="text-[var(--gs-white)] font-medium">GunzChain</strong> and{' '}
             <strong className="text-[var(--gs-white)] font-medium">Solana</strong>.
-            Built on <strong className="text-[var(--gs-white)] font-medium">Avalanche</strong>.
           </p>
 
           {/* CTAs */}
@@ -277,7 +277,7 @@ export default function BuildGamesPage() {
             </div>
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6 border-r border-white/[0.06]">
               <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Blocks Scanned</span>
-              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">13M+</span>
+              <span className="font-display text-3xl font-bold text-[var(--gs-white)]">15M+</span>
             </div>
             <div className="flex-1 min-w-[50%] md:min-w-0 px-6 lg:px-10 py-6">
               <span className="font-mono text-caption tracking-wider uppercase text-[var(--gs-gray-3)] block mb-1">Tracking</span>
@@ -384,17 +384,24 @@ export default function BuildGamesPage() {
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
                 GUNZscope operates a <strong className="text-[var(--gs-white)] font-medium">hybrid multi&#8209;chain architecture</strong> &mdash;
                 reading game state from <em className="text-[var(--gs-lime)] not-italic font-medium">GunzChain</em> (an Avalanche L1)
-                while writing platform&#8209;native data to <em className="text-[var(--gs-lime)] not-italic font-medium">AVAX C&#8209;Chain</em>.
+                and <em className="text-[var(--gs-lime)] not-italic font-medium">Solana</em>,
+                while writing platform&#8209;native data to <em className="text-[var(--gs-lime)] not-italic font-medium">AVAX C&#8209;Chain</em> and <em className="text-[var(--gs-lime)] not-italic font-medium">Autonomys DSN</em>.
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                This isn&rsquo;t a workaround &mdash; it&rsquo;s a <strong className="text-[var(--gs-white)] font-medium">feature</strong>.
-                GunzChain is permissioned for contract deployment, so GUNZscope writes attestations, reputation badges,
-                and trade intents to C&#8209;Chain. The result is <strong className="text-[var(--gs-white)] font-medium">cross&#8209;L1 composability</strong> within
-                the Avalanche ecosystem.
+                The data layer solves a problem no one else has touched. GUNZscope resolves <strong className="text-[var(--gs-white)] font-medium">exact
+                mint&#8209;item acquisition costs</strong> across every marketplace &mdash; data that not even Gunzilla
+                provides &mdash; and computes <strong className="text-[var(--gs-white)] font-medium">aggregate portfolio
+                value</strong> for gaming NFTs. This dataset doesn&rsquo;t exist anywhere else in the ecosystem.
               </p>
               <p className="text-base font-light leading-relaxed text-[var(--gs-gray-4)]">
-                Solana provides the second read layer for NFTs minted on that chain,
-                giving players a <strong className="text-[var(--gs-white)] font-medium">unified view</strong> regardless of where their assets live.
+                Attestations write a Merkle proof to C&#8209;Chain with full metadata stored permanently
+                on <em className="text-[var(--gs-white)] not-italic font-medium">Autonomys DSN</em> &mdash;
+                creating an <strong className="text-[var(--gs-white)] font-medium">on&#8209;chain player record</strong> that
+                is immutable, verifiable, and persists even if GUNZscope goes offline.
+                The data intelligence brings players in. Permissionless ownership of their aggregate
+                data creates a <strong className="text-[var(--gs-white)] font-medium">recurring feedback loop</strong>.
+                And the utility all of that unlocks reinforces and amplifies value for
+                the end user and builds the GUNZscope IP.
               </p>
             </div>
 
@@ -406,60 +413,104 @@ export default function BuildGamesPage() {
                 Hybrid Architecture
               </div>
 
-              {/* Read chains */}
-              <div className="flex gap-3 mb-4">
+              {/* ── LAYER 1: DATA SOURCES ── */}
+              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 1 &middot; Data Sources</div>
+              <div className="flex gap-3 mb-2">
                 <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
-                  <div className="font-display text-[13px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-0.5">GunzChain</div>
-                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Avalanche L1 &middot; Permissioned</div>
+                  <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-0.5">GunzChain</div>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Avalanche L1</div>
                   <div className="flex flex-wrap gap-1">
-                    {['Read NFTs', 'Read GUN', 'Read TXs'].map((op) => (
+                    {['NFTs', 'GUN', 'TXs'].map((op) => (
                       <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
                     ))}
                   </div>
                 </div>
                 <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
-                  <div className="font-display text-[13px] font-semibold uppercase tracking-wider text-[#9945FF] mb-0.5">Solana</div>
-                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Layer 1 &middot; Permissionless</div>
+                  <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[#9945FF] mb-0.5">Solana</div>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Layer 1</div>
                   <div className="flex flex-wrap gap-1">
-                    {['Read NFTs', 'Read SPL'].map((op) => (
+                    {['GUN', 'SPL'].map((op) => (
+                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 p-3 border border-white/[0.06] bg-[var(--gs-dark-3)]">
+                  <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--gs-gray-4)] mb-0.5">Markets</div>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">OpenSea &middot; OTG</div>
+                  <div className="flex flex-wrap gap-1">
+                    {['Sales', 'Listings', 'Floors'].map((op) => (
                       <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Arrow */}
-              <div className="flex items-center py-2">
-                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--gs-purple)] to-transparent relative">
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] bg-[var(--gs-dark-2)] px-2 whitespace-nowrap">
-                    Read &uarr; &middot; Write &darr;
-                  </span>
+              {/* Down arrow */}
+              <div className="flex justify-center py-1">
+                <div className="w-px h-4 bg-gradient-to-b from-[var(--gs-lime)]/40 to-[var(--gs-purple)]/40" />
+              </div>
+
+              {/* ── LAYER 2: GUNZSCOPE INTELLIGENCE ── */}
+              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 2 &middot; Intelligence</div>
+              <div className="flex gap-3 mb-2">
+                <div className="flex-1 p-2.5 border border-[var(--gs-lime)]/15 bg-[var(--gs-lime)]/[0.03]">
+                  <div className="font-display text-[11px] font-semibold uppercase tracking-wider text-[var(--gs-lime)] mb-1.5">Data Intelligence</div>
+                  <div className="flex flex-wrap gap-1">
+                    {['Acquisition Costs', 'Portfolio Value', 'P&L'].map((op) => (
+                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-lime)]/10 text-[var(--gs-lime)] border border-[var(--gs-lime)]/20">{op}</span>
+                    ))}
+                  </div>
+                  <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-1.5">Cross&#8209;marketplace item resolution</div>
+                </div>
+                <div className="flex-1 p-2.5 border border-[var(--gs-purple)]/15 bg-[var(--gs-purple)]/[0.03]">
+                  <div className="font-display text-[11px] font-semibold uppercase tracking-wider text-[var(--gs-purple-bright)] mb-1.5">Player Identity</div>
+                  <div className="flex flex-wrap gap-1">
+                    {['Handles', 'Wallet Registry', 'Attestations'].map((op) => (
+                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-purple)]/10 text-[var(--gs-purple)] border border-[var(--gs-purple)]/20">{op}</span>
+                    ))}
+                  </div>
+                  <div className="font-mono text-[8px] text-[var(--gs-gray-3)] mt-1.5">Provable on&#8209;chain player records</div>
                 </div>
               </div>
 
-              {/* GUNZscope center */}
-              <div className="p-3 border border-[var(--gs-lime)]/20 bg-[var(--gs-lime)]/[0.03] text-center mb-4" style={{ clipPath: CLIP_SM }}>
-                <div className="font-display text-sm font-bold uppercase tracking-wider text-[var(--gs-lime)]">GUNZscope</div>
-                <div className="font-mono text-[9px] text-[var(--gs-gray-3)] tracking-wider uppercase">Analytics &middot; Valuation &middot; Intelligence</div>
+              {/* Down arrow */}
+              <div className="flex justify-center py-1">
+                <div className="w-px h-4 bg-gradient-to-b from-[var(--gs-purple)]/40 to-[#E84142]/40" />
               </div>
 
-              {/* Arrow */}
-              <div className="flex items-center py-2">
-                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--gs-lime)] to-transparent relative">
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] bg-[var(--gs-dark-2)] px-2 whitespace-nowrap">
-                    Attestations &middot; Badges &middot; Intents
-                  </span>
+              {/* ── LAYER 3: FOUNDATION (WRITE) ── */}
+              <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5 ml-0.5">Layer 3 &middot; Foundation</div>
+              <div className="flex gap-3 mb-2">
+                <div className="flex-1 p-2.5 border border-[#E84142]/20 bg-[var(--gs-dark-3)]">
+                  <div className="flex items-baseline justify-between mb-0.5">
+                    <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[#E84142]">AVAX C&#8209;Chain</div>
+                    <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)]">Proof</div>
+                  </div>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5">Merkle Root &middot; CID Pointer</div>
+                  <div className="flex flex-wrap gap-1">
+                    {['Attestation', 'Identity', 'Wallets'].map((op) => (
+                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[#E84142]/10 text-[#E84142] border border-[#E84142]/20">{op}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 p-2.5 border border-[#4A7AFF]/20 bg-[#4A7AFF]/[0.03]">
+                  <div className="flex items-baseline justify-between mb-0.5">
+                    <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[#4A7AFF]">Autonomys DSN</div>
+                    <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)]">Data</div>
+                  </div>
+                  <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-1.5">Permanent &middot; Immutable</div>
+                  <div className="flex flex-wrap gap-1">
+                    {['Holdings', 'Valuations', 'History'].map((op) => (
+                      <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[#4A7AFF]/10 text-[#4A7AFF] border border-[#4A7AFF]/20">{op}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Write chain */}
-              <div className="p-3 border border-[#E84142]/20 bg-[var(--gs-dark-3)]">
-                <div className="font-display text-[13px] font-semibold uppercase tracking-wider text-[#E84142] mb-0.5">AVAX C&#8209;Chain</div>
-                <div className="font-mono text-[9px] tracking-wider uppercase text-[var(--gs-gray-3)] mb-2">Avalanche &middot; Permissionless</div>
-                <div className="flex flex-wrap gap-1">
-                  {['Write Attestations', 'Write Badges', 'Write Intents'].map((op) => (
-                    <span key={op} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 bg-[var(--gs-purple)]/10 text-[var(--gs-purple)] border border-[var(--gs-purple)]/20">{op}</span>
-                  ))}
+              {/* Foundation bar */}
+              <div className="mt-3 p-2 border border-white/[0.08] bg-white/[0.02] text-center">
+                <div className="font-mono text-[8px] tracking-wider uppercase text-[var(--gs-gray-3)]">
+                  Unique dataset &middot; Data moat &middot; Acquisition layer
                 </div>
               </div>
             </div>
@@ -749,7 +800,7 @@ export default function BuildGamesPage() {
         <div className="max-w-[700px] mx-auto px-6 reveal">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 mb-6 border border-[#E84142]/30 bg-[#E84142]/5 clip-corner-sm">
             <span className="font-mono text-data tracking-wider uppercase text-[#E84142]">
-              &#9670; Avalanche Build Games 2026
+              &#9670; Avalanche Build Games 2026 MVP
             </span>
           </div>
 
