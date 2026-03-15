@@ -103,7 +103,7 @@ function ScrambledHint({ text }: { text: string }) {
 }
 
 // Features data
-const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 'identity'; title: string; desc: string }[] = [
+const features: { icon: 'analytics' | 'chain' | 'intel' | 'pricing' | 'rarity' | 'identity'; title: string; desc: string }[] = [
   {
     icon: 'analytics',
     title: 'Portfolio Analytics',
@@ -111,8 +111,8 @@ const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 
   },
   {
     icon: 'chain',
-    title: 'Cross\u2011Chain',
-    desc: 'Unified view of your NFT holdings across GunzChain (Avalanche L1). 300+ wallets supported including Phantom. One dashboard, complete visibility.',
+    title: 'Platform Agnostic',
+    desc: 'Unified portfolio across Epic, PlayStation, Xbox, and Steam. Each platform has its own wallet and marketplace \u2014 GUNZscope connects them all. One dashboard for every item you own, regardless of where you play.',
   },
   {
     icon: 'intel',
@@ -120,9 +120,9 @@ const features: { icon: 'analytics' | 'chain' | 'intel' | 'weapon' | 'rarity' | 
     desc: 'Automatic detection of how each NFT was acquired \u2014 HEX decode, marketplace purchase, or transfer \u2014 with original GUN cost basis.',
   },
   {
-    icon: 'weapon',
-    title: 'Weapon Lab',
-    desc: 'Smart matching of compatible weapon modifications, skins, and attachments based on model codes, not just name matching.',
+    icon: 'pricing',
+    title: 'Tiered Valuation',
+    desc: '6\u2011tier valuation waterfall from exact item sales to collection floor. Each tier carries a confidence indicator so you know what you\u2019re looking at.',
   },
   {
     icon: 'identity',
@@ -747,7 +747,8 @@ export default function HomePage() {
                 <FeatureIcon name={feature.icon} />
               </div>
               <h3 className="font-display font-semibold text-base uppercase tracking-wide text-[var(--gs-white)] mb-2">{feature.title}</h3>
-              <p className="font-body text-sm font-light leading-relaxed text-[var(--gs-gray-3)]">{feature.desc}</p>
+              <p className="font-body text-sm font-light leading-relaxed text-[var(--gs-gray-3)] mb-4">{feature.desc}</p>
+              <span className="inline-block font-mono text-[8px] uppercase tracking-widest text-[var(--gs-profit)] bg-[var(--gs-profit)]/10 border border-[var(--gs-profit)]/20 px-2 py-0.5 rounded-full">Live</span>
             </motion.div>
           ))}
         </div>
