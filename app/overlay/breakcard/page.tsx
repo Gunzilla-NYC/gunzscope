@@ -40,12 +40,12 @@ export default function BreakcardOverlay() {
         {/* Card */}
         <div
           style={{
-            width: 1100,
+            width: 1200,
             position: 'relative',
             background: 'rgba(10, 10, 10, 0.95)',
             backdropFilter: 'blur(24px)',
             clipPath:
-              'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))',
+              'polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px))',
             animation: 'card-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both',
           }}
         >
@@ -91,7 +91,7 @@ export default function BreakcardOverlay() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '18px 32px',
+              padding: '32px 44px',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
               animation: 'fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both 0.1s',
             }}
@@ -108,7 +108,7 @@ export default function BreakcardOverlay() {
                 style={{
                   fontFamily: 'var(--font-display), Chakra Petch, sans-serif',
                   fontWeight: 700,
-                  fontSize: 20,
+                  fontSize: 24,
                   letterSpacing: 2,
                   textTransform: 'uppercase',
                   lineHeight: 1,
@@ -121,7 +121,7 @@ export default function BreakcardOverlay() {
             <span
               style={{
                 fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-                fontSize: 9,
+                fontSize: 10,
                 color: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.08)',
                 padding: '3px 8px',
@@ -135,7 +135,7 @@ export default function BreakcardOverlay() {
           {/* BODY */}
           <div
             style={{
-              padding: '36px 32px 28px',
+              padding: '32px 44px',
               animation: 'fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both 0.2s',
             }}
           >
@@ -144,7 +144,7 @@ export default function BreakcardOverlay() {
               style={{
                 fontFamily: 'var(--font-display), Chakra Petch, sans-serif',
                 fontWeight: 700,
-                fontSize: 42,
+                fontSize: 48,
                 textTransform: 'uppercase',
                 lineHeight: 1.2,
                 margin: 0,
@@ -161,7 +161,7 @@ export default function BreakcardOverlay() {
               style={{
                 fontFamily: 'var(--font-body), Outfit, sans-serif',
                 fontWeight: 300,
-                fontSize: 17,
+                fontSize: 18,
                 lineHeight: 1.6,
                 color: 'rgba(255,255,255,0.4)',
                 margin: '14px 0 0',
@@ -179,7 +179,7 @@ export default function BreakcardOverlay() {
           {/* MOCK DASHBOARD STRIP */}
           <div
             style={{
-              margin: '0 32px 28px',
+              margin: '0 44px 28px',
               border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 6,
               overflow: 'hidden',
@@ -237,7 +237,7 @@ export default function BreakcardOverlay() {
             <div
               style={{
                 display: 'flex',
-                padding: '20px 20px',
+                padding: '25px 25px',
                 gap: 20,
               }}
             >
@@ -246,7 +246,7 @@ export default function BreakcardOverlay() {
                 <div
                   style={{
                     fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-                    fontSize: 8,
+                    fontSize: 10,
                     textTransform: 'uppercase',
                     letterSpacing: 2,
                     color: 'rgba(255,255,255,0.25)',
@@ -268,7 +268,7 @@ export default function BreakcardOverlay() {
                       fontFamily:
                         'var(--font-display), Chakra Petch, sans-serif',
                       fontWeight: 700,
-                      fontSize: 34,
+                      fontSize: 38,
                       color: '#F0F0F0',
                     }}
                   >
@@ -357,7 +357,7 @@ export default function BreakcardOverlay() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '20px 32px 24px',
+              padding: '24px 44px',
               borderTop: '1px solid rgba(255,255,255,0.06)',
               animation: 'fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both 0.45s',
             }}
@@ -367,7 +367,7 @@ export default function BreakcardOverlay() {
               <div
                 style={{
                   fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-                  fontSize: 22,
+                  fontSize: 24,
                   color: 'rgba(255,255,255,0.6)',
                   marginBottom: 6,
                 }}
@@ -380,7 +380,7 @@ export default function BreakcardOverlay() {
               <div
                 style={{
                   fontFamily: 'var(--font-body), Outfit, sans-serif',
-                  fontSize: 12.5,
+                  fontSize: 14,
                   color: 'rgba(255,255,255,0.35)',
                 }}
               >
@@ -404,7 +404,7 @@ export default function BreakcardOverlay() {
               <span
                 style={{
                   fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-                  fontSize: 11,
+                  fontSize: 12,
                   color: 'rgba(255,255,255,0.2)',
                 }}
               >
@@ -453,7 +453,7 @@ function StatCell({
       <div
         style={{
           fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-          fontSize: 8,
+          fontSize: 9,
           textTransform: 'uppercase',
           letterSpacing: 1.5,
           color: 'rgba(255,255,255,0.2)',
@@ -466,7 +466,7 @@ function StatCell({
         style={{
           fontFamily: 'var(--font-display), Chakra Petch, sans-serif',
           fontWeight: 700,
-          fontSize: 16,
+          fontSize: 18,
           color,
         }}
       >
@@ -526,7 +526,7 @@ function MiniNFTCard({
         <div
           style={{
             fontFamily: 'var(--font-display), Chakra Petch, sans-serif',
-            fontSize: 9,
+            fontSize: 11,
             color: '#F0F0F0',
             fontWeight: 600,
             lineHeight: 1.2,
@@ -540,7 +540,7 @@ function MiniNFTCard({
         <div
           style={{
             fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-            fontSize: 8,
+            fontSize: 9,
             color: rarityColor,
             textTransform: 'uppercase',
             letterSpacing: 1,
@@ -554,7 +554,7 @@ function MiniNFTCard({
         <div
           style={{
             fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-            fontSize: 8,
+            fontSize: 9,
             color: 'rgba(255,255,255,0.5)',
           }}
         >
@@ -563,7 +563,7 @@ function MiniNFTCard({
         <div
           style={{
             fontFamily: 'var(--font-mono), JetBrains Mono, monospace',
-            fontSize: 8,
+            fontSize: 9,
             color: pnlColor,
             fontWeight: 600,
           }}
