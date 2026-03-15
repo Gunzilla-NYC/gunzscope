@@ -40,9 +40,13 @@ export default function CrosshairCursor() {
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!window.matchMedia('(pointer: fine)').matches) return;
 
     const el = elRef.current;
     if (!el) return;
+
+    // Signal to CSS that the custom cursor is active
+    document.documentElement.classList.add('gs-custom-cursor');
 
     let visible = false;
     let interactive = false;
@@ -91,6 +95,7 @@ export default function CrosshairCursor() {
       window.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseleave', onLeave);
       document.removeEventListener('mouseenter', onEnter);
+      document.documentElement.classList.remove('gs-custom-cursor');
     };
   }, []);
 

@@ -196,13 +196,18 @@ body {
   background: var(--gs-black);
   color: var(--gs-white);
   font-family: var(--font-body);
-  cursor: none;
 }
 
-/* Hide native cursor globally — covers UA defaults, Tailwind cursor-* utilities,
-   and any inline cursor styles on every element. */
-*, *::before, *::after {
-  cursor: none !important;
+/* Hide native cursor only when custom CrosshairCursor is active.
+   The component sets this class on <html> after mounting.
+   Skip on touch-only devices and prefers-reduced-motion. */
+@media (pointer: fine) and (not (prefers-reduced-motion: reduce)) {
+  html.gs-custom-cursor,
+  html.gs-custom-cursor *,
+  html.gs-custom-cursor *::before,
+  html.gs-custom-cursor *::after {
+    cursor: none !important;
+  }
 }
 
 /* Typography utility classes */
