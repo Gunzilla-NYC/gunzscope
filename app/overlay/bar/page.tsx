@@ -169,22 +169,6 @@ export default function BarOverlay() {
             <span style={{ color: '#A6F700', fontWeight: 700 }}>waitlist</span>
           </span>
 
-          {/* Chat command */}
-          <span
-            style={{
-              fontFamily:
-                'var(--font-mono), JetBrains Mono, monospace',
-              fontSize: 13,
-              color: 'rgba(255,255,255,0.25)',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 3,
-              padding: '4px 10px',
-            }}
-          >
-            <span style={{ color: '#A6F700' }}>!</span>gunzscope
-          </span>
-
           {/* CTA badge */}
           <span
             style={{
@@ -201,7 +185,7 @@ export default function BarOverlay() {
               animation: 'glow-border 3s ease-in-out infinite',
             }}
           >
-            JOIN FREE ▶
+            TYPE <span style={{ color: '#F0F0F0' }}>!GUNZSCOPE</span>
           </span>
         </div>
       </div>
